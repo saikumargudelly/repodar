@@ -1,10 +1,18 @@
+import os
+import asyncio
+from datetime import datetime, timezone
 from typing import Optional, List
+
+import aiohttp
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from dotenv import load_dotenv
 
 from app.database import get_db
 from app.models import Repository, ComputedMetric
+
+load_dotenv()
 
 router = APIRouter(prefix="/repos", tags=["Repositories"])
 
@@ -127,3 +135,133 @@ def get_repo(repo_id: str, db: Session = Depends(get_db)):
         issue_close_rate=latest_cm.issue_close_rate if latest_cm else None,
         explanation=latest_cm.explanation if latest_cm else None,
     )
+
+
+# ─── Comparison ──────────────────────────────────────────────────────────────
+
+class CompareEntry(BaseModel):
+    repo_id: str
+    owner: str
+    name: str
+    description: Optional[str]
+    github_url: str
+    primary_language: Optional[str]
+    current_stars: int
+    current_forks: int
+    age_days: int
+    trend_score: Optional[float] = None
+    sustainability_score: Optional[float] = None
+    sustainability_label: Optional[str] = None
+    star_velocity_7d: Optional[float] = None
+    acceleration: Optional[float] = None
+    contributor_growth_rate: Optional[float] = None
+    fork_to_star_ratio: Optional[float] = None
+    issue_close_rate: Optional[float] = None
+    is_tracked: bool = False
+
+
+_GH_HEADERS = {
+    "Authorization": f"Bearer {os.getenv('GITHUB_TOKEN', '')}",
+    "Accept": "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+}
+
+
+@router.get("/compare", response_model=List[CompareEntry])
+async def compare_repos(
+    ids: str = Query(
+        ...,
+        description="Comma-separated repo IDs: owner/name,owner2/name2 (max 5)",
+    ),
+    db: Session = Depends(get_db),
+):
+    """
+    Side-by-side comparison data for 2–5 repos.
+    Repodar-tracked repos include full computed scores.
+    Untracked repos are enriched via live GitHub REST API (no scores).
+    """
+    repo_ids = [i.strip() for i in ids.split(",") if "/" in i.strip()][:5]
+    if not repo_ids:
+        raise HTTPException(status_code=422, detail="Provide at least one valid owner/name id")
+
+    results: list[CompareEntry] = []
+
+    async with aiohttp.ClientSession() as session:
+        for repo_id in repo_ids:
+            owner, name = repo_id.split("/", 1)
+
+            # Check tracked DB first
+            repo = db.query(Repository).filter_by(id=repo_id).first()
+            if repo:
+                cm = (
+                    db.query(ComputedMetric)
+                    .filter_by(repo_id=repo_id)
+                    .order_by(ComputedMetric.date.desc())
+                    .first()
+                )
+                from app.models import DailyMetric
+                dm = (
+                    db.query(DailyMetric)
+                    .filter_by(repo_id=repo_id)
+                    .order_by(DailyMetric.date.desc())
+                    .first()
+                )
+                results.append(CompareEntry(
+                    repo_id=repo_id,
+                    owner=owner,
+                    name=name,
+                    description=repo.description,
+                    github_url=repo.github_url,
+                    primary_language=repo.primary_language,
+                    current_stars=dm.stars if dm else 0,
+                    current_forks=dm.forks if dm else 0,
+                    age_days=repo.age_days,
+                    trend_score=cm.trend_score if cm else None,
+                    sustainability_score=cm.sustainability_score if cm else None,
+                    sustainability_label=cm.sustainability_label if cm else None,
+                    star_velocity_7d=cm.star_velocity_7d if cm else None,
+                    acceleration=cm.acceleration if cm else None,
+                    contributor_growth_rate=cm.contributor_growth_rate if cm else None,
+                    fork_to_star_ratio=cm.fork_to_star_ratio if cm else None,
+                    issue_close_rate=cm.issue_close_rate if cm else None,
+                    is_tracked=True,
+                ))
+                continue
+
+            # Untracked — fetch live from GitHub
+            try:
+                async with session.get(
+                    f"https://api.github.com/repos/{repo_id}",
+                    headers=_GH_HEADERS,
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as resp:
+                    if resp.status != 200:
+                        raise HTTPException(status_code=404, detail=f"Repo {repo_id} not found")
+                    data = await resp.json()
+            except HTTPException:
+                raise
+            except Exception as e:
+                raise HTTPException(status_code=502, detail=f"GitHub API error for {repo_id}: {e}")
+
+            try:
+                age = (
+                    datetime.now(timezone.utc)
+                    - datetime.fromisoformat(data["created_at"].replace("Z", "+00:00"))
+                ).days
+            except Exception:
+                age = 0
+
+            results.append(CompareEntry(
+                repo_id=repo_id,
+                owner=owner,
+                name=name,
+                description=data.get("description") or "",
+                github_url=data.get("html_url", f"https://github.com/{repo_id}"),
+                primary_language=data.get("language"),
+                current_stars=data.get("stargazers_count", 0),
+                current_forks=data.get("forks_count", 0),
+                age_days=age,
+                is_tracked=False,
+            ))
+
+    return results

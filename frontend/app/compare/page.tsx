@@ -1,0 +1,316 @@
+"use client";
+
+import { useState, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import {
+  RadarChart, PolarGrid, PolarAngleAxis, Radar,
+  ResponsiveContainer, Tooltip, Legend,
+} from "recharts";
+import { api, CompareEntry } from "@/lib/api";
+import { SustainBadge } from "@/components/Nav";
+
+// ─── Colour palette per repo slot ────────────────────────────────────────────
+const COLORS = ["#3b82f6", "#f59e0b", "#22c55e", "#ec4899", "#8b5cf6"];
+
+// ─── Radar data builder ───────────────────────────────────────────────────────
+function buildRadarData(repos: CompareEntry[]) {
+  const axes = [
+    { key: "trend_score",            label: "Trend" },
+    { key: "sustainability_score",   label: "Sustainability" },
+    { key: "star_velocity_7d",       label: "Star Velocity" },
+    { key: "acceleration",           label: "Acceleration" },
+    { key: "contributor_growth_rate",label: "Contributors" },
+    { key: "fork_to_star_ratio",     label: "Fork Ratio" },
+    { key: "issue_close_rate",       label: "Issue Close" },
+  ] as const;
+
+  // Normalise each axis to 0–100 across all repos
+  return axes.map(({ key, label }) => {
+    const vals = repos.map((r) => (r[key] as number | null) ?? 0);
+    const max = Math.max(...vals, 0.0001);
+    const entry: Record<string, number | string> = { axis: label };
+    repos.forEach((r, i) => {
+      entry[`${r.owner}/${r.name}`] = Math.round(((r[key] as number | null) ?? 0) / max * 100);
+    });
+    return entry;
+  });
+}
+
+// ─── Metric row ───────────────────────────────────────────────────────────────
+function MetricRow({ label, repos, accessor, fmt = (v: number) => v.toFixed(2) }: {
+  label: string;
+  repos: CompareEntry[];
+  accessor: (r: CompareEntry) => number | null | undefined;
+  fmt?: (v: number) => string;
+}) {
+  const vals = repos.map((r) => accessor(r) ?? null);
+  const max = Math.max(...vals.filter((v): v is number => v !== null));
+  return (
+    <tr style={{ borderBottom: "1px solid var(--border)" }}>
+      <td style={{ padding: "10px 16px", fontSize: "12px", color: "var(--text-muted)", fontWeight: 500 }}>{label}</td>
+      {vals.map((v, i) => (
+        <td
+          key={i}
+          style={{
+            padding: "10px 16px",
+            textAlign: "center",
+            fontFamily: "monospace",
+            fontSize: "13px",
+            fontWeight: v !== null && v === max ? 700 : 400,
+            color: v !== null && v === max ? COLORS[i % COLORS.length] : "var(--text-secondary)",
+          }}
+        >
+          {v !== null ? fmt(v) : "—"}
+        </td>
+      ))}
+    </tr>
+  );
+}
+
+// ─── Add-repo search box ──────────────────────────────────────────────────────
+function AddRepoBox({ onAdd }: { onAdd: (id: string) => void }) {
+  const [val, setVal] = useState("");
+  const handle = () => {
+    const trimmed = val.trim();
+    if (trimmed.includes("/")) {
+      onAdd(trimmed);
+      setVal("");
+    }
+  };
+  return (
+    <div style={{ display: "flex", gap: "8px" }}>
+      <input
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && handle()}
+        placeholder="owner/repo-name"
+        style={{
+          flex: 1,
+          padding: "7px 12px",
+          borderRadius: "6px",
+          border: "1px solid var(--border)",
+          background: "var(--bg-elevated)",
+          color: "var(--text-primary)",
+          fontSize: "13px",
+          outline: "none",
+        }}
+      />
+      <button
+        onClick={handle}
+        style={{
+          padding: "7px 16px",
+          borderRadius: "6px",
+          border: "none",
+          background: "var(--accent-blue)",
+          color: "#fff",
+          fontSize: "12px",
+          fontWeight: 600,
+          cursor: "pointer",
+        }}
+      >
+        Add
+      </button>
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+function ComparePageInner() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const initialIds = (searchParams.get("ids") ?? "").split(",").filter((x) => x.includes("/"));
+  const [ids, setIds] = useState<string[]>(initialIds.slice(0, 5));
+
+  const { data: repos, isLoading, error } = useQuery({
+    queryKey: ["compare", ids],
+    queryFn: () => api.compareRepos(ids),
+    enabled: ids.length > 0,
+  });
+
+  const addRepo = (id: string) => {
+    if (!ids.includes(id) && ids.length < 5) {
+      const next = [...ids, id];
+      setIds(next);
+      router.replace(`/compare?ids=${next.join(",")}`);
+    }
+  };
+
+  const removeRepo = (id: string) => {
+    const next = ids.filter((x) => x !== id);
+    setIds(next);
+    router.replace(`/compare?ids=${next.join(",")}`);
+  };
+
+  const radarData = repos && repos.length >= 2 ? buildRadarData(repos) : [];
+  const repoNames = repos?.map((r) => `${r.owner}/${r.name}`) ?? [];
+
+  return (
+    <div style={{ paddingTop: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div>
+          <h1 style={{ fontSize: "22px", fontWeight: 700, margin: "0 0 4px" }}>Repo Comparison</h1>
+          <p style={{ color: "var(--text-muted)", fontSize: "13px", margin: 0 }}>
+            Side-by-side analysis — select up to 5 repos
+          </p>
+        </div>
+      </div>
+
+      {/* Add repos + chips */}
+      <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "20px 24px", display: "flex", flexDirection: "column", gap: "14px" }}>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          {ids.map((id, i) => (
+            <div
+              key={id}
+              style={{
+                display: "flex", alignItems: "center", gap: "6px",
+                background: COLORS[i % COLORS.length] + "22",
+                border: `1px solid ${COLORS[i % COLORS.length]}44`,
+                borderRadius: "20px",
+                padding: "4px 12px 4px 14px",
+                fontSize: "12px",
+                color: COLORS[i % COLORS.length],
+                fontWeight: 600,
+              }}
+            >
+              <span
+                style={{ width: "8px", height: "8px", borderRadius: "50%", background: COLORS[i % COLORS.length], flexShrink: 0 }}
+              />
+              {id}
+              <button
+                onClick={() => removeRepo(id)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: COLORS[i % COLORS.length], fontSize: "14px", padding: "0 0 0 4px", lineHeight: 1 }}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+        {ids.length < 5 && <AddRepoBox onAdd={addRepo} />}
+        {ids.length < 2 && (
+          <p style={{ color: "var(--text-muted)", fontSize: "12px", margin: 0 }}>
+            Add at least 2 repos to compare. Try: <code>langchain-ai/langchain</code>, <code>vllm-project/vllm</code>
+          </p>
+        )}
+      </div>
+
+      {isLoading && (
+        <div style={{ padding: "32px", textAlign: "center", color: "var(--text-muted)" }}>Loading...</div>
+      )}
+
+      {error && (
+        <div style={{ background: "var(--bg-surface)", border: "1px solid var(--accent-red)", borderRadius: "10px", padding: "20px 24px", color: "var(--accent-red)" }}>
+          {String(error)}
+        </div>
+      )}
+
+      {repos && repos.length >= 2 && (
+        <>
+          {/* Radar chart */}
+          <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "24px" }}>
+            <h2 style={{ fontSize: "13px", fontWeight: 600, margin: "0 0 20px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
+              Score Radar
+            </h2>
+            <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: "0 0 16px" }}>
+              All axes normalised 0–100 relative to the set. Only Repodar-tracked repos have real scores.
+            </p>
+            <ResponsiveContainer width="100%" height={360}>
+              <RadarChart data={radarData}>
+                <PolarGrid stroke="var(--border)" />
+                <PolarAngleAxis dataKey="axis" tick={{ fontSize: 12, fill: "var(--text-muted)" }} />
+                {repoNames.map((name, i) => (
+                  <Radar
+                    key={name}
+                    name={name}
+                    dataKey={name}
+                    stroke={COLORS[i % COLORS.length]}
+                    fill={COLORS[i % COLORS.length]}
+                    fillOpacity={0.12}
+                    strokeWidth={2}
+                  />
+                ))}
+                <Tooltip
+                  contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "6px", fontSize: "12px" }}
+                />
+                <Legend />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Metrics table */}
+          <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
+            <h2 style={{ fontSize: "13px", fontWeight: 600, margin: 0, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px", padding: "20px 24px 16px", borderBottom: "1px solid var(--border)" }}>
+              Metrics Breakdown
+            </h2>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                  <th style={{ padding: "10px 16px", textAlign: "left", fontSize: "11px", color: "var(--text-muted)", fontWeight: 500, width: "180px" }}>Metric</th>
+                  {repos.map((r, i) => (
+                    <th
+                      key={r.repo_id}
+                      style={{ padding: "10px 16px", textAlign: "center", fontSize: "12px", fontWeight: 700, color: COLORS[i % COLORS.length] }}
+                    >
+                      {r.owner}/{r.name}
+                      {r.is_tracked && (
+                        <span style={{ display: "block", fontSize: "10px", fontWeight: 400, color: "var(--text-muted)" }}>tracked</span>
+                      )}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <MetricRow label="Stars" repos={repos} accessor={(r) => r.current_stars} fmt={(v) => v.toLocaleString()} />
+                <MetricRow label="Forks" repos={repos} accessor={(r) => r.current_forks} fmt={(v) => v.toLocaleString()} />
+                <MetricRow label="Age (days)" repos={repos} accessor={(r) => r.age_days} fmt={(v) => `${v}d`} />
+                <MetricRow label="Trend Score" repos={repos} accessor={(r) => r.trend_score} />
+                <MetricRow label="Sustainability" repos={repos} accessor={(r) => r.sustainability_score} fmt={(v) => `${(v * 100).toFixed(0)}%`} />
+                <MetricRow label="Star Velocity / 7d" repos={repos} accessor={(r) => r.star_velocity_7d} fmt={(v) => v.toFixed(0)} />
+                <MetricRow label="Acceleration" repos={repos} accessor={(r) => r.acceleration} />
+                <MetricRow label="Contributor Growth" repos={repos} accessor={(r) => r.contributor_growth_rate} fmt={(v) => `${(v * 100).toFixed(1)}%`} />
+                <MetricRow label="Fork / Star Ratio" repos={repos} accessor={(r) => r.fork_to_star_ratio} fmt={(v) => (v * 100).toFixed(1) + "%"} />
+                <MetricRow label="Issue Close Rate" repos={repos} accessor={(r) => r.issue_close_rate} fmt={(v) => `${(v * 100).toFixed(0)}%`} />
+                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                  <td style={{ padding: "10px 16px", fontSize: "12px", color: "var(--text-muted)", fontWeight: 500 }}>Sustainability Label</td>
+                  {repos.map((r, i) => (
+                    <td key={i} style={{ padding: "10px 16px", textAlign: "center" }}>
+                      {r.sustainability_label ? <SustainBadge label={r.sustainability_label} /> : <span style={{ color: "var(--text-muted)", fontSize: "12px" }}>—</span>}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <td style={{ padding: "10px 16px", fontSize: "12px", color: "var(--text-muted)", fontWeight: 500 }}>Language</td>
+                  {repos.map((r, i) => (
+                    <td key={i} style={{ padding: "10px 16px", textAlign: "center", fontSize: "12px", color: "var(--text-secondary)" }}>
+                      {r.primary_language ?? "—"}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Share link */}
+          <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Share this comparison</span>
+            <button
+              onClick={() => navigator.clipboard.writeText(window.location.href)}
+              style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "6px", padding: "5px 14px", fontSize: "12px", color: "var(--text-secondary)", cursor: "pointer" }}
+            >
+              Copy URL
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function ComparePage() {
+  return (
+    <Suspense fallback={<div style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>Loading...</div>}>
+      <ComparePageInner />
+    </Suspense>
+  );
+}

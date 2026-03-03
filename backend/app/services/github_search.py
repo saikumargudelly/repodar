@@ -68,6 +68,48 @@ AI_TOPIC_QUERIES = [
     "topic:transformers",
 ]
 
+# Topic queries per vertical — each is queried in parallel
+VERTICAL_TOPIC_QUERIES: dict[str, list[str]] = {
+    "ai_ml": AI_TOPIC_QUERIES,
+    "devtools": [
+        "topic:developer-tools",
+        "topic:cli",
+        "topic:terminal",
+        "topic:code-editor",
+        "topic:productivity",
+        "topic:devtools",
+    ],
+    "web_frameworks": [
+        "topic:web-framework",
+        "topic:rest-api",
+        "topic:nodejs",
+        "topic:react",
+        "topic:vuejs",
+        "topic:fastapi",
+    ],
+    "security": [
+        "topic:security",
+        "topic:cybersecurity",
+        "topic:vulnerability-scanner",
+        "topic:penetration-testing",
+        "topic:devsecops",
+    ],
+    "data_engineering": [
+        "topic:data-engineering",
+        "topic:etl",
+        "topic:data-pipeline",
+        "topic:workflow-orchestration",
+        "topic:apache-airflow",
+    ],
+    "blockchain": [
+        "topic:blockchain",
+        "topic:ethereum",
+        "topic:smart-contracts",
+        "topic:web3",
+        "topic:defi",
+    ],
+}
+
 # Minimum star floor for Search API fallback
 MIN_STARS_SEARCH: dict[str, int] = {
     "90d":  1_000,
@@ -98,17 +140,26 @@ async def search_top_repos(
     period: str,
     limit: int = 30,
     category_filter: Optional[str] = None,
+    vertical: str = "ai_ml",
 ) -> list[dict]:
     """
     Return up to `limit` repos ranked by popularity for the given period.
 
-    1d/7d/30d  → GitHub Trending page (actual star gains in that window).
-    90d+       → GitHub Search API (most starred repos active in window).
+    For AI/ML vertical:
+      1d/7d/30d  → GitHub Trending page (actual star gains in that window).
+      90d+       → GitHub Search API (most starred AI repos in window).
+
+    For non-AI verticals (DevTools, Security, etc.):
+      All periods → GitHub Search API with vertical-specific topic queries.
+      GitHub Trending is a general feed; topic-filtered Search is more relevant.
     """
-    if period in TRENDING_SINCE:
+    topics = VERTICAL_TOPIC_QUERIES.get(vertical, AI_TOPIC_QUERIES)
+
+    # Only use GitHub Trending for the AI/ML vertical on short periods
+    if period in TRENDING_SINCE and vertical == "ai_ml":
         results = await _fetch_trending(period, limit=limit)
     else:
-        results = await _fetch_search(period, limit=limit)
+        results = await _fetch_search(period, limit=limit, topics=topics)
 
     if category_filter:
         needed = _category_to_topics(category_filter)
@@ -217,12 +268,18 @@ def _parse_gain_int(text: str) -> int:
 
 # ─── GitHub Search API fallback (90d / 365d / 3y / 5y) ───────────────────────
 
-async def _fetch_search(period: str, limit: int) -> list[dict]:
+async def _fetch_search(
+    period: str,
+    limit: int,
+    topics: list[str] | None = None,
+) -> list[dict]:
     """
-    For longer periods: find most starred AI repos that were actively pushed
-    within the window.  For 3y/5y skip the date filter and use a high star floor.
+    For longer periods (or non-AI verticals): find most starred repos that were
+    actively pushed within the window.  For 3y/5y skip the date filter.
     """
-    min_stars = MIN_STARS_SEARCH.get(period, 1_000)
+    if topics is None:
+        topics = AI_TOPIC_QUERIES
+    min_stars = MIN_STARS_SEARCH.get(period, 500)
     no_date   = period in {"3y", "5y"}
     start     = _start_date(period)
 
@@ -234,7 +291,7 @@ async def _fetch_search(period: str, limit: int) -> list[dict]:
     async with aiohttp.ClientSession() as session:
         batches = await asyncio.gather(*[
             _search_api(session, _q(t), per_page=30)
-            for t in AI_TOPIC_QUERIES
+            for t in topics
         ])
 
     seen: dict[str, dict] = {}
@@ -274,6 +331,7 @@ async def _search_api(
 def _category_to_topics(category: str) -> list[str]:
     """Map our internal category names to GitHub topic keywords."""
     mapping = {
+        # AI/ML sub-categories
         "LLM Models":                  ["llm", "large-language-model", "language-model"],
         "Agent Frameworks":             ["ai-agent", "autonomous-agents", "langchain", "autogpt"],
         "Inference Engines":            ["llm-inference", "inference", "llama-cpp"],
@@ -282,6 +340,12 @@ def _category_to_topics(category: str) -> list[str]:
         "Distributed Compute / Infra":  ["distributed-training", "mlops", "ray"],
         "Evaluation Frameworks":        ["llm-evaluation", "benchmarks", "evals"],
         "Fine-tuning Toolkits":         ["fine-tuning", "lora", "rlhf"],
+        # New verticals
+        "DevTools":                     ["developer-tools", "cli", "terminal", "code-editor", "productivity"],
+        "Web Frameworks":               ["web-framework", "rest-api", "nodejs", "react", "fastapi"],
+        "Security":                     ["security", "cybersecurity", "vulnerability-scanner", "penetration-testing"],
+        "Data Engineering":             ["data-engineering", "etl", "data-pipeline", "workflow-orchestration"],
+        "Blockchain":                   ["blockchain", "ethereum", "smart-contracts", "web3"],
     }
     return mapping.get(category, [])
 
@@ -356,7 +420,9 @@ def _infer_category(repo: dict) -> str:
     topics = set(repo.get("topics", []))
     name = (repo.get("name") or "").lower()
     desc = (repo.get("description") or "").lower()
+    text = name + " " + desc
 
+    # AI/ML sub-categories
     if topics & {"vector-database", "vector-search", "faiss", "weaviate", "pinecone", "chroma"}:
         return "Vector Databases"
     if topics & {"ai-agent", "autonomous-agents", "autogpt", "langchain", "llm-agent"}:
@@ -374,16 +440,38 @@ def _infer_category(repo: dict) -> str:
     if topics & {"llm", "large-language-model", "language-model", "gpt", "llama"}:
         return "LLM Models"
 
-    # Fallback: keyword scan on name+description
-    if any(w in name + desc for w in ["vector", "embed", "retriev"]):
+    # New vertical categories
+    if topics & {"blockchain", "ethereum", "smart-contracts", "web3", "defi", "solidity", "bitcoin"}:
+        return "Blockchain"
+    if topics & {"data-engineering", "etl", "data-pipeline", "workflow-orchestration", "apache-airflow", "dbt"}:
+        return "Data Engineering"
+    if topics & {"security", "cybersecurity", "vulnerability-scanner", "penetration-testing", "devsecops"}:
+        return "Security"
+    if topics & {"web-framework", "rest-api", "nodejs", "react", "vuejs", "svelte", "fastapi", "nextjs"}:
+        return "Web Frameworks"
+    if topics & {"developer-tools", "cli", "terminal", "code-editor", "productivity", "devtools"}:
+        return "DevTools"
+
+    # Keyword fallback on name + description
+    if any(w in text for w in ["vector", "embed", "retriev"]):
         return "Vector Databases"
-    if any(w in name + desc for w in ["agent", "autogpt", "langchain"]):
+    if any(w in text for w in ["agent", "autogpt", "langchain"]):
         return "Agent Frameworks"
-    if any(w in name + desc for w in ["inference", "serving", "runtime"]):
+    if any(w in text for w in ["inference", "serving", "runtime"]):
         return "Inference Engines"
-    if any(w in name + desc for w in ["finetun", "fine-tun", "lora", "rlhf"]):
+    if any(w in text for w in ["finetun", "fine-tun", "lora", "rlhf"]):
         return "Fine-tuning Toolkits"
-    if any(w in name + desc for w in ["eval", "benchmark", "leaderboard"]):
+    if any(w in text for w in ["eval", "benchmark", "leaderboard"]):
         return "Evaluation Frameworks"
+    if any(w in text for w in ["blockchain", "ethereum", "smart contract", "solidity", "bitcoin"]):
+        return "Blockchain"
+    if any(w in text for w in ["data pipeline", "data engineering", "workflow", "orchestrat"]):
+        return "Data Engineering"
+    if any(w in text for w in ["security", "pentest", "vulnerability", "cve", "exploit"]):
+        return "Security"
+    if any(w in text for w in ["framework", "web server", "http server", "web app"]):
+        return "Web Frameworks"
+    if any(w in text for w in ["cli tool", "developer tool", "productivity", "terminal"]):
+        return "DevTools"
 
     return "AI / ML"

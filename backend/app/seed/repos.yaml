@@ -423,3 +423,233 @@ repositories:
     name: axolotl
     category: Fine-tuning Toolkits
     description: "Axolotl fine-tuning for various AI architectures"
+
+  # ─────────────────────────────────────────────
+  # 9. DevTools
+  # ─────────────────────────────────────────────
+  - owner: helix-editor
+    name: helix
+    category: DevTools
+    description: "Post-modern modal text editor"
+
+  - owner: neovim
+    name: neovim
+    category: DevTools
+    description: "Hyperextensible Vim-based text editor"
+
+  - owner: zed-industries
+    name: zed
+    category: DevTools
+    description: "High-performance, multiplayer code editor"
+
+  - owner: sharkdp
+    name: bat
+    category: DevTools
+    description: "A cat clone with wings (syntax highlighting)"
+
+  - owner: BurntSushi
+    name: ripgrep
+    category: DevTools
+    description: "Recursively searches directories with regex"
+
+  - owner: jesseduffield
+    name: lazygit
+    category: DevTools
+    description: "Simple terminal UI for git commands"
+
+  - owner: dandavison
+    name: delta
+    category: DevTools
+    description: "Syntax-highlighting pager for git, diff, grep output"
+
+  - owner: biomejs
+    name: biome
+    category: DevTools
+    description: "Toolchain for web projects — formatter, linter, bundler"
+
+  - owner: sharkdp
+    name: fd
+    category: DevTools
+    description: "Simple, fast and user-friendly alternative to find"
+
+  - owner: casey
+    name: just
+    category: DevTools
+    description: "Just a command runner"
+
+  # ─────────────────────────────────────────────
+  # 10. Web Frameworks
+  # ─────────────────────────────────────────────
+  - owner: fastapi
+    name: fastapi
+    category: Web Frameworks
+    description: "FastAPI: modern, fast Python web framework"
+
+  - owner: django
+    name: django
+    category: Web Frameworks
+    description: "Django — the web framework for perfectionists"
+
+  - owner: vitejs
+    name: vite
+    category: Web Frameworks
+    description: "Next generation frontend tooling"
+
+  - owner: sveltejs
+    name: svelte
+    category: Web Frameworks
+    description: "Cybernetically enhanced web apps"
+
+  - owner: nuxt
+    name: nuxt
+    category: Web Frameworks
+    description: "The Intuitive Vue Framework"
+
+  - owner: honojs
+    name: hono
+    category: Web Frameworks
+    description: "Ultrafast web framework for Cloudflare Workers / Deno / Bun"
+
+  - owner: nestjs
+    name: nest
+    category: Web Frameworks
+    description: "Progressive Node.js framework for scalable server-side apps"
+
+  - owner: gin-gonic
+    name: gin
+    category: Web Frameworks
+    description: "Gin HTTP web framework for Go"
+
+  - owner: tokio-rs
+    name: axum
+    category: Web Frameworks
+    description: "Ergonomic and modular Rust web framework"
+
+  - owner: elysiajs
+    name: elysia
+    category: Web Frameworks
+    description: "TypeScript framework for Bun with end-to-end type safety"
+
+  # ─────────────────────────────────────────────
+  # 11. Security
+  # ─────────────────────────────────────────────
+  - owner: projectdiscovery
+    name: nuclei
+    category: Security
+    description: "Fast and customisable vulnerability scanner"
+
+  - owner: aquasecurity
+    name: trivy
+    category: Security
+    description: "All-in-one security scanner for containers and code"
+
+  - owner: anchore
+    name: grype
+    category: Security
+    description: "Vulnerability scanner for container images and filesystems"
+
+  - owner: returntocorp
+    name: semgrep
+    category: Security
+    description: "Open-source static analysis for finding bugs and enforcing code standards"
+
+  - owner: trufflesecurity
+    name: trufflehog
+    category: Security
+    description: "Find leaked credentials in git history and more"
+
+  - owner: zaproxy
+    name: zaproxy
+    category: Security
+    description: "OWASP ZAP web application security scanner"
+
+  - owner: gitleaks
+    name: gitleaks
+    category: Security
+    description: "Detect secrets and sensitive data in git repos"
+
+  - owner: falcosecurity
+    name: falco
+    category: Security
+    description: "Cloud-native runtime security tool"
+
+  # ─────────────────────────────────────────────
+  # 12. Data Engineering
+  # ─────────────────────────────────────────────
+  - owner: dbt-labs
+    name: dbt-core
+    category: Data Engineering
+    description: "dbt — data transformation tool that uses SQL"
+
+  - owner: apache
+    name: airflow
+    category: Data Engineering
+    description: "Apache Airflow workflow orchestration platform"
+
+  - owner: PrefectHQ
+    name: prefect
+    category: Data Engineering
+    description: "Python-first data workflow orchestration"
+
+  - owner: dagster-io
+    name: dagster
+    category: Data Engineering
+    description: "Data orchestration platform for ML, analytics, and ETL"
+
+  - owner: dlthub
+    name: dlt
+    category: Data Engineering
+    description: "Open-source Python library for building portable data pipelines"
+
+  - owner: airbytehq
+    name: airbyte
+    category: Data Engineering
+    description: "Data integration platform — 300+ connectors"
+
+  - owner: meltano
+    name: meltano
+    category: Data Engineering
+    description: "DataOps infrastructure for data pipelines"
+
+  - owner: apache
+    name: arrow
+    category: Data Engineering
+    description: "Apache Arrow — columnar in-memory analytics"
+
+  # ─────────────────────────────────────────────
+  # 13. Blockchain
+  # ─────────────────────────────────────────────
+  - owner: ethereum
+    name: go-ethereum
+    category: Blockchain
+    description: "Official Go implementation of the Ethereum protocol"
+
+  - owner: bitcoin
+    name: bitcoin
+    category: Blockchain
+    description: "Bitcoin Core integration/staging tree"
+
+  - owner: solana-labs
+    name: solana
+    category: Blockchain
+    description: "Solana blockchain node implementation"
+
+  - owner: OpenZeppelin
+    name: openzeppelin-contracts
+    category: Blockchain
+    description: "Battle-tested smart contract library for Ethereum"
+
+  - owner: foundry-rs
+    name: foundry
+    category: Blockchain
+    description: "Blazing fast, portable Ethereum development toolchain"
+
+  - owner: nickel-lang
+    name: nickel-lang
+    category: Blockchain
+    description: "Generic configuration language for config generation"
+
+  - owner: paradigmxyz
+    name: reth
+    category: Blockchain
+    description: "Modular, contributor-friendly Ethereum execution client in Rust"

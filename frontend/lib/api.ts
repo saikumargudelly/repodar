@@ -86,6 +86,14 @@ export interface CategoryMetrics {
   weekly_velocity: number;
   mom_growth_pct: number;
   repo_count: number;
+  period_star_gain: number;
+  period_pr_gain: number;
+  avg_open_prs: number;
+  total_open_prs: number;
+  total_merged_prs: number;
+  total_contributors: number;
+  total_open_issues: number;
+  trend_composite: number;
 }
 
 export interface OverviewResponse {
@@ -168,6 +176,14 @@ export interface PipelineStatus {
 
 export type Period = "1d" | "7d" | "30d" | "90d" | "365d" | "3y" | "5y";
 
+export type Vertical =
+  | "ai_ml"
+  | "devtools"
+  | "web_frameworks"
+  | "security"
+  | "data_engineering"
+  | "blockchain";
+
 export interface LeaderboardEntry {
   rank: number;
   repo_id: string;
@@ -203,6 +219,77 @@ export interface LeaderboardResponse {
   entries: LeaderboardEntry[];
 }
 
+// ─── Compare ─────────────────────────────────────────────────────────────────
+
+export interface CompareEntry {
+  repo_id: string;
+  owner: string;
+  name: string;
+  description: string | null;
+  github_url: string;
+  primary_language: string | null;
+  current_stars: number;
+  current_forks: number;
+  age_days: number;
+  trend_score: number | null;
+  sustainability_score: number | null;
+  sustainability_label: "GREEN" | "YELLOW" | "RED" | null;
+  star_velocity_7d: number | null;
+  acceleration: number | null;
+  contributor_growth_rate: number | null;
+  fork_to_star_ratio: number | null;
+  issue_close_rate: number | null;
+  is_tracked: boolean;
+}
+
+// ─── Org Health ───────────────────────────────────────────────────────────────
+
+export interface OrgRepoHealth {
+  name: string;
+  full_name: string;
+  description: string | null;
+  stars: number;
+  forks: number;
+  language: string | null;
+  open_issues: number;
+  age_days: number;
+  github_url: string;
+  pushed_at: string | null;
+  trend_score: number | null;
+  sustainability_score: number | null;
+  sustainability_label: "GREEN" | "YELLOW" | "RED" | null;
+  is_tracked: boolean;
+}
+
+export interface OrgHealthResponse {
+  org: string;
+  total_repos: number;
+  total_stars: number;
+  top_language: string | null;
+  tracked_repos: number;
+  avg_sustainability_score: number | null;
+  repos: OrgRepoHealth[];
+}
+
+// ─── Widget ───────────────────────────────────────────────────────────────────
+
+export interface WidgetData {
+  owner: string;
+  name: string;
+  full_name: string;
+  description: string | null;
+  stars: number;
+  forks: number;
+  open_issues: number;
+  language: string | null;
+  github_url: string;
+  trend_score: number | null;
+  sustainability_score: number | null;
+  sustainability_label: "GREEN" | "YELLOW" | "RED" | null;
+  star_velocity_7d: number | null;
+  is_tracked: boolean;
+}
+
 // ─── API functions ───────────────────────────────────────────────────────────
 
 export const api = {
@@ -225,12 +312,24 @@ export const api = {
   getOverview: () => apiFetch<OverviewResponse>("/dashboard/overview"),
   getRadar: (newOnly = false) =>
     apiFetch<RadarRepo[]>(`/dashboard/radar?new_only=${newOnly}`),
-  getCategories: () => apiFetch<CategoryMetrics[]>("/dashboard/categories"),
-  getLeaderboard: (period: Period, category?: string, limit = 20) => {
-    const qs = new URLSearchParams({ period, limit: String(limit) });
+  getCategories: (period: Period = "7d") => apiFetch<CategoryMetrics[]>(`/dashboard/categories?period=${period}`),  
+  getLeaderboard: (period: Period, category?: string, limit = 20, vertical: Vertical = "ai_ml") => {
+    const qs = new URLSearchParams({ period, limit: String(limit), vertical });
     if (category) qs.set("category", category);
     return apiFetch<LeaderboardResponse>(`/dashboard/leaderboard?${qs}`);
   },
+
+  // Compare
+  compareRepos: (ids: string[]) =>
+    apiFetch<CompareEntry[]>(`/repos/compare?ids=${ids.join(",")}`),
+
+  // Org health
+  getOrgHealth: (org: string, limit = 25) =>
+    apiFetch<OrgHealthResponse>(`/orgs/${org}/oss-health?limit=${limit}`),
+
+  // Widget
+  getWidgetData: (owner: string, name: string) =>
+    apiFetch<WidgetData>(`/widget/repo/${owner}/${name}`),
 
   // Reports
   getWeeklyReport: () => apiFetch<WeeklyReport>("/reports/weekly"),

@@ -51,6 +51,14 @@ class CategoryMetrics(BaseModel):
     weekly_velocity: float
     mom_growth_pct: float
     repo_count: int
+    period_star_gain: int = 0
+    period_pr_gain: int = 0
+    avg_open_prs: float = 0.0
+    total_open_prs: int = 0
+    total_merged_prs: int = 0
+    total_contributors: int = 0
+    total_open_issues: int = 0
+    trend_composite: float = 0.0
 
 
 class OverviewResponse(BaseModel):
@@ -213,9 +221,10 @@ def get_breakout_radar(
 
 
 @router.get("/categories", response_model=List[CategoryMetrics])
-def get_category_metrics():
-    """Category-level aggregated growth metrics."""
-    growth = compute_category_growth()
+def get_category_metrics(period: str = Query("7d", description="1d | 7d | 30d | 90d | 365d | 3y | 5y")):
+    """Category-level aggregated growth metrics for the requested period."""
+    days = PERIOD_DAYS.get(period, 7)
+    growth = compute_category_growth(days=days)
     return [CategoryMetrics(**c) for c in growth]
 
 
@@ -269,7 +278,8 @@ class LeaderboardResponse(BaseModel):
 @router.get("/leaderboard", response_model=LeaderboardResponse)
 async def get_leaderboard(
     period: str = Query("7d", description="1d | 7d | 30d | 90d | 365d | 3y | 5y"),
-    category: Optional[str] = Query(None, description="Filter by category"),
+    category: Optional[str] = Query(None, description="Filter by AI/ML sub-category"),
+    vertical: str = Query("ai_ml", description="ai_ml | devtools | web_frameworks | security | data_engineering | blockchain"),
     limit: int = Query(30, le=100),
 ):
     """
@@ -288,7 +298,7 @@ async def get_leaderboard(
     from app.services import github_search
 
     days = PERIOD_DAYS.get(period, 7)
-    raw_repos = await github_search.search_top_repos(period, limit=limit, category_filter=category)
+    raw_repos = await github_search.search_top_repos(period, limit=limit, category_filter=category, vertical=vertical)
 
     entries = [
         LeaderboardEntry(**github_search.normalize_search_result(repo, rank=i + 1, period=period))

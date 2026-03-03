@@ -25,12 +25,14 @@ class DailyMetric(Base):
     watchers: Mapped[int] = mapped_column(Integer, default=0)
     contributors: Mapped[int] = mapped_column(Integer, default=0)
     open_issues: Mapped[int] = mapped_column(Integer, default=0)
-    merged_prs: Mapped[int] = mapped_column(Integer, default=0)
+    open_prs: Mapped[int] = mapped_column(Integer, default=0)        # open pull requests
+    merged_prs: Mapped[int] = mapped_column(Integer, default=0)      # cumulative merged PRs
     releases: Mapped[int] = mapped_column(Integer, default=0)
 
     # Intra-day deltas (computed at ingestion time)
     daily_star_delta: Mapped[int] = mapped_column(Integer, default=0)
     daily_fork_delta: Mapped[int] = mapped_column(Integer, default=0)
+    daily_pr_delta: Mapped[int] = mapped_column(Integer, default=0)   # new merged PRs since last snapshot
 
     # Language snapshot (JSON string)
     language_breakdown: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)

@@ -48,6 +48,7 @@ def _build_graphql_query(repos: list[dict]) -> str:
     forkCount
     watchers {{ totalCount }}
     openIssuesCount: issues(states: OPEN) {{ totalCount }}
+    openPullRequests: pullRequests(states: OPEN) {{ totalCount }}
     releases {{ totalCount }}
     primaryLanguage {{ name }}
     languages(first: 10, orderBy: {{field: SIZE, direction: DESC}}) {{
@@ -195,6 +196,7 @@ async def fetch_repo_metrics(repos: list[dict]) -> list[dict]:
                         "forks": gdata.get("forkCount", 0),
                         "watchers": gdata.get("watchers", {}).get("totalCount", 0),
                         "open_issues": gdata.get("openIssuesCount", {}).get("totalCount", 0),
+                        "open_prs": gdata.get("openPullRequests", {}).get("totalCount", 0),
                         "releases": gdata.get("releases", {}).get("totalCount", 0),
                         "primary_language": (gdata.get("primaryLanguage") or {}).get("name"),
                         "language_breakdown": _parse_language_breakdown(lang_edges),

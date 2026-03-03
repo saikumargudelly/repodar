@@ -9,6 +9,8 @@ import { api } from "@/lib/api";
 const NAV_LINKS = [
   { href: "/", label: "Overview" },
   { href: "/radar", label: "Breakout Radar" },
+  { href: "/compare", label: "Compare" },
+  { href: "/orgs", label: "Org Health" },
 ];
 
 export function Nav() {

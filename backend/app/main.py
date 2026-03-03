@@ -13,6 +13,8 @@ from app.routers import (
     dashboard_router,
     reports_router,
     admin_router,
+    widgets_router,
+    orgs_router,
 )
 from app.seed.seeder import seed_repos
 
@@ -76,6 +78,8 @@ app.include_router(metrics_router)
 app.include_router(dashboard_router)
 app.include_router(reports_router)
 app.include_router(admin_router)
+app.include_router(widgets_router)
+app.include_router(orgs_router)
 
 
 # ─── Health ──────────────────────────────────────────────────────────────────

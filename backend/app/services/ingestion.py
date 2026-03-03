@@ -79,6 +79,7 @@ async def run_daily_ingestion() -> dict:
                 )
                 daily_star_delta = m["stars"] - (prev.stars if prev else m["stars"])
                 daily_fork_delta = m["forks"] - (prev.forks if prev else m["forks"])
+                daily_pr_delta = m.get("merged_prs", 0) - (prev.merged_prs if prev else m.get("merged_prs", 0))
 
                 metric = DailyMetric(
                     repo_id=repo_id,
@@ -88,10 +89,12 @@ async def run_daily_ingestion() -> dict:
                     watchers=m.get("watchers", 0),
                     contributors=m.get("contributors", 0),
                     open_issues=m.get("open_issues", 0),
+                    open_prs=m.get("open_prs", 0),
                     merged_prs=m.get("merged_prs", 0),
                     releases=m.get("releases", 0),
                     daily_star_delta=max(daily_star_delta, 0),
                     daily_fork_delta=max(daily_fork_delta, 0),
+                    daily_pr_delta=max(daily_pr_delta, 0),
                     language_breakdown=json.dumps(m.get("language_breakdown", {})),
                 )
                 db.add(metric)
