@@ -1,0 +1,425 @@
+repositories:
+
+  # ─────────────────────────────────────────────
+  # 1. LLM Models
+  # ─────────────────────────────────────────────
+  - owner: meta-llama
+    name: llama3
+    category: LLM Models
+    description: "Meta Llama 3 official repository"
+
+  - owner: mistralai
+    name: mistral-src
+    category: LLM Models
+    description: "Mistral AI source code and model cards"
+
+  - owner: google
+    name: gemma
+    category: LLM Models
+    description: "Google Gemma model checkpoints and inference"
+
+  - owner: microsoft
+    name: phi-3CookBook
+    category: LLM Models
+    description: "Microsoft Phi-3 small language model cookbook"
+
+  - owner: 01-ai
+    name: Yi
+    category: LLM Models
+    description: "01.AI Yi series of large language models"
+
+  - owner: deepseek-ai
+    name: DeepSeek-V3
+    category: LLM Models
+    description: "DeepSeek V3 open source LLM"
+
+  - owner: Qwen
+    name: Qwen2.5
+    category: LLM Models
+    description: "Alibaba Qwen2.5 series LLM"
+
+  - owner: xai-org
+    name: grok-1
+    category: LLM Models
+    description: "xAI Grok-1 open weights model"
+
+  - owner: cohere-ai
+    name: cohere-toolkit
+    category: LLM Models
+    description: "Cohere LLM toolkit"
+
+  - owner: allenai
+    name: OLMo
+    category: LLM Models
+    description: "Allen Institute OLMo open language model"
+
+  # ─────────────────────────────────────────────
+  # 2. Agent Frameworks
+  # ─────────────────────────────────────────────
+  - owner: langchain-ai
+    name: langchain
+    category: Agent Frameworks
+    description: "Building applications with LLMs through composability"
+
+  - owner: microsoft
+    name: autogen
+    category: Agent Frameworks
+    description: "Multi-agent conversation framework"
+
+  - owner: crewAIInc
+    name: crewAI
+    category: Agent Frameworks
+    description: "Framework for orchestrating role-playing AI agents"
+
+  - owner: run-llama
+    name: llama_index
+    category: Agent Frameworks
+    description: "LlamaIndex data framework for LLM applications"
+
+  - owner: stanfordnlp
+    name: dspy
+    category: Agent Frameworks
+    description: "DSPy: Programming with foundation models"
+
+  - owner: geekan
+    name: MetaGPT
+    category: Agent Frameworks
+    description: "Multi-agent framework assigning roles to GPTs"
+
+  - owner: Significant-Gravitas
+    name: AutoGPT
+    category: Agent Frameworks
+    description: "AutoGPT autonomous AI agent"
+
+  - owner: openai
+    name: swarm
+    category: Agent Frameworks
+    description: "OpenAI experimental multi-agent orchestration framework"
+
+  - owner: pydantic
+    name: pydantic-ai
+    category: Agent Frameworks
+    description: "Pydantic-powered type-safe agent framework"
+
+  - owner: microsoft
+    name: semantic-kernel
+    category: Agent Frameworks
+    description: "Microsoft Semantic Kernel SDK"
+
+  # ─────────────────────────────────────────────
+  # 3. Inference Engines
+  # ─────────────────────────────────────────────
+  - owner: vllm-project
+    name: vllm
+    category: Inference Engines
+    description: "Easy, fast, and cheap LLM inference and serving"
+
+  - owner: ggerganov
+    name: llama.cpp
+    category: Inference Engines
+    description: "LLM inference in C/C++ for CPU and GPU"
+
+  - owner: huggingface
+    name: text-generation-inference
+    category: Inference Engines
+    description: "HuggingFace production-grade LLM inference toolkit"
+
+  - owner: mlc-ai
+    name: mlc-llm
+    category: Inference Engines
+    description: "Universal LLM deployment engine on any hardware"
+
+  - owner: NVIDIA
+    name: TensorRT-LLM
+    category: Inference Engines
+    description: "NVIDIA TensorRT for LLM inference optimization"
+
+  - owner: turboderp
+    name: exllamav2
+    category: Inference Engines
+    description: "Inference library for quantized LLMs on GPU"
+
+  - owner: oobabooga
+    name: text-generation-webui
+    category: Inference Engines
+    description: "Web UI for running large language models"
+
+  - owner: lm-sys
+    name: FastChat
+    category: Inference Engines
+    description: "FastChat: open platform for LLM chatbots"
+
+  - owner: Mozilla-Ocho
+    name: llamafile
+    category: Inference Engines
+    description: "Distribute and run LLMs with a single file"
+
+  - owner: ollama
+    name: ollama
+    category: Inference Engines
+    description: "Run large language models locally"
+
+  # ─────────────────────────────────────────────
+  # 4. Vector Databases
+  # ─────────────────────────────────────────────
+  - owner: milvus-io
+    name: milvus
+    category: Vector Databases
+    description: "Cloud-native vector database for AI applications"
+
+  - owner: chroma-core
+    name: chroma
+    category: Vector Databases
+    description: "AI-native open-source embedding database"
+
+  - owner: weaviate
+    name: weaviate
+    category: Vector Databases
+    description: "Weaviate open source vector database"
+
+  - owner: qdrant
+    name: qdrant
+    category: Vector Databases
+    description: "Qdrant vector similarity search engine"
+
+  - owner: lancedb
+    name: lancedb
+    category: Vector Databases
+    description: "LanceDB serverless vector database"
+
+  - owner: pgvector
+    name: pgvector
+    category: Vector Databases
+    description: "Open-source vector similarity search for Postgres"
+
+  - owner: activeloopai
+    name: deeplake
+    category: Vector Databases
+    description: "Deep Lake vector store for AI"
+
+  - owner: facebookresearch
+    name: faiss
+    category: Vector Databases
+    description: "Facebook AI Similarity Search library"
+
+  - owner: marqo-ai
+    name: marqo
+    category: Vector Databases
+    description: "Tensor-based search and analytics engine"
+
+  - owner: vespa-engine
+    name: vespa
+    category: Vector Databases
+    description: "Vespa open-source big data serving engine"
+
+  # ─────────────────────────────────────────────
+  # 5. Model Serving / Runtimes
+  # ─────────────────────────────────────────────
+  - owner: triton-inference-server
+    name: server
+    category: Model Serving / Runtimes
+    description: "NVIDIA Triton inference server"
+
+  - owner: bentoml
+    name: BentoML
+    category: Model Serving / Runtimes
+    description: "Build production-grade AI applications"
+
+  - owner: ray-project
+    name: ray
+    category: Model Serving / Runtimes
+    description: "Ray: unified framework for scaling AI/ML workloads"
+
+  - owner: BerriAI
+    name: litellm
+    category: Model Serving / Runtimes
+    description: "Call 100+ LLM APIs using OpenAI format"
+
+  - owner: replicate
+    name: cog
+    category: Model Serving / Runtimes
+    description: "Containers for machine learning"
+
+  - owner: jina-ai
+    name: jina
+    category: Model Serving / Runtimes
+    description: "Jina AI neural search framework"
+
+  - owner: modal-labs
+    name: modal
+    category: Model Serving / Runtimes
+    description: "Modal cloud platform for running ML workloads"
+
+  - owner: huggingface
+    name: huggingface_hub
+    category: Model Serving / Runtimes
+    description: "HuggingFace Python SDK + model hub"
+
+  - owner: openllm-eu
+    name: openllm
+    category: Model Serving / Runtimes
+    description: "Run open-source LLMs as OpenAI-compatible API"
+
+  - owner: skypilot-org
+    name: skypilot
+    category: Model Serving / Runtimes
+    description: "Run LLMs on any cloud with SkyPilot"
+
+  # ─────────────────────────────────────────────
+  # 6. Distributed Compute / Infra
+  # ─────────────────────────────────────────────
+  - owner: microsoft
+    name: DeepSpeed
+    category: Distributed Compute / Infra
+    description: "Deep learning optimization library"
+
+  - owner: hpcaitech
+    name: ColossalAI
+    category: Distributed Compute / Infra
+    description: "ColossalAI large-scale model training system"
+
+  - owner: facebookresearch
+    name: fairscale
+    category: Distributed Compute / Infra
+    description: "PyTorch extensions for high-performance training"
+
+  - owner: ml-explore
+    name: mlx
+    category: Distributed Compute / Infra
+    description: "Apple MLX array framework for Apple Silicon"
+
+  - owner: pytorch
+    name: torchtitan
+    category: Distributed Compute / Infra
+    description: "PyTorch native LLM pre-training reference architecture"
+
+  - owner: google
+    name: jax
+    category: Distributed Compute / Infra
+    description: "JAX: autograd and XLA for ML research"
+
+  - owner: Lightning-AI
+    name: pytorch-lightning
+    category: Distributed Compute / Infra
+    description: "Deep learning framework for professional AI researchers"
+
+  - owner: NVIDIA
+    name: nemo
+    category: Distributed Compute / Infra
+    description: "NVIDIA NeMo large-scale model training"
+
+  - owner: alpa-project
+    name: alpa
+    category: Distributed Compute / Infra
+    description: "Auto parallelization for large neural networks"
+
+  - owner: dask
+    name: dask
+    category: Distributed Compute / Infra
+    description: "Dask parallel computing Python library"
+
+  # ─────────────────────────────────────────────
+  # 7. Evaluation Frameworks
+  # ─────────────────────────────────────────────
+  - owner: openai
+    name: evals
+    category: Evaluation Frameworks
+    description: "OpenAI Evals framework for evaluating LLMs"
+
+  - owner: EleutherAI
+    name: lm-evaluation-harness
+    category: Evaluation Frameworks
+    description: "EleutherAI language model evaluation harness"
+
+  - owner: openai
+    name: simple-evals
+    category: Evaluation Frameworks
+    description: "Simple LLM evaluation scripts from OpenAI"
+
+  - owner: microsoft
+    name: promptbench
+    category: Evaluation Frameworks
+    description: "Unified evaluation library for LLMs"
+
+  - owner: BerriAI
+    name: litellm
+    category: Evaluation Frameworks
+    description: "LiteLLM proxy with evaluation hooks"
+
+  - owner: brainlid
+    name: langchain
+    category: Evaluation Frameworks
+    description: "Elixir LangChain evaluation tools"
+
+  - owner: prometheus-eval
+    name: prometheus-eval
+    category: Evaluation Frameworks
+    description: "Prometheus LLM evaluation framework"
+
+  - owner: stanford-crfm
+    name: helm
+    category: Evaluation Frameworks
+    description: "Holistic Evaluation of Language Models (HELM)"
+
+  - owner: uptrain-ai
+    name: uptrain
+    category: Evaluation Frameworks
+    description: "UpTrain LLM evaluation and monitoring"
+
+  - owner: confident-ai
+    name: deepeval
+    category: Evaluation Frameworks
+    description: "DeepEval open-source LLM evaluation framework"
+
+  # ─────────────────────────────────────────────
+  # 8. Fine-tuning Toolkits
+  # ─────────────────────────────────────────────
+  - owner: huggingface
+    name: trl
+    category: Fine-tuning Toolkits
+    description: "Transformer Reinforcement Learning (TRL)"
+
+  - owner: unslothai
+    name: unsloth
+    category: Fine-tuning Toolkits
+    description: "2x faster, 70% less memory LLM fine-tuning"
+
+  - owner: hiyouga
+    name: LLaMA-Factory
+    category: Fine-tuning Toolkits
+    description: "Easy-to-use LLM fine-tuning framework"
+
+  - owner: jondurbin
+    name: axolotl
+    category: Fine-tuning Toolkits
+    description: "Axolotl tool for fine-tuning large language models"
+
+  - owner: Lightning-AI
+    name: litgpt
+    category: Fine-tuning Toolkits
+    description: "LitGPT: pre-train, fine-tune, deploy 20+ LLMs"
+
+  - owner: microsoft
+    name: LoRA
+    category: Fine-tuning Toolkits
+    description: "Microsoft LoRA low-rank adaptation"
+
+  - owner: bitsandbytes-foundation
+    name: bitsandbytes
+    category: Fine-tuning Toolkits
+    description: "8-bit/4-bit quantization for fine-tuning"
+
+  - owner: artidoro
+    name: qlora
+    category: Fine-tuning Toolkits
+    description: "QLoRA efficient fine-tuning of quantized LLMs"
+
+  - owner: huggingface
+    name: peft
+    category: Fine-tuning Toolkits
+    description: "Parameter-Efficient Fine-Tuning library"
+
+  - owner: OpenAccess-AI-Collective
+    name: axolotl
+    category: Fine-tuning Toolkits
+    description: "Axolotl fine-tuning for various AI architectures"
