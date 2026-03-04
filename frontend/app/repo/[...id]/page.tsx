@@ -211,9 +211,9 @@ function SignalExplainer({ scores, dailyMetrics }: { scores: ComputedMetricPoint
       </h3>
       <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
         {signals.map((s) => (
-          <div key={s.label} style={{ display: "flex", alignItems: "baseline", gap: "10px", fontSize: "13px" }}>
+          <div key={s.label} className="signal-row">
             <span style={{ fontSize: "16px", flexShrink: 0 }}>{s.icon}</span>
-            <span style={{ color: "var(--text-muted)", minWidth: "200px" }}>{s.label}:</span>
+            <span className="signal-label">{s.label}:</span>
             <span style={{ fontWeight: 700, color: s.positive ? "var(--accent-green)" : s.positive === false ? "var(--accent-red)" : "var(--text-primary)", fontFamily: "monospace" }}>
               {s.value}
             </span>
@@ -277,9 +277,9 @@ export default function RepoDeepDive() {
   return (
     <div style={{ paddingTop: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "6px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "6px", flexWrap: "wrap" }}>
             <h1 style={{ fontSize: "22px", fontWeight: 700, margin: 0 }}>
               {repo.owner}/<span style={{ color: "var(--accent-blue)" }}>{repo.name}</span>
             </h1>
@@ -295,7 +295,7 @@ export default function RepoDeepDive() {
             </p>
           )}
         </div>
-        <div style={{ display: "flex", gap: "8px" }}>
+        <div className="repo-header-actions">
           <Link
             href={`/widget/repo/${repo.owner}/${repo.name}`}
             style={{
@@ -336,7 +336,7 @@ export default function RepoDeepDive() {
       </div>
 
       {/* Score pills */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: "10px" }}>
+      <div className="metric-pills-grid">
         <MetricPill label="Trend Score" value={repo.trend_score?.toFixed(4) ?? "—"} mono />
         <MetricPill label="Stars/Day (7d)" value={repo.star_velocity_7d?.toFixed(1) ?? "—"} mono />
         <MetricPill label="Acceleration" value={repo.acceleration?.toFixed(3) ?? "—"} mono />
@@ -364,12 +364,12 @@ export default function RepoDeepDive() {
             <SignalExplainer scores={scores} dailyMetrics={dailyMetrics} />
           )}
           <StarHistoryChart data={dailyMetrics} releases={[]} />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+          <div className="chart-row-2">
             <DailyDeltaChart data={dailyMetrics} />
             <ContributorChart data={dailyMetrics} />
           </div>
           {scores && scores.length > 0 && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+            <div className="chart-row-2">
               <VelocityChart data={scores} />
               <ScoreTimeline data={scores} />
             </div>
@@ -385,7 +385,7 @@ export default function RepoDeepDive() {
 
       {/* Raw metrics table — last 7 days */}
       {dailyMetrics && dailyMetrics.length > 0 && (
-        <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
+        <div className="table-scroll" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px" }}>
           <div style={{ padding: "20px 24px 0" }}>
             <h3 style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px", margin: "0 0 0" }}>
               Raw Metrics — Last 7 Snapshots

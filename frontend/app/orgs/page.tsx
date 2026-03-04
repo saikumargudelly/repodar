@@ -33,7 +33,7 @@ function OrgResults({ data }: { data: OrgHealthResponse }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
       {/* Summary cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "12px" }}>
+      <div className="stat-grid-5">
         <StatCard label="Public Repos" value={data.total_repos} />
         <StatCard label="Total Stars" value={data.total_stars.toLocaleString()} />
         <StatCard label="Top Language" value={data.top_language ?? "—"} />
@@ -46,7 +46,7 @@ function OrgResults({ data }: { data: OrgHealthResponse }) {
       </div>
 
       {/* Repo table */}
-      <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
+      <div className="table-scroll" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px" }}>
         <div style={{ padding: "18px 24px 14px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <h2 style={{ fontSize: "13px", fontWeight: 600, margin: 0, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
             {data.org} / repositories

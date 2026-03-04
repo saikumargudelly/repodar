@@ -93,24 +93,85 @@ html, body {
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
 /* ══════════════════════════════════════════════════════════════
-   Responsive Grid Utilities
+   Responsive Grid & Layout Utilities
    ══════════════════════════════════════════════════════════════ */
 
+/* ── Grids ─────────────────────────────────────────────────── */
+
+/* 4-col stat grid (main dashboard) */
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 14px;
 }
 
+/* 5-col stat grid (orgs page) */
+.stat-grid-5 {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+
+/* 6-col metric pills (repo detail) */
+.metric-pills-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+}
+
+/* 2-col chart side-by-side */
 .chart-row-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
 
+/* 2-col quadrant hints */
+.quadrant-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* ── Tables ────────────────────────────────────────────────── */
 .table-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+}
+.table-scroll table {
+  min-width: 600px; /* prevent columns squishing below readable width */
+}
+
+/* ── Cards ─────────────────────────────────────────────────── */
+/* Stat card value — allow shrink on mobile */
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0;
+  word-break: break-word;
+}
+
+/* ── Repo header action buttons ────────────────────────────── */
+.repo-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* ── Signal explainer row ──────────────────────────────────── */
+.signal-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+.signal-label {
+  color: var(--text-muted);
+  min-width: 200px;
+  flex-shrink: 0;
 }
 
 /* ── Nav responsive ─────────────────────────────────────────── */
@@ -154,20 +215,62 @@ html, body {
 }
 .scroll-selector::-webkit-scrollbar { display: none; }
 
-/* ── Breakpoints ──────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════
+   Breakpoints
+   ════════════════════════════════════════════════════════════ */
+
+/* ── ≤ 1024px — collapse 5/6-col grids earlier ─────────────── */
+@media (max-width: 1024px) {
+  .stat-grid-5 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .metric-pills-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ── ≤ 900px ─────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .stat-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+  .stat-grid-5 {
+    grid-template-columns: repeat(3, 1fr);
+  }
   .chart-row-2 {
+    grid-template-columns: 1fr;
+  }
+  .quadrant-grid {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 600px) {
+/* ── ≤ 640px ─────────────────────────────────────────────── */
+@media (max-width: 640px) {
   .stat-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 10px;
+  }
+  .stat-grid-5 {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .metric-pills-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .chart-row-2 {
+    grid-template-columns: 1fr;
+  }
+  .stat-value {
+    font-size: 22px;
+  }
+  .signal-label {
+    min-width: 0;
+    width: 100%;
+  }
+  .signal-row {
+    align-items: flex-start;
   }
   .nav-description {
     display: none;
@@ -178,10 +281,21 @@ html, body {
   .nav-hamburger {
     display: block;
   }
+  /* Tighter card padding on small screens */
+  .card-pad {
+    padding: 14px 16px !important;
+  }
 }
 
+/* ── ≤ 420px ─────────────────────────────────────────────── */
 @media (max-width: 420px) {
   .stat-grid {
     grid-template-columns: 1fr;
+  }
+  .stat-grid-5 {
+    grid-template-columns: 1fr;
+  }
+  .metric-pills-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }

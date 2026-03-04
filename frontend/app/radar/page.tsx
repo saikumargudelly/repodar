@@ -113,7 +113,7 @@ export default function RadarPage() {
       </div>
 
       {/* Table */}
-      <div className="table-scroll" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
+      <div className="table-scroll" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px" }}>
         {isLoading ? (
           <p style={{ color: "var(--text-muted)", textAlign: "center", padding: "60px 0" }}>Loading radar data...</p>
         ) : (
@@ -144,7 +144,7 @@ export default function RadarPage() {
       </div>
 
       {/* ── Language & Tech Stack Radar ─────────────────────────────────── */}
-      <div className="table-scroll" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
+      <div className="table-scroll" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px" }}>
         <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid var(--border)" }}>
           <h2 style={{ fontSize: "14px", fontWeight: 700, margin: "0 0 4px" }}>
             Language &amp; Tech Stack Radar

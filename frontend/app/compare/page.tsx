@@ -173,7 +173,7 @@ function ComparePageInner() {
   return (
     <div style={{ paddingTop: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
         <div>
           <h1 style={{ fontSize: "22px", fontWeight: 700, margin: "0 0 4px" }}>Repo Comparison</h1>
           <p style={{ color: "var(--text-muted)", fontSize: "13px", margin: 0 }}>
@@ -296,7 +296,7 @@ function ComparePageInner() {
           </div>
 
           {/* Metrics table */}
-          <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
+          <div className="table-scroll" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px" }}>
             <h2 style={{ fontSize: "13px", fontWeight: 600, margin: 0, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px", padding: "20px 24px 16px", borderBottom: "1px solid var(--border)" }}>
               Metrics Breakdown
             </h2>

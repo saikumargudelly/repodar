@@ -1,5 +1,7 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,6 +27,92 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# ─── Background pipeline (APScheduler — no Redis required) ───────────────────
+
+async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
+    """
+    Full delta-sync: ingest (upsert) → score → optionally explain.
+    Called by APScheduler every 4 hours AND by the /admin/run-all-sync endpoint.
+    """
+    from app.services.ingestion import run_daily_ingestion
+    from app.services.scoring import run_daily_scoring
+    from app.services.explanation import enrich_top_repos_with_explanations
+
+    run_at = datetime.now(timezone.utc).isoformat()
+    logger.info(f"[pipeline] Starting delta-sync at {run_at}")
+
+    try:
+        ingest_result = await run_daily_ingestion()
+        logger.info(f"[pipeline] Ingestion: inserted={ingest_result.get('inserted',0)} "
+                    f"updated={ingest_result.get('updated',0)} failed={ingest_result.get('failed',0)}")
+    except Exception as e:
+        logger.error(f"[pipeline] Ingestion failed: {e}", exc_info=True)
+        return {"run_at": run_at, "status": "error", "phase": "ingestion", "detail": str(e)}
+
+    try:
+        score_result = run_daily_scoring()
+        logger.info(f"[pipeline] Scoring: scored={score_result.get('scored',0)} "
+                    f"failed={score_result.get('failed',0)}")
+    except Exception as e:
+        logger.error(f"[pipeline] Scoring failed: {e}", exc_info=True)
+        score_result = {"scored": 0, "failed": 0, "alerts": 0, "categories_cached": 0, "date": None}
+
+    explain_count = 0
+    if include_explanations:
+        try:
+            explain_count = enrich_top_repos_with_explanations(top_n=20)
+            logger.info(f"[pipeline] Explanations: {explain_count}")
+        except Exception as e:
+            logger.warning(f"[pipeline] Explanation generation failed (non-fatal): {e}")
+
+    return {
+        "run_at": run_at,
+        "status": "complete",
+        "discovered": ingest_result.get("discovered", 0),
+        "reactivated": ingest_result.get("reactivated", 0),
+        "inserted": ingest_result.get("inserted", 0),
+        "updated": ingest_result.get("updated", 0),
+        "ingested": ingest_result.get("ingested", 0),
+        "failed_ingestion": ingest_result.get("failed", 0),
+        "scored": score_result.get("scored", 0),
+        "failed_scoring": score_result.get("failed", 0),
+        "alerts_generated": score_result.get("alerts", 0),
+        "categories_cached": score_result.get("categories_cached", 0),
+        "explanations": explain_count,
+        "scoring_date": score_result.get("date"),
+    }
+
+
+def _schedule_pipeline():
+    """
+    Set up APScheduler to run the full pipeline every 4 hours.
+    APScheduler runs in-process — no Redis or separate worker needed.
+    Perfect for Railway single-dyno deployments.
+    """
+    try:
+        from apscheduler.schedulers.asyncio import AsyncIOScheduler
+        from apscheduler.triggers.cron import CronTrigger
+
+        scheduler = AsyncIOScheduler(timezone="UTC")
+
+        async def _job():
+            # Include explanations only at the 00:00 UTC run (once per day)
+            hour_utc = datetime.now(timezone.utc).hour
+            include_explain = (hour_utc < 4)   # true for the midnight slot
+            result = await _run_pipeline_sync(include_explanations=include_explain)
+            logger.info(f"[scheduler] Pipeline job finished: {result}")
+
+        # Every 4 hours: 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC
+        scheduler.add_job(_job, CronTrigger(hour="*/4", minute=0), id="pipeline_4h", replace_existing=True)
+
+        scheduler.start()
+        logger.info("APScheduler started — pipeline runs every 4 h (00/04/08/12/16/20 UTC)")
+        return scheduler
+    except Exception as e:
+        logger.warning(f"APScheduler init failed (non-fatal — manual triggers still work): {e}")
+        return None
+
+
 # ─── Startup / Shutdown ──────────────────────────────────────────────────────
 
 @asynccontextmanager
@@ -43,10 +131,8 @@ async def lifespan(app: FastAPI):
         logger.error(f"Seed failed (non-fatal): {e}")
 
     # Pre-install DuckDB extensions so the scoring service works on first run.
-    # Runs in a thread pool to avoid blocking the event loop.
     try:
         import duckdb, os
-        # Use /tmp for extension storage on Railway (always writable)
         ext_dir = os.getenv("DUCKDB_EXTENSION_DIRECTORY", "/tmp/.duckdb/extensions")
         os.makedirs(ext_dir, exist_ok=True)
         conn = duckdb.connect()
@@ -59,10 +145,18 @@ async def lifespan(app: FastAPI):
         conn.close()
         logger.info("DuckDB extensions pre-installed.")
     except Exception as e:
-        logger.warning(f"DuckDB extension pre-install failed (non-fatal — SQLAlchemy fallback will be used): {e}")
+        logger.warning(f"DuckDB extension pre-install failed (non-fatal): {e}")
 
-    logger.info("Repodar ready. Celery handles scheduled ingestion.")
+    # Start in-process 4-hour scheduler
+    scheduler = _schedule_pipeline()
+
+    logger.info("Repodar ready. Pipeline scheduled every 4 h via APScheduler.")
     yield
+
+    # Graceful shutdown
+    if scheduler:
+        scheduler.shutdown(wait=False)
+        logger.info("APScheduler stopped.")
     logger.info("Repodar shutting down.")
 
 

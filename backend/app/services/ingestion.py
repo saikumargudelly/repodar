@@ -236,11 +236,20 @@ def deactivate_stale_repos() -> int:
 
 async def run_daily_ingestion() -> dict:
     """
-    Main ingestion entry point.
+    Main ingestion entry point — designed to run up to 6× per day (every 4 h).
+
+    Each run is a full delta sync:
+      - INSERT a new DailyMetric row if none exists for today.
+      - UPSERT (UPDATE) the existing row if one was already written today,
+        refreshing stars/forks/PRs/etc with the latest GitHub values.
+      - Deltas (daily_star_delta, etc.) are always computed vs the most recent
+        snapshot from a PREVIOUS day, so re-runs never inflate them.
+
     1. Auto-discover new trending repos and sync last_seen_trending.
     2. Deactivate auto_discovered repos not seen in STALE_DAYS days.
-    3. Ingest daily metrics for all active repos.
-    Returns summary dict: {total, ingested, skipped, failed, discovered, reactivated, deactivated}
+    3. Ingest / refresh daily metrics for all active repos.
+
+    Returns summary dict.
     """
     # ── Step 1: Auto-discovery ────────────────────────────────────────────────
     discovery_summary = await auto_discover_and_sync()
@@ -248,79 +257,65 @@ async def run_daily_ingestion() -> dict:
     # ── Step 2: Deactivate stale auto-discovered repos ────────────────────────
     deactivated = deactivate_stale_repos()
 
-    # ── Step 3: Only ingest active repos ─────────────────────────────────────
+    # ── Step 3: Delta-sync metrics for all active repos ───────────────────────
     db = SessionLocal()
     try:
         repos = db.query(Repository).filter(Repository.is_active == True).all()  # noqa: E712
         today = _today_utc()
-        logger.info(f"Starting ingestion for {len(repos)} repos on {today}")
+        now   = datetime.now(timezone.utc).replace(tzinfo=None)
+        logger.info(f"Starting delta-sync for {len(repos)} repos on {today}")
 
-        # Determine which repos still need today's snapshot
-        already_done_ids = set(
-            row.repo_id for row in db.query(DailyMetric.repo_id)
-            .filter(
-                DailyMetric.captured_at >= datetime.combine(today, datetime.min.time()),
-                DailyMetric.captured_at < datetime.combine(today, datetime.max.time()),
+        # Build a map of existing today-rows so we can upsert them
+        today_start = datetime.combine(today, datetime.min.time())
+        today_end   = datetime.combine(today, datetime.max.time())
+        existing_today: dict[str, DailyMetric] = {
+            row.repo_id: row
+            for row in db.query(DailyMetric).filter(
+                DailyMetric.captured_at >= today_start,
+                DailyMetric.captured_at <  today_end,
             ).all()
-        )
+        }
 
-        pending = [
-            {"id": r.id, "owner": r.owner, "name": r.name}
-            for r in repos if r.id not in already_done_ids
-        ]
-
-        logger.info(f"Pending: {len(pending)} | Already done today: {len(already_done_ids)}")
-
-        if not pending:
-            return {
-                "total": len(repos),
-                "ingested": 0,
-                "skipped": len(repos),
-                "failed": 0,
-                "discovered": discovery_summary.get("discovered", 0),
-                "reactivated": discovery_summary.get("reactivated", 0),
-                "deactivated": deactivated,
-            }
-
-        # ── Build incremental-fetch cursors ──────────────────────────────────
-        # Repos that have been fetched before get a `since` timestamp so the
-        # GitHub client only counts NEW commits/PRs since the last run.
-        # This reduces GitHub API calls by ~80-90 % after the first snapshot.
+        # Build incremental GitHub API cursors (since last fetch)
         since_map: dict[str, str] = {}
         for r in repos:
             if r.last_fetched_at:
-                # ISO-8601 with Z suffix (GitHub API requirement)
                 since_map[r.id] = r.last_fetched_at.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        # Fetch from GitHub
-        metrics_list = await fetch_repo_metrics(pending, since_map=since_map)
+        # Fetch fresh data from GitHub for ALL active repos
+        all_pending = [{"id": r.id, "owner": r.owner, "name": r.name} for r in repos]
+        metrics_list = await fetch_repo_metrics(all_pending, since_map=since_map)
 
-        ingested = 0
-        failed = 0
+        inserted = 0
+        updated  = 0
+        failed   = 0
         repo_map = {r.id: r for r in repos}
 
         for m in metrics_list:
             repo_id = m["repo_id"]
             try:
-                # Calculate daily deltas vs yesterday's snapshot
+                # Always compute deltas vs the most recent PREVIOUS-DAY snapshot
+                # (not today's existing row) so re-runs don't inflate them.
                 prev = (
                     db.query(DailyMetric)
-                    .filter_by(repo_id=repo_id)
+                    .filter(
+                        DailyMetric.repo_id == repo_id,
+                        DailyMetric.captured_at < today_start,
+                    )
                     .order_by(DailyMetric.captured_at.desc())
                     .first()
                 )
-                daily_star_delta = m["stars"] - (prev.stars if prev else m["stars"])
-                daily_fork_delta = m["forks"] - (prev.forks if prev else m["forks"])
-                daily_pr_delta   = m.get("merged_prs", 0) - (prev.merged_prs if prev else m.get("merged_prs", 0))
 
-                # Commit delta:
-                # - If incremental mode (commit_is_delta=True), the value IS the delta.
-                # - If full mode (first snapshot), delta = 0 (no baseline to diff against).
+                daily_star_delta = max(m["stars"] - (prev.stars if prev else m["stars"]), 0)
+                daily_fork_delta = max(m["forks"] - (prev.forks if prev else m["forks"]), 0)
+                daily_pr_delta   = max(
+                    m.get("merged_prs", 0) - (prev.merged_prs if prev else m.get("merged_prs", 0)), 0
+                )
+
                 raw_commit = m.get("commit_count", 0)
                 is_delta   = m.get("commit_is_delta", False)
                 if is_delta:
                     daily_commit_delta = max(raw_commit, 0)
-                    # Running total = prev total + delta
                     prev_total = prev.commit_count if prev else 0
                     commit_count = prev_total + daily_commit_delta
                 else:
@@ -329,37 +324,59 @@ async def run_daily_ingestion() -> dict:
                         raw_commit - (prev.commit_count if prev else raw_commit), 0
                     )
 
-                metric = DailyMetric(
-                    repo_id=repo_id,
-                    captured_at=datetime.now(timezone.utc).replace(tzinfo=None),
-                    stars=m.get("stars", 0),
-                    forks=m.get("forks", 0),
-                    watchers=m.get("watchers", 0),
-                    contributors=m.get("contributors", 0),
-                    open_issues=m.get("open_issues", 0),
-                    open_prs=m.get("open_prs", 0),
-                    merged_prs=m.get("merged_prs", 0),
-                    releases=m.get("releases", 0),
-                    commit_count=commit_count,
-                    daily_star_delta=max(daily_star_delta, 0),
-                    daily_fork_delta=max(daily_fork_delta, 0),
-                    daily_pr_delta=max(daily_pr_delta, 0),
-                    daily_commit_delta=daily_commit_delta,
-                    language_breakdown=json.dumps(m.get("language_breakdown", {})),
-                )
-                db.add(metric)
+                existing = existing_today.get(repo_id)
 
-                # Update repo metadata
+                if existing:
+                    # ── UPSERT: refresh the existing today row ─────────────
+                    existing.captured_at        = now
+                    existing.stars              = m.get("stars", 0)
+                    existing.forks              = m.get("forks", 0)
+                    existing.watchers           = m.get("watchers", 0)
+                    existing.contributors       = m.get("contributors", 0)
+                    existing.open_issues        = m.get("open_issues", 0)
+                    existing.open_prs           = m.get("open_prs", 0)
+                    existing.merged_prs         = m.get("merged_prs", 0)
+                    existing.releases           = m.get("releases", 0)
+                    existing.commit_count       = commit_count
+                    existing.daily_star_delta   = daily_star_delta
+                    existing.daily_fork_delta   = daily_fork_delta
+                    existing.daily_pr_delta     = daily_pr_delta
+                    existing.daily_commit_delta = daily_commit_delta
+                    existing.language_breakdown = json.dumps(m.get("language_breakdown", {}))
+                    updated += 1
+                else:
+                    # ── INSERT: first run of the day ───────────────────────
+                    metric = DailyMetric(
+                        repo_id=repo_id,
+                        captured_at=now,
+                        stars=m.get("stars", 0),
+                        forks=m.get("forks", 0),
+                        watchers=m.get("watchers", 0),
+                        contributors=m.get("contributors", 0),
+                        open_issues=m.get("open_issues", 0),
+                        open_prs=m.get("open_prs", 0),
+                        merged_prs=m.get("merged_prs", 0),
+                        releases=m.get("releases", 0),
+                        commit_count=commit_count,
+                        daily_star_delta=daily_star_delta,
+                        daily_fork_delta=daily_fork_delta,
+                        daily_pr_delta=daily_pr_delta,
+                        daily_commit_delta=daily_commit_delta,
+                        language_breakdown=json.dumps(m.get("language_breakdown", {})),
+                    )
+                    db.add(metric)
+                    # Track for potential subsequent upserts in this same run
+                    existing_today[repo_id] = metric
+                    inserted += 1
+
+                # Update repo metadata & advance the GitHub API cursor
                 if repo_id in repo_map:
                     repo = repo_map[repo_id]
                     repo.age_days = _calc_age_days(m.get("repo_created_at", ""))
                     if m.get("primary_language"):
                         repo.primary_language = m["primary_language"]
-                    # Advance the incremental-fetch cursor so the next run
-                    # only queries data *after* this exact moment.
-                    repo.last_fetched_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                    repo.last_fetched_at = now
 
-                ingested += 1
             except Exception as e:
                 logger.error(f"Failed to save metric for repo {repo_id}: {e}")
                 failed += 1
@@ -367,14 +384,16 @@ async def run_daily_ingestion() -> dict:
         db.commit()
         summary = {
             "total": len(repos),
-            "ingested": ingested,
-            "skipped": len(already_done_ids),
+            "inserted": inserted,
+            "updated": updated,
+            "ingested": inserted + updated,   # backward-compat key
+            "skipped": 0,
             "failed": failed,
             "discovered": discovery_summary.get("discovered", 0),
             "reactivated": discovery_summary.get("reactivated", 0),
             "deactivated": deactivated,
         }
-        logger.info(f"Ingestion complete: {summary}")
+        logger.info(f"Delta-sync complete: {summary}")
         return summary
 
     except Exception as e:

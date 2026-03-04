@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, Cell, PieChart, Pie, Legend,
+  ResponsiveContainer, Cell, PieChart, Pie,
   ScatterChart, Scatter, ZAxis,
 } from "recharts";
 import {
@@ -83,7 +83,7 @@ function useWatchlist() {
 
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
-    <div style={{
+    <div className="card-pad" style={{
       background: "var(--bg-surface)",
       border: "1px solid var(--border)",
       borderRadius: "10px",
@@ -92,7 +92,7 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
       <p style={{ color: "var(--text-muted)", fontSize: "11px", fontWeight: 600, letterSpacing: "0.7px", textTransform: "uppercase", margin: "0 0 6px" }}>
         {label}
       </p>
-      <p style={{ fontSize: "28px", fontWeight: 700, margin: 0 }}>{value}</p>
+      <p className="stat-value">{value}</p>
       {sub && <p style={{ color: "var(--text-muted)", fontSize: "12px", margin: "4px 0 0" }}>{sub}</p>}
     </div>
   );
@@ -187,10 +187,10 @@ function CategoryTrendHeatmap({ data, period }: { data: CategoryMetrics[]; perio
         </div>
       </div>
       <ResponsiveContainer width="100%" height={260}>
-        <BarChart data={chartData} layout="vertical" barSize={18} margin={{ left: 20, right: 60 }}>
+        <BarChart data={chartData} layout="vertical" barSize={18} margin={{ left: 0, right: 40 }}>
           <XAxis type="number" domain={[0, 1]} tick={{ fontSize: 11, fill: "var(--text-muted)" }}
             tickFormatter={(v) => `${(v * 100).toFixed(0)}`} />
-          <YAxis type="category" dataKey="category" width={190} tick={{ fontSize: 12, fill: "var(--text-secondary)" }} />
+          <YAxis type="category" dataKey="category" width={140} tick={{ fontSize: 11, fill: "var(--text-secondary)" }} />
           <Tooltip
             content={({ payload, label }) => {
               if (!payload?.length) return null;
@@ -229,15 +229,17 @@ function CategoryStarsChart({ data }: { data: CategoryMetrics[] }) {
       <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: "0 0 16px" }}>
         {total.toLocaleString()} total stars across all categories
       </p>
-      <ResponsiveContainer width="100%" height={300}>
-        <PieChart margin={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+      {/* Pie lives alone — no Legend inside, so it gets the full height */}
+      <ResponsiveContainer width="100%" height={220}>
+        <PieChart margin={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Pie
             data={chartData}
             dataKey="total_stars"
             nameKey="category"
-            cx="50%" cy="45%"
-            innerRadius={55}
-            outerRadius={88}
+            cx="50%"
+            cy="50%"
+            innerRadius="30%"
+            outerRadius="48%"
             paddingAngle={2}
           >
             {chartData.map((cat) => (
@@ -258,12 +260,21 @@ function CategoryStarsChart({ data }: { data: CategoryMetrics[] }) {
               );
             }}
           />
-          <Legend
-            iconType="circle" iconSize={8}
-            formatter={(value) => <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>{value}</span>}
-          />
         </PieChart>
       </ResponsiveContainer>
+      {/* Custom legend rendered outside the SVG so it never clips the pie */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", marginTop: "12px", justifyContent: "center" }}>
+        {chartData.map((cat) => (
+          <span key={cat.category} style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "11px", color: "var(--text-muted)" }}>
+            <span style={{
+              width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+              background: CATEGORY_COLORS[cat.category] ?? "#6b7280",
+              display: "inline-block",
+            }} />
+            {cat.category}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -283,10 +294,10 @@ function CategoryPRChart({ data, period }: { data: CategoryMetrics[]; period: Pe
         Merged PRs (cumulative) · Open PRs (avg/repo)
       </p>
       <ResponsiveContainer width="100%" height={240}>
-        <BarChart data={chartData} layout="vertical" barSize={10} margin={{ left: 20, right: 40 }} barGap={2}>
+        <BarChart data={chartData} layout="vertical" barSize={10} margin={{ left: 0, right: 30 }} barGap={2}>
           <XAxis type="number" tick={{ fontSize: 11, fill: "var(--text-muted)" }}
             tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
-          <YAxis type="category" dataKey="category" width={190} tick={{ fontSize: 11, fill: "var(--text-secondary)" }} />
+          <YAxis type="category" dataKey="category" width={140} tick={{ fontSize: 11, fill: "var(--text-secondary)" }} />
           <Tooltip
             content={({ payload, label }) => {
               if (!payload?.length) return null;
@@ -329,7 +340,7 @@ function LeaderboardTable({
   const periodLabel = PERIODS.find((p) => p.key === period)?.label ?? period;
 
   return (
-    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
+    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px" }}>
       <div style={{ padding: "20px 24px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--border)" }}>
         <h2 style={{ fontSize: "13px", fontWeight: 600, margin: 0, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
           Top Repos — {periodLabel}
@@ -547,7 +558,7 @@ function EcosystemMapChart({ repos }: { repos: RadarRepo[] }) {
             X-axis: Trend Score · Y-axis: Sustainability Score · Each dot = one repo
           </p>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", fontSize: "10px", maxWidth: "320px", justifyContent: "flex-end" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", fontSize: "10px", maxWidth: "260px", justifyContent: "flex-end" }}>
           {categories.map((c) => (
             <span key={c} style={{ display: "flex", alignItems: "center", gap: "4px", color: "var(--text-muted)" }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: CATEGORY_COLORS[c] ?? "#888", display: "inline-block" }} />
@@ -599,7 +610,7 @@ function EcosystemMapChart({ repos }: { repos: RadarRepo[] }) {
       </ResponsiveContainer>
 
       {/* Quadrant hints */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "12px" }}>
+      <div className="quadrant-grid">
         {[
           { bg: "#22c55e22", label: "⭐ Rising Stars", desc: "High trend, high sustainability" },
           { bg: "#f59e0b22", label: "🚀 Breakouts", desc: "High trend, lower sustainability" },
