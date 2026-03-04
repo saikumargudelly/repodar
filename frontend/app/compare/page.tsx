@@ -90,7 +90,7 @@ function AddRepoBox({ onAdd }: { onAdd: (id: string) => void }) {
   const [val, setVal] = useState("");
   const handle = () => {
     const trimmed = val.trim();
-    if (trimmed.includes("/")) {
+    if (/^[^/\s]+\/[^/\s]+$/.test(trimmed)) {
       onAdd(trimmed);
       setVal("");
     }
@@ -136,7 +136,7 @@ function AddRepoBox({ onAdd }: { onAdd: (id: string) => void }) {
 function ComparePageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const initialIds = (searchParams.get("repos") ?? searchParams.get("ids") ?? "").split(",").filter((x) => x.includes("/"));
+  const initialIds = (searchParams.get("repos") ?? searchParams.get("ids") ?? "").split(",").filter((x) => /^[^/\s]+\/[^/\s]+$/.test(x.trim()));
   const [ids, setIds] = useState<string[]>(initialIds.slice(0, 5));
 
   const { data: repos, isLoading, error } = useQuery({

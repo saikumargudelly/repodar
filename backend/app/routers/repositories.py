@@ -101,42 +101,6 @@ def list_repos(
     return results[:limit]
 
 
-@router.get("/{repo_id}", response_model=RepoDetail)
-def get_repo(repo_id: str, db: Session = Depends(get_db)):
-    """Get full repo detail with latest scores and LLM explanation."""
-    repo = db.query(Repository).filter_by(id=repo_id).first()
-    if not repo:
-        raise HTTPException(status_code=404, detail="Repository not found")
-
-    latest_cm = (
-        db.query(ComputedMetric)
-        .filter_by(repo_id=repo_id)
-        .order_by(ComputedMetric.date.desc())
-        .first()
-    )
-
-    return RepoDetail(
-        id=repo.id,
-        owner=repo.owner,
-        name=repo.name,
-        category=repo.category,
-        description=repo.description,
-        github_url=repo.github_url,
-        primary_language=repo.primary_language,
-        age_days=repo.age_days,
-        trend_score=latest_cm.trend_score if latest_cm else None,
-        sustainability_score=latest_cm.sustainability_score if latest_cm else None,
-        sustainability_label=latest_cm.sustainability_label if latest_cm else None,
-        star_velocity_7d=latest_cm.star_velocity_7d if latest_cm else None,
-        star_velocity_30d=latest_cm.star_velocity_30d if latest_cm else None,
-        acceleration=latest_cm.acceleration if latest_cm else None,
-        contributor_growth_rate=latest_cm.contributor_growth_rate if latest_cm else None,
-        fork_to_star_ratio=latest_cm.fork_to_star_ratio if latest_cm else None,
-        issue_close_rate=latest_cm.issue_close_rate if latest_cm else None,
-        explanation=latest_cm.explanation if latest_cm else None,
-    )
-
-
 # ─── Comparison ──────────────────────────────────────────────────────────────
 
 class CompareEntry(BaseModel):
@@ -331,3 +295,41 @@ async def compare_history(
         results.append(RepoHistory(repo_id=repo_id, owner=owner, name=name, color_index=idx, history=history))
 
     return results
+
+
+# ─── Repo Detail (must be last — uses :path which matches anything) ───────────
+
+@router.get("/{repo_id:path}", response_model=RepoDetail)
+def get_repo(repo_id: str, db: Session = Depends(get_db)):
+    """Get full repo detail with latest scores and LLM explanation."""
+    repo = db.query(Repository).filter_by(id=repo_id).first()
+    if not repo:
+        raise HTTPException(status_code=404, detail="Repository not found")
+
+    latest_cm = (
+        db.query(ComputedMetric)
+        .filter_by(repo_id=repo_id)
+        .order_by(ComputedMetric.date.desc())
+        .first()
+    )
+
+    return RepoDetail(
+        id=repo.id,
+        owner=repo.owner,
+        name=repo.name,
+        category=repo.category,
+        description=repo.description,
+        github_url=repo.github_url,
+        primary_language=repo.primary_language,
+        age_days=repo.age_days,
+        trend_score=latest_cm.trend_score if latest_cm else None,
+        sustainability_score=latest_cm.sustainability_score if latest_cm else None,
+        sustainability_label=latest_cm.sustainability_label if latest_cm else None,
+        star_velocity_7d=latest_cm.star_velocity_7d if latest_cm else None,
+        star_velocity_30d=latest_cm.star_velocity_30d if latest_cm else None,
+        acceleration=latest_cm.acceleration if latest_cm else None,
+        contributor_growth_rate=latest_cm.contributor_growth_rate if latest_cm else None,
+        fork_to_star_ratio=latest_cm.fork_to_star_ratio if latest_cm else None,
+        issue_close_rate=latest_cm.issue_close_rate if latest_cm else None,
+        explanation=latest_cm.explanation if latest_cm else None,
+    )

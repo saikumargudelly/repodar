@@ -359,7 +359,8 @@ function LeaderboardTable({
           </thead>
           <tbody>
             {entries.map((repo) => {
-              const selected = compareSelection.includes(repo.repo_id);
+              const slug = `${repo.owner}/${repo.name}`;
+              const selected = compareSelection.includes(slug);
               const pinned = isPinned(repo.repo_id);
               return (
                 <tr
@@ -371,7 +372,7 @@ function LeaderboardTable({
                     <input
                       type="checkbox"
                       checked={selected}
-                      onChange={() => onToggleCompare(repo.repo_id)}
+                      onChange={() => onToggleCompare(slug)}
                       title="Add to comparison"
                       style={{ cursor: "pointer", accentColor: "#7c3aed" }}
                     />
@@ -757,7 +758,7 @@ export default function OverviewPage() {
 
   const openCompare = () => {
     if (compareSelection.length >= 2) {
-      router.push(`/compare?ids=${compareSelection.join(",")}`);
+      router.push(`/compare?repos=${compareSelection.join(",")}`);
     }
   };
 

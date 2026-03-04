@@ -1,6 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
   AreaChart, Area, LineChart, Line, XAxis, YAxis, Tooltip,
@@ -238,8 +239,8 @@ function MetricPill({ label, value, mono = false }: { label: string; value: stri
 }
 
 export default function RepoDeepDive() {
-  const params = useParams<{ id: string }>();
-  const repoId = params.id;
+  const params = useParams<{ id: string[] }>();
+  const repoId = Array.isArray(params.id) ? params.id.join("/") : params.id;
 
   const { data: repo, isLoading: repoLoading } = useQuery({
     queryKey: ["repo", repoId],
@@ -294,25 +295,44 @@ export default function RepoDeepDive() {
             </p>
           )}
         </div>
-        <a
-          href={repo.github_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            padding: "8px 16px",
-            border: "1px solid var(--border)",
-            borderRadius: "6px",
-            fontSize: "12px",
-            fontWeight: 600,
-            color: "var(--text-secondary)",
-            textDecoration: "none",
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-          }}
-        >
-          View on GitHub ↗
-        </a>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <Link
+            href={`/widget/repo/${repo.owner}/${repo.name}`}
+            style={{
+              padding: "8px 16px",
+              border: "1px solid var(--border)",
+              borderRadius: "6px",
+              fontSize: "12px",
+              fontWeight: 600,
+              color: "var(--text-muted)",
+              textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            Widget ⧉
+          </Link>
+          <a
+            href={repo.github_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              padding: "8px 16px",
+              border: "1px solid var(--border)",
+              borderRadius: "6px",
+              fontSize: "12px",
+              fontWeight: 600,
+              color: "var(--text-secondary)",
+              textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            View on GitHub ↗
+          </a>
+        </div>
       </div>
 
       {/* Score pills */}

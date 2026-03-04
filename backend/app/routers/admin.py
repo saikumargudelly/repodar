@@ -131,33 +131,37 @@ def trigger_explanations():
 
 
 @router.post("/run-all", response_model=PipelineStatus)
-async def run_full_pipeline():
+async def run_full_pipeline(background_tasks: BackgroundTasks):
     """
-    Run the full pipeline synchronously (discover → ingest → score → explain).
-    Useful for first-run setup and local testing.
-    WARNING: Blocks for several minutes while fetching all active repos.
+    Kick off the full pipeline in the background (discover → ingest → score → explain).
+    Returns immediately — check /admin/status to monitor progress.
     """
     from app.services.ingestion import run_daily_ingestion
     from app.services.scoring import run_daily_scoring
     from app.services.explanation import enrich_top_repos_with_explanations
+    import logging
+    logger = logging.getLogger("app.admin")
 
-    try:
-        ingest_result = await run_daily_ingestion()
-        score_result = run_daily_scoring()
-        explain_count = enrich_top_repos_with_explanations(top_n=20)
-        return PipelineStatus(
-            status="complete",
-            detail=(
-                f"Discovered: {ingest_result.get('discovered', 0)} new repos | "
-                f"Reactivated: {ingest_result.get('reactivated', 0)} | "
-                f"Deactivated: {ingest_result.get('deactivated', 0)} stale | "
-                f"Ingested: {ingest_result.get('ingested', 0)} | "
-                f"Scored: {score_result.get('scored', 0)} | "
-                f"Explanations: {explain_count}"
-            ),
-        )
-    except Exception as e:
-        return PipelineStatus(status="error", detail=str(e))
+    async def _run():
+        try:
+            ingest_result = await run_daily_ingestion()
+            score_result = run_daily_scoring()
+            explain_count = enrich_top_repos_with_explanations(top_n=20)
+            logger.info(
+                "run-all complete | discovered=%s ingested=%s scored=%s explained=%s",
+                ingest_result.get('discovered', 0),
+                ingest_result.get('ingested', 0),
+                score_result.get('scored', 0),
+                explain_count,
+            )
+        except Exception as e:
+            logger.error("run-all pipeline error: %s", e, exc_info=True)
+
+    background_tasks.add_task(_run)
+    return PipelineStatus(
+        status="started",
+        detail="Full pipeline is running in the background. Check /admin/status for progress.",
+    )
 
 
 @router.post("/discover", response_model=PipelineStatus)
@@ -185,7 +189,7 @@ async def trigger_discovery():
         return PipelineStatus(status="error", detail=str(e))
 
 
-@router.get("/status", response_model=dict)
+@router.get("/status")
 def get_status():
     """Pipeline health: repo count, latest ingestion date, latest scoring date."""
     from app.database import SessionLocal

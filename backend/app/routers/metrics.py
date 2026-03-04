@@ -45,7 +45,7 @@ class ComputedMetricPoint(BaseModel):
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
-@router.get("/{repo_id}/metrics", response_model=List[DailyMetricPoint])
+@router.get("/{repo_id:path}/metrics", response_model=List[DailyMetricPoint])
 def get_daily_metrics(
     repo_id: str,
     days: int = Query(30, ge=7, le=365),
@@ -82,7 +82,7 @@ def get_daily_metrics(
     ]
 
 
-@router.get("/{repo_id}/scores", response_model=List[ComputedMetricPoint])
+@router.get("/{repo_id:path}/scores", response_model=List[ComputedMetricPoint])
 def get_computed_scores(
     repo_id: str,
     days: int = Query(30, ge=7, le=365),
