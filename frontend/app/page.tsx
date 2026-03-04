@@ -4,11 +4,13 @@ import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Legend,
-  ResponsiveContainer, Cell,
+  BarChart, Bar, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, Cell, PieChart, Pie, Legend,
+  ScatterChart, Scatter, ZAxis,
 } from "recharts";
 import {
   api, Period, Vertical, CategoryMetrics, SustainabilityEntry, LeaderboardEntry,
+  RadarRepo, AlertResponse,
 } from "@/lib/api";
 import { SustainBadge } from "@/components/Nav";
 
@@ -149,44 +151,59 @@ function VerticalSelector({ selected, onChange }: { selected: Vertical; onChange
   );
 }
 
-function CategoryHeatmap({ data, period }: { data: CategoryMetrics[]; period: Period }) {
+// ─── Trend score colour (high=green, mid=amber, low=slate) ─────────────────
+function trendColor(score: number): string {
+  if (score >= 0.65) return "#22c55e";
+  if (score >= 0.40) return "#f59e0b";
+  return "#6b7280";
+}
+
+// ─── Chart 1: Category Trend Heatmap ────────────────────────────────────────
+function CategoryTrendHeatmap({ data, period }: { data: CategoryMetrics[]; period: Period }) {
   const periodLabel = PERIODS.find((p) => p.key === period)?.label ?? period;
   const chartData = [...data].sort((a, b) => b.trend_composite - a.trend_composite);
   return (
     <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "24px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
         <div>
-          <h2 style={{ fontSize: "13px", fontWeight: 600, margin: "0 0 2px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
-            Category Heatmap — Trend Score ({periodLabel})
+          <h2 style={{ fontSize: "13px", fontWeight: 600, margin: "0 0 4px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
+            Category Trend Score ({periodLabel})
           </h2>
           <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: 0 }}>
-            Weighted: Stars 40% · Acceleration 20% · Contributors 20% · Releases 10% · Issues 10%
+            Composite: Stars 40% · Acceleration 20% · Contributors 20% · Releases 10% · Issues 10%
           </p>
         </div>
+        <div style={{ display: "flex", gap: "12px", fontSize: "11px", color: "var(--text-muted)" }}>
+          {[["#22c55e", "High"], ["#f59e0b", "Mid"], ["#6b7280", "Low"]].map(([c, l]) => (
+            <span key={l} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: c, display: "inline-block" }} />{l}
+            </span>
+          ))}
+        </div>
       </div>
-      <ResponsiveContainer width="100%" height={240}>
-        <BarChart data={chartData} layout="vertical" barSize={20} margin={{ left: 20, right: 60 }}>
-          <XAxis type="number" domain={[0, 1]} tick={{ fontSize: 11, fill: "var(--text-muted)" }} tickFormatter={(v) => `${(v * 100).toFixed(0)}`} />
+      <ResponsiveContainer width="100%" height={260}>
+        <BarChart data={chartData} layout="vertical" barSize={18} margin={{ left: 20, right: 60 }}>
+          <XAxis type="number" domain={[0, 1]} tick={{ fontSize: 11, fill: "var(--text-muted)" }}
+            tickFormatter={(v) => `${(v * 100).toFixed(0)}`} />
           <YAxis type="category" dataKey="category" width={190} tick={{ fontSize: 12, fill: "var(--text-secondary)" }} />
           <Tooltip
             content={({ payload, label }) => {
               if (!payload?.length) return null;
-              const cat = payload[0]?.payload as CategoryMetrics;
+              const c = payload[0]?.payload as CategoryMetrics;
               return (
                 <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "6px", padding: "8px 12px", fontSize: "12px" }}>
-                  <p style={{ margin: "0 0 4px", fontWeight: 600, color: "var(--text-primary)" }}>{label}</p>
-                  <p style={{ margin: "0 0 2px", color: "var(--text-muted)" }}>Trend Score: <strong>{((cat?.trend_composite ?? 0) * 100).toFixed(1)}</strong></p>
-                  <p style={{ margin: "0 0 2px", color: "var(--text-muted)" }}>Total Stars: <strong>{cat?.total_stars?.toLocaleString()}</strong></p>
-                  <p style={{ margin: "0 0 2px", color: "var(--text-muted)" }}>Contributors: <strong>{cat?.total_contributors?.toLocaleString()}</strong></p>
-                  <p style={{ margin: "0 0 2px", color: "var(--text-muted)" }}>Merged PRs: <strong>{cat?.total_merged_prs?.toLocaleString()}</strong></p>
-                  <p style={{ margin: 0, color: "var(--text-muted)" }}>{cat?.repo_count} repos tracked</p>
+                  <p style={{ margin: "0 0 6px", fontWeight: 600, color: "var(--text-primary)" }}>{label}</p>
+                  <p style={{ margin: "0 0 2px", color: "var(--text-muted)" }}>Trend Score: <strong style={{ color: trendColor(c.trend_composite) }}>{(c.trend_composite * 100).toFixed(0)}</strong></p>
+                  <p style={{ margin: "0 0 2px", color: "var(--text-muted)" }}>Stars gained: <strong>{c.period_star_gain.toLocaleString()}</strong></p>
+                  <p style={{ margin: "0 0 2px", color: "var(--text-muted)" }}>Contributors: <strong>{c.total_contributors.toLocaleString()}</strong></p>
+                  <p style={{ margin: 0, color: "var(--text-muted)" }}>{c.repo_count} repos</p>
                 </div>
               );
             }}
           />
           <Bar dataKey="trend_composite" radius={[0, 4, 4, 0]}>
             {chartData.map((cat) => (
-              <Cell key={cat.category} fill={CATEGORY_COLORS[cat.category] ?? "#6b7280"} />
+              <Cell key={cat.category} fill={trendColor(cat.trend_composite)} />
             ))}
           </Bar>
         </BarChart>
@@ -195,105 +212,94 @@ function CategoryHeatmap({ data, period }: { data: CategoryMetrics[]; period: Pe
   );
 }
 
-function CategoryPieCharts({ data }: { data: CategoryMetrics[] }) {
-  const RADIAN = Math.PI / 180;
-  const renderLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: {
-    cx?: number; cy?: number; midAngle?: number;
-    innerRadius?: number; outerRadius?: number; percent?: number;
-  }) => {
-    const pct = percent ?? 0;
-    if (pct < 0.05) return null;
-    const ir = innerRadius ?? 0;
-    const or = outerRadius ?? 0;
-    const r  = ir + (or - ir) * 0.5;
-    const x  = (cx ?? 0) + r * Math.cos(-(midAngle ?? 0) * RADIAN);
-    const y  = (cy ?? 0) + r * Math.sin(-(midAngle ?? 0) * RADIAN);
-    return <text x={x} y={y} fill="#fff" textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight={600}>{`${(pct * 100).toFixed(0)}%`}</text>;
-  };
-
-  const starData  = data.map((d) => ({ name: d.category, value: d.total_stars }));
-  const prData    = data.map((d) => ({ name: d.category, value: d.total_merged_prs }));
-  const hasPrData = data.some((d) => d.total_merged_prs > 0);
-
+// ─── Chart 2: Stars Distribution (Donut) ────────────────────────────────────
+function CategoryStarsChart({ data }: { data: CategoryMetrics[] }) {
+  const chartData = [...data].sort((a, b) => b.total_stars - a.total_stars);
+  const total = chartData.reduce((s, c) => s + c.total_stars, 0);
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
-      {/* Stars Pie */}
-      <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "20px 24px" }}>
-        <h2 style={{ fontSize: "13px", fontWeight: 600, margin: "0 0 16px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
-          ⭐ Stars by Category
-        </h2>
-        <ResponsiveContainer width="100%" height={260}>
-          <PieChart>
-            <Pie
-              data={starData}
-              dataKey="value"
-              nameKey="name"
-              cx="50%"
-              cy="45%"
-              outerRadius={90}
-              labelLine={false}
-              label={renderLabel}
-            >
-              {starData.map((entry) => (
-                <Cell key={entry.name} fill={CATEGORY_COLORS[entry.name] ?? "#6b7280"} />
-              ))}
-            </Pie>
-            <Tooltip
-              formatter={(v: number | undefined) => (v ?? 0).toLocaleString()}
-              contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "6px", fontSize: "12px" }}
-            />
-            <Legend
-              iconType="circle"
-              iconSize={8}
-              wrapperStyle={{ fontSize: "11px", color: "var(--text-muted)", paddingTop: "8px" }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
+    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "24px" }}>
+      <h2 style={{ fontSize: "13px", fontWeight: 600, margin: "0 0 4px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
+        Stars Distribution
+      </h2>
+      <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: "0 0 16px" }}>
+        {total.toLocaleString()} total stars across all categories
+      </p>
+      <ResponsiveContainer width="100%" height={240}>
+        <PieChart>
+          <Pie
+            data={chartData}
+            dataKey="total_stars"
+            nameKey="category"
+            cx="50%" cy="50%"
+            innerRadius={55}
+            outerRadius={90}
+            paddingAngle={2}
+          >
+            {chartData.map((cat) => (
+              <Cell key={cat.category} fill={CATEGORY_COLORS[cat.category] ?? "#6b7280"} />
+            ))}
+          </Pie>
+          <Tooltip
+            content={({ payload }) => {
+              if (!payload?.length) return null;
+              const c = payload[0]?.payload as CategoryMetrics;
+              const pct = total > 0 ? ((c.total_stars / total) * 100).toFixed(1) : "0";
+              return (
+                <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "6px", padding: "8px 12px", fontSize: "12px" }}>
+                  <p style={{ margin: "0 0 4px", fontWeight: 600, color: "var(--text-primary)" }}>{c.category}</p>
+                  <p style={{ margin: "0 0 2px", color: "var(--text-muted)" }}>Stars: <strong>{c.total_stars.toLocaleString()}</strong></p>
+                  <p style={{ margin: 0, color: "var(--text-muted)" }}>Share: <strong>{pct}%</strong></p>
+                </div>
+              );
+            }}
+          />
+          <Legend
+            iconType="circle" iconSize={8}
+            formatter={(value) => <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>{value}</span>}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
 
-      {/* PRs Pie */}
-      <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "20px 24px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-          <h2 style={{ fontSize: "13px", fontWeight: 600, margin: 0, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
-            🔀 Merged PRs by Category
-          </h2>
-          {!hasPrData && (
-            <span style={{ fontSize: "10px", color: "var(--text-muted)", background: "var(--bg-elevated)", padding: "2px 8px", borderRadius: "4px" }}>
-              Run ingest to populate
-            </span>
-          )}
-        </div>
-        <ResponsiveContainer width="100%" height={260}>
-          <PieChart>
-            <Pie
-              data={hasPrData ? prData : data.map((d) => ({ name: d.category, value: d.repo_count }))}
-              dataKey="value"
-              nameKey="name"
-              cx="50%"
-              cy="45%"
-              outerRadius={90}
-              labelLine={false}
-              label={renderLabel}
-            >
-              {data.map((entry) => (
-                <Cell key={entry.category} fill={CATEGORY_COLORS[entry.category] ?? "#6b7280"} />
-              ))}
-            </Pie>
-            <Tooltip
-              formatter={(v: number | undefined, name: string | undefined) => [
-                (v ?? 0).toLocaleString(),
-                hasPrData ? (name ?? "") : `${name ?? ""} (repo count)`
-              ]}
-              contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "6px", fontSize: "12px" }}
-            />
-            <Legend
-              iconType="circle"
-              iconSize={8}
-              wrapperStyle={{ fontSize: "11px", color: "var(--text-muted)", paddingTop: "8px" }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
+// ─── Chart 3: PR Activity ────────────────────────────────────────────────────
+function CategoryPRChart({ data, period }: { data: CategoryMetrics[]; period: Period }) {
+  const periodLabel = PERIODS.find((p) => p.key === period)?.label ?? period;
+  const chartData = [...data]
+    .sort((a, b) => (b.total_merged_prs + b.avg_open_prs) - (a.total_merged_prs + a.avg_open_prs))
+    .slice(0, 8);
+  return (
+    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "24px" }}>
+      <h2 style={{ fontSize: "13px", fontWeight: 600, margin: "0 0 4px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
+        PR Activity
+      </h2>
+      <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: "0 0 16px" }}>
+        Merged PRs (cumulative) · Open PRs (avg/repo)
+      </p>
+      <ResponsiveContainer width="100%" height={240}>
+        <BarChart data={chartData} layout="vertical" barSize={10} margin={{ left: 20, right: 40 }} barGap={2}>
+          <XAxis type="number" tick={{ fontSize: 11, fill: "var(--text-muted)" }}
+            tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
+          <YAxis type="category" dataKey="category" width={190} tick={{ fontSize: 11, fill: "var(--text-secondary)" }} />
+          <Tooltip
+            content={({ payload, label }) => {
+              if (!payload?.length) return null;
+              const c = payload[0]?.payload as CategoryMetrics;
+              return (
+                <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "6px", padding: "8px 12px", fontSize: "12px" }}>
+                  <p style={{ margin: "0 0 6px", fontWeight: 600, color: "var(--text-primary)" }}>{label}</p>
+                  <p style={{ margin: "0 0 2px", color: "#a78bfa" }}>Merged PRs: <strong>{c.total_merged_prs.toLocaleString()}</strong></p>
+                  <p style={{ margin: "0 0 2px", color: "#67e8f9" }}>Open PRs: <strong>{c.avg_open_prs.toFixed(1)} avg/repo</strong></p>
+                  {c.period_pr_gain > 0 && <p style={{ margin: 0, color: "var(--text-muted)" }}>New ({periodLabel}): <strong>+{c.period_pr_gain}</strong></p>}
+                </div>
+              );
+            }}
+          />
+          <Bar dataKey="total_merged_prs" name="Merged PRs" fill="#a78bfa" radius={[0, 3, 3, 0]} />
+          <Bar dataKey="avg_open_prs" name="Avg open PRs" fill="#67e8f9" radius={[0, 3, 3, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 }
@@ -497,6 +503,203 @@ function SustainabilityRanking({ repos }: { repos: SustainabilityEntry[] }) {
   );
 }
 
+// ─── Ecosystem Map Chart (scatter: trend vs sustainability) ─────────────────
+function EcosystemMapChart({ repos }: { repos: RadarRepo[] }) {
+  // Group by category for multi-series scatter
+  const byCategory = repos.reduce<Record<string, { x: number; y: number; name: string; owner: string; category: string }[]>>(
+    (acc, r) => {
+      const key = r.category;
+      const point = {
+        x: Number((r.trend_score * 100).toFixed(2)),
+        y: Number((r.sustainability_score * 100).toFixed(2)),
+        name: r.name,
+        owner: r.owner,
+        category: r.category,
+      };
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(point);
+      return acc;
+    },
+    {}
+  );
+
+  const categories = Object.keys(byCategory);
+
+  return (
+    <div style={{
+      background: "var(--bg-surface)",
+      border: "1px solid var(--border)",
+      borderRadius: "10px",
+      padding: "24px",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+        <div>
+          <h2 style={{ fontSize: "13px", fontWeight: 600, margin: "0 0 4px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
+            AI Ecosystem Map
+          </h2>
+          <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: 0 }}>
+            X-axis: Trend Score · Y-axis: Sustainability Score · Each dot = one repo
+          </p>
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", fontSize: "10px", maxWidth: "320px", justifyContent: "flex-end" }}>
+          {categories.map((c) => (
+            <span key={c} style={{ display: "flex", alignItems: "center", gap: "4px", color: "var(--text-muted)" }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: CATEGORY_COLORS[c] ?? "#888", display: "inline-block" }} />
+              {c}
+            </span>
+          ))}
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={320}>
+        <ScatterChart margin={{ top: 10, right: 30, bottom: 20, left: 20 }}>
+          <XAxis
+            type="number" dataKey="x" name="Trend"
+            domain={[0, "auto"]}
+            tick={{ fontSize: 11, fill: "var(--text-muted)" }}
+            label={{ value: "Trend Score", position: "insideBottom", offset: -10, fontSize: 11, fill: "var(--text-muted)" }}
+          />
+          <YAxis
+            type="number" dataKey="y" name="Sustainability"
+            domain={[0, 100]}
+            tick={{ fontSize: 11, fill: "var(--text-muted)" }}
+            label={{ value: "Sustainability", angle: -90, position: "insideLeft", offset: 10, fontSize: 11, fill: "var(--text-muted)" }}
+          />
+          <ZAxis range={[30, 30]} />
+          <Tooltip
+            cursor={{ strokeDasharray: "3 3" }}
+            content={({ payload }) => {
+              if (!payload?.length) return null;
+              const d = payload[0]?.payload as { x: number; y: number; name: string; owner: string; category: string };
+              return (
+                <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "6px", padding: "8px 12px", fontSize: "12px" }}>
+                  <p style={{ margin: "0 0 4px", fontWeight: 600 }}>{d.owner}/{d.name}</p>
+                  <p style={{ margin: "0 0 2px", color: "var(--text-muted)" }}>Trend: <strong>{d.x}</strong></p>
+                  <p style={{ margin: "0 0 2px", color: "var(--text-muted)" }}>Sustainability: <strong>{d.y}</strong></p>
+                  <p style={{ margin: 0, color: CATEGORY_COLORS[d.category] ?? "#888", fontSize: "11px" }}>{d.category}</p>
+                </div>
+              );
+            }}
+          />
+          {categories.map((cat) => (
+            <Scatter
+              key={cat}
+              name={cat}
+              data={byCategory[cat]}
+              fill={CATEGORY_COLORS[cat] ?? "#888"}
+              opacity={0.85}
+            />
+          ))}
+        </ScatterChart>
+      </ResponsiveContainer>
+
+      {/* Quadrant hints */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "12px" }}>
+        {[
+          { bg: "#22c55e22", label: "⭐ Rising Stars", desc: "High trend, high sustainability" },
+          { bg: "#f59e0b22", label: "🚀 Breakouts", desc: "High trend, lower sustainability" },
+          { bg: "#3b82f622", label: "🏛 Established", desc: "Lower trend, high sustainability" },
+          { bg: "#6b728022", label: "⚠ Watch", desc: "Low trend, low sustainability" },
+        ].map(({ bg, label, desc }) => (
+          <div key={label} style={{ background: bg, borderRadius: "6px", padding: "6px 10px", fontSize: "11px" }}>
+            <span style={{ fontWeight: 600 }}>{label}</span>
+            <span style={{ color: "var(--text-muted)", marginLeft: "6px" }}>{desc}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+// ─── Alerts Panel ─────────────────────────────────────────────────────────────
+const ALERT_ICONS: Record<string, string> = {
+  star_spike_24h: "⭐",
+  star_spike_48h: "🌟",
+  momentum_surge: "🚀",
+  pr_surge: "🔀",
+  new_breakout: "🔥",
+};
+
+function AlertsPanel({
+  alerts,
+  onMarkRead,
+}: {
+  alerts: AlertResponse[];
+  onMarkRead: (id: string) => void;
+}) {
+  const unread = alerts.filter((a) => !a.is_read).length;
+
+  if (alerts.length === 0) return null;
+
+  return (
+    <div style={{
+      background: "var(--bg-surface)",
+      border: "1px solid var(--border)",
+      borderRadius: "10px",
+      padding: "24px",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <h2 style={{ fontSize: "13px", fontWeight: 600, margin: 0, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
+            Trend Alerts
+          </h2>
+          {unread > 0 && (
+            <span style={{
+              background: "#ef4444",
+              color: "#fff",
+              borderRadius: "999px",
+              fontSize: "10px",
+              fontWeight: 700,
+              padding: "1px 7px",
+              lineHeight: "16px",
+            }}>
+              {unread} new
+            </span>
+          )}
+        </div>
+        <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+          Last {alerts.length} alerts · click to dismiss
+        </span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+        {alerts.map((alert) => (
+          <div
+            key={alert.id}
+            onClick={() => !alert.is_read && onMarkRead(alert.id)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              padding: "10px 14px",
+              borderRadius: "8px",
+              border: "1px solid var(--border)",
+              background: alert.is_read ? "transparent" : "rgba(239,68,68,0.07)",
+              cursor: alert.is_read ? "default" : "pointer",
+              opacity: alert.is_read ? 0.6 : 1,
+              transition: "all 0.15s",
+            }}
+          >
+            <span style={{ fontSize: "18px", lineHeight: 1 }}>
+              {ALERT_ICONS[alert.alert_type] ?? "🔔"}
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: "13px", fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {alert.headline}
+              </p>
+              <p style={{ margin: "2px 0 0", fontSize: "11px", color: "var(--text-muted)" }}>
+                {alert.category} · {new Date(alert.triggered_at).toLocaleString()}
+              </p>
+            </div>
+            {!alert.is_read && (
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#ef4444", flexShrink: 0 }} />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function OverviewPage() {
   const router = useRouter();
   const [period, setPeriod] = useState<Period>("7d");
@@ -518,6 +721,31 @@ export default function OverviewPage() {
     queryKey: ["leaderboard", period, vertical],
     queryFn: () => api.getLeaderboard(period, undefined, 20, vertical),
   });
+
+  // Ecosystem map — full repo set with both scores
+  const { data: radarRepos } = useQuery({
+    queryKey: ["radar"],
+    queryFn: () => api.getRadar(false),
+    staleTime: 5 * 60 * 1000,   // re-fetch at most every 5 min
+  });
+
+  // Trend alerts
+  const [alerts, setAlerts] = useState<AlertResponse[]>([]);
+  const { data: alertsData } = useQuery({
+    queryKey: ["alerts"],
+    queryFn: () => api.getAlerts(false, 20),
+    refetchInterval: 60_000,    // poll for new alerts every 60 s
+  });
+  useEffect(() => {
+    if (alertsData) setAlerts(alertsData);
+  }, [alertsData]);
+
+  const handleMarkAlertRead = async (alertId: string) => {
+    try {
+      await api.markAlertRead(alertId);
+      setAlerts((prev) => prev.map((a) => a.id === alertId ? { ...a, is_read: true } : a));
+    } catch { /* silent fail — UI still optimistic */ }
+  };
 
   const toggleCompare = (repo_id: string) => {
     setCompareSelection((prev) =>
@@ -622,9 +850,22 @@ export default function OverviewPage() {
         />
       </div>
 
-      {/* Category Heatmap + Pie Charts */}
-      <CategoryHeatmap data={categoriesData ?? overview.category_growth} period={period} />
-      <CategoryPieCharts data={categoriesData ?? overview.category_growth} />
+      {/* Trend Alerts */}
+      {alerts.length > 0 && (
+        <AlertsPanel alerts={alerts} onMarkRead={handleMarkAlertRead} />
+      )}
+
+      {/* Category Charts Row */}
+      <CategoryTrendHeatmap data={categoriesData ?? overview.category_growth} period={period} />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+        <CategoryStarsChart data={categoriesData ?? overview.category_growth} />
+        <CategoryPRChart data={categoriesData ?? overview.category_growth} period={period} />
+      </div>
+
+      {/* Ecosystem Map — trend vs sustainability per repo */}
+      {radarRepos && radarRepos.length > 0 && (
+        <EcosystemMapChart repos={radarRepos} />
+      )}
 
       {/* Period + Vertical Leaderboard */}
       <LeaderboardTable

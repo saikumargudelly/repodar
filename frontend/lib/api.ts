@@ -83,17 +83,30 @@ export interface BreakoutRepo {
 export interface CategoryMetrics {
   category: string;
   total_stars: number;
+  total_contributors: number;
+  total_merged_prs: number;
   weekly_velocity: number;
   mom_growth_pct: number;
   repo_count: number;
   period_star_gain: number;
   period_pr_gain: number;
   avg_open_prs: number;
-  total_open_prs: number;
-  total_merged_prs: number;
-  total_contributors: number;
-  total_open_issues: number;
   trend_composite: number;
+}
+
+export interface AlertResponse {
+  id: string;
+  repo_id: string;
+  owner: string;
+  name: string;
+  category: string;
+  alert_type: "star_spike_24h" | "star_spike_48h" | "momentum_surge" | "pr_surge" | "new_breakout" | string;
+  window_days: number;
+  headline: string;
+  metric_value: number;
+  threshold: number;
+  triggered_at: string;  // ISO-8601
+  is_read: boolean;
 }
 
 export interface OverviewResponse {
@@ -338,4 +351,10 @@ export const api = {
   triggerFullPipeline: () =>
     apiFetch<PipelineStatus>("/admin/run-all", { method: "POST" }),
   getPipelineStatus: () => apiFetch<Record<string, unknown>>("/admin/status"),
+
+  // Alerts
+  getAlerts: (unreadOnly = false, limit = 20) =>
+    apiFetch<AlertResponse[]>(`/dashboard/alerts?unread_only=${unreadOnly}&limit=${limit}`),
+  markAlertRead: (alertId: string) =>
+    apiFetch<AlertResponse>(`/dashboard/alerts/${alertId}/read`, { method: "PATCH" }),
 };

@@ -29,6 +29,10 @@ class DailyMetric(Base):
     merged_prs: Mapped[int] = mapped_column(Integer, default=0)      # cumulative merged PRs
     releases: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Commit activity
+    commit_count: Mapped[int] = mapped_column(Integer, default=0)      # total commits on default branch
+    daily_commit_delta: Mapped[int] = mapped_column(Integer, default=0)  # new commits since last snapshot
+
     # Intra-day deltas (computed at ingestion time)
     daily_star_delta: Mapped[int] = mapped_column(Integer, default=0)
     daily_fork_delta: Mapped[int] = mapped_column(Integer, default=0)
