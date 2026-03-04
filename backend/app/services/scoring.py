@@ -21,18 +21,36 @@ def _today() -> date:
     return datetime.now(timezone.utc).date()
 
 
-# ─── DuckDB connection over SQLite ───────────────────────────────────────────
+# ─── DuckDB connection over SQLite or PostgreSQL ──────────────────────────────
 
 def _get_duck_conn():
-    """Open a DuckDB connection with the SQLite file attached (read-only)."""
+    """Open a DuckDB connection with SQLite/PostgreSQL attached (read-only)."""
     import os
     from dotenv import load_dotenv
     load_dotenv()
     db_url = os.getenv("DATABASE_URL", "sqlite:///./repodar.db")
-    sqlite_path = db_url.replace("sqlite:///", "")
+    
     conn = duckdb.connect()
-    conn.execute(f"INSTALL sqlite; LOAD sqlite;")
-    conn.execute(f"ATTACH '{sqlite_path}' AS repodar (TYPE sqlite)")
+    
+    if db_url.startswith("postgresql://") or db_url.startswith("postgres://"):
+        # Production: PostgreSQL on Railway
+        # Install and load PostgreSQL extension for DuckDB
+        try:
+            conn.execute("INSTALL postgres; LOAD postgres;")
+            # Remove postgres:// prefix if present, keep postgresql://
+            clean_url = db_url.replace("postgres://", "postgresql://")
+            conn.execute(f"ATTACH '{clean_url}' AS repodar (TYPE postgres)")
+        except Exception as e:
+            # If PostgreSQL extension fails, DuckDB fallback will trigger when _load_window_df_pandas is called
+            logger.warning(f"DuckDB PostgreSQL extension failed: {e}. Will use Pandas fallback.")
+            conn.close()
+            raise
+    else:
+        # Local development: SQLite
+        sqlite_path = db_url.replace("sqlite:///", "")
+        conn.execute("INSTALL sqlite; LOAD sqlite;")
+        conn.execute(f"ATTACH '{sqlite_path}' AS repodar (TYPE sqlite)")
+    
     return conn
 
 
