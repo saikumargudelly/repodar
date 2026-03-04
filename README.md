@@ -1,86 +1,90 @@
 # 📡 Repodar
 
-## The Real-Time AI/ML Ecosystem Radar
+## Real-Time AI/ML Trends That Actually Matter
 
-> **Stop scrolling GitHub trending. Start understanding what's *actually* moving the needle.**
+> Tired of GitHub Trending showing you projects that disappear in two weeks? 
 
-Repodar surfaces **380+ live AI/ML repos** — from the canonical 123 you should know, to the 257 breakthrough projects GitHub doesn't highlight. Real stars. Real trends. Real insights.
+Repodar watches **380+ AI/ML repos** so you don't have to. We track the ones everyone knows about (the big 123) plus the 257 hidden gems that are actually changing things. 
 
-[![Live Dashboard](https://img.shields.io/badge/live-dashboard-blue?style=flat&logo=github)](http://localhost:3000)
-[![Auto-Discovery](https://img.shields.io/badge/🔍-auto%20discovery-green?style=flat)](#auto-discovery)
-[![LLM Reports](https://img.shields.io/badge/🤖-groq%20powered-orange?style=flat)](#ai-powered-insights)
-[![100+ Categories](https://img.shields.io/badge/📊-13%20categories-purple?style=flat)](#ecosystem-tracking)
+Real data. Real momentum. Real insights.
 
----
-
-## 🎯 What Problem Does It Solve?
-
-| Problem | Repodar Answer |
-|---------|---|
-| **Info overload** | GitHub Trending shows 30 repos/day. Which matter in 6 months? | **Trending + 90d/365d/3y windows** + momentum scoring |
-| **Noise** | Popular != Sustainable. Popular != Active. | **TrendScore + SustainabilityScore** — dual signals |
-| **Manual tracking** | Adding 123 repos to favorites? Checking each daily? | **Auto-discovery** — system finds trending ones for you |
-| **Missing emerging trends** | Only track known repos? Miss the next LLaMA. | **Daily GitHub Trending scrape + Search API** across 13 verticals |
-| **No context** | Why is repo X trending? Is it here to stay? | **Analyst-grade insights** via Groq LLM (weekly reports) |
+🚀 [Try the dashboard](http://localhost:3000) • 📊 [See what's trending](#whats-hot) • 💡 [How it works](#how-it-works)
 
 ---
 
-## ✨ Core Features
+## What's Hot
 
-### 📊 Real-Time Trending Leaderboard
-- **Live GitHub Trending** — daily/weekly/monthly star gains (actual data, not estimates)
-- **Long-range windows** — 90d, 1y, 3y, 5y search API queries for sustained momentum
-- **Instant period switching** — toggle between Today → 5 years in one click
-- **Per-repo deep dives** — time-series charts with daily snapshots
+### 📊 Live Trending Dashboard
 
-### 🎁 Embeddable Widgets
-**Share live TrendScore badges in your repo README** — viral growth loop for devs:
+You get a real-time leaderboard of what's actually gaining stars. Switch between today, this week, last month — or zoom out to see the past 5 years.
+
+Not estimates. Not guesses. **Real star counts from GitHub.** Every single day.
+
+### ⏱️ Smart Time Windows
+
+Confused by "trending forever"? We show you momentum across multiple timeframes:
+- **Today** — what exploded in the last 24 hours
+- **This Week** — sustained momentum 
+- **Last Month** → **5 Years** — long-term staying power
+
+Flip between them in one click.
+
+### 🎁 Share Your Project's Score
+
+Embed a live card in your GitHub README that shows:
+- Your TrendScore (0–100, color-coded)
+- Current stars ⭐ and this week's gains
+- Sustainability rating
+
 ```html
-<iframe src="https://repodar.io/widget/repo/langchain-ai/langchain" width="380" height="200" frameborder="0"></iframe>
+<iframe src="http://localhost:3000/widget/repo/langchain-ai/langchain" width="380" height="200" frameborder="0"></iframe>
 ```
-- **SVG Circular TrendScore gauge** (0–100) color-coded by sustainability
-- **Live metrics** — stars, forks, weekly star velocity, acceleration arrows
-- **Markdown badge** — `![Repodar](https://api.repodar.app/widget/badge/{owner}/{name}.svg)`
-- **Auto-update** — reflects latest Repodar scores in real-time
 
-**Access:** Navigate to `/widget/repo/{owner}/{name}` → Copy embed code | Example: [/widget/repo/langchain-ai/langchain](http://localhost:3000/widget/repo/langchain-ai/langchain)
-
-### 🌐 Language & Tech Stack Radar
-**Track which programming languages are growing fastest across AI/ML repos:**
-- **Rankings by velocity** — Python vs Rust vs Go in inference engines
-- **Per-language stats** — repo count, weekly star velocity, avg trend score, sustainability
-- **Top repo per language** — best-in-class example for each tech stack
-- **Categories** — linked categories (LLM Models, Inference Engines, etc.)
-
-**Access:** Dashboard → `/radar` page, scroll to "Language & Tech Stack Radar" section
-
-**Unique angle:** No competitor tracks language-level ecosystem momentum.
-
-### 💡 Signal Explainer
-**Click any repo → see why it scored 87/100 in plain English:**
+Or just use the SVG badge:
+```markdown
+![Repodar](https://api.repodar.app/widget/badge/langchain-ai/langchain.svg)
 ```
-⭐ 7-day star velocity: +450/day (+35% vs prior week)
-🚀 Momentum: Accelerating (+0.0234)
-👥 Contributor growth (7d): +12 new devs (+18% change)
-🏷️ Release boost: 2 releases in last 7 days
-📊 Trend score: +45% vs prior snapshot
-```
-- **Color-coded signals** — Green for positive, red for negative
-- **Real metrics** — computed from daily ingestion data
-- **Human-readable breakdown** — no black boxes
 
-**Access:** `/repo/{id}` page → Scroll past LLM Insight to "Signal Explainer" card
+It updates automatically. Your README stays fresh.
 
-### 🏁 Competitor Comparison Mode
-**Side-by-side analysis for 2–5 repos with star history overlay:**
-- **Multi-line star history chart** — last 60 days, each repo in unique color
-- **Radar score comparison** — normalized metrics across all dimensions
-- **Metrics table** — direct numbers (stars, forks, velocity, sustainability)
-- **Shareable URL** — `https://repodar.io/compare?repos=vllm,sglang,ollama`
+### 🌐 Which Languages Are Winning?
 
-**Access:** `/compare` page | Add repos in search box | URL updates automatically
+See which tech stack is actually trending in AI/ML right now.
 
-**Example comparison:** [/compare?repos=langchain-ai/langchain,openai/gpt-engineer,anthropic/claude](http://localhost:3000/compare?repos=langchain-ai/langchain,openai/gpt-engineer,anthropic/claude)
+Python dominating? Yes. But is Rust catching up? Check. What about the new hotness?
+
+We rank languages by actual momentum, not just repo count. You'll see:
+- Stars per week (which language is gaining fastest?)
+- Average project health (are Rust AI projects more stable?)
+- The best example project in each language
+
+Navigate to `/radar` on the dashboard to see it.
+
+### 💡 Why Did It Trend? (Explained)
+
+No mysterious scores here. Click any project to see exactly why it hit a 87/100:
+
+**"This project just got 450 new stars every single day, up 35% from last week."**
+
+And you'll see:
+- 🔺 Trending up (or 🔻 down) & accelerating
+- 👥 New developers joining
+- 🏷️ Fresh releases = active development  
+- 📊 Week-over-week changes
+
+Real numbers. Real explanation. No black box.
+
+### 🏁 Compare Projects Side-by-Side
+
+Want to compare LangChain vs GPT-Engineer vs Claude? Or any 2–5 repos?
+
+Go to `/compare`, add the project names, and you'll see:
+- **Star history overlay** (who's winning this month?)
+- **Radar scores** (which dimensions is each strong in?)
+- **Direct numbers** (stars, forks, velocity, health)
+- **Shareable link** (send to friends/team)
+
+Example: [/compare?repos=langchain-ai/langchain,openai/gpt-engineer,anthropic/claude](http://localhost:3000/compare?repos=langchain-ai/langchain,openai/gpt-engineer,anthropic/claude)
 
 ---
 
@@ -136,19 +140,60 @@ Each category gets:
 
 ---
 
-## 🚀 Quick Start
+## How It Works
 
-### Zero to Dashboard in 5 Minutes
+### 🔍 Auto-Discovery (Every Day)
+
+Repodar wakes up every 24 hours and:
+
+1. **Finds new projects** → Searches GitHub Trending + API across AI/ML categories
+2. **Tracks them** → Pulls stars, forks, contributors, release activity
+3. **Scores them** → Calculates two numbers:
+   - **TrendScore** (0–100) — Is it hot right now?
+   - **SustainabilityScore** (0–100) — Will it last?
+4. **Gets human insights** → LLM generates weekly analysis
+5. **Cleans up** → Archives projects that went quiet
+
+**Result:** Started with 123 curated repos → Found 257 more automatically → Now tracking 380 total.
+
+All in about 3 minutes. Every day.
+
+### 🏆 Two Scores That Matter
+
+**TrendScore** answers: *Is everyone using this right now?*
+- How many new stars per day?
+- Is momentum accelerating or slowing?
+- How many developers are contributing?
+
+**SustainabilityScore** answers: *Will this still exist in 6 months?*
+- Is the team actively releasing?
+- Are they closing issues?
+- Is the contributor base growing?
+
+Both come out color-coded: 🟢 Green (healthy), 🟡 Yellow (okay), 🔴 Red (watch out).
+
+### 🤖 Weekly Insights From an AI Analyst
+
+Every week, we use Groq's AI to write a real analysis:
+
+*"The Agent Framework category is up 45% this week. LLaMA.cpp and Ollama are accelerating together — systems builders are finally commoditizing inference. Here's what's at risk of falling behind..."*
+
+No marketing fluff. Just data + analysis.
+
+---
+
+## 🚀 Get Started in 5 Minutes
 
 ```bash
-# Clone & enter
+# 1️⃣ Grab the code
 git clone <repo-url> && cd repodar
 
-# Backend setup
-cd backend && python -m venv .venv && source .venv/bin/activate
+# 2️⃣ Setup backend
+cd backend
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# Configure .env
+# 3️⃣ Create .env file with your API keys
 cat > .env << EOF
 GITHUB_TOKEN=github_pat_YOUR_TOKEN_HERE
 GROQ_API_KEY=gsk_YOUR_KEY_HERE
@@ -157,491 +202,156 @@ DATABASE_URL=sqlite:///./repodar.db
 REDIS_URL=redis://localhost:6379/0
 EOF
 
-# Migrate & populate
+# 4️⃣ Setup the database
 alembic upgrade head
 
-# One command: discover → ingest → score → explain
+# 5️⃣ Fire it up (optional - just run one manual trigger)
 curl -X POST http://localhost:8000/admin/run-all
 
-# Frontend
+# 6️⃣ Frontend
 cd ../frontend && npm install && npm run dev
 ```
 
-**Open [http://localhost:3000](http://localhost:3000)** ✨
+Then open **[http://localhost:3000](http://localhost:3000)** and start exploring.
 
 ---
 
-## 🏗 Architecture
+## 🏗 What Powers It
 
-```
-┌──────────────────────────────────────────────────────────┐
-│                     Repodar Stack                         │
-├──────────────────────────────────────────────────────────┤
-│                                                            │
-│  📱 Frontend                    🔌 Backend                │
-│  ┌─────────────────────┐       ┌──────────────────────┐  │
-│  │ Next.js 15          │       │ FastAPI + async      │  │
-│  │ TanStack Query      │       │ Celery + Redis       │  │
-│  │ Recharts (7 charts) │       │ SQLAlchemy + SQLite  │  │
-│  └─────────────────────┘       │ DuckDB (analytics)   │  │
-│                                 └──────────────────────┘  │
-│  📡 Data Pipeline                                         │
-│  ┌──────────────────────────────────────────────────────┐│
-│  │ 1. Auto-discovery  → GitHub Trending + Search API   ││
-│  │ 2. Ingestion       → GraphQL batch + REST fallback  ││
-│  │ 3. Scoring         → TrendScore + SustainabilityScore││
-│  │ 4. LLM Insights    → Groq weekly/monthly reports    ││
-│  │ 5. Deactivation    → Mark stale repos (60d cutoff)  ││
-│  └──────────────────────────────────────────────────────┘│
-│                                                            │
-│  💾 Data                                                   │
-│  ┌──────────────────────────────────────────────────────┐│
-│  │ SQLite: 380 repos × ~1000 days of metrics            ││
-│  │ Historical trend tracking + score evolution          ││
-│  └──────────────────────────────────────────────────────┘│
-└──────────────────────────────────────────────────────────┘
-```
+**Frontend:** Next.js 15 + React (real-time charts with TanStack Query)  
+**Backend:** FastAPI (fast Python API) + Celery (background jobs)  
+**Database:** SQLite (simple & reliable)  
+**AI:** Groq's LLama (for weekly insights)  
 
-### Tech Stack
-
-| Layer | Tech | Why |
-|-------|------|-----|
-| **Frontend** | Next.js 15 + TypeScript | Fast, modern, typed |
-| **API** | FastAPI (async) | High concurrency for GitHub API calls |
-| **Database** | SQLite + DuckDB | Embedded, ACID, analytical queries |
-| **Migrations** | Alembic | Version control for schema changes |
-| **Background Jobs** | Celery + Redis | Scheduled daily ingestion at scale |
-| **Scraping** | GitHub Trending | Real star-gain data since API doesn't expose it |
-| **API Client** | GitHub GraphQL + REST | Batch queries (25 repos/query) + incremental fetching |
-| **LLM** | Groq (llama-3.3-70b) | Fast inference, free tier, analyst-grade output |
+We grab data from GitHub's API every day, score it, analyze it, and serve it up fresh.
 
 ---
 
-## 📊 Dashboard Walkthrough
+## 📊 Dashboard at a Glance
 
-### Stat Cards
-- **Repos Tracked** — live count (now showing +257 auto-discovered)
-- **Top Category** — highest total stars
-- **#1 Trending** — today's top repo
-- **Sustainability** — % of repos with GREEN label
+**Quick Stats** at the top show what's happening:
+- 380 repos being tracked
+- What category is hottest
+- Today's #1 trending project
+- Overall ecosystem health
 
-### Charts
-1. **Category Trend Heatmap** — 7d/30d/90d momentum per vertical
-2. **Top Category by Stars** — ecosystem weight distribution
-3. **Category PRs** — development activity per vertical
-4. **Top Breakouts** — top 10 repos by TrendScore
-5. **Sustainability Ranking** — repos sorted by health
-6. **Weekly vs Monthly** — trend acceleration over periods
+**Charts** show momentum across categories and time periods.
 
-### Leaderboard
-- Click any period (Today, 7D, 30D, 90D, 1Y, 3Y, 5Y)
-- See real star gains + Repodar scores for tracked repos
-- Time-series chart for each repo
+**Leaderboard** — Pick a time window (today, this week, last month, last year) and see what's trending with real numbers, not guesses.
+
+Click any project to see detailed scores and breakdowns.
 
 ---
 
-## API Endpoints
+## 📡 API Endpoints (For Builders)
 
-### Dashboard & Leaderboard
 ```bash
-# Ecosystem overview (what you see on dashboard)
+# Get dashboard overview
 GET /dashboard/overview
-→ total_repos | discovered_repos | top_breakout | category_growth
+→ Overview stats + top trends
 
-# Real-time trending (live GitHub data)
+# Get trending repos for a time period
 GET /dashboard/leaderboard?period=7d&limit=30
-→ Latest trending repos with momentum signals
+→ List of trending repos with scores
 
-# Language & Tech Stack Radar
-GET /dashboard/languages?min_repos=2
-→ Languages ranked by weekly_star_velocity, with repo stats per language
-```
-
-### Repo Deep Dive
-```bash
-# Full repo profile with time-series data
+# Get a single repo's data
 GET /repos/{owner}/{name}
-→ Full 1-year time series with TrendScore history, daily metrics, computed scores
+→ Full profile with history & scores
 
-# Repo widget data (compact, for embeds)
+# Widget embed data (what your README card uses)
 GET /widget/repo/{owner}/{name}
-→ {owner, name, stars, forks, trend_score_pct, acceleration, velocity_7d, ...}
+→ Compact data for badges/embeds
 
-# Repo signal explainer (computed metrics breakdown)
-GET /repos/{repo_id}/computed-scores?days=60
-→ Time-series of TrendScore, SustainabilityScore, acceleration, velocity
-```
+# Compare multiple repos
+GET /repos/compare?ids=owner1/name1,owner2/name2
+→ Side-by-side comparison data
 
-### Comparison & Analytics
-```bash
-# Compare multiple repos side-by-side
-GET /repos/compare?ids=owner1/name1,owner2/name2,owner3/name3
-→ Normalized metrics across all repos for radar chart
-
-# Star history for comparison charts
-GET /repos/compare/history?ids=owner1/name1,owner2/name2&days=60
-→ Daily star counts for each repo, merged by date for LineChart overlay
-```
-
-### Admin & Maintenance
-```bash
-# Weekly analyst report
-GET /reports/weekly
-→ LLM-generated strategic insights
-
-# Check GitHub API health
-GET /admin/github-status
-→ Rate limit remaining | Token validity
-
-# Manually trigger pipeline
+# Manually run the discovery pipeline
 POST /admin/run-all
-→ Full cycle: discover → ingest → score → explain (3 min)
+→ Trigger a full refresh
 
-# Auto-discovery only
-POST /admin/discover
-→ Find trending repos + deactivate stale (30 sec)
+# Check GitHub API status
+GET /admin/github-status
+→ Rate limits + token health
 ```
 
 ---
 
-## 🔄 How Auto-Discovery Works
+## � You'll Need These API Keys
 
-### Every 24h:
-1. **Discover Phase** (30 sec)
-   - Scrape GitHub Trending (1d, 7d, 30d)
-   - Search API across 6 verticals
-   - Deduplicate 350+ results → ~50 net new repos
-   - Upsert with `source="auto_discovered"`
+Get them free (both have generous free tiers):
 
-2. **Ingest Phase** (2 min)
-   - GraphQL batch fetch (25 repos/query) for all 380 active repos
-   - REST fallback if GraphQL times out
-   - Store daily metrics (stars, forks, contributors, commits, etc.)
+**GitHub Token** → https://github.com/settings/tokens
+- Create a "Personal Access Token" with `repo` + `read:user` scope
+- Get 5,000 requests/hour (vs 60/hour without it)
 
-3. **Score Phase** (10 sec)
-   - Compute TrendScore + SustainabilityScore for each repo
-   - Calculate category-level growth metrics
-   - Generate alerts for momentum spikes
+**Groq API Key** → https://console.groq.com
+- Grab your free API key
+- Model: `llama-3.3-70b-versatile`
+- Free tier: plenty for weekly reports
 
-4. **LLM Phase** (20 sec)
-   - Groq generates weekly analyst report
-   - Top-20 repo explanations
-
-5. **Cleanup Phase** (5 sec)
-   - Deactivate auto-discovered repos inactive >60 days
-   - (Never deactivates seed repos — they're foundational)
-
-**Total time:** ~3.5 minutes | **API cost:** ~200-300 GitHub calls | **Data freshness:** <24h
-
----
-
-## 🎯 Key Insights You Get
-
-✅ **Which AI frameworks are rising fastest this week?**  
-→ Agent Frameworks up 45% WoW momentum
-
-✅ **Is LLama.cpp still relevant or aging out?**  
-→ SustainabilityScore 85% + new releases weekly → Still hot
-
-✅ **What new LLM inference engine should I watch?**  
-→ ExLlama2 discovered 8 days ago + 2000 stars/day → Breakout signal
-
-✅ **Category breakdown of the ecosystem?**  
-→ 18% LLM Models | 15% Infra | 12% Agents | 55% tooling/other
-
-✅ **Which repos are sustainable vs hype?**  
-→ RED flag repos (inactive, no releases) automatically marked
-
----
-
-## 🎯 Feature Usage Guide
-
-### 1️⃣ Using Embeddable Widgets
-
-**Share TrendScore in your README:**
-
-1. Navigate to `/widget/repo/{owner}/{name}`
-   ```
-   http://localhost:3000/widget/repo/langchain-ai/langchain
-   ```
-
-2. Copy the iframe code from the embed panel:
-   ```html
-   <iframe src="http://localhost:3000/widget/repo/langchain-ai/langchain" width="380" height="200" frameborder="0"></iframe>
-   ```
-
-3. Paste into your GitHub README.md
-
-4. **Or use the SVG badge:**
-   ```markdown
-   ![Repodar TrendScore](https://api.repodar.app/widget/badge/langchain-ai/langchain.svg)
-   ```
-
-The widget displays:
-- ✅ Live TrendScore (0–100) as circular gauge
-- ✅ Current stars ⭐
-- ✅ Weekly star velocity (+N stars)
-- ✅ Sustainability score (%)
-- ✅ Auto-updates as Repodar rescores
-
----
-
-### 2️⃣ Language & Tech Stack Radar
-
-**Discover fastest-growing languages in the AI/ML ecosystem:**
-
-1. Open dashboard → Click **"Breakout Radar"** → Scroll to **"Language & Tech Stack Radar"**
-   ```
-   http://localhost:3000/radar
-   ```
-
-2. Table shows:
-   - **#** — ranking by velocity
-   - **Language** — Python, Rust, Go, etc.
-   - **Repos** — how many tracked repos use it
-   - **Weekly Star Velocity** — +450 ⭐/week (color-coded)
-   - **Avg Trend Score** — average momentum for repos in this language
-   - **Avg Sustainability** — health % for this tech stack
-   - **Top Repo** — best example repo in this language
-   - **Categories** — LLM Models, Inference, Agent Frameworks, etc.
-
-3. **Insights you get:**
-   - Python dominance in data science? ✅ See velocity metrics
-   - Rust emerging in systems? ✅ Check % growth vs Python
-   - New language on the rise? ✅ Identified automatically
-
----
-
-### 3️⃣ Signal Explainer
-
-**Understand why a repo scored 87/100:**
-
-1. Click any repo from the radar table (or navigate directly):
-   ```
-   http://localhost:3000/repo/{repo_uuid}
-   ```
-
-2. Scroll past the **"Analyst Insight"** section to **"Signal Explainer"**
-
-3. You'll see 5 human-readable signals:
-
-   ```
-   ⭐ 7-day star velocity: +450/day (+35% vs prior week)
-      ↳ This repo gained 450 stars EACH DAY last week
-      ↳ Up 35% compared to the week before → momentum is accelerating
-   
-   🚀 Momentum: Accelerating (accel: +0.0234)
-      ↳ Acceleration is positive → gaining speed
-      ↳ Would be 📉 Decelerating if trending downward
-   
-   👥 Contributor growth (7d): +12 new devs (+18% change)
-      ↳ 12 new developers joined in the last week
-      ↳ Up 18% from the prior week
-   
-   🏷️ Release boost: 2 releases in last 7 days
-      ↳ Active development signal
-      ↳ Fresh features/fixes being pushed
-   
-   📊 Trend score: 0.001234 (+45% vs prior snapshot)
-      ↳ TrendScore increased 45% since last scoring run
-      ↳ Momentum is strong & accelerating
-   ```
-
-4. **Why this matters:**
-   - No black boxes — you see exactly what's driving the score
-   - Compare signals across repos (Repo A has ↑ velocity but ↓ contributors)
-   - Make informed decisions (Strong trend + new releases? Worth watching)
-
----
-
-### 4️⃣ Competitor Comparison Mode
-
-**Compare 2–5 repos side-by-side with shared URL:**
-
-1. Open comparison page:
-   ```
-   http://localhost:3000/compare
-   ```
-
-2. Add repos in the search box:
-   ```
-   langchain-ai/langchain
-   openai/gpt-engineer
-   anthropic/claude
-   ```
-
-3. URL auto-updates to shareable link:
-   ```
-   http://localhost:3000/compare?repos=langchain-ai/langchain,openai/gpt-engineer,anthropic/claude
-   ```
-
-4. You'll see:
-   - ✅ **Star History Chart** (60-day overlay)
-     - Each repo in unique color
-     - See absolute growth trajectories
-     - Hover for exact star counts on each date
-   
-   - ✅ **Radar Chart** (normalized scores)
-     - All 6 dimensions: Trend | Sustainability | Velocity | Acceleration | Contributors | Fork/Star
-     - Visually compare repo profiles
-   
-   - ✅ **Metrics Table** (detailed breakdown)
-     - Stars, forks, age, trend score, sustainability, velocity, etc.
-     - Cell highlighting for top performer in each metric
-
-5. **Share the URL:**
-   - Copy from browser → Share on Slack, Discord, Twitter
-   - Recipients see live comparison (auto-updates)
-   - Useful for: investment decisions, tech selection, ecosystem tracking
-
----
-
-## 🛠 Advanced Usage
-
-### Run pipeline manually
-```bash
-curl -X POST http://localhost:8000/admin/run-all
-```
-
-### Check GitHub API rate limit
-```bash
-curl http://localhost:8000/admin/github-status
-# Returns: {token_valid, rate_limit_remaining, rate_limit_reset}
-```
-
-### Query specific discovered repos
-```bash
-sqlite3 backend/repodar.db \
-  "SELECT owner, name, source, discovered_at FROM repositories WHERE source='auto_discovered' LIMIT 10"
-```
-
-### Get repo metrics for a specific date
-```bash
-curl "http://localhost:8000/metrics/{repo_id}/daily?date=2026-03-04"
-```
-
----
-
-## 📋 Environment Setup
-
-Create `backend/.env`:
-
+Then create `backend/.env`:
 ```env
-# Required
-GITHUB_TOKEN=github_pat_XXXXXXX        # From https://github.com/settings/tokens
-GROQ_API_KEY=gsk_XXXXXXX              # From https://console.groq.com
+GITHUB_TOKEN=github_pat_YOUR_TOKEN
+GROQ_API_KEY=gsk_YOUR_KEY
 GROQ_MODEL=llama-3.3-70b-versatile
-
-# Database
 DATABASE_URL=sqlite:///./repodar.db
-
-# Background jobs (Celery)
 REDIS_URL=redis://localhost:6379/0
-
-# Debug
-APP_ENV=development  # or production
+APP_ENV=development
 ```
 
 ---
 
-## 🚨 Common Issues & Fixes
+## 🤔 Stuck? Common Issues
 
-| Issue | Solution |
-|-------|----------|
-| "Using REST fallback for..." | Normal — GraphQL timed out, retrying with REST API |
-| "HTTP 403" warnings | GitHub rate limit hit — check `/admin/github-status` |
-| "HTTP 404" on seed repos | Repo deleted on GitHub — remove from `repos.yaml` |
-| Celery not running | Not needed for dev — use `/admin/run-all` instead of cron |
-| No data after run | Check backend logs — may need GITHUB_TOKEN validation |
+| Problem | Fix |
+|---------|-----|
+| "Using REST fallback..." | GitHub GraphQL timed out. Normal. It retries. |
+| "HTTP 403" | You hit GitHub rate limit. Wait an hour or upgrade token scope. |
+| "404 on seed repos" | Repository was deleted on GitHub. Remove from `repos.yaml`. |
+| No data after running | Check GitHub token is valid: `curl -H "Authorization: token YOUR_TOKEN" https://api.github.com/user` |
+| Celery not running | Not needed for dev. Use `curl -X POST http://localhost:8000/admin/run-all` instead. |
 
 ---
 
-## 🎓 Learning Resources
+## 🎓 Want to Understand the Magic?
 
-- **[./backend/app/services/scoring.py](./backend/app/services/scoring.py)** — TrendScore + SustainabilityScore algorithms
-- **[./backend/app/services/ingestion.py](./backend/app/services/ingestion.py)** — Auto-discovery + incremental fetching logic
-- **[./frontend/app/page.tsx](./frontend/app/page.tsx)** — Dashboard charts & real-time updates
+Dive into the code:
+- [Scoring logic](./backend/app/services/scoring.py) — How TrendScore & SustainabilityScore work
+- [Auto-discovery](./backend/app/services/ingestion.py) — How we find new projects
+- [Dashboard](./frontend/app/page.tsx) — Chart rendering & real-time updates
 
 ---
 
 ## 📝 License
 
-This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
+**GNU Affero General Public License v3.0 (AGPL-3.0)**
 
-### What This Means
+- ✅ Use it for research, personal projects, open-source work
+- ✅ Modify and customize as needed
+- ✅ Share improvements back with the community
+- ⚠️ If you deploy it as a service, you must open-source your changes
 
-- ✅ **Free to use** for research, personal projects, and open-source deployments
-- ✅ **Free to modify** — fork and customize the code
-- ✅ **Free to distribute** — share improvements with the community
-- ⚠️ **Network clause** — if you run a modified version as a service accessible over the network, you **must make your modifications available** to users under the same AGPL-3.0 license
-
-### Commercial Use
-
-- **Cloud/SaaS deployment?** Contact maintainers for alternative licensing options
-- **Internal enterprise use** of unmodified code is permitted
-- **Attribution required** — must credit Repodar in any distribution
-
-### Details
-
-See the full [LICENSE](./LICENSE) file for complete terms. For a summary, visit [GNU Affero GPL v3.0](https://www.gnu.org/licenses/agpl-3.0.html).
+See [LICENSE](./LICENSE) for full details.
 
 ---
 
 ## 🤝 Contributing
 
-Found a bug? Want to add a new category? Have ideas for scoring improvements?
+Have an idea? Found a bug? Want to help?
 
-Please read our [Contributing Guide](./CONTRIBUTING.md) for:
-- How to set up development environment
-- Contribution workflow
-- Code standards (Python & TypeScript)
-- Testing requirements
+1. Check [Contributing Guide](./CONTRIBUTING.md) for setup + standards
+2. Fork the repo
+3. Create a feature branch
+4. Commit & push
+5. Open a PR
 
-Summary:
-1. Fork the repo
-2. Create a feature branch: `git checkout -b feature/your-feature`
-3. Commit with clear messages
-4. Submit a PR with description of changes
-
-By contributing, you agree your work will be licensed under AGPL-3.0. See [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) for community guidelines.
+We follow the [Contributor Covenant](./CODE_OF_CONDUCT.md) — be kind, be respectful.
 
 ---
 
-## 🔗 What's Next?
+## ✨ Made for the AI/ML Community
 
-- [x] **Public leaderboard embeds** — iframe widgets ✅ Live on `/widget/repo/{owner}/{name}`
-- [x] **Language & Tech Stack Radar** ✅ New section on `/radar` page
-- [x] **Signal Explainer** ✅ Human-readable score breakdown on `/repo/{id}`
-- [x] **Competitor Comparison Mode** ✅ Multi-repo analysis on `/compare?repos=...`
-- [ ] API rate limit optimization (cache more queries)
-- [ ] Export reports to PDF/email
-- [ ] Slack integration for alerts
-- [ ] GitOps deployment guide
-- [ ] Mobile-responsive widget design
+Repodar exists to help you stay ahead of the curve. No hype. No noise. Just real signals. Real trends. Real insights.
 
----
-
-**Built with ❤️ for the AI/ML community. Stay updated. Stay ahead.**
-
-
-```bash
-# In a separate terminal (requires Redis running)
-cd backend
-celery -A app.celery_worker worker --loglevel=info
-celery -A app.celery_worker beat --loglevel=info
-```
-
-For development, use `POST /admin/run-all` instead.
-
----
-
-## Environment Variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `GITHUB_TOKEN` | ✅ | GitHub PAT — raises rate limit to 5000 req/hr |
-| `GROQ_API_KEY` | ✅ | Groq API key for LLM report generation |
-| `GROQ_MODEL` | ✅ | Model ID (e.g. `llama-3.3-70b-versatile`) |
-| `DATABASE_URL` | ✅ | SQLite path (default: `sqlite:///./repodar.db`) |
-| `REDIS_URL` | ⚠️ | Required only for Celery workers |
-| `APP_ENV` | — | `development` or `production` |
+🚀 [Try it now](http://localhost:3000)

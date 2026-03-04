@@ -1,211 +1,154 @@
 # Contributing to Repodar
 
-Thank you for your interest in contributing to Repodar! We welcome contributions from the community to help improve our AI/ML ecosystem radar. This document outlines how you can get involved.
+Want to help make Repodar better? Great! We love contributions — whether it's bug reports, feature ideas, or full pull requests.
 
-## 🤝 Code of Conduct
+First, check out our [Code of Conduct](./CODE_OF_CONDUCT.md). TL;DR: be kind, be respectful, report problems.
 
-This project adheres to a [Code of Conduct](./CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to the project maintainers.
+## 🐛 Found a Bug?
 
-## 🚀 How to Contribute
+Open an issue and tell us:
+- What happened (clear title)
+- How to recreate it
+- What you expected vs what you got
+- A screenshot or error log if possible
+- Your setup (OS, Python version, etc.)
 
-### 1. **Report Bugs**
+## 💡 Have an Idea?
 
-If you find a bug, please open an issue with:
-- A clear, descriptive title
-- A detailed description of the issue
-- Steps to reproduce the behavior
-- Expected vs. actual behavior
-- Screenshots or error logs (if applicable)
-- Your environment details (OS, Python/Node version, etc.)
+Love it. Before you start:
+1. Check [existing issues](../../issues) and [roadmap](./ROADMAP.md) — someone might already be working on it
+2. Describe what problem it solves
+3. Show how it helps developers
+4. Include an example or two
 
-### 2. **Suggest Enhancements**
+## 🔧 Ready to Code?
 
-We love feature ideas! Before submitting, check existing [issues](../../issues) and [roadmap](./ROADMAP.md) to avoid duplicates.
+Here's the flow:
 
-When proposing a feature:
-- Describe the problem it solves
-- Explain how it benefits the AI/ML community
-- Include use cases and examples
-- Consider performance and scalability implications
+1. **Fork the repo**
+2. **Create a branch**: `git checkout -b feature/my-cool-feature`
+3. **Make your changes** (follow our [code standards](#code-standards) below)
+4. **Write tests** (new code = new tests)
+5. **Update docs** if you changed user-facing stuff
+6. **Commit with clear messages**: describe *what* and *why*
+7. **Push to your fork**
+8. **Open a PR** with a description of what you did and why
 
-### 3. **Submit Pull Requests**
+**PR Tips:**
+- Title format: `[FEATURE/BUG/DOCS] What you did`
+- Link related issues: `Fixes #123` or `Relates to #456`
+- Include tests for new functionality
+- Update README if needed
+- No breaking changes without discussion
 
-#### Pre-submission checklist:
-- [ ] Fork the repository
-- [ ] Create a feature branch: `git checkout -b feature/your-feature-name`
-- [ ] Make your changes following our [code standards](#code-standards)
-- [ ] Write or update tests (if applicable)
-- [ ] Update documentation
-- [ ] Commit with clear, descriptive messages
-- [ ] Push to your fork
-- [ ] Open a PR with a clear description
+## 💻 Code Standards
 
-#### Pull Request Guidelines:
-- **Title**: Use format `[FEATURE/BUG/DOCS] Brief description`
-- **Description**: Clearly explain what changes were made and why
-- **Link issues**: Reference related issues using `Fixes #123` or `Relates to #456`
-- **Tests**: Include tests for new functionality
-- **Documentation**: Update README, API docs, or inline comments as needed
-- **No breaking changes** without discussion
+### Python (Backend)
 
-## 📋 Code Standards
+Keep it clean and typed:
+- Follow [PEP 8](https://www.python.org/dev/peps/pep-0008/)
+- Add type hints: `def score(stars: int) -> float:`
+- Write docstrings (explain the *why*, not just the *what*)
+- Aim for 70%+ test coverage
+- Format with `black`, lint with `flake8`
 
-### Backend (Python/FastAPI)
-- Follow [PEP 8](https://www.python.org/dev/peps/pep-0008/) style guidelines
-- Use type hints for function arguments and returns
-- Write docstrings for classes and public methods
-- Maintain > 70% test coverage for new code
-- Use `pytest` for testing
-- Format with `black` and lint with `flake8`
-
-**Example:**
 ```python
-def calculate_trend_score(
-    velocity: float,
-    acceleration: float,
-    fork_ratio: float
-) -> float:
-    """
-    Calculate composite TrendScore based on multiple signals.
-    
-    Args:
-        velocity: 7-day star velocity per day
-        acceleration: Momentum change vs prior week
-        fork_ratio: Fork-to-star ratio
-        
-    Returns:
-        Normalized score (0-100)
-    """
-    # Implementation here
-    pass
+def calculate_trend_score(velocity: float, acceleration: float) -> float:
+    """Calculate TrendScore from momentum signals."""
+    return (velocity * 0.6) + (acceleration * 0.4)
 ```
 
-### Frontend (Next.js/React/TypeScript)
-- Follow [Airbnb JavaScript Style Guide](https://github.com/airbnb/javascript)
-- Use TypeScript for type safety
-- Component names: PascalCase
-- File names: kebab-case (e.g., `trend-gauge.tsx`)
-- Write JSDoc comments for complex components
-- Use semantic HTML and ARIA labels for accessibility
-- Test with React Testing Library
+### TypeScript/React (Frontend)
 
-**Example:**
+Type-first and accessible:
+- Follow [Airbnb Style Guide](https://github.com/airbnb/javascript)
+- Use TypeScript everywhere
+- Component names: `PascalCase`, filenames: `kebab-case`
+- Add JSDoc for complex components
+- Use semantic HTML + ARIA labels
+- Test components with React Testing Library
+
 ```typescript
-/**
- * Renders a circular gauge showing TrendScore (0-100)
- * @param pct - Percentage value (0-100)
- * @param label - Sustainability label (GREEN, YELLOW, RED)
- */
-function TrendGauge({ pct, label }: { pct: number; label: string | null }) {
-  // Implementation here
+/** Circular gauge showing TrendScore (0-100) */
+function TrendGauge({ pct, label }: GaugeProps) {
+  return <>;  // Your code here
 }
 ```
 
-### Database Migrations
-- Use Alembic for schema changes
-- Naming: `[timestamp]_[description].py`
-- Include both upgrade and downgrade paths
-- Test migrations on dev data before PR
+### Database Schema
+
+Use Alembic:
+- File naming: `[timestamp]_description.py`
+- Always include upgrade AND downgrade
+- Test on sample data before PR
 
 ## 🧪 Testing
 
-### Backend Tests
+Run tests before you commit:
+
 ```bash
-cd backend
-.venv/bin/python -m pytest tests/ -v --cov=app --cov-report=html
+# Backend
+cd backend && python -m pytest tests/ -v --cov=app
+
+# Frontend
+cd frontend && npm test -- --coverage
 ```
 
-### Frontend Tests
+Aim for great coverage — it catches bugs early.
+
+## 📝 Documentation
+
+Update docs when you change stuff:
+- **User-facing changes?** Update [README.md](./README.md)
+- **New features?** Add to [ROADMAP.md](./ROADMAP.md)
+- **Code changes?** Write docstrings + comments
+- **Complex components?** Add JSDoc or inline explanations
+
+Keep it simple. You're writing for humans, not machines.
+
+## 🚀 Local Development
+
+Get up and running:
+
 ```bash
-cd frontend
-npm test -- --coverage
+# Setup
+cd backend && python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cd ../frontend && npm install
+
+# Run (2 terminals)
+# Terminal 1
+cd backend && python -m uvicorn app.main:app --reload
+
+# Terminal 2
+cd frontend && npm run dev
+
+# Setup database
+cd backend && alembic upgrade head
 ```
 
-## 📚 Documentation
+Now you have a local environment. Change stuff. Test it. Done.
 
-- Update [README.md](./README.md) for user-facing changes
-- Add docstrings to Python functions
-- Include JSDoc comments in TypeScript/React
-- Update [ROADMAP.md](./ROADMAP.md) for planned features
-- Use clear, concise language
-- Include examples where helpful
+## 🤔 Looking for Ideas?
 
-## 🔄 Development Workflow
+Check these areas — they need love:
 
-1. **Setup Development Environment**
-   ```bash
-   # Backend
-   cd backend
-   python -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   
-   # Frontend
-   cd ../frontend
-   npm install
-   ```
+- **Auto-Discovery**: Add new categories, improve signal detection
+- **Scoring**: Refine TrendScore, validate SustainabilityScore with feedback
+- **API**: New endpoints, webhooks, filtering options
+- **Frontend**: Dark mode, mobile responsiveness, accessibility
+- **Docs**: Architecture guides, deployment docs, tutorials
 
-2. **Run Local Services**
-   ```bash
-   # Terminal 1: Backend
-   cd backend && .venv/bin/python -m uvicorn app.main:app --reload --port 8000
-   
-   # Terminal 2: Frontend
-   cd frontend && npm run dev
-   ```
+Or pick something from [ROADMAP.md](./ROADMAP.md)!
 
-3. **Database Migrations**
-   ```bash
-   cd backend
-   alembic upgrade head
-   ```
+## 💬 Need Help?
 
-## 🎯 Priority Areas
+- **Confused?** Open an issue and ask
+- **Want to discuss?** Use [GitHub Discussions](../../discussions)
+- **Direct help?** Contact maintainers on GitHub
 
-Looking for where to contribute? These areas need help:
+## 📄 License & Thanks
 
-1. **Auto-Discovery Engine Improvements**
-   - Expand category coverage
-   - Improve trending signal detection
-   - Add new search domains
+Bycontributing, your code gets licensed under [AGPL-3.0](./LICENSE) — same as the project.
 
-2. **Scoring Algorithm Refinements**
-   - Enhance TrendScore calculations
-   - Better sustainability metrics
-   - Community feedback integration
-
-3. **API Enhancements**
-   - New endpoints for advanced filtering
-   - Webhook support for notifications
-   - GraphQL integration
-
-4. **Frontend/UX**
-   - Dark/light theme improvements
-   - Mobile responsive design
-   - Accessibility enhancements
-
-5. **Documentation**
-   - Architecture diagrams
-   - Deployment guides
-   - API reference improvements
-
-## 📞 Questions or Need Help?
-
-- **Issues**: Open a discussion issue for questions
-- **Community**: [GitHub Discussions](../../discussions)
-- **Email**: Contact maintainers via GitHub
-
-## 📄 License
-
-By contributing, you agree that your contributions will be licensed under the [AGPL-3.0 License](./LICENSE).
-
-## ✨ Recognition
-
-We recognize and appreciate all contributors! Contributors will be:
-- Added to the project contributors list
-- Credited in release notes
-- Featured in monthly community updates
-
----
-
-**Thank you for making Repodar better!** 🚀
+We'll credit you in release notes and monthly updates. And honestly? Your contribution makes Repodar better for everyone. That's the real thank you. 🚀
