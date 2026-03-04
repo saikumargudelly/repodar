@@ -6,10 +6,39 @@ import { api, WidgetData } from "@/lib/api";
 
 // ─── Colour mapping ───────────────────────────────────────────────────────────
 const LABEL_COLOR: Record<string, string> = {
-  GREEN: "#22c55e",
+  GREEN:  "#22c55e",
   YELLOW: "#f59e0b",
-  RED: "#ef4444",
+  RED:    "#ef4444",
 };
+
+// ─── Circular TrendScore gauge ────────────────────────────────────────────────
+function TrendGauge({ pct, label }: { pct: number; label: string | null }) {
+  const color = LABEL_COLOR[label ?? "YELLOW"] ?? "#f59e0b";
+  const r = 22;
+  const circ = 2 * Math.PI * r;
+  const dash = (pct / 100) * circ;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
+      <svg width="60" height="60" viewBox="0 0 60 60">
+        <circle cx="30" cy="30" r={r} fill="none" stroke="#1e2230" strokeWidth="5" />
+        <circle
+          cx="30" cy="30" r={r} fill="none"
+          stroke={color} strokeWidth="5"
+          strokeDasharray={`${dash} ${circ - dash}`}
+          strokeLinecap="round"
+          transform="rotate(-90 30 30)"
+        />
+        <text x="30" y="34" textAnchor="middle" fill="#f1f5f9" fontSize="13" fontWeight="700"
+          fontFamily="'Inter','system-ui',sans-serif">
+          {pct}
+        </text>
+      </svg>
+      <span style={{ fontSize: "9px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.4px" }}>
+        TrendScore
+      </span>
+    </div>
+  );
+}
 
 // ─── Card ─────────────────────────────────────────────────────────────────────
 function ScoreCard({ data }: { data: WidgetData }) {
@@ -18,21 +47,27 @@ function ScoreCard({ data }: { data: WidgetData }) {
     data.sustainability_score !== null
       ? `${Math.round(data.sustainability_score * 100)}%`
       : null;
+  const vel7d = data.star_velocity_7d != null
+    ? `+${Math.round(data.star_velocity_7d * 7).toLocaleString()}`
+    : null;
+  const accelArrow = data.acceleration != null
+    ? data.acceleration > 0 ? " ↑" : data.acceleration < 0 ? " ↓" : ""
+    : "";
 
   return (
     <div style={{
-      fontFamily: "'Inter', 'system-ui', sans-serif",
+      fontFamily: "'Inter','system-ui',sans-serif",
       background: "#0f1117",
       border: "1px solid #1e2230",
       borderRadius: "10px",
       padding: "16px 20px",
       color: "#f1f5f9",
-      width: "340px",
+      width: "360px",
       boxSizing: "border-box",
     }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "12px" }}>
-        <div>
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "14px" }}>
+        <div style={{ flex: 1, minWidth: 0, paddingRight: "12px" }}>
           <a
             href={data.github_url}
             target="_blank"
@@ -49,60 +84,54 @@ function ScoreCard({ data }: { data: WidgetData }) {
           )}
           {data.description && (
             <p style={{ fontSize: "11px", color: "#64748b", margin: "4px 0 0", lineHeight: "1.4" }}>
-              {data.description.length > 80 ? data.description.slice(0, 79) + "…" : data.description}
+              {data.description.length > 75 ? data.description.slice(0, 74) + "…" : data.description}
             </p>
           )}
         </div>
+        {/* TrendScore gauge — only for tracked repos */}
+        {data.is_tracked && data.trend_score_pct != null && (
+          <TrendGauge pct={data.trend_score_pct} label={data.sustainability_label} />
+        )}
       </div>
 
-      {/* Metrics row */}
-      <div style={{ display: "flex", gap: "16px", marginBottom: "12px" }}>
+      {/* Star / Fork / Issue metrics row */}
+      <div style={{ display: "flex", gap: "18px", marginBottom: "12px" }}>
         <div>
           <p style={{ fontSize: "10px", color: "#64748b", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Stars</p>
           <p style={{ fontSize: "15px", fontWeight: 700, margin: 0, color: "#3b82f6" }}>
             {data.stars.toLocaleString()} ⭐
           </p>
         </div>
+        {vel7d && (
+          <div>
+            <p style={{ fontSize: "10px", color: "#64748b", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.5px" }}>This week</p>
+            <p style={{ fontSize: "15px", fontWeight: 700, margin: 0, color: "#22c55e" }}>{vel7d}{accelArrow}</p>
+          </div>
+        )}
         <div>
           <p style={{ fontSize: "10px", color: "#64748b", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Forks</p>
           <p style={{ fontSize: "15px", fontWeight: 700, margin: 0, color: "#94a3b8" }}>
             {data.forks.toLocaleString()}
           </p>
         </div>
-        <div>
-          <p style={{ fontSize: "10px", color: "#64748b", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Issues</p>
-          <p style={{ fontSize: "15px", fontWeight: 700, margin: 0, color: "#94a3b8" }}>
-            {data.open_issues.toLocaleString()}
-          </p>
-        </div>
       </div>
 
-      {/* Repodar scores */}
+      {/* Repodar scores row */}
       {data.is_tracked ? (
         <div style={{ borderTop: "1px solid #1e2230", paddingTop: "12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", gap: "20px" }}>
             {ssPercent && (
               <div>
                 <p style={{ fontSize: "10px", color: "#64748b", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Sustainability</p>
-                <p style={{ fontSize: "18px", fontWeight: 800, margin: 0, color: labelColor }}>{ssPercent}</p>
-              </div>
-            )}
-            {data.star_velocity_7d !== null && (
-              <div>
-                <p style={{ fontSize: "10px", color: "#64748b", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Stars / 7d</p>
-                <p style={{ fontSize: "18px", fontWeight: 700, margin: 0, color: "#22c55e" }}>+{Math.round(data.star_velocity_7d * 7).toLocaleString()}</p>
+                <p style={{ fontSize: "16px", fontWeight: 800, margin: 0, color: labelColor }}>{ssPercent}</p>
               </div>
             )}
           </div>
           {data.sustainability_label && (
             <span style={{
-              fontSize: "11px",
-              fontWeight: 700,
-              color: labelColor,
-              border: `1.5px solid ${labelColor}`,
-              borderRadius: "4px",
-              padding: "3px 8px",
-              letterSpacing: "0.5px",
+              fontSize: "11px", fontWeight: 700, color: labelColor,
+              border: `1.5px solid ${labelColor}`, borderRadius: "4px",
+              padding: "3px 8px", letterSpacing: "0.5px",
             }}>
               {data.sustainability_label}
             </span>
@@ -111,7 +140,7 @@ function ScoreCard({ data }: { data: WidgetData }) {
       ) : (
         <div style={{ borderTop: "1px solid #1e2230", paddingTop: "10px" }}>
           <p style={{ fontSize: "11px", color: "#64748b", margin: 0 }}>
-            Not tracked by Repodar — add to get sustainability scores
+            Not tracked by Repodar — add to get TrendScore + sustainability scoring
           </p>
         </div>
       )}
@@ -124,7 +153,7 @@ function ScoreCard({ data }: { data: WidgetData }) {
           rel="noopener noreferrer"
           style={{ fontSize: "10px", color: "#475569", textDecoration: "none" }}
         >
-          powered by Repodar
+          powered by Repodar ↗
         </a>
       </div>
     </div>
@@ -140,15 +169,20 @@ export default function WidgetPage({ params }: { params: Promise<{ owner: string
     queryFn: () => api.getWidgetData(owner, name),
   });
 
+  const embedSrc = typeof window !== "undefined"
+    ? `${window.location.origin}/widget/repo/${owner}/${name}`
+    : `https://repodar.app/widget/repo/${owner}/${name}`;
+
   return (
-    // Minimal page — no Nav, no padding — designed for iframe embed
     <div style={{
       minHeight: "100vh",
       display: "flex",
+      flexDirection: "column",
       alignItems: "center",
       justifyContent: "center",
       background: "transparent",
       padding: "8px",
+      gap: "16px",
     }}>
       {isLoading && (
         <div style={{ fontSize: "12px", color: "#64748b" }}>Loading…</div>
@@ -160,21 +194,27 @@ export default function WidgetPage({ params }: { params: Promise<{ owner: string
       )}
       {data && <ScoreCard data={data} />}
 
-      {/* Embed help (visible only when navigated to directly, not in iframe) */}
+      {/* Embed help panel */}
       {data && (
         <div style={{
-          position: "fixed", bottom: "0", left: "0", right: "0",
-          background: "#0f1117", borderTop: "1px solid #1e2230",
-          padding: "12px 20px",
-          fontSize: "11px", color: "#64748b",
-          display: "flex", gap: "16px", alignItems: "center",
+          background: "#0f1117",
+          border: "1px solid #1e2230",
+          borderRadius: "8px",
+          padding: "14px 20px",
+          width: "360px",
+          boxSizing: "border-box",
+          fontSize: "11px",
+          color: "#64748b",
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px",
         }}>
-          <span style={{ fontWeight: 600, color: "#94a3b8" }}>Embed this card:</span>
-          <code style={{ background: "#1e2230", padding: "4px 8px", borderRadius: "4px", color: "#94a3b8" }}>
-            {`<iframe src="${typeof window !== "undefined" ? window.location.href : ""}" width="360" height="180" frameborder="0" />`}
+          <p style={{ margin: 0, fontWeight: 600, color: "#94a3b8" }}>Embed this card in your README:</p>
+          <code style={{ background: "#1e2230", padding: "6px 10px", borderRadius: "4px", color: "#94a3b8", display: "block", wordBreak: "break-all", lineHeight: "1.5" }}>
+            {`<iframe src="${embedSrc}" width="380" height="200" frameborder="0" />`}
           </code>
-          <span style={{ fontWeight: 600, color: "#94a3b8", marginLeft: "8px" }}>Badge:</span>
-          <code style={{ background: "#1e2230", padding: "4px 8px", borderRadius: "4px", color: "#94a3b8" }}>
+          <p style={{ margin: "4px 0 0", fontWeight: 600, color: "#94a3b8" }}>Or use the SVG badge:</p>
+          <code style={{ background: "#1e2230", padding: "6px 10px", borderRadius: "4px", color: "#94a3b8", display: "block", wordBreak: "break-all", lineHeight: "1.5" }}>
             {`![Repodar](https://api.repodar.app/widget/badge/${owner}/${name}.svg)`}
           </code>
         </div>

@@ -48,9 +48,12 @@ class WidgetData(BaseModel):
     open_issues: int = 0
     # Repodar scores — null if repo is not in the tracked set
     trend_score: Optional[float] = None
+    trend_score_pct: Optional[int] = None   # 0-100 normalised display value
     sustainability_score: Optional[float] = None
     sustainability_label: Optional[str] = None
     star_velocity_7d: Optional[float] = None
+    acceleration: Optional[float] = None
+    contributor_growth_rate: Optional[float] = None
     is_tracked: bool = False
 
 
@@ -72,38 +75,48 @@ async def widget_json(
     """
     from app.database import SessionLocal
     from app.models import Repository, ComputedMetric, DailyMetric
+    import math
 
-    repo_id = f"{owner}/{name}"
     db = SessionLocal()
     try:
-        repo = db.query(Repository).filter_by(id=repo_id).first()
+        # Look up by owner + name (repo IDs are UUIDs, not owner/name)
+        repo = db.query(Repository).filter_by(owner=owner, name=name).first()
         if repo:
             cm = (
                 db.query(ComputedMetric)
-                .filter_by(repo_id=repo_id)
+                .filter_by(repo_id=repo.id)
                 .order_by(ComputedMetric.date.desc())
                 .first()
             )
             dm = (
                 db.query(DailyMetric)
-                .filter_by(repo_id=repo_id)
-                .order_by(DailyMetric.date.desc())
+                .filter_by(repo_id=repo.id)
+                .order_by(DailyMetric.captured_at.desc())
                 .first()
             )
+            # Normalise trend_score to 0–100 for display (log-scale, cap at 100)
+            ts = cm.trend_score if cm else None
+            ts_pct = None
+            if ts is not None and ts > 0:
+                # Empirical: trend_score ~0.5–5 for typical repos; map log to 0-100
+                ts_pct = min(100, max(1, int(math.log1p(ts * 20) / math.log1p(100) * 100)))
             return WidgetData(
                 owner=owner,
                 name=name,
-                full_name=repo_id,
+                full_name=f"{owner}/{name}",
                 description=repo.description,
                 stars=dm.stars if dm else 0,
                 forks=dm.forks if dm else 0,
                 open_issues=dm.open_issues if dm else 0,
                 language=repo.primary_language,
                 github_url=repo.github_url,
-                trend_score=cm.trend_score if cm else None,
+                trend_score=ts,
+                trend_score_pct=ts_pct,
                 sustainability_score=cm.sustainability_score if cm else None,
                 sustainability_label=cm.sustainability_label if cm else None,
                 star_velocity_7d=cm.star_velocity_7d if cm else None,
+                acceleration=cm.acceleration if cm else None,
+                contributor_growth_rate=cm.contributor_growth_rate if cm else None,
                 is_tracked=True,
             )
     finally:
@@ -169,11 +182,11 @@ async def widget_badge(
 
     db = SessionLocal()
     try:
-        repo = db.query(Repository).filter_by(id=f"{owner}/{name}").first()
+        repo = db.query(Repository).filter_by(owner=owner, name=name).first()
         if repo:
             cm = (
                 db.query(ComputedMetric)
-                .filter_by(repo_id=f"{owner}/{name}")
+                .filter_by(repo_id=repo.id)
                 .order_by(ComputedMetric.date.desc())
                 .first()
             )

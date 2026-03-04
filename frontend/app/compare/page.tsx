@@ -5,13 +5,30 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, Radar,
+  LineChart, Line,
+  XAxis, YAxis, CartesianGrid,
   ResponsiveContainer, Tooltip, Legend,
 } from "recharts";
-import { api, CompareEntry } from "@/lib/api";
+import { api, CompareEntry, RepoHistory } from "@/lib/api";
 import { SustainBadge } from "@/components/Nav";
 
 // ─── Colour palette per repo slot ────────────────────────────────────────────
 const COLORS = ["#3b82f6", "#f59e0b", "#22c55e", "#ec4899", "#8b5cf6"];
+
+// ─── History data builder ────────────────────────────────────────────────────
+function buildHistoryData(histories: RepoHistory[]) {
+  const dateMap: Record<string, Record<string, number>> = {};
+  for (const h of histories) {
+    const key = `${h.owner}/${h.name}`;
+    for (const pt of h.history) {
+      if (!dateMap[pt.date]) dateMap[pt.date] = {};
+      dateMap[pt.date][key] = pt.stars;
+    }
+  }
+  return Object.entries(dateMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, vals]) => ({ date, ...vals }));
+}
 
 // ─── Radar data builder ───────────────────────────────────────────────────────
 function buildRadarData(repos: CompareEntry[]) {
@@ -119,7 +136,7 @@ function AddRepoBox({ onAdd }: { onAdd: (id: string) => void }) {
 function ComparePageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const initialIds = (searchParams.get("ids") ?? "").split(",").filter((x) => x.includes("/"));
+  const initialIds = (searchParams.get("repos") ?? searchParams.get("ids") ?? "").split(",").filter((x) => x.includes("/"));
   const [ids, setIds] = useState<string[]>(initialIds.slice(0, 5));
 
   const { data: repos, isLoading, error } = useQuery({
@@ -128,18 +145,26 @@ function ComparePageInner() {
     enabled: ids.length > 0,
   });
 
+  const { data: histories } = useQuery({
+    queryKey: ["compare-history", ids],
+    queryFn: () => api.compareHistory(ids, 60),
+    enabled: ids.length >= 2,
+  });
+
+  const historyData = histories && histories.length > 0 ? buildHistoryData(histories) : [];
+
   const addRepo = (id: string) => {
     if (!ids.includes(id) && ids.length < 5) {
       const next = [...ids, id];
       setIds(next);
-      router.replace(`/compare?ids=${next.join(",")}`);
+      router.replace(`/compare?repos=${next.join(",")}`);
     }
   };
 
   const removeRepo = (id: string) => {
     const next = ids.filter((x) => x !== id);
     setIds(next);
-    router.replace(`/compare?ids=${next.join(",")}`);
+    router.replace(`/compare?repos=${next.join(",")}`);
   };
 
   const radarData = repos && repos.length >= 2 ? buildRadarData(repos) : [];
@@ -207,6 +232,38 @@ function ComparePageInner() {
 
       {repos && repos.length >= 2 && (
         <>
+          {/* Star History Chart */}
+          {historyData.length > 1 && (
+            <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "24px" }}>
+              <h2 style={{ fontSize: "13px", fontWeight: 600, margin: "0 0 20px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
+                Star History
+              </h2>
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={historyData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={(v) => v.slice(5)} />
+                  <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={64} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
+                  <Tooltip
+                    contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "6px", fontSize: "12px" }}
+                    formatter={(v: number | undefined, name: string | undefined) => [v != null ? v.toLocaleString() : "—", name ?? ""]}
+                  />
+                  <Legend />
+                  {ids.map((id, i) => (
+                    <Line
+                      key={id}
+                      type="monotone"
+                      dataKey={id}
+                      stroke={COLORS[i % COLORS.length]}
+                      strokeWidth={2}
+                      dot={false}
+                      connectNulls
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
           {/* Radar chart */}
           <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "24px" }}>
             <h2 style={{ fontSize: "13px", fontWeight: 600, margin: "0 0 20px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>

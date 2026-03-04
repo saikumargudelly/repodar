@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { api, RadarRepo } from "@/lib/api";
+import { api, RadarRepo, LanguageStat } from "@/lib/api";
 import { SustainBadge } from "@/components/Nav";
 
 const CATEGORIES = [
@@ -29,6 +29,11 @@ export default function RadarPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["radar", newOnly],
     queryFn: () => api.getRadar(newOnly),
+  });
+
+  const { data: langData } = useQuery({
+    queryKey: ["language-radar"],
+    queryFn: () => api.getLanguageRadar(2),
   });
 
   const filtered = data
@@ -135,7 +140,75 @@ export default function RadarPage() {
           </table>
         )}
       </div>
+
+      {/* ── Language & Tech Stack Radar ─────────────────────────────────── */}
+      <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
+        <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid var(--border)" }}>
+          <h2 style={{ fontSize: "14px", fontWeight: 700, margin: "0 0 4px" }}>
+            Language &amp; Tech Stack Radar
+          </h2>
+          <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: 0 }}>
+            Which programming languages are growing fastest across tracked AI/ML repos — ranked by combined 7-day star velocity.
+          </p>
+        </div>
+        {!langData || langData.length === 0 ? (
+          <p style={{ color: "var(--text-muted)", textAlign: "center", padding: "40px 0", fontSize: "13px" }}>
+            No language data yet — run the scoring pipeline first.
+          </p>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+            <thead>
+              <tr style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
+                {["#", "Language", "Repos", "Weekly Star Velocity", "Avg Trend Score", "Avg Sustainability", "Top Repo", "Categories"].map((h) => (
+                  <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontWeight: 500, fontSize: "11px", letterSpacing: "0.5px" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {langData.map((lang) => (
+                <LangRow key={lang.language} lang={lang} />
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
+  );
+}
+
+function LangRow({ lang }: { lang: LanguageStat }) {
+  const vel = lang.weekly_star_velocity;
+  const velColor = vel > 100 ? "var(--accent-green)" : vel > 20 ? "var(--accent-blue)" : "var(--text-secondary)";
+  return (
+    <tr
+      style={{ borderBottom: "1px solid var(--border)" }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+    >
+      <td style={{ padding: "10px 16px", color: "var(--text-muted)", fontSize: "12px", fontWeight: 600 }}>{lang.growth_rank}</td>
+      <td style={{ padding: "10px 16px", fontWeight: 700, fontSize: "14px" }}>{lang.language}</td>
+      <td style={{ padding: "10px 16px", fontFamily: "monospace" }}>{lang.repo_count}</td>
+      <td style={{ padding: "10px 16px", fontFamily: "monospace", fontWeight: 700, color: velColor }}>
+        +{vel.toFixed(0)} ⭐/wk
+      </td>
+      <td style={{ padding: "10px 16px", fontFamily: "monospace" }}>{lang.avg_trend_score.toFixed(4)}</td>
+      <td style={{ padding: "10px 16px", fontFamily: "monospace" }}>{(lang.avg_sustainability_score * 100).toFixed(0)}%</td>
+      <td style={{ padding: "10px 16px", fontSize: "12px", color: "var(--text-secondary)" }}>
+        {lang.top_repo ?? "—"}
+      </td>
+      <td style={{ padding: "10px 16px" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+          {lang.categories.slice(0, 3).map((c) => (
+            <span key={c} style={{ fontSize: "10px", background: "var(--bg-elevated)", color: "var(--text-muted)", padding: "2px 6px", borderRadius: "4px" }}>
+              {c}
+            </span>
+          ))}
+          {lang.categories.length > 3 && (
+            <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>+{lang.categories.length - 3}</span>
+          )}
+        </div>
+      </td>
+    </tr>
   );
 }
 

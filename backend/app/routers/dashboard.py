@@ -438,3 +438,156 @@ async def get_leaderboard(
         source="github_search",
         entries=entries,
     )
+
+
+# ─── Language & Tech Stack Radar ─────────────────────────────────────────────
+
+class LanguageStat(BaseModel):
+    language: str
+    repo_count: int
+    total_stars: int
+    avg_trend_score: float
+    avg_sustainability_score: float
+    weekly_star_velocity: float        # sum of 7d star velocities across repos
+    growth_rank: int                   # 1 = fastest growing language this week
+    categories: List[str]              # distinct categories using this language
+    top_repo: Optional[str] = None     # owner/name of highest-trend repo
+
+
+@router.get("/languages", response_model=List[LanguageStat])
+def get_language_radar(
+    min_repos: int = Query(2, description="Only languages with at least N repos"),
+    db: Session = Depends(get_db),
+):
+    """
+    Tech Stack Radar — aggregates programming languages across all active
+    tracked repos and ranks them by combined star velocity + trend score.
+
+    Returns languages sorted by total weekly star velocity (descending).
+    This surfaces which programming languages are growing fastest in the
+    AI/ML ecosystem — no competitor offers this view.
+    """
+    import json as _json
+
+    latest_date = _latest_scored_date(db)
+
+    # Get all active repos with their latest computed metrics
+    subq = (
+        db.query(
+            ComputedMetric.repo_id,
+            ComputedMetric.trend_score,
+            ComputedMetric.star_velocity_7d,
+            ComputedMetric.sustainability_score,
+        )
+        .filter(ComputedMetric.date == latest_date)
+        .subquery()
+    )
+
+    rows = (
+        db.query(Repository, subq)
+        .filter(Repository.is_active == True)  # noqa: E712
+        .outerjoin(subq, Repository.id == subq.c.repo_id)
+        .all()
+    )
+
+    # Also pull latest DailyMetric for language_breakdown JSON
+    from app.models import DailyMetric
+    # Build a map: repo_id → latest language_breakdown JSON
+    latest_dm_subq = (
+        db.query(
+            DailyMetric.repo_id,
+            func.max(DailyMetric.captured_at).label("max_captured"),
+        )
+        .group_by(DailyMetric.repo_id)
+        .subquery()
+    )
+    dm_rows = (
+        db.query(DailyMetric.repo_id, DailyMetric.language_breakdown)
+        .join(
+            latest_dm_subq,
+            (DailyMetric.repo_id == latest_dm_subq.c.repo_id) &
+            (DailyMetric.captured_at == latest_dm_subq.c.max_captured),
+        )
+        .all()
+    )
+    lang_breakdown_map: dict[str, dict] = {}
+    for repo_id, lb_json in dm_rows:
+        if lb_json:
+            try:
+                lang_breakdown_map[repo_id] = _json.loads(lb_json)
+            except Exception:
+                pass
+
+    # Aggregate per language
+    lang_data: dict[str, dict] = {}
+
+    for row in rows:
+        repo = row[0]
+        ts = row[2] or 0.0
+        vel = row[3] or 0.0
+        ss = row[4] or 0.0
+
+        # Primary language contributes as the "main" language
+        langs: set[str] = set()
+        if repo.primary_language:
+            langs.add(repo.primary_language)
+
+        # Secondary: top language from breakdown (by % share), if different
+        lb = lang_breakdown_map.get(repo.id, {})
+        if lb:
+            top_lang = max(lb, key=lambda k: lb[k], default=None)
+            if top_lang and top_lang != repo.primary_language:
+                langs.add(top_lang)
+
+        for lang in langs:
+            if lang not in lang_data:
+                lang_data[lang] = {
+                    "repo_count": 0,
+                    "total_stars": 0,
+                    "trend_scores": [],
+                    "sustainability_scores": [],
+                    "weekly_star_velocity": 0.0,
+                    "categories": set(),
+                    "top_repo": None,
+                    "top_ts": -1.0,
+                }
+            d = lang_data[lang]
+            d["repo_count"] += 1
+            d["trend_scores"].append(ts)
+            d["sustainability_scores"].append(ss)
+            d["weekly_star_velocity"] += vel
+            d["categories"].add(repo.category)
+            if ts > d["top_ts"]:
+                d["top_ts"] = ts
+                d["top_repo"] = f"{repo.owner}/{repo.name}"
+
+    # Filter + sort by weekly star velocity descending
+    filtered = {
+        lang: d for lang, d in lang_data.items()
+        if d["repo_count"] >= min_repos and lang.strip()
+    }
+    sorted_langs = sorted(
+        filtered.items(),
+        key=lambda x: x[1]["weekly_star_velocity"],
+        reverse=True,
+    )
+
+    result = []
+    for rank, (lang, d) in enumerate(sorted_langs, start=1):
+        n = d["repo_count"] or 1
+        avg_ts = sum(d["trend_scores"]) / n
+        avg_ss = sum(d["sustainability_scores"]) / n
+        result.append(LanguageStat(
+            language=lang,
+            repo_count=d["repo_count"],
+            total_stars=d["total_stars"],
+            avg_trend_score=round(avg_ts, 6),
+            avg_sustainability_score=round(avg_ss, 4),
+            weekly_star_velocity=round(d["weekly_star_velocity"], 2),
+            growth_rank=rank,
+            categories=sorted(d["categories"]),
+            top_repo=d["top_repo"],
+        ))
+
+    return result
+

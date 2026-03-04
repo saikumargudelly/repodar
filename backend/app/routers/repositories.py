@@ -1,6 +1,6 @@
 import os
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, date, timezone, timedelta
 from typing import Optional, List
 
 import aiohttp
@@ -263,5 +263,71 @@ async def compare_repos(
                 age_days=age,
                 is_tracked=False,
             ))
+
+    return results
+
+
+# ─── Compare: Star History Overlay ───────────────────────────────────────────
+
+class RepoHistoryPoint(BaseModel):
+    date: str
+    stars: int
+    daily_star_delta: int
+
+
+class RepoHistory(BaseModel):
+    repo_id: str
+    owner: str
+    name: str
+    color_index: int
+    history: List[RepoHistoryPoint]
+
+
+@router.get("/compare/history", response_model=List[RepoHistory])
+async def compare_history(
+    ids: str = Query(
+        ...,
+        description="Comma-separated repo IDs: owner/name,owner2/name2 (max 5)",
+    ),
+    days: int = Query(30, description="Number of days of history to return", le=365),
+    db: Session = Depends(get_db),
+):
+    """
+    Returns day-by-day star history for 2–5 repos, used to render a
+    time-series overlay chart in the comparison view.
+    Only Repodar-tracked repos will have non-empty history arrays.
+    """
+    from app.models import DailyMetric as DM
+
+    repo_ids = [i.strip() for i in ids.split(",") if "/" in i.strip()][:5]
+    if not repo_ids:
+        raise HTTPException(status_code=422, detail="Provide at least one valid owner/name id")
+
+    since = datetime.now(timezone.utc).date() - timedelta(days=days)
+    results: list[RepoHistory] = []
+
+    for idx, repo_id in enumerate(repo_ids):
+        owner, name = repo_id.split("/", 1)
+        repo = db.query(Repository).filter_by(owner=owner, name=name).first()
+        if not repo:
+            results.append(RepoHistory(repo_id=repo_id, owner=owner, name=name, color_index=idx, history=[]))
+            continue
+
+        metrics = (
+            db.query(DM)
+            .filter(DM.repo_id == repo.id, DM.captured_at >= datetime.combine(since, datetime.min.time()))
+            .order_by(DM.captured_at.asc())
+            .all()
+        )
+
+        history = [
+            RepoHistoryPoint(
+                date=m.captured_at.strftime("%Y-%m-%d"),
+                stars=m.stars,
+                daily_star_delta=m.daily_star_delta,
+            )
+            for m in metrics
+        ]
+        results.append(RepoHistory(repo_id=repo_id, owner=owner, name=name, color_index=idx, history=history))
 
     return results

@@ -21,6 +21,7 @@ from app.models import Repository, DailyMetric
 from app.services.github_client import fetch_repo_metrics
 from app.services.github_search import (
     search_top_repos,
+    search_by_star_threshold,
     _infer_category,
     VERTICAL_TOPIC_QUERIES,
 )
@@ -41,6 +42,17 @@ DISCOVERY_SEARCHES = [
     ("7d",  "security"),
     ("7d",  "data_engineering"),
     ("7d",  "blockchain"),
+]
+
+# Broad star-threshold discovery: verticals to scan every cycle.
+# Surfaces established repos (stars >= floor) that don't appear in Trending.
+# Runs once per vertical so GitHub rate-limit impact is minimal.
+STAR_THRESHOLD_SEARCHES = [
+    "ai_ml",
+    "devtools",
+    "data_engineering",
+    "security",
+    "web_frameworks",
 ]
 
 
@@ -80,11 +92,16 @@ async def auto_discover_and_sync() -> dict:
     refreshed = 0
 
     try:
-        # Run all searches in parallel
-        search_tasks = [
-            search_top_repos(period=period, limit=50, vertical=vertical)
-            for period, vertical in DISCOVERY_SEARCHES
-        ]
+        # Run all searches in parallel: trending/period-based + broad star-threshold
+        search_tasks = (
+            [
+                search_top_repos(period=period, limit=50, vertical=vertical)
+                for period, vertical in DISCOVERY_SEARCHES
+            ] + [
+                search_by_star_threshold(vertical=vertical, limit=50)
+                for vertical in STAR_THRESHOLD_SEARCHES
+            ]
+        )
         all_results = await asyncio.gather(*search_tasks, return_exceptions=True)
 
         # Flatten and deduplicate by full_name

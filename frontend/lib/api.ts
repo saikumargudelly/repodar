@@ -298,10 +298,43 @@ export interface WidgetData {
   language: string | null;
   github_url: string;
   trend_score: number | null;
+  trend_score_pct: number | null;   // 0-100 normalised display value
   sustainability_score: number | null;
   sustainability_label: "GREEN" | "YELLOW" | "RED" | null;
   star_velocity_7d: number | null;
+  acceleration: number | null;
+  contributor_growth_rate: number | null;
   is_tracked: boolean;
+}
+
+// ─── Language & Tech Stack Radar ─────────────────────────────────────────────
+
+export interface LanguageStat {
+  language: string;
+  repo_count: number;
+  total_stars: number;
+  avg_trend_score: number;
+  avg_sustainability_score: number;
+  weekly_star_velocity: number;
+  growth_rank: number;
+  categories: string[];
+  top_repo: string | null;
+}
+
+// ─── Compare history ─────────────────────────────────────────────────────────
+
+export interface RepoHistoryPoint {
+  date: string;
+  stars: number;
+  daily_star_delta: number;
+}
+
+export interface RepoHistory {
+  repo_id: string;
+  owner: string;
+  name: string;
+  color_index: number;
+  history: RepoHistoryPoint[];
 }
 
 // ─── API functions ───────────────────────────────────────────────────────────
@@ -336,6 +369,13 @@ export const api = {
   // Compare
   compareRepos: (ids: string[]) =>
     apiFetch<CompareEntry[]>(`/repos/compare?ids=${ids.join(",")}`),
+
+  compareHistory: (ids: string[], days = 30) =>
+    apiFetch<RepoHistory[]>(`/repos/compare/history?ids=${ids.join(",")}&days=${days}`),
+
+  // Language radar
+  getLanguageRadar: (minRepos = 2) =>
+    apiFetch<LanguageStat[]>(`/dashboard/languages?min_repos=${minRepos}`),
 
   // Org health
   getOrgHealth: (org: string, limit = 25) =>

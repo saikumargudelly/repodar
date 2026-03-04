@@ -33,7 +33,58 @@ Repodar surfaces **380+ live AI/ML repos** — from the canonical 123 you should
 - **Instant period switching** — toggle between Today → 5 years in one click
 - **Per-repo deep dives** — time-series charts with daily snapshots
 
-### 🔍 Auto-Discovery Engine
+### 🎁 Embeddable Widgets
+**Share live TrendScore badges in your repo README** — viral growth loop for devs:
+```html
+<iframe src="https://repodar.io/widget/repo/langchain-ai/langchain" width="380" height="200" frameborder="0"></iframe>
+```
+- **SVG Circular TrendScore gauge** (0–100) color-coded by sustainability
+- **Live metrics** — stars, forks, weekly star velocity, acceleration arrows
+- **Markdown badge** — `![Repodar](https://api.repodar.app/widget/badge/{owner}/{name}.svg)`
+- **Auto-update** — reflects latest Repodar scores in real-time
+
+**Access:** Navigate to `/widget/repo/{owner}/{name}` → Copy embed code | Example: [/widget/repo/langchain-ai/langchain](http://localhost:3000/widget/repo/langchain-ai/langchain)
+
+### 🌐 Language & Tech Stack Radar
+**Track which programming languages are growing fastest across AI/ML repos:**
+- **Rankings by velocity** — Python vs Rust vs Go in inference engines
+- **Per-language stats** — repo count, weekly star velocity, avg trend score, sustainability
+- **Top repo per language** — best-in-class example for each tech stack
+- **Categories** — linked categories (LLM Models, Inference Engines, etc.)
+
+**Access:** Dashboard → `/radar` page, scroll to "Language & Tech Stack Radar" section
+
+**Unique angle:** No competitor tracks language-level ecosystem momentum.
+
+### 💡 Signal Explainer
+**Click any repo → see why it scored 87/100 in plain English:**
+```
+⭐ 7-day star velocity: +450/day (+35% vs prior week)
+🚀 Momentum: Accelerating (+0.0234)
+👥 Contributor growth (7d): +12 new devs (+18% change)
+🏷️ Release boost: 2 releases in last 7 days
+📊 Trend score: +45% vs prior snapshot
+```
+- **Color-coded signals** — Green for positive, red for negative
+- **Real metrics** — computed from daily ingestion data
+- **Human-readable breakdown** — no black boxes
+
+**Access:** `/repo/{id}` page → Scroll past LLM Insight to "Signal Explainer" card
+
+### 🏁 Competitor Comparison Mode
+**Side-by-side analysis for 2–5 repos with star history overlay:**
+- **Multi-line star history chart** — last 60 days, each repo in unique color
+- **Radar score comparison** — normalized metrics across all dimensions
+- **Metrics table** — direct numbers (stars, forks, velocity, sustainability)
+- **Shareable URL** — `https://repodar.io/compare?repos=vllm,sglang,ollama`
+
+**Access:** `/compare` page | Add repos in search box | URL updates automatically
+
+**Example comparison:** [/compare?repos=langchain-ai/langchain,openai/gpt-engineer,anthropic/claude](http://localhost:3000/compare?repos=langchain-ai/langchain,openai/gpt-engineer,anthropic/claude)
+
+---
+
+## 🔍 Auto-Discovery Engine
 **The game-changer:** Every 24 hours, Repodar automatically:
 1. Queries GitHub Trending (1d, 7d, 30d)
 2. Searches across 6 verticals (AI/ML, DevTools, Web, Security, Data Engineering, Blockchain)
@@ -191,6 +242,7 @@ cd ../frontend && npm install && npm run dev
 
 ## API Endpoints
 
+### Dashboard & Leaderboard
 ```bash
 # Ecosystem overview (what you see on dashboard)
 GET /dashboard/overview
@@ -200,10 +252,39 @@ GET /dashboard/overview
 GET /dashboard/leaderboard?period=7d&limit=30
 → Latest trending repos with momentum signals
 
-# Repo deep dive
-GET /repos/{owner}/{name}
-→ Full 1-year time series with TrendScore history
+# Language & Tech Stack Radar
+GET /dashboard/languages?min_repos=2
+→ Languages ranked by weekly_star_velocity, with repo stats per language
+```
 
+### Repo Deep Dive
+```bash
+# Full repo profile with time-series data
+GET /repos/{owner}/{name}
+→ Full 1-year time series with TrendScore history, daily metrics, computed scores
+
+# Repo widget data (compact, for embeds)
+GET /widget/repo/{owner}/{name}
+→ {owner, name, stars, forks, trend_score_pct, acceleration, velocity_7d, ...}
+
+# Repo signal explainer (computed metrics breakdown)
+GET /repos/{repo_id}/computed-scores?days=60
+→ Time-series of TrendScore, SustainabilityScore, acceleration, velocity
+```
+
+### Comparison & Analytics
+```bash
+# Compare multiple repos side-by-side
+GET /repos/compare?ids=owner1/name1,owner2/name2,owner3/name3
+→ Normalized metrics across all repos for radar chart
+
+# Star history for comparison charts
+GET /repos/compare/history?ids=owner1/name1,owner2/name2&days=60
+→ Daily star counts for each repo, merged by date for LineChart overlay
+```
+
+### Admin & Maintenance
+```bash
 # Weekly analyst report
 GET /reports/weekly
 → LLM-generated strategic insights
@@ -270,6 +351,148 @@ POST /admin/discover
 
 ✅ **Which repos are sustainable vs hype?**  
 → RED flag repos (inactive, no releases) automatically marked
+
+---
+
+## 🎯 Feature Usage Guide
+
+### 1️⃣ Using Embeddable Widgets
+
+**Share TrendScore in your README:**
+
+1. Navigate to `/widget/repo/{owner}/{name}`
+   ```
+   http://localhost:3000/widget/repo/langchain-ai/langchain
+   ```
+
+2. Copy the iframe code from the embed panel:
+   ```html
+   <iframe src="http://localhost:3000/widget/repo/langchain-ai/langchain" width="380" height="200" frameborder="0"></iframe>
+   ```
+
+3. Paste into your GitHub README.md
+
+4. **Or use the SVG badge:**
+   ```markdown
+   ![Repodar TrendScore](https://api.repodar.app/widget/badge/langchain-ai/langchain.svg)
+   ```
+
+The widget displays:
+- ✅ Live TrendScore (0–100) as circular gauge
+- ✅ Current stars ⭐
+- ✅ Weekly star velocity (+N stars)
+- ✅ Sustainability score (%)
+- ✅ Auto-updates as Repodar rescores
+
+---
+
+### 2️⃣ Language & Tech Stack Radar
+
+**Discover fastest-growing languages in the AI/ML ecosystem:**
+
+1. Open dashboard → Click **"Breakout Radar"** → Scroll to **"Language & Tech Stack Radar"**
+   ```
+   http://localhost:3000/radar
+   ```
+
+2. Table shows:
+   - **#** — ranking by velocity
+   - **Language** — Python, Rust, Go, etc.
+   - **Repos** — how many tracked repos use it
+   - **Weekly Star Velocity** — +450 ⭐/week (color-coded)
+   - **Avg Trend Score** — average momentum for repos in this language
+   - **Avg Sustainability** — health % for this tech stack
+   - **Top Repo** — best example repo in this language
+   - **Categories** — LLM Models, Inference, Agent Frameworks, etc.
+
+3. **Insights you get:**
+   - Python dominance in data science? ✅ See velocity metrics
+   - Rust emerging in systems? ✅ Check % growth vs Python
+   - New language on the rise? ✅ Identified automatically
+
+---
+
+### 3️⃣ Signal Explainer
+
+**Understand why a repo scored 87/100:**
+
+1. Click any repo from the radar table (or navigate directly):
+   ```
+   http://localhost:3000/repo/{repo_uuid}
+   ```
+
+2. Scroll past the **"Analyst Insight"** section to **"Signal Explainer"**
+
+3. You'll see 5 human-readable signals:
+
+   ```
+   ⭐ 7-day star velocity: +450/day (+35% vs prior week)
+      ↳ This repo gained 450 stars EACH DAY last week
+      ↳ Up 35% compared to the week before → momentum is accelerating
+   
+   🚀 Momentum: Accelerating (accel: +0.0234)
+      ↳ Acceleration is positive → gaining speed
+      ↳ Would be 📉 Decelerating if trending downward
+   
+   👥 Contributor growth (7d): +12 new devs (+18% change)
+      ↳ 12 new developers joined in the last week
+      ↳ Up 18% from the prior week
+   
+   🏷️ Release boost: 2 releases in last 7 days
+      ↳ Active development signal
+      ↳ Fresh features/fixes being pushed
+   
+   📊 Trend score: 0.001234 (+45% vs prior snapshot)
+      ↳ TrendScore increased 45% since last scoring run
+      ↳ Momentum is strong & accelerating
+   ```
+
+4. **Why this matters:**
+   - No black boxes — you see exactly what's driving the score
+   - Compare signals across repos (Repo A has ↑ velocity but ↓ contributors)
+   - Make informed decisions (Strong trend + new releases? Worth watching)
+
+---
+
+### 4️⃣ Competitor Comparison Mode
+
+**Compare 2–5 repos side-by-side with shared URL:**
+
+1. Open comparison page:
+   ```
+   http://localhost:3000/compare
+   ```
+
+2. Add repos in the search box:
+   ```
+   langchain-ai/langchain
+   openai/gpt-engineer
+   anthropic/claude
+   ```
+
+3. URL auto-updates to shareable link:
+   ```
+   http://localhost:3000/compare?repos=langchain-ai/langchain,openai/gpt-engineer,anthropic/claude
+   ```
+
+4. You'll see:
+   - ✅ **Star History Chart** (60-day overlay)
+     - Each repo in unique color
+     - See absolute growth trajectories
+     - Hover for exact star counts on each date
+   
+   - ✅ **Radar Chart** (normalized scores)
+     - All 6 dimensions: Trend | Sustainability | Velocity | Acceleration | Contributors | Fork/Star
+     - Visually compare repo profiles
+   
+   - ✅ **Metrics Table** (detailed breakdown)
+     - Stars, forks, age, trend score, sustainability, velocity, etc.
+     - Cell highlighting for top performer in each metric
+
+5. **Share the URL:**
+   - Copy from browser → Share on Slack, Discord, Twitter
+   - Recipients see live comparison (auto-updates)
+   - Useful for: investment decisions, tech selection, ecosystem tracking
 
 ---
 
@@ -359,11 +582,15 @@ Found a bug? Want to add a new vertical? Have ideas for scoring signals?
 
 ## 🔗 What's Next?
 
-- [ ] Public leaderboard embeds (iframe widgets)
+- [x] **Public leaderboard embeds** — iframe widgets ✅ Live on `/widget/repo/{owner}/{name}`
+- [x] **Language & Tech Stack Radar** ✅ New section on `/radar` page
+- [x] **Signal Explainer** ✅ Human-readable score breakdown on `/repo/{id}`
+- [x] **Competitor Comparison Mode** ✅ Multi-repo analysis on `/compare?repos=...`
 - [ ] API rate limit optimization (cache more queries)
 - [ ] Export reports to PDF/email
 - [ ] Slack integration for alerts
 - [ ] GitOps deployment guide
+- [ ] Mobile-responsive widget design
 
 ---
 

@@ -125,6 +125,105 @@ function ScoreTimeline({ data }: { data: ComputedMetricPoint[] }) {
   );
 }
 
+function SignalExplainer({ scores, dailyMetrics }: { scores: ComputedMetricPoint[]; dailyMetrics: DailyMetricPoint[] }) {
+  if (scores.length < 1) return null;
+  const latest = scores[scores.length - 1];
+  const prior = scores.length >= 2 ? scores[scores.length - 2] : null;
+  const latestDaily = dailyMetrics[dailyMetrics.length - 1] ?? null;
+  const priorDaily = dailyMetrics.length >= 8 ? dailyMetrics[dailyMetrics.length - 8] : null;
+
+  const signals: { icon: string; label: string; value: string; detail?: string; positive?: boolean }[] = [];
+
+  // Star velocity + pct change vs prior week
+  if (latest.star_velocity_7d != null) {
+    const vel = latest.star_velocity_7d;
+    let pctStr = "";
+    if (prior?.star_velocity_7d && prior.star_velocity_7d > 0) {
+      const pct = ((vel - prior.star_velocity_7d) / prior.star_velocity_7d) * 100;
+      pctStr = ` (${pct >= 0 ? "+" : ""}${pct.toFixed(0)}% vs prior week)`;
+    }
+    signals.push({
+      icon: "⭐",
+      label: "7-day star velocity",
+      value: `+${vel.toFixed(1)}/day`,
+      detail: pctStr,
+      positive: vel > 0,
+    });
+  }
+
+  // Acceleration
+  if (latest.acceleration != null) {
+    const acc = latest.acceleration;
+    signals.push({
+      icon: acc > 0 ? "🚀" : "📉",
+      label: "Momentum",
+      value: acc > 0 ? "Accelerating" : acc < 0 ? "Decelerating" : "Flat",
+      detail: ` (accel: ${acc > 0 ? "+" : ""}${acc.toFixed(4)})`,
+      positive: acc > 0,
+    });
+  }
+
+  // Contributor growth (daily metric comparison)
+  if (latestDaily && priorDaily && priorDaily.contributors > 0) {
+    const delta = latestDaily.contributors - priorDaily.contributors;
+    const pct = (delta / priorDaily.contributors) * 100;
+    if (delta !== 0) {
+      signals.push({
+        icon: "👥",
+        label: "Contributor growth (7d)",
+        value: `${delta > 0 ? "+" : ""}${delta} new devs`,
+        detail: ` (${pct >= 0 ? "+" : ""}${pct.toFixed(0)}% change)`,
+        positive: delta > 0,
+      });
+    }
+  }
+
+  // Release boost
+  if (latestDaily && priorDaily && latestDaily.releases > priorDaily.releases) {
+    const newReleases = latestDaily.releases - priorDaily.releases;
+    signals.push({
+      icon: "🏷️",
+      label: "Release boost",
+      value: `${newReleases} release${newReleases > 1 ? "s" : ""} in last 7 days`,
+      positive: true,
+    });
+  }
+
+  // Trend score change
+  if (prior?.trend_score && latest.trend_score! > 0) {
+    const delta = ((latest.trend_score! - prior.trend_score) / prior.trend_score) * 100;
+    signals.push({
+      icon: "📊",
+      label: "Trend score",
+      value: latest.trend_score!.toFixed(6),
+      detail: ` (${delta >= 0 ? "+" : ""}${delta.toFixed(1)}% vs prior snapshot)`,
+      positive: delta > 0,
+    });
+  }
+
+  if (signals.length === 0) return null;
+
+  return (
+    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "20px 24px" }}>
+      <h3 style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px", margin: "0 0 16px" }}>
+        Signal Explainer — Why This Score?
+      </h3>
+      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+        {signals.map((s) => (
+          <div key={s.label} style={{ display: "flex", alignItems: "baseline", gap: "10px", fontSize: "13px" }}>
+            <span style={{ fontSize: "16px", flexShrink: 0 }}>{s.icon}</span>
+            <span style={{ color: "var(--text-muted)", minWidth: "200px" }}>{s.label}:</span>
+            <span style={{ fontWeight: 700, color: s.positive ? "var(--accent-green)" : s.positive === false ? "var(--accent-red)" : "var(--text-primary)", fontFamily: "monospace" }}>
+              {s.value}
+            </span>
+            {s.detail && <span style={{ color: "var(--text-muted)", fontSize: "12px" }}>{s.detail}</span>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function MetricPill({ label, value, mono = false }: { label: string; value: string | number; mono?: boolean }) {
   return (
     <div style={{ background: "var(--bg-elevated)", borderRadius: "8px", padding: "12px 16px" }}>
@@ -241,6 +340,9 @@ export default function RepoDeepDive() {
       {/* Charts grid */}
       {dailyMetrics && dailyMetrics.length > 0 ? (
         <>
+          {scores && scores.length > 0 && (
+            <SignalExplainer scores={scores} dailyMetrics={dailyMetrics} />
+          )}
           <StarHistoryChart data={dailyMetrics} releases={[]} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
             <DailyDeltaChart data={dailyMetrics} />

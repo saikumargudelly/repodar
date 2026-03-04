@@ -405,6 +405,82 @@ def normalize_search_result(repo: dict, rank: int, period: str) -> dict:
     }
 
 
+# ─── Star-threshold broad discovery ─────────────────────────────────────────
+# These queries catch popular repos that may never appear on GitHub Trending
+# (older, stable libraries) but are widely used in the ecosystem.
+
+STAR_THRESHOLD_TOPICS: dict[str, list[tuple[str, int]]] = {
+    # Each entry is (topic_query, min_stars).
+    # Conservative floors keep result sets manageable; tighten over time.
+    "ai_ml": [
+        ("topic:machine-learning", 500),
+        ("topic:deep-learning",    500),
+        ("topic:llm",              500),
+        ("topic:generative-ai",    500),
+        ("topic:transformers",     500),
+        ("topic:diffusion-model",  300),
+        ("topic:computer-vision",  500),
+        ("topic:nlp",              500),
+    ],
+    "devtools": [
+        ("topic:developer-tools",  500),
+        ("topic:cli",              500),
+        ("topic:code-editor",      300),
+        ("topic:devtools",         300),
+    ],
+    "data_engineering": [
+        ("topic:data-engineering", 300),
+        ("topic:etl",              300),
+        ("topic:data-pipeline",    300),
+    ],
+    "security": [
+        ("topic:security",                300),
+        ("topic:penetration-testing",     300),
+        ("topic:vulnerability-scanner",   200),
+    ],
+    "web_frameworks": [
+        ("topic:web-framework", 500),
+        ("topic:rest-api",      500),
+        ("topic:graphql",       300),
+    ],
+}
+
+
+async def search_by_star_threshold(
+    vertical: str = "ai_ml",
+    limit: int = 50,
+) -> list[dict]:
+    """
+    Discover repos with `stars >= threshold` for the given vertical without
+    any date restriction.  Complements the trending-based discovery by surfacing
+    established repos that are no longer "trending" but are widely adopted.
+
+    Returns a list of raw repo dicts compatible with the shape expected by
+    auto_discover_and_sync (has `full_name`, `name`, `html_url`, etc.).
+    """
+    queries = STAR_THRESHOLD_TOPICS.get(vertical, STAR_THRESHOLD_TOPICS["ai_ml"])
+
+    async with aiohttp.ClientSession() as session:
+        batches = await asyncio.gather(*[
+            _search_api(session, f"{topic} stars:>={min_stars}", per_page=30)
+            for topic, min_stars in queries
+        ], return_exceptions=True)
+
+    seen: dict[str, dict] = {}
+    for batch in batches:
+        if not isinstance(batch, list):
+            logger.warning(f"Star-threshold search error: {batch}")
+            continue
+        for repo in batch:
+            fn = repo.get("full_name", "")
+            if not fn:
+                continue
+            if fn not in seen or repo.get("stargazers_count", 0) > seen[fn].get("stargazers_count", 0):
+                seen[fn] = repo
+
+    return sorted(seen.values(), key=lambda r: r.get("stargazers_count", 0), reverse=True)[:limit]
+
+
 def _age_days(created_at: str) -> int:
     if not created_at:
         return 0
