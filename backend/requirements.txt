@@ -5,6 +5,7 @@ uvicorn==0.41.0
 # Database
 sqlalchemy==2.0.48
 alembic==1.18.4
+psycopg2-binary==2.9.12
 
 # Async HTTP
 aiohttp==3.13.3
