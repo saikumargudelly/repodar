@@ -41,6 +41,10 @@ def seed_repos() -> int:
                 .first()
             )
             if existing:
+                # Ensure legacy rows are correctly tagged as seed source
+                if existing.source != "seed":
+                    existing.source = "seed"
+                    existing.is_active = True
                 continue
 
             repo = Repository(
@@ -49,6 +53,8 @@ def seed_repos() -> int:
                 category=item["category"].strip(),
                 description=item.get("description", ""),
                 github_url=f"https://github.com/{owner}/{name}",
+                source="seed",
+                is_active=True,
             )
             db.add(repo)
             inserted += 1

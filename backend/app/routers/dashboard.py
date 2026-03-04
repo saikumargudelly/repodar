@@ -76,7 +76,8 @@ class AlertResponse(BaseModel):
 
 class OverviewResponse(BaseModel):
     as_of: str
-    total_repos: int
+    total_repos: int          # active repos only (is_active=True)
+    discovered_repos: int     # subset that were auto-discovered (not from seed)
     top_breakout: List[BreakoutRepo]
     sustainability_ranking: List[SustainabilityEntry]
     category_growth: List[CategoryMetrics]
@@ -122,6 +123,7 @@ def get_overview(db: Session = Depends(get_db)):
 
     rows = (
         db.query(Repository, subq)
+        .filter(Repository.is_active == True)  # noqa: E712
         .outerjoin(subq, Repository.id == subq.c.repo_id)
         .all()
     )
@@ -168,11 +170,17 @@ def get_overview(db: Session = Depends(get_db)):
     category_growth = compute_category_growth()
     cat_metrics = [CategoryMetrics(**c) for c in category_growth]
 
-    total_repos = db.query(Repository).count()
+    total_repos = db.query(Repository).filter(Repository.is_active == True).count()  # noqa: E712
+    discovered_repos = (
+        db.query(Repository)
+        .filter(Repository.is_active == True, Repository.source == "auto_discovered")  # noqa: E712
+        .count()
+    )
 
     return OverviewResponse(
         as_of=latest_date.isoformat(),
         total_repos=total_repos,
+        discovered_repos=discovered_repos,
         top_breakout=breakout_detected[:10],
         sustainability_ranking=sustain_scored[:20],
         category_growth=cat_metrics,

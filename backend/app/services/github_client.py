@@ -6,6 +6,28 @@ GitHub API client.
   restrict commit/PR delta queries to only new events, cutting API calls 80-90 %
   after the first full snapshot.
 - Rate-limit aware with exponential backoff via tenacity
+
+Common warnings & what they mean:
+  "Using REST fallback for X/Y"
+    → GraphQL query timed out or failed; retrying with REST API (normal).
+    → Not a failure; system auto-recovers.
+  
+  "HTTP 404" or "repo not found"
+    → Repository was deleted, archived, or renamed on GitHub.
+    → Skipped; doesn't block pipeline. Check your YAML/DB if this is recurring.
+  
+  "Contributor fetch failed" / "Commit count failed"
+    → Temporary network issue or API timeout; recovers with next run.
+    → If recurring on same repos, likely deleted or private repos.
+  
+  "Both GraphQL and REST failed for X/Y"
+    → Repo completely inaccessible (deleted, private, rate limit hit).
+    → Skipped; ingestion continues for other repos.
+
+If you see MANY warnings:
+  1. Check /admin/github-status for rate limit remaining
+  2. Verify GITHUB_TOKEN is set and valid in .env
+  3. Check if repos in YAML are still public on GitHub
 """
 
 import os

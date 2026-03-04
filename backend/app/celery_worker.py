@@ -2,8 +2,11 @@
 Celery worker and Beat schedule.
 
 Tasks:
-  - task_daily_ingestion  : runs at 00:00 UTC — fetches GitHub metrics
-  - task_daily_scoring    : runs at 00:30 UTC — computes trend/sustainability scores
+  - task_daily_ingestion   : runs at 00:00 UTC — auto-discovers new trending
+                             repos via GitHub Trending + Search API, deactivates
+                             stale repos, then fetches GitHub metrics for all
+                             active repos.
+  - task_daily_scoring     : runs at 00:30 UTC — computes trend/sustainability scores
   - task_daily_explanations: runs at 01:00 UTC — generates Groq explanations for top repos
 
 Usage:
@@ -84,7 +87,10 @@ celery_app.conf.task_default_queue = "ingestion"
     default_retry_delay=300,  # Retry after 5 min on failure
 )
 def task_daily_ingestion(self):
-    """Fetch raw GitHub metrics for all repos. Retries up to 3× on failure."""
+    """
+    Auto-discover new trending repos, deactivate stale ones, then fetch
+    raw GitHub metrics for all active repos. Retries up to 3× on failure.
+    """
     try:
         from app.services.ingestion import run_daily_ingestion
         logger.info("Celery: starting daily ingestion")

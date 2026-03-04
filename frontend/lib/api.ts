@@ -111,7 +111,8 @@ export interface AlertResponse {
 
 export interface OverviewResponse {
   as_of: string;
-  total_repos: number;
+  total_repos: number;       // active repos only
+  discovered_repos: number;  // auto-discovered subset
   top_breakout: BreakoutRepo[];
   sustainability_ranking: SustainabilityEntry[];
   category_growth: CategoryMetrics[];

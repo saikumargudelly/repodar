@@ -830,7 +830,13 @@ export default function OverviewPage() {
 
       {/* Stat Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "14px" }}>
-        <StatCard label="Repos Tracked" value={overview.total_repos} />
+        <StatCard
+          label="Repos Tracked"
+          value={overview.total_repos}
+          sub={overview.discovered_repos > 0
+            ? `+${overview.discovered_repos} auto-discovered`
+            : "curated baseline"}
+        />
         <StatCard
           label="Top Category"
           value={topCat?.category ?? "—"}

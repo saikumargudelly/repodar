@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional, List
 
-from sqlalchemy import String, Integer, DateTime, Text, Index
+from sqlalchemy import String, Integer, DateTime, Text, Boolean, Index
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from app.database import Base
@@ -29,6 +29,21 @@ class Repository(Base):
     # Subsequent runs only pull GitHub data *since* this timestamp,
     # reducing API calls by ~80-90 % after the first full snapshot.
     last_fetched_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
+
+    # ── Auto-discovery tracking ───────────────────────────────────────────────
+    # is_active  : False repos are skipped during daily ingestion (but kept in
+    #              DB for historical data). Gets flipped back to True if a repo
+    #              resurfaces in GitHub Trending / Search.
+    # source     : "seed" repos (from repos.yaml) are NEVER auto-deactivated.
+    #              "auto_discovered" repos are deactivated after STALE_DAYS
+    #              (default 60) of not appearing in any trending/search result.
+    # discovered_at      : timestamp when first auto-added to the DB.
+    # last_seen_trending : updated every day the repo appears in any
+    #                      trending/search result — drives deactivation logic.
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
+    source: Mapped[str] = mapped_column(String(50), nullable=False, default="seed")
+    discovered_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
+    last_seen_trending: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
 
     # Relationships
     daily_metrics: Mapped[List["DailyMetric"]] = relationship("DailyMetric", back_populates="repository", cascade="all, delete-orphan")
