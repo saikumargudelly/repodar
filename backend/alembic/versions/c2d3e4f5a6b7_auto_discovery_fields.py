@@ -24,7 +24,7 @@ def upgrade() -> None:
     with op.batch_alter_table("repositories") as batch_op:
         if "is_active" not in existing_cols:
             batch_op.add_column(
-                sa.Column("is_active", sa.Boolean(), nullable=False, server_default="1")
+                sa.Column("is_active", sa.Boolean(), nullable=False, server_default="true")
             )
         if "source" not in existing_cols:
             batch_op.add_column(
@@ -41,7 +41,7 @@ def upgrade() -> None:
 
     # All existing rows are from the seed YAML — mark them explicitly
     conn.execute(
-        sa.text("UPDATE repositories SET source = 'seed', is_active = 1 WHERE source IS NULL OR source = ''")
+        sa.text("UPDATE repositories SET source = 'seed', is_active = true WHERE source IS NULL OR source = ''")
     )
 
 
