@@ -1,7 +1,12 @@
 @import "tailwindcss";
 
-/* ── Repodar Dark Theme ───────────────────────────────────────── */
-:root {
+/* ══════════════════════════════════════════════════════════════
+   Repodar Themes
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Dark (default) ─────────────────────────────────────────── */
+:root,
+[data-theme="dark"] {
   --bg-primary: #09090b;
   --bg-surface: #141416;
   --bg-elevated: #1c1c1f;
@@ -13,6 +18,39 @@
   --accent-green: #22c55e;
   --accent-yellow: #eab308;
   --accent-red: #ef4444;
+  --theme-icon: "🌑";
+}
+
+/* ── Semi-dark (navy/indigo toned) ──────────────────────────── */
+[data-theme="semi-dark"] {
+  --bg-primary: #0f172a;
+  --bg-surface: #1e293b;
+  --bg-elevated: #293548;
+  --border: #334155;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent-blue: #60a5fa;
+  --accent-green: #4ade80;
+  --accent-yellow: #facc15;
+  --accent-red: #f87171;
+  --theme-icon: "🌓";
+}
+
+/* ── Light ──────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg-primary: #f1f5f9;
+  --bg-surface: #ffffff;
+  --bg-elevated: #e8edf4;
+  --border: #cbd5e1;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --accent-blue: #2563eb;
+  --accent-green: #16a34a;
+  --accent-yellow: #d97706;
+  --accent-red: #dc2626;
+  --theme-icon: "🌕";
 }
 
 @theme inline {
@@ -30,9 +68,10 @@ html, body {
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  transition: background-color 0.2s, color 0.2s;
 }
 
-/* Recharts dark overrides */
+/* Recharts theme-aware overrides */
 .recharts-text { fill: var(--text-secondary) !important; }
 .recharts-cartesian-axis-line,
 .recharts-cartesian-grid-horizontal line,
@@ -43,7 +82,106 @@ html, body {
   color: var(--text-primary) !important;
 }
 
+/* Light theme recharts fix */
+[data-theme="light"] .recharts-legend-item-text {
+  color: var(--text-secondary) !important;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-primary); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ══════════════════════════════════════════════════════════════
+   Responsive Grid Utilities
+   ══════════════════════════════════════════════════════════════ */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.chart-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Nav responsive ─────────────────────────────────────────── */
+.nav-description {
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-left: 8px;
+  font-size: 13px;
+}
+.nav-links-desktop {
+  display: flex;
+  gap: 4px;
+}
+.nav-hamburger {
+  display: none;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 22px;
+  padding: 4px 8px;
+  line-height: 1;
+}
+.nav-mobile-menu {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 16px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-surface);
+}
+.nav-mobile-menu.open {
+  display: flex;
+}
+
+/* ── Period/Vertical selectors scroll on small screens ─────── */
+.scroll-selector {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.scroll-selector::-webkit-scrollbar { display: none; }
+
+/* ── Breakpoints ──────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .chart-row-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .nav-description {
+    display: none;
+  }
+  .nav-links-desktop {
+    display: none;
+  }
+  .nav-hamburger {
+    display: block;
+  }
+}
+
+@media (max-width: 420px) {
+  .stat-grid {
+    grid-template-columns: 1fr;
+  }
+}

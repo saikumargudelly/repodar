@@ -15,10 +15,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </head>
       <body>
         <Providers>
           <Nav />
-          <main style={{ maxWidth: "1600px", margin: "0 auto", padding: "0 24px 40px" }}>
+          <main style={{ maxWidth: "1600px", margin: "0 auto", padding: "0 16px 40px" }}>
             {children}
           </main>
         </Providers>
@@ -26,3 +29,4 @@ export default function RootLayout({
     </html>
   );
 }
+

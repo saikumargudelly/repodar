@@ -100,7 +100,8 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
 
 function PeriodSelector({ selected, onChange }: { selected: Period; onChange: (p: Period) => void }) {
   return (
-    <div style={{ display: "flex", gap: "4px", background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "4px" }}>
+    <div className="scroll-selector" style={{ display: "flex", background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "4px" }}>
+      <div style={{ display: "flex", gap: "4px" }}>
       {PERIODS.map(({ key, label }) => (
         <button
           key={key}
@@ -115,18 +116,21 @@ function PeriodSelector({ selected, onChange }: { selected: Period; onChange: (p
             background: selected === key ? "var(--accent-blue)" : "transparent",
             color: selected === key ? "#fff" : "var(--text-muted)",
             transition: "all 0.15s",
+            whiteSpace: "nowrap",
           }}
         >
           {label}
         </button>
       ))}
+      </div>
     </div>
   );
 }
 
 function VerticalSelector({ selected, onChange }: { selected: Vertical; onChange: (v: Vertical) => void }) {
   return (
-    <div style={{ display: "flex", gap: "4px", background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "4px" }}>
+    <div className="scroll-selector" style={{ display: "flex", background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "4px" }}>
+      <div style={{ display: "flex", gap: "4px" }}>
       {VERTICALS.map(({ key, label }) => (
         <button
           key={key}
@@ -147,6 +151,7 @@ function VerticalSelector({ selected, onChange }: { selected: Vertical; onChange
           {label}
         </button>
       ))}
+      </div>
     </div>
   );
 }
@@ -224,15 +229,15 @@ function CategoryStarsChart({ data }: { data: CategoryMetrics[] }) {
       <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: "0 0 16px" }}>
         {total.toLocaleString()} total stars across all categories
       </p>
-      <ResponsiveContainer width="100%" height={240}>
-        <PieChart>
+      <ResponsiveContainer width="100%" height={300}>
+        <PieChart margin={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Pie
             data={chartData}
             dataKey="total_stars"
             nameKey="category"
-            cx="50%" cy="50%"
+            cx="50%" cy="45%"
             innerRadius={55}
-            outerRadius={90}
+            outerRadius={88}
             paddingAngle={2}
           >
             {chartData.map((cat) => (
@@ -630,8 +635,6 @@ function AlertsPanel({
 }) {
   const unread = alerts.filter((a) => !a.is_read).length;
 
-  if (alerts.length === 0) return null;
-
   return (
     <div style={{
       background: "var(--bg-surface)",
@@ -662,6 +665,11 @@ function AlertsPanel({
           Last {alerts.length} alerts · click to dismiss
         </span>
       </div>
+      {alerts.length === 0 ? (
+        <p style={{ color: "var(--text-muted)", fontSize: "13px", textAlign: "center", padding: "12px 0" }}>
+          No active alerts — scores will trigger alerts after sufficient data accumulates.
+        </p>
+      ) : (
       <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
         {alerts.map((alert) => (
           <div
@@ -697,6 +705,7 @@ function AlertsPanel({
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }
@@ -823,14 +832,14 @@ export default function OverviewPage() {
           <h1 style={{ fontSize: "22px", fontWeight: 700, margin: "0 0 4px" }}>Ecosystem Overview</h1>
           <p style={{ color: "var(--text-muted)", fontSize: "13px", margin: 0 }}>As of {overview.as_of}</p>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-end" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "stretch" }}>
           <PeriodSelector selected={period} onChange={setPeriod} />
           <VerticalSelector selected={vertical} onChange={(v) => { setVertical(v); setCompareSelection([]); }} />
         </div>
       </div>
 
       {/* Stat Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "14px" }}>
+      <div className="stat-grid">
         <StatCard
           label="Repos Tracked"
           value={overview.total_repos}
@@ -858,13 +867,11 @@ export default function OverviewPage() {
       </div>
 
       {/* Trend Alerts */}
-      {alerts.length > 0 && (
-        <AlertsPanel alerts={alerts} onMarkRead={handleMarkAlertRead} />
-      )}
+      <AlertsPanel alerts={alerts} onMarkRead={handleMarkAlertRead} />
 
       {/* Category Charts Row */}
       <CategoryTrendHeatmap data={categoriesData ?? overview.category_growth} period={period} />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+      <div className="chart-row-2">
         <CategoryStarsChart data={categoriesData ?? overview.category_growth} />
         <CategoryPRChart data={categoriesData ?? overview.category_growth} period={period} />
       </div>
@@ -875,6 +882,7 @@ export default function OverviewPage() {
       )}
 
       {/* Period + Vertical Leaderboard */}
+      <div className="table-scroll">
       <LeaderboardTable
         entries={leaderboard?.entries ?? []}
         period={period}
@@ -889,6 +897,7 @@ export default function OverviewPage() {
           github_url: entry.github_url,
         })}
       />
+      </div>
 
       {/* Watchlist */}
       {watchlist.length > 0 && (

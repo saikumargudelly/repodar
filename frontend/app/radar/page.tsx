@@ -48,7 +48,7 @@ export default function RadarPage() {
   return (
     <div style={{ paddingTop: "24px", display: "flex", flexDirection: "column", gap: "20px" }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
         <div>
           <h1 style={{ fontSize: "22px", fontWeight: 700, margin: "0 0 4px" }}>Breakout Radar</h1>
           <p style={{ color: "var(--text-muted)", fontSize: "13px", margin: 0 }}>
@@ -57,7 +57,7 @@ export default function RadarPage() {
         </div>
 
         {/* Controls */}
-        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
           <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "var(--text-secondary)", cursor: "pointer" }}>
             <input
               type="checkbox"
@@ -89,7 +89,8 @@ export default function RadarPage() {
       </div>
 
       {/* Sort bar */}
-      <div style={{ display: "flex", gap: "6px" }}>
+      <div className="scroll-selector" style={{ display: "flex" }}>
+        <div style={{ display: "flex", gap: "6px" }}>
         {(["trend_score", "acceleration", "star_velocity_7d", "sustainability_score", "age_days"] as SortKey[]).map((key) => (
           <button
             key={key}
@@ -108,10 +109,11 @@ export default function RadarPage() {
             {key.replace(/_/g, " ")}
           </button>
         ))}
+        </div>
       </div>
 
       {/* Table */}
-      <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
+      <div className="table-scroll" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
         {isLoading ? (
           <p style={{ color: "var(--text-muted)", textAlign: "center", padding: "60px 0" }}>Loading radar data...</p>
         ) : (
@@ -142,7 +144,7 @@ export default function RadarPage() {
       </div>
 
       {/* ── Language & Tech Stack Radar ─────────────────────────────────── */}
-      <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
+      <div className="table-scroll" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
         <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid var(--border)" }}>
           <h2 style={{ fontSize: "14px", fontWeight: 700, margin: "0 0 4px" }}>
             Language &amp; Tech Stack Radar
