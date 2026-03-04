@@ -62,10 +62,12 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "https://repodar.vercel.app",       # update with your Vercel domain
-    ],
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://repodar.vercel.app",
+    "https://terrific-vitality-production-f122.up.railway.app",
+    "https://repodar.io",
+],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
