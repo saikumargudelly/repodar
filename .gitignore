@@ -44,3 +44,30 @@ logs/
 .coverage
 htmlcov/
 .pytest_cache/
+# AIIE & Task runners
+aiie/
+.aiie/
+*.aiie
+AIIE_*
+aiie_*
+
+# VS Code task outputs
+.vscode/tasks.json
+*.pid
+*.sock
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+~*
+*~
+
+# OS artifacts
+Thumbs.db
+.AppleDouble
+.LSOverride
+
+# Build artifacts
+*.whl
+*.tar.gz
