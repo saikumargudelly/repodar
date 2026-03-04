@@ -128,6 +128,23 @@ def _load_window_df_pandas(repo_id: str, days: int = 60) -> pd.DataFrame:
         db.close()
 
 
+# ─── Type conversion utility ────────────────────────────────────────────────────
+
+def _ensure_python_types(d: dict) -> dict:
+    """Recursively convert all numpy types to native Python types."""
+    result = {}
+    for k, v in d.items():
+        if isinstance(v, dict):
+            result[k] = _ensure_python_types(v)
+        elif hasattr(v, 'item'):  # numpy scalar
+            result[k] = v.item() if callable(v.item) else float(v)
+        elif isinstance(v, (float, int, bool, str, type(None))):
+            result[k] = v
+        else:
+            result[k] = float(v) if isinstance(v, (int, float)) else v
+    return result
+
+
 # ─── Metric computations ─────────────────────────────────────────────────────
 
 def _star_velocity(df: pd.DataFrame, window: int) -> float:
@@ -150,19 +167,19 @@ def _acceleration(df: pd.DataFrame) -> float:
 def _contributor_growth_rate(df: pd.DataFrame) -> float:
     if len(df) < 7:
         return 0.0
-    old_val = df.iloc[-7]["contributors"]
-    new_val = df.iloc[-1]["contributors"]
+    old_val = float(df.iloc[-7]["contributors"])
+    new_val = float(df.iloc[-1]["contributors"])
     if old_val == 0:
         return 0.0
-    return (new_val - old_val) / old_val
+    return float((new_val - old_val) / old_val)
 
 
 def _release_boost(df: pd.DataFrame) -> float:
     """1.0 if releases increased in last 7 days, else 0.0."""
     if len(df) < 2:
         return 0.0
-    old = df.iloc[-min(7, len(df))]["releases"]
-    new = df.iloc[-1]["releases"]
+    old = float(df.iloc[-min(7, len(df))]["releases"])
+    new = float(df.iloc[-1]["releases"])
     return 1.0 if new > old else 0.0
 
 
@@ -197,10 +214,10 @@ def _issue_spike(df: pd.DataFrame) -> float:
     """Normalized open issue delta over 7 days."""
     if len(df) < 7:
         return 0.0
-    old = df.iloc[-7]["open_issues"]
-    new = df.iloc[-1]["open_issues"]
-    baseline = max(old, 1)
-    return (new - old) / baseline
+    old = float(df.iloc[-7]["open_issues"])
+    new = float(df.iloc[-1]["open_issues"])
+    baseline = max(old, 1.0)
+    return float((new - old) / baseline)
 
 
 def _issue_close_rate(df: pd.DataFrame) -> float:
@@ -209,25 +226,25 @@ def _issue_close_rate(df: pd.DataFrame) -> float:
         return 0.5
     spike = _issue_spike(df)
     # Invert: negative spike (issues decreasing) = high close rate
-    return max(0.0, min(1.0, 0.5 - spike))
+    return float(max(0.0, min(1.0, 0.5 - spike)))
 
 
 def _release_frequency(df: pd.DataFrame, age_weeks: float) -> float:
     """Releases per week based on total release count."""
     if df.empty or age_weeks == 0:
         return 0.0
-    total_releases = df.iloc[-1]["releases"]
-    return total_releases / max(age_weeks, 1)
+    total_releases = float(df.iloc[-1]["releases"])
+    return float(total_releases / max(age_weeks, 1))
 
 
 def _fork_to_star_ratio(df: pd.DataFrame) -> float:
     if df.empty:
         return 0.0
-    stars = df.iloc[-1]["stars"]
-    forks = df.iloc[-1]["forks"]
+    stars = float(df.iloc[-1]["stars"])
+    forks = float(df.iloc[-1]["forks"])
     if stars == 0:
         return 0.0
-    return forks / stars
+    return float(forks / stars)
 
 
 def _fork_growth_score(df: pd.DataFrame) -> float:
@@ -241,11 +258,11 @@ def _fork_growth_score(df: pd.DataFrame) -> float:
     if "daily_fork_delta" in df.columns and df["daily_fork_delta"].sum() > 0:
         delta = float(df.tail(7)["daily_fork_delta"].sum())
     else:
-        old_forks = df.iloc[-min(7, len(df))]["forks"]
-        delta = float(df.iloc[-1]["forks"] - old_forks)
+        old_forks = float(df.iloc[-min(7, len(df))]["forks"])
+        delta = float(float(df.iloc[-1]["forks"]) - old_forks)
     baseline = max(float(df.iloc[-min(7, len(df))]["forks"]), 1.0)
-    pct = delta / baseline
-    return round(min(1.0, pct / 0.05), 4)   # 5 % / week → 1.0
+    pct = float(delta / baseline)
+    return float(round(min(1.0, pct / 0.05), 4))   # 5 % / week → 1.0
 
 
 def _commit_frequency_score(df: pd.DataFrame) -> float:
@@ -260,7 +277,7 @@ def _commit_frequency_score(df: pd.DataFrame) -> float:
         avg = float(df.tail(7)["daily_commit_delta"].mean())
     else:
         avg = 0.0
-    return round(min(1.0, avg / 10.0), 4)   # 10 commits/day → 1.0
+    return float(round(min(1.0, avg / 10.0), 4))   # 10 commits/day → 1.0
 
 
 # ─── Composite scores ────────────────────────────────────────────────────────
@@ -283,17 +300,17 @@ def compute_trend_score(df: pd.DataFrame, age_days: int) -> dict:
     Raw score is log-damped by repo age so newer repos aren't artificially
     inflated for raw star counts.
     """
-    vel_7d  = _star_velocity(df, 7)
-    vel_30d = _star_velocity(df, 30)
-    accel   = _acceleration(df)
-    contrib_growth   = _contributor_growth_rate(df)
-    release_b        = _release_boost(df)
-    issue_s          = _issue_spike(df)
-    pr_activity      = _pr_activity_score(df)
-    fork_growth      = _fork_growth_score(df)
-    commit_freq      = _commit_frequency_score(df)
+    vel_7d  = float(_star_velocity(df, 7))
+    vel_30d = float(_star_velocity(df, 30))
+    accel   = float(_acceleration(df))
+    contrib_growth   = float(_contributor_growth_rate(df))
+    release_b        = float(_release_boost(df))
+    issue_s          = float(_issue_spike(df))
+    pr_activity      = float(_pr_activity_score(df))
+    fork_growth      = float(_fork_growth_score(df))
+    commit_freq      = float(_commit_frequency_score(df))
 
-    raw = (
+    raw = float(
         vel_7d         * 0.30 +
         accel          * 0.20 +
         commit_freq    * 0.15 +
@@ -305,14 +322,14 @@ def compute_trend_score(df: pd.DataFrame, age_days: int) -> dict:
     )
 
     age_log = math.log(max(age_days, 2))
-    trend = raw / age_log if age_log > 0 else 0.0
+    trend = float(raw / age_log) if age_log > 0 else 0.0
 
     return {
-        "star_velocity_7d": round(vel_7d, 4),
-        "star_velocity_30d": round(vel_30d, 4),
-        "acceleration": round(accel, 4),
-        "contributor_growth_rate": round(contrib_growth, 4),
-        "trend_score": round(trend, 6),
+        "star_velocity_7d": float(round(vel_7d, 4)),
+        "star_velocity_30d": float(round(vel_30d, 4)),
+        "acceleration": float(round(accel, 4)),
+        "contributor_growth_rate": float(round(contrib_growth, 4)),
+        "trend_score": float(round(trend, 6)),
     }
 
 
@@ -322,14 +339,14 @@ def compute_sustainability_score(df: pd.DataFrame, age_days: int) -> dict:
     Label: GREEN>0.6, YELLOW 0.3–0.6, RED<0.3
     """
     # Use contributor_growth_rate as proxy for active contributors (normalized 0-1)
-    cg = min(1.0, max(0.0, _contributor_growth_rate(df) + 0.5))
-    ic = _issue_close_rate(df)
-    age_weeks = age_days / 7.0
-    rf = min(1.0, _release_frequency(df, age_weeks) / 2.0)  # cap at 2/week = 1.0
-    fsr = min(1.0, _fork_to_star_ratio(df) * 5)             # 20% fork rate = 1.0
+    cg = float(min(1.0, max(0.0, float(_contributor_growth_rate(df)) + 0.5)))
+    ic = float(_issue_close_rate(df))
+    age_weeks = float(age_days / 7.0)
+    rf = float(min(1.0, float(_release_frequency(df, age_weeks)) / 2.0))  # cap at 2/week = 1.0
+    fsr = float(min(1.0, float(_fork_to_star_ratio(df)) * 5))             # 20% fork rate = 1.0
 
-    score = (cg * 0.3) + (ic * 0.3) + (rf * 0.2) + (fsr * 0.2)
-    score = round(score, 4)
+    score = float((cg * 0.3) + (ic * 0.3) + (rf * 0.2) + (fsr * 0.2))
+    score = float(round(score, 4))
 
     if score >= 0.6:
         label = "GREEN"
@@ -339,9 +356,9 @@ def compute_sustainability_score(df: pd.DataFrame, age_days: int) -> dict:
         label = "RED"
 
     return {
-        "issue_close_rate": round(ic, 4),
-        "release_frequency": round(rf, 4),
-        "fork_to_star_ratio": round(_fork_to_star_ratio(df), 4),
+        "issue_close_rate": float(round(ic, 4)),
+        "release_frequency": float(round(rf, 4)),
+        "fork_to_star_ratio": float(round(float(_fork_to_star_ratio(df)), 4)),
         "sustainability_score": score,
         "sustainability_label": label,
     }
@@ -760,8 +777,8 @@ def run_daily_scoring() -> dict:
                 if df.empty:
                     continue
 
-                trend_metrics   = compute_trend_score(df, max(repo.age_days, 1))
-                sustain_metrics = compute_sustainability_score(df, max(repo.age_days, 1))
+                trend_metrics   = _ensure_python_types(compute_trend_score(df, max(repo.age_days, 1)))
+                sustain_metrics = _ensure_python_types(compute_sustainability_score(df, max(repo.age_days, 1)))
 
                 if existing:
                     for k, v in {**trend_metrics, **sustain_metrics}.items():
