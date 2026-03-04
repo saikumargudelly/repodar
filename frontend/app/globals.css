@@ -100,15 +100,32 @@ svg {
   color: var(--text-primary) !important;
 }
 
-/* CRITICAL: prevent Recharts SVG from overflowing its container on mobile */
-.recharts-wrapper,
-.recharts-surface {
-  max-width: 100% !important;
-  overflow: visible; /* keep tooltips visible but SVG itself won't expand page */
-}
+/* CRITICAL: Recharts sizing — must have explicit width/height or charts render at 0px */
 .recharts-responsive-container {
   min-width: 0 !important;
+  width: 100% !important;
   max-width: 100% !important;
+}
+.recharts-wrapper {
+  position: relative !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+}
+/* Force the inner SVG to fill its wrapper — prevents collapse in flex/grid contexts */
+.recharts-wrapper > svg {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+/* Surface SVG — keep overflow hidden so clip paths work correctly */
+.recharts-surface {
+  max-width: 100% !important;
+}
+/* Tooltip wrapper must overflow its container so it's not clipped */
+.recharts-tooltip-wrapper {
+  pointer-events: none;
+  z-index: 100;
 }
 
 /* Light theme recharts fix */
