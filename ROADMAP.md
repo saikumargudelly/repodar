@@ -1,6 +1,6 @@
 # Repodar Roadmap
 
-Here's what we're building. Some stuff is done. Some stuff is happening now. Some stuff is still just dreams.
+Here's what we're building, what's shipping next, and where we're taking this.
 
 **Latest Update:** March 2026
 
@@ -105,9 +105,9 @@ That's it. That's the mission.
 
 ---
 
-## 🚀 2027+: The Dream List
+## 🚀 2027+: Long-Term Vision
 
-If we had unlimited time:
+Bigger bets we're planning for:
 
 **Ecosystem Health Score** — Beyond trending
 - Community health metrics
@@ -169,9 +169,9 @@ The roadmap shifts based on what the community wants. You're not just using Repo
 
 ---
 
-## 🤔 Under Consideration
+## 🤔 On Our Radar
 
-These need more thought/research:
+Things we're evaluating — community feedback will help us prioritize:
 
 - Sponsor tracking alongside code trends
 - Multi-region mirrors

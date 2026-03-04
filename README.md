@@ -89,19 +89,21 @@ Example: [/compare?repos=langchain-ai/langchain,openai/gpt-engineer,anthropic/cl
 ---
 
 ## 🔍 Auto-Discovery Engine
-**The game-changer:** Every 24 hours, Repodar automatically:
-1. Queries GitHub Trending (1d, 7d, 30d)
-2. Searches across 6 verticals (AI/ML, DevTools, Web, Security, Data Engineering, Blockchain)
-3. **Discovers new repos** → upserts to DB (source="auto_discovered")
-4. **Tracks everything** → ingests daily metrics for all repos
-5. **Prunes stale** → deactivates after 60 days of no trending signals (preserves history)
 
-**Result:** Grew from 123 curated repos → **380 live tracked** in one run (257 auto-discovered).
+Every 24 hours, Repodar automatically:
+1. Scrapes GitHub Trending (daily, weekly, monthly)
+2. Searches across 6 verticals (AI/ML, DevTools, Web, Security, Data Engineering, Blockchain)
+3. Discovers new breakout repos and starts tracking them immediately
+4. Ingests daily metrics for every active repo
+5. Retires projects that stop trending (history is always preserved)
+
+The result: a live, self-updating radar — not a static list.
 
 ### 🏆 Dual-Signal Scoring
+
 **TrendScore (0–100)** — Is it hot *right now*?
 - 7-day star velocity + 30-day acceleration
-- Fork-to-star ratio + contributor momentum  
+- Fork-to-star ratio + contributor momentum
 - Issue resolution speed
 
 **SustainabilityScore (0–100)** — Will it last?
@@ -113,30 +115,21 @@ Example: [/compare?repos=langchain-ai/langchain,openai/gpt-engineer,anthropic/cl
 **Labels:** 🟢 GREEN (70+) | 🟡 YELLOW (40–69) | 🔴 RED (<40)
 
 ### 📈 Ecosystem Radar
-**Category-level analytics** across 13 AI/ML verticals:
-- LLM Models | Agent Frameworks | Inference Engines | Vector Databases  
-- Model Serving | Distributed Compute | Evaluation Frameworks | Fine-tuning  
+
+Category-level analytics across 13 AI/ML verticals:
+- LLM Models | Agent Frameworks | Inference Engines | Vector Databases
+- Model Serving | Distributed Compute | Evaluation Frameworks | Fine-tuning
 - DevTools | Web Frameworks | Security | Data Engineering | Blockchain
 
-Each category gets:
-- Composite trend score (heatmap visualization)
-- Total stars & month-over-month growth
-- Tech stack breakdown (languages, frameworks)
+Each category gets a composite trend score, total stars, month-over-month growth, and tech stack breakdown.
 
 ### 🤖 AI-Powered Insights
-**Weekly + Monthly reports** via Groq LLama-3.2-70B:
-- Strategic ecosystem narrative
-- Top breakouts & momentum signals
-- Category trends & tech stack evolution
-- Sustainability watchlist (repos at risk)
 
-**Human-grade analysis.** Machine speed.
+Weekly reports via Groq LLaMA — strategic ecosystem narrative, top breakouts, category trends, and sustainability signals. Analyst-grade output, generated automatically.
 
-### 📊 Full time-series tracking
-- Daily ingestion for all active repos (stars, forks, watchers, issues, PRs, commits)
-- Incremental fetching (80-90% fewer API calls after first snapshot)
-- Contributor count tracking
-- Language breakdown per repo
+### 📊 Full Time-Series Tracking
+
+Daily snapshots for every active repo: stars, forks, watchers, issues, PRs, commits, contributors, and language breakdown. Full history retained even for retired repos.
 
 ---
 
@@ -203,7 +196,7 @@ EOF
 # 4️⃣ Setup the database
 alembic upgrade head
 
-# 5️⃣ Fire it up (optional - just run one manual trigger)
+# 5️⃣ Run your first discovery + ingestion cycle
 curl -X POST http://localhost:8000/admin/run-all
 
 # 6️⃣ Frontend
@@ -217,9 +210,9 @@ Then open **[http://localhost:3000](http://localhost:3000)** and start exploring
 ## 🏗 What Powers It
 
 **Frontend:** Next.js 15 + React (real-time charts with TanStack Query)  
-**Backend:** FastAPI (fast Python API) + Celery (background jobs)  
-**Database:** SQLite (simple & reliable)  
-**AI:** Groq's LLama (for weekly insights)  
+**Backend:** FastAPI + Celery (async Python, built for scale)  
+**Database:** SQLite + DuckDB (reliable embedded storage with analytics support)  
+**AI:** Groq's LLaMA (for weekly insights)  
 
 We grab data from GitHub's API every day, score it, analyze it, and serve it up fresh.
 
@@ -228,7 +221,7 @@ We grab data from GitHub's API every day, score it, analyze it, and serve it up 
 ## 📊 Dashboard at a Glance
 
 **Quick Stats** at the top show what's happening:
-- 380 repos being tracked
+- Live count of repos being tracked (grows every day)
 - What category is hottest
 - Today's #1 trending project
 - Overall ecosystem health
@@ -304,11 +297,10 @@ APP_ENV=development
 
 | Problem | Fix |
 |---------|-----|
-| "Using REST fallback..." | GitHub GraphQL timed out. Normal. It retries. |
-| "HTTP 403" | You hit GitHub rate limit. Wait an hour or upgrade token scope. |
-| "404 on seed repos" | Repository was deleted on GitHub. Remove from `repos.yaml`. |
-| No data after running | Check GitHub token is valid: `curl -H "Authorization: token YOUR_TOKEN" https://api.github.com/user` |
-| Celery not running | Not needed for dev. Use `curl -X POST http://localhost:8000/admin/run-all` instead. |
+| No data showing up | Verify your GitHub token is valid: `curl -H "Authorization: token YOUR_TOKEN" https://api.github.com/user` |
+| "HTTP 403" errors | GitHub API quota reached — check your token has the right scopes or wait for the limit to reset |
+| "404 on some repos" | The repository may have been renamed or removed on GitHub — update or remove the entry from `repos.yaml` |
+| Background jobs not triggering | For local dev, trigger the pipeline manually: `curl -X POST http://localhost:8000/admin/run-all` |
 
 ---
 

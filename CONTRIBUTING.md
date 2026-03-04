@@ -49,7 +49,7 @@ Keep it clean and typed:
 - Follow [PEP 8](https://www.python.org/dev/peps/pep-0008/)
 - Add type hints: `def score(stars: int) -> float:`
 - Write docstrings (explain the *why*, not just the *what*)
-- Aim for 70%+ test coverage
+- Include tests for new functionality — good coverage keeps things stable
 - Format with `black`, lint with `flake8`
 
 ```python
@@ -71,7 +71,8 @@ Type-first and accessible:
 ```typescript
 /** Circular gauge showing TrendScore (0-100) */
 function TrendGauge({ pct, label }: GaugeProps) {
-  return <>;  // Your code here
+  const color = LABEL_COLOR[label ?? "YELLOW"] ?? "#f59e0b";
+  // render SVG arc based on pct
 }
 ```
 
@@ -149,6 +150,6 @@ Or pick something from [ROADMAP.md](./ROADMAP.md)!
 
 ## 📄 License & Thanks
 
-Bycontributing, your code gets licensed under [AGPL-3.0](./LICENSE) — same as the project.
+By contributing, your code gets licensed under [AGPL-3.0](./LICENSE) — same as the project.
 
 We'll credit you in release notes and monthly updates. And honestly? Your contribution makes Repodar better for everyone. That's the real thank you. 🚀
