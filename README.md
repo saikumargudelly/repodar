@@ -566,17 +566,44 @@ APP_ENV=development  # or production
 
 ## 📝 License
 
-MIT — Use freely for research, personal projects, and commercial products. Just credit Repodar.
+This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
+
+### What This Means
+
+- ✅ **Free to use** for research, personal projects, and open-source deployments
+- ✅ **Free to modify** — fork and customize the code
+- ✅ **Free to distribute** — share improvements with the community
+- ⚠️ **Network clause** — if you run a modified version as a service accessible over the network, you **must make your modifications available** to users under the same AGPL-3.0 license
+
+### Commercial Use
+
+- **Cloud/SaaS deployment?** Contact maintainers for alternative licensing options
+- **Internal enterprise use** of unmodified code is permitted
+- **Attribution required** — must credit Repodar in any distribution
+
+### Details
+
+See the full [LICENSE](./LICENSE) file for complete terms. For a summary, visit [GNU Affero GPL v3.0](https://www.gnu.org/licenses/agpl-3.0.html).
 
 ---
 
 ## 🤝 Contributing
 
-Found a bug? Want to add a new vertical? Have ideas for scoring signals?
+Found a bug? Want to add a new category? Have ideas for scoring improvements?
 
+Please read our [Contributing Guide](./CONTRIBUTING.md) for:
+- How to set up development environment
+- Contribution workflow
+- Code standards (Python & TypeScript)
+- Testing requirements
+
+Summary:
 1. Fork the repo
-2. Create a feature branch
-3. Submit a PR with clear title + description
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Commit with clear messages
+4. Submit a PR with description of changes
+
+By contributing, you agree your work will be licensed under AGPL-3.0. See [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) for community guidelines.
 
 ---
 
