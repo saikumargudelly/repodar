@@ -167,7 +167,7 @@ async def compare_repos(
                 dm = (
                     db.query(DailyMetric)
                     .filter_by(repo_id=repo_id)
-                    .order_by(DailyMetric.date.desc())
+                    .order_by(DailyMetric.captured_at.desc())
                     .first()
                 )
                 results.append(CompareEntry(

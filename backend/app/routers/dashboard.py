@@ -166,9 +166,33 @@ def get_overview(db: Session = Depends(get_db)):
     # Only include repos that have actual scored data
     sustain_scored = [r for r in sustain_list if r.sustainability_score > 0]
 
-    # Category growth via DuckDB
-    category_growth = compute_category_growth()
-    cat_metrics = [CategoryMetrics(**c) for c in category_growth]
+    # Category growth: use today's pre-aggregated cache first (fast), fall back to live compute
+    today = date.today()
+    cached_cats = (
+        db.query(CategoryMetricDaily)
+        .filter_by(date=today, period_days=7)
+        .all()
+    )
+    if cached_cats:
+        cat_metrics = [
+            CategoryMetrics(
+                category=c.category,
+                total_stars=c.total_stars,
+                total_contributors=c.total_contributors,
+                total_merged_prs=c.total_merged_prs,
+                weekly_velocity=c.weekly_velocity,
+                mom_growth_pct=c.mom_growth_pct,
+                repo_count=c.repo_count,
+                period_star_gain=c.period_star_gain,
+                period_pr_gain=c.period_pr_gain,
+                avg_open_prs=c.avg_open_prs,
+                trend_composite=c.trend_composite,
+            )
+            for c in sorted(cached_cats, key=lambda x: x.trend_composite, reverse=True)
+        ]
+    else:
+        category_growth = compute_category_growth()
+        cat_metrics = [CategoryMetrics(**c) for c in category_growth]
 
     total_repos = db.query(Repository).filter(Repository.is_active == True).count()  # noqa: E712
     discovered_repos = (

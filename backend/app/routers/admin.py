@@ -192,20 +192,76 @@ async def trigger_discovery():
 @router.get("/status")
 def get_status():
     """Pipeline health: repo count, latest ingestion date, latest scoring date."""
+    from datetime import date as _date
     from app.database import SessionLocal
-    from app.models import Repository, DailyMetric, ComputedMetric
+    from app.models import Repository, DailyMetric, ComputedMetric, TrendAlert
 
     db = SessionLocal()
     try:
+        today = _date.today()
         total_repos = db.query(Repository).count()
+        active_repos = db.query(Repository).filter(Repository.is_active == True).count()  # noqa: E712
         latest_metric = db.query(DailyMetric).order_by(DailyMetric.captured_at.desc()).first()
         latest_score = db.query(ComputedMetric).order_by(ComputedMetric.date.desc()).first()
+        total_alerts = db.query(TrendAlert).count()
+        unread_alerts = db.query(TrendAlert).filter(TrendAlert.is_read == False).count()  # noqa: E712
+        scored_today = db.query(ComputedMetric).filter(
+            ComputedMetric.date == today
+        ).count()
 
         return {
             "total_repos": total_repos,
+            "active_repos": active_repos,
             "latest_ingestion": latest_metric.captured_at.isoformat() if latest_metric else None,
             "latest_scoring_date": str(latest_score.date) if latest_score else None,
+            "scored_today": scored_today,
+            "total_alerts": total_alerts,
+            "unread_alerts": unread_alerts,
             "pipeline_ready": total_repos > 0 and latest_metric is not None,
+            "has_scored_data": latest_score is not None,
         }
     finally:
         db.close()
+
+
+@router.post("/run-all-sync")
+async def run_full_pipeline_sync():
+    """
+    Run full pipeline synchronously: discover → ingest → score → explain.
+    Blocks until complete and returns results.  May take 2–8 minutes.
+    Use /admin/run-all for a fire-and-forget variant.
+    """
+    from app.services.ingestion import run_daily_ingestion
+    from app.services.scoring import run_daily_scoring
+    from app.services.explanation import enrich_top_repos_with_explanations
+    import logging
+    _logger = logging.getLogger("app.admin")
+
+    try:
+        _logger.info("run-all-sync: starting ingestion")
+        ingest_result = await run_daily_ingestion()
+        _logger.info(f"run-all-sync: ingestion done → {ingest_result}")
+
+        _logger.info("run-all-sync: starting scoring")
+        score_result = run_daily_scoring()
+        _logger.info(f"run-all-sync: scoring done → {score_result}")
+
+        _logger.info("run-all-sync: generating explanations")
+        explain_count = enrich_top_repos_with_explanations(top_n=20)
+        _logger.info(f"run-all-sync: explanations done → {explain_count}")
+
+        return {
+            "status": "complete",
+            "discovered": ingest_result.get("discovered", 0),
+            "reactivated": ingest_result.get("reactivated", 0),
+            "ingested": ingest_result.get("ingested", 0),
+            "scored": score_result.get("scored", 0),
+            "failed_scoring": score_result.get("failed", 0),
+            "alerts_generated": score_result.get("alerts", 0),
+            "categories_cached": score_result.get("categories_cached", 0),
+            "explanations": explain_count,
+            "scoring_date": score_result.get("date"),
+        }
+    except Exception as e:
+        _logger.error(f"run-all-sync failed: {e}", exc_info=True)
+        return {"status": "error", "detail": str(e)}

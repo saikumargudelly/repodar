@@ -42,6 +42,25 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Seed failed (non-fatal): {e}")
 
+    # Pre-install DuckDB extensions so the scoring service works on first run.
+    # Runs in a thread pool to avoid blocking the event loop.
+    try:
+        import duckdb, os
+        # Use /tmp for extension storage on Railway (always writable)
+        ext_dir = os.getenv("DUCKDB_EXTENSION_DIRECTORY", "/tmp/.duckdb/extensions")
+        os.makedirs(ext_dir, exist_ok=True)
+        conn = duckdb.connect()
+        conn.execute(f"SET extension_directory='{ext_dir}';")
+        conn.execute("INSTALL sqlite; LOAD sqlite;")
+        db_url = os.getenv("DATABASE_URL", "")
+        if db_url.startswith("postgresql"):
+            conn.execute("INSTALL postgres; LOAD postgres;")
+            logger.info("DuckDB postgres extension ready.")
+        conn.close()
+        logger.info("DuckDB extensions pre-installed.")
+    except Exception as e:
+        logger.warning(f"DuckDB extension pre-install failed (non-fatal — SQLAlchemy fallback will be used): {e}")
+
     logger.info("Repodar ready. Celery handles scheduled ingestion.")
     yield
     logger.info("Repodar shutting down.")

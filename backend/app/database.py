@@ -22,6 +22,10 @@ if not DATABASE_URL:
     # Local development default
     DATABASE_URL = "sqlite:///./repodar.db"
 
+# Normalize Railway/Heroku-style postgres:// → postgresql:// (SQLAlchemy 2.x requires this)
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
 # Validate database type
 if not (DATABASE_URL.startswith("sqlite") or DATABASE_URL.startswith("postgresql")):
     raise ValueError(
@@ -53,7 +57,7 @@ if DATABASE_URL.startswith("sqlite"):
                 pass
         cursor.close()
 
-elif DATABASE_URL.startswith("postgresql"):
+elif DATABASE_URL.startswith("postgresql"):  # includes normalized postgres:// URLs
     # PostgreSQL: Production on Railway
     # Optimized connection pooling for async workloads with Celery
     engine_kwargs.update({

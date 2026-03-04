@@ -29,17 +29,24 @@ def _get_duck_conn():
     from dotenv import load_dotenv
     load_dotenv()
     db_url = os.getenv("DATABASE_URL", "sqlite:///./repodar.db")
-    
+
+    # Normalise legacy postgres:// scheme
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+    # Use the same extension directory that was pre-installed at startup
+    ext_dir = os.getenv("DUCKDB_EXTENSION_DIRECTORY", "/tmp/.duckdb/extensions")
+    os.makedirs(ext_dir, exist_ok=True)
+
     conn = duckdb.connect()
-    
-    if db_url.startswith("postgresql://") or db_url.startswith("postgres://"):
+    conn.execute(f"SET extension_directory='{ext_dir}';")
+
+    if db_url.startswith("postgresql://"):
         # Production: PostgreSQL on Railway
         # Install and load PostgreSQL extension for DuckDB
         try:
             conn.execute("INSTALL postgres; LOAD postgres;")
-            # Remove postgres:// prefix if present, keep postgresql://
-            clean_url = db_url.replace("postgres://", "postgresql://")
-            conn.execute(f"ATTACH '{clean_url}' AS repodar (TYPE postgres)")
+            conn.execute(f"ATTACH '{db_url}' AS repodar (TYPE postgres)")
         except Exception as e:
             # If PostgreSQL extension fails, DuckDB fallback will trigger when _load_window_df_pandas is called
             logger.warning(f"DuckDB PostgreSQL extension failed: {e}. Will use Pandas fallback.")
@@ -50,7 +57,7 @@ def _get_duck_conn():
         sqlite_path = db_url.replace("sqlite:///", "")
         conn.execute("INSTALL sqlite; LOAD sqlite;")
         conn.execute(f"ATTACH '{sqlite_path}' AS repodar (TYPE sqlite)")
-    
+
     return conn
 
 
@@ -342,6 +349,56 @@ def compute_sustainability_score(df: pd.DataFrame, age_days: int) -> dict:
 
 # ─── Category growth model ───────────────────────────────────────────────────
 
+def _category_growth_df_sqlalchemy(fetch_days: int) -> "pd.DataFrame":
+    """
+    SQLAlchemy/Pandas fallback that returns a DataFrame identical to the
+    DuckDB query used in compute_category_growth().  Used on PostgreSQL when
+    the DuckDB postgres extension is unavailable (e.g. cold Railway deploy).
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=fetch_days)
+    db = SessionLocal()
+    try:
+        rows = (
+            db.query(
+                Repository.category,
+                Repository.id.label("repo_id"),
+                DailyMetric.captured_at,
+                DailyMetric.stars,
+                DailyMetric.daily_star_delta,
+                DailyMetric.contributors,
+                DailyMetric.open_issues,
+                DailyMetric.releases,
+                DailyMetric.merged_prs,
+                DailyMetric.open_prs,
+                DailyMetric.daily_pr_delta,
+            )
+            .join(DailyMetric, Repository.id == DailyMetric.repo_id)
+            .filter(DailyMetric.captured_at >= cutoff.replace(tzinfo=None))
+            .all()
+        )
+        if not rows:
+            return pd.DataFrame()
+        data = [
+            {
+                "category": r.category,
+                "repo_id": r.repo_id,
+                "day": pd.Timestamp(r.captured_at.date()),
+                "stars": r.stars or 0,
+                "daily_star_delta": r.daily_star_delta or 0,
+                "contributors": r.contributors or 0,
+                "open_issues": r.open_issues or 0,
+                "releases": r.releases or 0,
+                "merged_prs": r.merged_prs or 0,
+                "open_prs": r.open_prs or 0,
+                "daily_pr_delta": r.daily_pr_delta or 0,
+            }
+            for r in rows
+        ]
+        return pd.DataFrame(data)
+    finally:
+        db.close()
+
+
 def compute_category_growth(days: int = 7) -> list[dict]:
     """
     Per-category aggregated metrics + composite TrendScore using:
@@ -349,9 +406,9 @@ def compute_category_growth(days: int = 7) -> list[dict]:
       Release boost 10% | Issue activity 10%
     All signals are min-max normalised across categories before weighting.
     """
+    fetch_days = max(days + 7, 35)
     try:
         conn = _get_duck_conn()
-        fetch_days = max(days + 7, 35)
         cutoff = (_today() - timedelta(days=fetch_days)).isoformat()
         df = conn.execute(f"""
             SELECT
@@ -372,8 +429,12 @@ def compute_category_growth(days: int = 7) -> list[dict]:
         """).fetchdf()
         conn.close()
     except Exception as e:
-        logger.warning(f"DuckDB category growth failed: {e}")
-        return []
+        logger.warning(f"DuckDB category growth failed: {e}. Falling back to SQLAlchemy.")
+        try:
+            df = _category_growth_df_sqlalchemy(fetch_days)
+        except Exception as e2:
+            logger.error(f"SQLAlchemy category growth fallback also failed: {e2}")
+            return []
 
     if df.empty:
         return []

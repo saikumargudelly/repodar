@@ -391,6 +391,8 @@ export const api = {
   // Admin
   triggerFullPipeline: () =>
     apiFetch<PipelineStatus>("/admin/run-all", { method: "POST" }),
+  triggerFullPipelineSync: () =>
+    apiFetch<Record<string, unknown>>("/admin/run-all-sync", { method: "POST" }),
   getPipelineStatus: () => apiFetch<Record<string, unknown>>("/admin/status"),
 
   // Alerts
