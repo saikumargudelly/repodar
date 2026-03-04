@@ -89,7 +89,7 @@ export default function RadarPage() {
       </div>
 
       {/* Sort bar */}
-      <div className="scroll-selector" style={{ display: "flex" }}>
+      <div className="scroll-selector">
         <div style={{ display: "flex", gap: "6px" }}>
         {(["trend_score", "acceleration", "star_velocity_7d", "sustainability_score", "age_days"] as SortKey[]).map((key) => (
           <button

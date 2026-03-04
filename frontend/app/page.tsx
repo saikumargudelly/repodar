@@ -100,7 +100,7 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
 
 function PeriodSelector({ selected, onChange }: { selected: Period; onChange: (p: Period) => void }) {
   return (
-    <div className="scroll-selector" style={{ display: "flex", background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "4px" }}>
+    <div className="scroll-selector" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "4px" }}>
       <div style={{ display: "flex", gap: "4px" }}>
       {PERIODS.map(({ key, label }) => (
         <button
@@ -129,7 +129,7 @@ function PeriodSelector({ selected, onChange }: { selected: Period; onChange: (p
 
 function VerticalSelector({ selected, onChange }: { selected: Vertical; onChange: (v: Vertical) => void }) {
   return (
-    <div className="scroll-selector" style={{ display: "flex", background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "4px" }}>
+    <div className="scroll-selector" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "4px" }}>
       <div style={{ display: "flex", gap: "4px" }}>
       {VERTICALS.map(({ key, label }) => (
         <button

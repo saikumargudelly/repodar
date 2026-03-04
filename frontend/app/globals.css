@@ -79,10 +79,14 @@ body {
   transition: background-color 0.2s, color 0.2s;
 }
 
-/* All block-level elements must not exceed viewport width */
-img, video, svg, canvas, iframe {
+/* Constrain media elements — but NOT svg, which needs its authored height */
+img, video, canvas, iframe {
   max-width: 100%;
   height: auto;
+}
+/* SVGs must not exceed their container but keep authored height */
+svg {
+  max-width: 100%;
 }
 
 /* Recharts theme-aware overrides */
