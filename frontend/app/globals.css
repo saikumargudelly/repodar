@@ -78,14 +78,10 @@ body {
   transition: background-color 0.2s, color 0.2s;
 }
 
-/* Constrain media elements — but NOT svg, which needs its authored height */
+/* Constrain media elements */
 img, video, canvas, iframe {
   max-width: 100%;
   height: auto;
-}
-/* SVGs must not exceed their container but keep authored height */
-svg {
-  max-width: 100%;
 }
 
 /* Recharts theme-aware overrides */
@@ -99,15 +95,7 @@ svg {
   color: var(--text-primary) !important;
 }
 
-/* Recharts — prevent container from overflowing on mobile */
-.recharts-responsive-container {
-  max-width: 100% !important;
-}
-.recharts-wrapper,
-.recharts-surface {
-  max-width: 100% !important;
-  overflow: visible;
-}
+/* Recharts — don't touch wrapper/surface overflow; Recharts manages that internally */
 
 /* Light theme recharts fix */
 [data-theme="light"] .recharts-legend-item-text {
