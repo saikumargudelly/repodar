@@ -60,7 +60,6 @@
 
 *, *::before, *::after {
   box-sizing: border-box;
-  min-width: 0; /* prevent flex/grid children from overflowing */
 }
 
 html {
@@ -100,32 +99,14 @@ svg {
   color: var(--text-primary) !important;
 }
 
-/* CRITICAL: Recharts sizing — must have explicit width/height or charts render at 0px */
+/* Recharts — prevent container from overflowing on mobile */
 .recharts-responsive-container {
-  min-width: 0 !important;
-  width: 100% !important;
   max-width: 100% !important;
 }
-.recharts-wrapper {
-  position: relative !important;
-  width: 100% !important;
-  height: 100% !important;
-  max-width: 100% !important;
-}
-/* Force the inner SVG to fill its wrapper — prevents collapse in flex/grid contexts */
-.recharts-wrapper > svg {
-  display: block !important;
-  width: 100% !important;
-  height: 100% !important;
-}
-/* Surface SVG — keep overflow hidden so clip paths work correctly */
+.recharts-wrapper,
 .recharts-surface {
   max-width: 100% !important;
-}
-/* Tooltip wrapper must overflow its container so it's not clipped */
-.recharts-tooltip-wrapper {
-  pointer-events: none;
-  z-index: 100;
+  overflow: visible;
 }
 
 /* Light theme recharts fix */
