@@ -21,7 +21,7 @@ export default function RootLayout({
       <body>
         <Providers>
           <Nav />
-          <main style={{ maxWidth: "1600px", margin: "0 auto", padding: "0 16px 40px" }}>
+          <main style={{ maxWidth: "1600px", margin: "0 auto", padding: "0 16px 40px", width: "100%", overflowX: "hidden" }}>
             {children}
           </main>
         </Providers>

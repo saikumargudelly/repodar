@@ -45,7 +45,7 @@ function StarHistoryChart({ data, releases }: { data: DailyMetricPoint[]; releas
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={(v) => v.slice(5)} />
-          <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={60} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
+          <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={42} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
           <Tooltip {...tooltipStyle} formatter={(v: number | undefined) => [v != null ? v.toLocaleString() : "—", "Stars"]} />
           <Area type="monotone" dataKey="stars" stroke="#3b82f6" fill="url(#starGrad)" strokeWidth={2} dot={false} />
         </AreaChart>
@@ -61,8 +61,8 @@ function VelocityChart({ data }: { data: ComputedMetricPoint[] }) {
         <ComposedChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={(v) => v.slice(5)} />
-          <YAxis yAxisId="vel" tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={50} />
-          <YAxis yAxisId="accel" orientation="right" tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={50} />
+          <YAxis yAxisId="vel" tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={36} />
+          <YAxis yAxisId="accel" orientation="right" tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={36} />
           <Tooltip {...tooltipStyle} />
           <Area yAxisId="vel" type="monotone" dataKey="star_velocity_7d" name="Velocity 7d" stroke="#3b82f6" fill="rgba(59,130,246,0.1)" strokeWidth={2} dot={false} />
           <Bar yAxisId="accel" dataKey="acceleration" name="Acceleration" fill="rgba(34,197,94,0.4)" />
@@ -79,7 +79,7 @@ function ContributorChart({ data }: { data: DailyMetricPoint[] }) {
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={(v) => v.slice(5)} />
-          <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={40} />
+          <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={36} />
           <Tooltip {...tooltipStyle} />
           <Line type="monotone" dataKey="contributors" name="Contributors" stroke="#8b5cf6" strokeWidth={2} dot={false} />
         </LineChart>
@@ -95,7 +95,7 @@ function DailyDeltaChart({ data }: { data: DailyMetricPoint[] }) {
         <ComposedChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={(v) => v.slice(5)} />
-          <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={40} />
+          <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={36} />
           <Tooltip {...tooltipStyle} />
           <Bar dataKey="daily_star_delta" name="Stars Added" fill="rgba(59,130,246,0.6)" />
         </ComposedChart>
@@ -117,7 +117,7 @@ function ScoreTimeline({ data }: { data: ComputedMetricPoint[] }) {
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={(v) => v.slice(5)} />
-          <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={60} />
+          <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={52} />
           <Tooltip {...tooltipStyle} formatter={(v: number | undefined) => [v != null ? v.toFixed(6) : "—", "Trend Score"]} />
           <Area type="monotone" dataKey="trend_score" stroke="#f59e0b" fill="url(#trendGrad)" strokeWidth={2} dot={false} />
         </AreaChart>

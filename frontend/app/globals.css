@@ -58,17 +58,31 @@
   --color-foreground: var(--text-primary);
 }
 
-* {
+*, *::before, *::after {
   box-sizing: border-box;
+  min-width: 0; /* prevent flex/grid children from overflowing */
 }
 
-html, body {
+html {
+  overflow-x: hidden;    /* THE fix — prevents any overflowing element from making the page scrollable right */
+  max-width: 100%;
+}
+
+body {
+  overflow-x: hidden;
+  max-width: 100%;
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
   transition: background-color 0.2s, color 0.2s;
+}
+
+/* All block-level elements must not exceed viewport width */
+img, video, svg, canvas, iframe {
+  max-width: 100%;
+  height: auto;
 }
 
 /* Recharts theme-aware overrides */
@@ -80,6 +94,17 @@ html, body {
   background: var(--bg-elevated) !important;
   border-color: var(--border) !important;
   color: var(--text-primary) !important;
+}
+
+/* CRITICAL: prevent Recharts SVG from overflowing its container on mobile */
+.recharts-wrapper,
+.recharts-surface {
+  max-width: 100% !important;
+  overflow: visible; /* keep tooltips visible but SVG itself won't expand page */
+}
+.recharts-responsive-container {
+  min-width: 0 !important;
+  max-width: 100% !important;
 }
 
 /* Light theme recharts fix */
@@ -104,6 +129,7 @@ html, body {
   grid-template-columns: repeat(4, 1fr);
   gap: 14px;
 }
+.stat-grid > * { min-width: 0; }
 
 /* 5-col stat grid (orgs page) */
 .stat-grid-5 {
@@ -111,6 +137,7 @@ html, body {
   grid-template-columns: repeat(5, 1fr);
   gap: 12px;
 }
+.stat-grid-5 > * { min-width: 0; }
 
 /* 6-col metric pills (repo detail) */
 .metric-pills-grid {
@@ -118,6 +145,7 @@ html, body {
   grid-template-columns: repeat(6, 1fr);
   gap: 10px;
 }
+.metric-pills-grid > * { min-width: 0; }
 
 /* 2-col chart side-by-side */
 .chart-row-2 {
@@ -125,6 +153,7 @@ html, body {
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
+.chart-row-2 > * { min-width: 0; }
 
 /* 2-col quadrant hints */
 .quadrant-grid {
@@ -133,6 +162,7 @@ html, body {
   gap: 8px;
   margin-top: 12px;
 }
+.quadrant-grid > * { min-width: 0; }
 
 /* ── Tables ────────────────────────────────────────────────── */
 .table-scroll {
@@ -150,6 +180,16 @@ html, body {
   font-weight: 700;
   margin: 0;
   word-break: break-word;
+}
+
+/* Chart card containment — min-width: 0 ensures grid item stays within cell */
+.chart-card {
+  min-width: 0;
+  width: 100%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px;
 }
 
 /* ── Repo header action buttons ────────────────────────────── */

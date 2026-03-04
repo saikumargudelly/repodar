@@ -169,8 +169,8 @@ function CategoryTrendHeatmap({ data, period }: { data: CategoryMetrics[]; perio
   const chartData = [...data].sort((a, b) => b.trend_composite - a.trend_composite);
   return (
     <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "24px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
-        <div>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "20px", flexWrap: "wrap", gap: "10px" }}>
+        <div style={{ minWidth: 0 }}>
           <h2 style={{ fontSize: "13px", fontWeight: 600, margin: "0 0 4px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
             Category Trend Score ({periodLabel})
           </h2>
@@ -178,7 +178,7 @@ function CategoryTrendHeatmap({ data, period }: { data: CategoryMetrics[]; perio
             Composite: Stars 40% · Acceleration 20% · Contributors 20% · Releases 10% · Issues 10%
           </p>
         </div>
-        <div style={{ display: "flex", gap: "12px", fontSize: "11px", color: "var(--text-muted)" }}>
+        <div style={{ display: "flex", gap: "10px", fontSize: "11px", color: "var(--text-muted)", flexShrink: 0 }}>
           {[["#22c55e", "High"], ["#f59e0b", "Mid"], ["#6b7280", "Low"]].map(([c, l]) => (
             <span key={l} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
               <span style={{ width: 8, height: 8, borderRadius: 2, background: c, display: "inline-block" }} />{l}
@@ -187,10 +187,10 @@ function CategoryTrendHeatmap({ data, period }: { data: CategoryMetrics[]; perio
         </div>
       </div>
       <ResponsiveContainer width="100%" height={260}>
-        <BarChart data={chartData} layout="vertical" barSize={18} margin={{ left: 0, right: 40 }}>
-          <XAxis type="number" domain={[0, 1]} tick={{ fontSize: 11, fill: "var(--text-muted)" }}
+        <BarChart data={chartData} layout="vertical" barSize={18} margin={{ left: 0, right: 20, top: 4, bottom: 4 }}>
+          <XAxis type="number" domain={[0, 1]} tick={{ fontSize: 10, fill: "var(--text-muted)" }}
             tickFormatter={(v) => `${(v * 100).toFixed(0)}`} />
-          <YAxis type="category" dataKey="category" width={140} tick={{ fontSize: 11, fill: "var(--text-secondary)" }} />
+          <YAxis type="category" dataKey="category" width={110} tick={{ fontSize: 10, fill: "var(--text-secondary)", width: 110 }} />
           <Tooltip
             content={({ payload, label }) => {
               if (!payload?.length) return null;
@@ -222,58 +222,86 @@ function CategoryStarsChart({ data }: { data: CategoryMetrics[] }) {
   const chartData = [...data].sort((a, b) => b.total_stars - a.total_stars);
   const total = chartData.reduce((s, c) => s + c.total_stars, 0);
   return (
-    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "24px" }}>
+    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "24px", display: "flex", flexDirection: "column", gap: "0" }}>
       <h2 style={{ fontSize: "13px", fontWeight: 600, margin: "0 0 4px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
         Stars Distribution
       </h2>
       <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: "0 0 16px" }}>
         {total.toLocaleString()} total stars across all categories
       </p>
-      {/* Pie lives alone — no Legend inside, so it gets the full height */}
-      <ResponsiveContainer width="100%" height={220}>
-        <PieChart margin={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Pie
-            data={chartData}
-            dataKey="total_stars"
-            nameKey="category"
-            cx="50%"
-            cy="50%"
-            innerRadius="30%"
-            outerRadius="48%"
-            paddingAngle={2}
-          >
-            {chartData.map((cat) => (
-              <Cell key={cat.category} fill={CATEGORY_COLORS[cat.category] ?? "#6b7280"} />
-            ))}
-          </Pie>
-          <Tooltip
-            content={({ payload }) => {
-              if (!payload?.length) return null;
-              const c = payload[0]?.payload as CategoryMetrics;
-              const pct = total > 0 ? ((c.total_stars / total) * 100).toFixed(1) : "0";
-              return (
-                <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "6px", padding: "8px 12px", fontSize: "12px" }}>
-                  <p style={{ margin: "0 0 4px", fontWeight: 600, color: "var(--text-primary)" }}>{c.category}</p>
-                  <p style={{ margin: "0 0 2px", color: "var(--text-muted)" }}>Stars: <strong>{c.total_stars.toLocaleString()}</strong></p>
-                  <p style={{ margin: 0, color: "var(--text-muted)" }}>Share: <strong>{pct}%</strong></p>
-                </div>
-              );
-            }}
-          />
-        </PieChart>
-      </ResponsiveContainer>
-      {/* Custom legend rendered outside the SVG so it never clips the pie */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", marginTop: "12px", justifyContent: "center" }}>
-        {chartData.map((cat) => (
-          <span key={cat.category} style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "11px", color: "var(--text-muted)" }}>
-            <span style={{
-              width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-              background: CATEGORY_COLORS[cat.category] ?? "#6b7280",
-              display: "inline-block",
-            }} />
-            {cat.category}
-          </span>
-        ))}
+
+      {/* Chart + legend side by side on desktop, stacked on mobile */}
+      <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
+        {/* Pie chart — takes up as much space as available */}
+        <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart margin={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+              <Pie
+                data={chartData}
+                dataKey="total_stars"
+                nameKey="category"
+                cx="50%"
+                cy="50%"
+                innerRadius="38%"
+                outerRadius="72%"
+                paddingAngle={2}
+                label={({ cx, cy, midAngle, innerRadius: ir, outerRadius: or, percent }) => {
+                  if (!percent || percent < 0.04 || midAngle == null) return null; // skip tiny slices
+                  const RADIAN = Math.PI / 180;
+                  const r = Number(ir) + (Number(or) - Number(ir)) * 1.35;
+                  const x = Number(cx) + r * Math.cos(-midAngle * RADIAN);
+                  const y = Number(cy) + r * Math.sin(-midAngle * RADIAN);
+                  return (
+                    <text x={x} y={y} fill="var(--text-muted)" textAnchor={x > Number(cx) ? "start" : "end"} dominantBaseline="central" fontSize={10}>
+                      {`${(percent * 100).toFixed(0)}%`}
+                    </text>
+                  );
+                }}
+                labelLine={{ stroke: "var(--border)", strokeWidth: 1 }}
+              >
+                {chartData.map((cat) => (
+                  <Cell key={cat.category} fill={CATEGORY_COLORS[cat.category] ?? "#6b7280"} />
+                ))}
+              </Pie>
+              <Tooltip
+                content={({ payload }) => {
+                  if (!payload?.length) return null;
+                  const c = payload[0]?.payload as CategoryMetrics;
+                  const pct = total > 0 ? ((c.total_stars / total) * 100).toFixed(1) : "0";
+                  return (
+                    <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "6px", padding: "8px 12px", fontSize: "12px" }}>
+                      <p style={{ margin: "0 0 4px", fontWeight: 600, color: "var(--text-primary)" }}>{c.category}</p>
+                      <p style={{ margin: "0 0 2px", color: "var(--text-muted)" }}>Stars: <strong>{c.total_stars.toLocaleString()}</strong></p>
+                      <p style={{ margin: 0, color: "var(--text-muted)" }}>Share: <strong>{pct}%</strong></p>
+                    </div>
+                  );
+                }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Legend — stacked vertically next to the pie */}
+        <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", gap: "8px", minWidth: 0 }}>
+          {chartData.map((cat) => {
+            const pct = total > 0 ? ((cat.total_stars / total) * 100).toFixed(1) : "0";
+            return (
+              <div key={cat.category} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{
+                  width: 10, height: 10, borderRadius: "2px", flexShrink: 0,
+                  background: CATEGORY_COLORS[cat.category] ?? "#6b7280",
+                  display: "inline-block",
+                }} />
+                <span style={{ fontSize: "12px", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                  {cat.category}
+                </span>
+                <span style={{ fontSize: "11px", color: "var(--text-muted)", marginLeft: "auto", paddingLeft: "12px", fontFamily: "monospace", fontWeight: 600 }}>
+                  {pct}%
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -294,10 +322,10 @@ function CategoryPRChart({ data, period }: { data: CategoryMetrics[]; period: Pe
         Merged PRs (cumulative) · Open PRs (avg/repo)
       </p>
       <ResponsiveContainer width="100%" height={240}>
-        <BarChart data={chartData} layout="vertical" barSize={10} margin={{ left: 0, right: 30 }} barGap={2}>
-          <XAxis type="number" tick={{ fontSize: 11, fill: "var(--text-muted)" }}
+        <BarChart data={chartData} layout="vertical" barSize={10} margin={{ left: 0, right: 20, top: 4, bottom: 4 }} barGap={2}>
+          <XAxis type="number" tick={{ fontSize: 10, fill: "var(--text-muted)" }}
             tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
-          <YAxis type="category" dataKey="category" width={140} tick={{ fontSize: 11, fill: "var(--text-secondary)" }} />
+          <YAxis type="category" dataKey="category" width={110} tick={{ fontSize: 10, fill: "var(--text-secondary)", width: 110 }} />
           <Tooltip
             content={({ payload, label }) => {
               if (!payload?.length) return null;
@@ -341,7 +369,7 @@ function LeaderboardTable({
 
   return (
     <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px" }}>
-      <div style={{ padding: "20px 24px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--border)" }}>
+      <div style={{ padding: "20px 24px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px", borderBottom: "1px solid var(--border)" }}>
         <h2 style={{ fontSize: "13px", fontWeight: 600, margin: 0, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
           Top Repos — {periodLabel}
         </h2>
@@ -495,12 +523,12 @@ function SustainabilityRanking({ repos }: { repos: SustainabilityEntry[] }) {
         ) : repos.slice(0, 15).map((repo, i) => (
           <div
             key={repo.repo_id}
-            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 10px", borderRadius: "6px", cursor: "pointer" }}
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 10px", borderRadius: "6px", cursor: "pointer", minWidth: 0 }}
             onClick={() => router.push(`/repo/${repo.repo_id}`)}
             onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
             onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, overflow: "hidden" }}>
               <span style={{ color: "var(--text-muted)", fontSize: "12px", width: "22px", textAlign: "right" }}>{i + 1}</span>
               <div>
                 <span style={{ fontSize: "13px", fontWeight: 500 }}>{repo.owner}/{repo.name}</span>
@@ -549,8 +577,8 @@ function EcosystemMapChart({ repos }: { repos: RadarRepo[] }) {
       borderRadius: "10px",
       padding: "24px",
     }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
-        <div>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "20px", flexWrap: "wrap", gap: "10px" }}>
+        <div style={{ minWidth: 0 }}>
           <h2 style={{ fontSize: "13px", fontWeight: 600, margin: "0 0 4px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
             AI Ecosystem Map
           </h2>
@@ -558,7 +586,7 @@ function EcosystemMapChart({ repos }: { repos: RadarRepo[] }) {
             X-axis: Trend Score · Y-axis: Sustainability Score · Each dot = one repo
           </p>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", fontSize: "10px", maxWidth: "260px", justifyContent: "flex-end" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 10px", fontSize: "10px", maxWidth: "100%", justifyContent: "flex-start" }}>
           {categories.map((c) => (
             <span key={c} style={{ display: "flex", alignItems: "center", gap: "4px", color: "var(--text-muted)" }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: CATEGORY_COLORS[c] ?? "#888", display: "inline-block" }} />
@@ -568,18 +596,19 @@ function EcosystemMapChart({ repos }: { repos: RadarRepo[] }) {
         </div>
       </div>
       <ResponsiveContainer width="100%" height={320}>
-        <ScatterChart margin={{ top: 10, right: 30, bottom: 20, left: 20 }}>
+        <ScatterChart margin={{ top: 10, right: 10, bottom: 30, left: 10 }}>
           <XAxis
             type="number" dataKey="x" name="Trend"
             domain={[0, "auto"]}
-            tick={{ fontSize: 11, fill: "var(--text-muted)" }}
-            label={{ value: "Trend Score", position: "insideBottom", offset: -10, fontSize: 11, fill: "var(--text-muted)" }}
+            tick={{ fontSize: 10, fill: "var(--text-muted)" }}
+            label={{ value: "Trend Score", position: "insideBottom", offset: -10, fontSize: 10, fill: "var(--text-muted)" }}
           />
           <YAxis
             type="number" dataKey="y" name="Sustainability"
             domain={[0, 100]}
-            tick={{ fontSize: 11, fill: "var(--text-muted)" }}
-            label={{ value: "Sustainability", angle: -90, position: "insideLeft", offset: 10, fontSize: 11, fill: "var(--text-muted)" }}
+            width={36}
+            tick={{ fontSize: 10, fill: "var(--text-muted)" }}
+            label={{ value: "Sustain.", angle: -90, position: "insideLeft", offset: 10, fontSize: 10, fill: "var(--text-muted)" }}
           />
           <ZAxis range={[30, 30]} />
           <Tooltip
@@ -843,7 +872,7 @@ export default function OverviewPage() {
           <h1 style={{ fontSize: "22px", fontWeight: 700, margin: "0 0 4px" }}>Ecosystem Overview</h1>
           <p style={{ color: "var(--text-muted)", fontSize: "13px", margin: 0 }}>As of {overview.as_of}</p>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "stretch" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "stretch", minWidth: 0, maxWidth: "100%" }}>
           <PeriodSelector selected={period} onChange={setPeriod} />
           <VerticalSelector selected={vertical} onChange={(v) => { setVertical(v); setCompareSelection([]); }} />
         </div>
