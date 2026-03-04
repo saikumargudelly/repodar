@@ -18,7 +18,7 @@ That's it. That's the mission.
 
 - 📊 Real-time leaderboard that actually tracks real stars
 - 🏆 TrendScore + SustainabilityScore (two numbers that actually mean something)
-- 🔍 Auto-discovery that finds 380+ projects automatically
+- 🔍 Auto-discovery that continuously finds new trending repos every day
 - 🌐 Shareable widgets for your README
 - 💬 Signal explainer (explains *why* a project scored what it did)
 - 🔄 Side-by-side comparisons

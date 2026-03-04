@@ -2,9 +2,9 @@
 
 ## Real-Time AI/ML Trends That Actually Matter
 
-> Tired of GitHub Trending showing you projects that disappear in two weeks? 
+> Tired of GitHub Trending showing you projects that disappear in two weeks?
 
-Repodar watches **380+ AI/ML repos** so you don't have to. We track the ones everyone knows about (the big 123) plus the 257 hidden gems that are actually changing things. 
+Repodar scans everything trending across AI/ML on GitHub — every single day. Not a fixed list. Not a curated snapshot. We continuously discover and track whatever is actually gaining momentum right now.
 
 Real data. Real momentum. Real insights.
 
@@ -146,17 +146,15 @@ Each category gets:
 
 Repodar wakes up every 24 hours and:
 
-1. **Finds new projects** → Searches GitHub Trending + API across AI/ML categories
-2. **Tracks them** → Pulls stars, forks, contributors, release activity
+1. **Finds new projects** → Scrapes GitHub Trending (daily/weekly/monthly) + searches the GitHub API across 6 verticals and dozens of topics — all in parallel
+2. **Tracks them** → Pulls stars, forks, contributors, release activity for every new discovery
 3. **Scores them** → Calculates two numbers:
    - **TrendScore** (0–100) — Is it hot right now?
    - **SustainabilityScore** (0–100) — Will it last?
 4. **Gets human insights** → LLM generates weekly analysis
-5. **Cleans up** → Archives projects that went quiet
+5. **Cleans up** → Archives projects that haven't trended in 60 days (history is kept)
 
-**Result:** Started with 123 curated repos → Found 257 more automatically → Now tracking 380 total.
-
-All in about 3 minutes. Every day.
+The tracked repo count grows every day as new projects break out. Old ones that go quiet get archived. It's always a live view of what's actually trending — not a static list.
 
 ### 🏆 Two Scores That Matter
 
