@@ -220,8 +220,8 @@ Go to **[http://localhost:3000](http://localhost:3000)**. You'll see the live da
 |-------|-----------|
 | Frontend | Next.js 15 (App Router) · React 19 · Recharts · TanStack Query v5 · Tailwind CSS v4 |
 | Backend | FastAPI 0.135 · SQLAlchemy 2.0 · Alembic · Pydantic v2 |
-| Database | PostgreSQL (production) / SQLite (local dev) · DuckDB for analytics overlay |
-| Scheduling | APScheduler 3.10 — in-process every 4 hours, no Redis or separate worker |
+| Database | PostgreSQL (production) / SQLite (local dev) · DuckDB for time-series analytics |
+| Scheduling | APScheduler 3.10 — in-process every 4 hours, **no Redis or Celery needed** |
 | AI insights | Groq LLaMA 3.3 70B via the `groq` Python SDK |
 | Deployment | Railway (push-to-deploy) |
 
@@ -267,7 +267,40 @@ GET /admin/github-status
 
 ---
 
-## 🔑 Environment variables
+## � Production Deployment
+
+### Database: SQLite → PostgreSQL
+
+**Local development** works with SQLite (zero setup, no database server needed):
+```env
+DATABASE_URL=sqlite:///./repodar.db
+```
+
+**Production** requires PostgreSQL for concurrency, durability, and multi-instance scaling:
+```env
+DATABASE_URL=postgresql://username:password@host:5432/repodar
+```
+
+Get PostgreSQL either way:
+- **Railway:** Add PostgreSQL service, Railway creates the connection string automatically
+- **Self-hosted:** Use Supabase (PostgreSQL as a service) or run PostgreSQL locally: `docker run -e POSTGRES_PASSWORD=pwd -p 5432:5432 postgres`
+
+After setting `DATABASE_URL`, run:
+```bash
+alembic upgrade head
+```
+
+### Scheduling: No Redis Required ✅
+
+Repodar uses **APScheduler embedded in the FastAPI process**. Every 4 hours it wakes up, discovers new repos, scores them, and updates the database — all without needing Redis, Celery, or any external queue.
+
+Local development: No Redis needed.  
+Production on Railway: No Redis needed.  
+Just keep the backend process running.
+
+---
+
+## �🔑 Environment variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
