@@ -84,6 +84,17 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: "/services",
+    label: "Services",
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2L2 7l10 5 10-5-10-5Z"/>
+        <path d="M2 17l10 5 10-5"/>
+        <path d="M2 12l10 5 10-5"/>
+      </svg>
+    ),
+  },
+  {
     href: "/watchlist",
     label: "Watchlist",
     icon: (

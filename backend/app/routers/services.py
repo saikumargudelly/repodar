@@ -1,0 +1,197 @@
+import logging
+from typing import Optional, List
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
+from pydantic import BaseModel, HttpUrl
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+from app.models.a2a_service import A2AService, A2ACapability
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/services", tags=["A2A Services"])
+
+
+# ─── Response schemas ─────────────────────────────────────────────────────────
+
+class CapabilityOut(BaseModel):
+    id: str
+    service_id: str
+    name: str
+    method: str
+    path: str
+    description: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ServiceOut(BaseModel):
+    id: str
+    name: str
+    provider: Optional[str] = None
+    base_url: str
+    description: Optional[str] = None
+    version: Optional[str] = None
+    categories: Optional[List[str]] = None
+    status: str
+    response_latency_ms: Optional[int] = None
+    created_at: Optional[str] = None
+    last_checked_at: Optional[str] = None
+    last_seen_at: Optional[str] = None
+    capabilities: List[CapabilityOut] = []
+    capability_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+
+class RegisterRequest(BaseModel):
+    url: str
+
+
+class RegisterResponse(BaseModel):
+    message: str
+    service_id: Optional[str] = None
+    status: str
+
+
+# ─── Endpoints ───────────────────────────────────────────────────────────────
+
+@router.get("/search", response_model=List[ServiceOut])
+def search_services(
+    capability: str = Query(..., description="Capability name or method keyword to search"),
+    limit: int = Query(20, le=100),
+    db: Session = Depends(get_db),
+):
+    """
+    Search services by capability name or description.
+    Must be defined BEFORE /{service_id} to avoid path conflicts.
+    """
+    keyword = f"%{capability.lower()}%"
+    matching_service_ids = (
+        db.query(A2ACapability.service_id)
+        .filter(
+            (A2ACapability.name.ilike(keyword))
+            | (A2ACapability.description.ilike(keyword))
+            | (A2ACapability.method.ilike(keyword))
+        )
+        .distinct()
+        .limit(limit)
+        .all()
+    )
+    ids = [row[0] for row in matching_service_ids]
+    if not ids:
+        return []
+
+    services = db.query(A2AService).filter(A2AService.id.in_(ids)).all()
+    return [_to_service_out(s) for s in services]
+
+
+@router.post("/register", response_model=RegisterResponse)
+async def register_service(
+    body: RegisterRequest = Body(...),
+    db: Session = Depends(get_db),
+):
+    """
+    Register a new A2A service by URL and ingest its capability card.
+    The URL must point to a publicly routable host (SSRF protection enforced).
+    """
+    from app.services.a2a_ingestion import ingest_service_by_url
+
+    try:
+        service, err = await ingest_service_by_url(body.url, db)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        logger.error(f"[services] register failed for {body.url}: {exc}", exc_info=True)
+        raise HTTPException(status_code=502, detail=f"Failed to fetch A2A card: {exc}")
+
+    if service is None:
+        raise HTTPException(
+            status_code=422,
+            detail=err or "Could not ingest A2A card — check the URL is reachable and exposes /a2a-card.",
+        )
+
+    return RegisterResponse(
+        message="Service registered and capabilities indexed.",
+        service_id=service.id,
+        status=service.status,
+    )
+
+
+@router.get("", response_model=List[ServiceOut])
+def list_services(
+    category: Optional[str] = Query(None, description="Filter by category keyword"),
+    provider: Optional[str] = Query(None, description="Filter by provider name"),
+    status: Optional[str] = Query(None, description="active | unreachable | invalid"),
+    limit: int = Query(50, le=200),
+    db: Session = Depends(get_db),
+):
+    """List all registered A2A services with optional filters."""
+    q = db.query(A2AService)
+
+    if status:
+        q = q.filter(A2AService.status == status)
+    if provider:
+        q = q.filter(A2AService.provider.ilike(f"%{provider}%"))
+    if category:
+        # categories is stored as JSON text; use LIKE for portability
+        q = q.filter(A2AService.categories.ilike(f"%{category}%"))
+
+    services = q.order_by(A2AService.last_seen_at.desc().nullslast()).limit(limit).all()
+    return [_to_service_out(s) for s in services]
+
+
+@router.get("/{service_id}", response_model=ServiceOut)
+def get_service(service_id: str, db: Session = Depends(get_db)):
+    """Get a single A2A service with full capability list."""
+    service = db.query(A2AService).filter(A2AService.id == service_id).first()
+    if not service:
+        raise HTTPException(status_code=404, detail="Service not found")
+    return _to_service_out(service)
+
+
+# ─── Helpers ─────────────────────────────────────────────────────────────────
+
+def _to_service_out(s: A2AService) -> ServiceOut:
+    caps = [
+        CapabilityOut(
+            id=c.id,
+            service_id=c.service_id,
+            name=c.name,
+            method=c.method,
+            path=c.path,
+            description=c.description,
+        )
+        for c in (s.capabilities or [])
+    ]
+    return ServiceOut(
+        id=s.id,
+        name=s.name,
+        provider=s.provider,
+        base_url=s.base_url,
+        description=s.description,
+        version=s.version,
+        categories=_parse_json_list(s.categories),
+        status=s.status,
+        response_latency_ms=s.response_latency_ms,
+        created_at=s.created_at.isoformat() if s.created_at else None,
+        last_checked_at=s.last_checked_at.isoformat() if s.last_checked_at else None,
+        last_seen_at=s.last_seen_at.isoformat() if s.last_seen_at else None,
+        capabilities=caps,
+        capability_count=len(caps),
+    )
+
+
+def _parse_json_list(value) -> Optional[List[str]]:
+    if value is None:
+        return None
+    if isinstance(value, list):
+        return value
+    import json
+    try:
+        parsed = json.loads(value)
+        return parsed if isinstance(parsed, list) else None
+    except Exception:
+        return None

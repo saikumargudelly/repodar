@@ -1,0 +1,89 @@
+feat: A2A service catalog - discovery, ingestion, and UI
+
+Backend
+-------
+- backend/app/models/a2a_service.py
+    New SQLAlchemy ORM models:
+    - A2AService: name, provider, base_url (unique), description, version,
+      categories (JSON), status (active/unreachable/invalid),
+      response_latency_ms, created_at, last_checked_at, last_seen_at
+    - A2ACapability: child rows per service (name, method, path,
+      description); FK with ondelete=CASCADE
+
+- backend/alembic/versions/e5f6a7b8c9d0_a2a_service_catalog.py
+    Migration chained off d4e5f6a7b8c9 (v3_feature_additions):
+    - Creates a2a_services table + indexes (base_url unique, status,
+      status+last_seen composite)
+    - Creates a2a_capabilities table with FK to a2a_services + indexes
+
+- backend/app/services/a2a_ingestion.py
+    Full ingestion service (~310 lines):
+    - _is_safe_url(): SSRF protection via ipaddress + socket.getaddrinfo;
+      blocks localhost, 0.0.0.0, all RFC-1918/link-local/reserved/multicast;
+      only http/https allowed
+    - fetch_a2a_card(base_url): async httpx GET to {base_url}/a2a-card,
+      10s timeout, returns (card | None, latency_ms, error_str)
+    - ingest_service_by_url(base_url, db): upsert A2AService + wipe-then-
+      reinsert A2ACapabilities; marks status=unreachable/invalid on error
+    - refresh_all_services(): iterates DB records and re-ingests each
+    - discover_from_github(db, token): GitHub code search across four
+      keyword terms; also processes a seed list of known A2A services
+    - run_a2a_discovery_pipeline(): top-level entry point for APScheduler
+
+- backend/app/routers/services.py
+    New FastAPI router (prefix=/services, tag='A2A Services'):
+    - GET  /services/search?capability=<kw>: full-text search across
+      capability name/description/method; defined BEFORE /{id} to avoid
+      path conflicts
+    - POST /services/register: body {url}, calls ingest_service_by_url,
+      returns {message, service_id, status}; 422 on SSRF block or bad card,
+      502 on network failure
+    - GET  /services: list with optional ?category / ?provider / ?status /
+      ?limit filters; ordered by last_seen_at desc
+    - GET  /services/{service_id}: full detail including capabilities list
+
+- backend/app/models/__init__.py
+    Added A2AService and A2ACapability to imports and __all__ so
+    Base.metadata.create_all picks them up on startup.
+
+- backend/app/routers/__init__.py
+    Exported services_router alongside the existing 12 routers.
+
+- backend/app/main.py
+    - Imported A2AService + A2ACapability (noqa) to ensure tables are
+      created at startup via Base.metadata.create_all
+    - Added services_router to app.include_router()
+    - Added daily APScheduler job at 02:00 UTC (id=a2a_discovery_24h)
+      that calls run_a2a_discovery_pipeline()
+
+Frontend
+--------
+- frontend/app/services/page.tsx
+    Service catalog page (/services):
+    - Register form: POST to /services/register with SSRF-safe URL input
+    - Filter bar: search by capability keyword, filter by category/provider/
+      status, refresh button
+    - Results grid: 3-column responsive card layout; each card shows name,
+      status badge, provider, description excerpt, category tags, capability
+      count, and latency; links to /services/{id}
+
+- frontend/app/services/[id]/page.tsx
+    Service deep-dive page (/services/{id}):
+    - Hero section: name, provider, status badge (colour-coded), full
+      description, category chips, base URL link, version, latency, and
+      capability count stats
+    - Registered / Last Checked timestamps
+    - Capability table: HTTP method badge (colour per verb), path in
+      monospace, capability name, description
+
+- frontend/components/Sidebar.tsx
+    Added 'Services' nav item (layers SVG icon, href=/services) between
+    Compare and Watchlist in NAV_ITEMS.
+
+- frontend/lib/api.ts
+    New types: A2ACapability, A2AService, RegisterServiceResponse
+    New api methods:
+    - api.getServices(params?): GET /services
+    - api.getService(id): GET /services/{id}
+    - api.registerService(url): POST /services/register
+    - api.searchServices(cap): GET /services/search?capability=...

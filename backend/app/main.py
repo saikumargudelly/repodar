@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine
 from app.models import Repository, DailyMetric, ComputedMetric  # noqa — registers models
 from app.models import WatchlistItem, ApiKey, RepoContributor, ForkSnapshot, EcosystemReport  # noqa
+from app.models.a2a_service import A2AService, A2ACapability  # noqa — ensure A2A tables are created
 from app.database import Base
 from app.routers import (
     repos_router,
@@ -23,6 +24,7 @@ from app.routers import (
     contributors_router,
     forks_router,
     apikeys_router,
+    services_router,
 )
 from app.seed.seeder import seed_repos
 
@@ -110,6 +112,18 @@ def _schedule_pipeline():
 
         # Every 4 hours: 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC
         scheduler.add_job(_job, CronTrigger(hour="*/4", minute=0), id="pipeline_4h", replace_existing=True)
+
+        async def _a2a_job():
+            from app.services.a2a_ingestion import run_a2a_discovery_pipeline
+            logger.info("[a2a_scheduler] Starting A2A discovery pipeline")
+            try:
+                await run_a2a_discovery_pipeline()
+                logger.info("[a2a_scheduler] A2A discovery pipeline complete")
+            except Exception as exc:
+                logger.error(f"[a2a_scheduler] A2A pipeline failed: {exc}", exc_info=True)
+
+        # Daily A2A discovery at 02:00 UTC
+        scheduler.add_job(_a2a_job, CronTrigger(hour=2, minute=0), id="a2a_discovery_24h", replace_existing=True)
 
         scheduler.start()
         logger.info("APScheduler started — pipeline runs every 4 h (00/04/08/12/16/20 UTC)")
@@ -204,6 +218,7 @@ app.include_router(topics_router)
 app.include_router(contributors_router)
 app.include_router(forks_router)
 app.include_router(apikeys_router)
+app.include_router(services_router)
 
 
 # ─── Health ──────────────────────────────────────────────────────────────────

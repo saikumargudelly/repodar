@@ -478,6 +478,40 @@ export interface CreateApiKeyBody {
   name: string;
 }
 
+// ─── A2A Service Catalog ─────────────────────────────────────────────────────
+
+export interface A2ACapability {
+  id: string;
+  service_id: string;
+  name: string;
+  method: string;
+  path: string;
+  description: string | null;
+}
+
+export interface A2AService {
+  id: string;
+  name: string;
+  provider: string | null;
+  base_url: string;
+  description: string | null;
+  version: string | null;
+  categories: string[] | null;
+  status: "active" | "unreachable" | "invalid" | string;
+  response_latency_ms: number | null;
+  created_at: string | null;
+  last_checked_at: string | null;
+  last_seen_at: string | null;
+  capabilities: A2ACapability[];
+  capability_count: number;
+}
+
+export interface RegisterServiceResponse {
+  message: string;
+  service_id: string | null;
+  status: string;
+}
+
 // ─── Report History ───────────────────────────────────────────────────────────
 
 export interface ReportSummary {
@@ -616,4 +650,22 @@ export const api = {
   },
   getReportById: (id: number) =>
     apiFetch<Record<string, unknown>>(`/reports/history/${id}`),
+
+  // A2A Services
+  getServices: (params?: { category?: string; provider?: string; status?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.category) qs.set("category", params.category);
+    if (params?.provider) qs.set("provider", params.provider);
+    if (params?.status) qs.set("status", params.status);
+    if (params?.limit !== undefined) qs.set("limit", String(params.limit));
+    return apiFetch<A2AService[]>(`/services?${qs}`);
+  },
+  getService: (id: string) => apiFetch<A2AService>(`/services/${id}`),
+  registerService: (url: string) =>
+    apiFetch<RegisterServiceResponse>("/services/register", {
+      method: "POST",
+      body: JSON.stringify({ url }),
+    }),
+  searchServices: (capability: string, limit = 20) =>
+    apiFetch<A2AService[]>(`/services/search?capability=${encodeURIComponent(capability)}&limit=${limit}`),
 };

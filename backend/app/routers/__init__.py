@@ -10,10 +10,11 @@ from app.routers.topics import router as topics_router
 from app.routers.contributors import router as contributors_router
 from app.routers.forks import router as forks_router
 from app.routers.apikeys import router as apikeys_router
+from app.routers.services import router as services_router
 
 __all__ = [
     "repos_router", "metrics_router", "dashboard_router",
     "reports_router", "admin_router", "widgets_router", "orgs_router",
     "watchlist_router", "topics_router", "contributors_router",
-    "forks_router", "apikeys_router",
+    "forks_router", "apikeys_router", "services_router",
 ]

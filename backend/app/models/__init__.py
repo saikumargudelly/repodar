@@ -8,9 +8,11 @@ from app.models.api_key import ApiKey
 from app.models.repo_contributor import RepoContributor
 from app.models.fork_snapshot import ForkSnapshot
 from app.models.ecosystem_report import EcosystemReport
+from app.models.a2a_service import A2AService, A2ACapability
 
 __all__ = [
     "Repository", "DailyMetric", "ComputedMetric", "TrendAlert",
     "CategoryMetricDaily", "WatchlistItem", "ApiKey",
     "RepoContributor", "ForkSnapshot", "EcosystemReport",
+    "A2AService", "A2ACapability",
 ]
