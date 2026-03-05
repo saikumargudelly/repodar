@@ -163,17 +163,19 @@ source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. Set up the backend
+### 2. Create a `.env` file in the backend directory
+
+Create `backend/.env` with your API keys:
 
 ```env
 GITHUB_TOKEN=github_pat_YOUR_TOKEN_HERE
 GROQ_API_KEY=gsk_YOUR_KEY_HERE
 GROQ_MODEL=llama-3.3-70b-versatile
-DATABASE_URL=sqlite:///./repodar.db    # SQLite for local dev (zero setup)
+DATABASE_URL=sqlite:///./repodar.db
 APP_ENV=development
 ```
 
-For production, swap `DATABASE_URL` to a PostgreSQL connection string.
+**For production:** Replace `DATABASE_URL` with a PostgreSQL connection string.
 
 ### 3. Create the database
 
