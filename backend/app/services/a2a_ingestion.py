@@ -624,9 +624,24 @@ async def ingest_service_by_url(base_url: str, db: Session) -> tuple[Optional[A2
     Full pipeline: fetch → validate → upsert service + capabilities.
 
     Returns (service, error_msg).
+
+    The input URL is normalised to scheme://host[:port] before use:
+    - Trailing slashes stripped
+    - Any path component removed (users sometimes paste the full card URL
+      e.g. https://agent.example.com/.well-known/agent.json — we extract
+      the base and probe all card paths ourselves)
     """
-    # Sanitise trailing slash
-    base_url = base_url.rstrip("/")
+    # ── Normalise to base URL (scheme + host + optional port only) ──────────
+    base_url = base_url.strip()
+    try:
+        _p = urlparse(base_url)
+        if _p.scheme not in ("http", "https"):
+            return None, f"Invalid URL scheme '{_p.scheme}' — only http/https allowed."
+        # Reconstruct without path / query / fragment
+        port_part = f":{_p.port}" if _p.port and _p.port not in (80, 443) else ""
+        base_url = f"{_p.scheme}://{_p.hostname}{port_part}"
+    except Exception as exc:
+        return None, f"Could not parse URL: {exc}"
 
     card, latency_ms, error = await fetch_a2a_card(base_url)
     now = _utcnow()
