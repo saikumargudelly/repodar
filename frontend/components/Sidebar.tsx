@@ -174,22 +174,6 @@ export function Sidebar() {
           max-width: 0;
           opacity: 0;
         }
-        .sidebar-collapse-btn {
-          background: transparent;
-          border: 1px solid var(--border);
-          border-radius: 6px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--text-muted);
-          transition: background 0.13s, color 0.13s;
-          padding: 0;
-        }
-        .sidebar-collapse-btn:hover {
-          background: var(--bg-elevated) !important;
-          color: var(--text-primary) !important;
-        }
         .sidebar-collapsed .sidebar-nav-link:hover .sidebar-tooltip {
           display: block;
         }
@@ -215,6 +199,7 @@ export function Sidebar() {
       >
         {/* ── Brand Header ─────────────────────────────── */}
         <div
+          onClick={() => setCollapsed((c) => !c)}
           style={{
             height: "56px",
             display: "flex",
@@ -224,7 +209,12 @@ export function Sidebar() {
             gap: collapsed ? "0" : "10px",
             flexShrink: 0,
             justifyContent: collapsed ? "center" : "flex-start",
+            cursor: "pointer",
+            transition: "background 0.13s",
           }}
+          onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
+          onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {/* Logo mark */}
           <div
@@ -246,7 +236,7 @@ export function Sidebar() {
 
           {/* Brand name + tagline (hidden when collapsed) */}
           {!collapsed && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "1px", userSelect: "none" }}>
               <span style={{ fontWeight: 700, fontSize: "14px", letterSpacing: "-0.3px", color: "var(--text-primary)", whiteSpace: "nowrap" }}>
                 Repodar
               </span>
@@ -255,35 +245,6 @@ export function Sidebar() {
               </span>
             </div>
           )}
-
-          {/* Collapse toggle - always visible */}
-          <button
-            className="sidebar-collapse-btn"
-            onClick={() => setCollapsed((c) => !c)}
-            style={{
-              marginLeft: collapsed ? "0" : "auto",
-              width: "22px",
-              height: "22px",
-              flexShrink: 0,
-            }}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            <svg
-              width="11"
-              height="11"
-              viewBox="0 0 12 12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              style={{
-                transform: collapsed ? "rotate(180deg)" : "rotate(0deg)",
-                transition: "transform 0.25s ease",
-              }}
-            >
-              <path d="M8 2L4 6l4 4"/>
-            </svg>
-          </button>
         </div>
 
         {/* ── Nav Items ────────────────────────────────── */}
