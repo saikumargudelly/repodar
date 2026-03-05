@@ -174,16 +174,6 @@ export function Sidebar() {
           max-width: 0;
           opacity: 0;
         }
-        .sidebar-brand-text {
-          overflow: hidden;
-          transition: opacity 0.2s ease, max-width 0.25s ease;
-          max-width: 160px;
-          opacity: 1;
-        }
-        .sidebar-collapsed .sidebar-brand-text {
-          max-width: 0;
-          opacity: 0;
-        }
         .sidebar-collapse-btn {
           background: transparent;
           border: 1px solid var(--border);
@@ -200,15 +190,8 @@ export function Sidebar() {
           background: var(--bg-elevated) !important;
           color: var(--text-primary) !important;
         }
-        .sidebar-footer-text {
-          overflow: hidden;
-          transition: opacity 0.2s ease, max-width 0.25s ease;
-          max-width: 160px;
-          opacity: 1;
-        }
-        .sidebar-collapsed .sidebar-footer-text {
-          max-width: 0;
-          opacity: 0;
+        .sidebar-collapsed .sidebar-nav-link:hover .sidebar-tooltip {
+          display: block;
         }
       `}</style>
 
@@ -236,17 +219,18 @@ export function Sidebar() {
             height: "56px",
             display: "flex",
             alignItems: "center",
-            padding: "0 14px",
+            padding: collapsed ? "0 10px" : "0 14px",
             borderBottom: "1px solid var(--border)",
-            gap: "10px",
+            gap: collapsed ? "6px" : "10px",
             flexShrink: 0,
+            justifyContent: collapsed ? "center" : "flex-start",
           }}
         >
           {/* Logo mark */}
           <div
             style={{
-              width: "30px",
-              height: "30px",
+              width: "32px",
+              height: "32px",
               borderRadius: "8px",
               background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
               display: "flex",
@@ -255,44 +239,77 @@ export function Sidebar() {
               flexShrink: 0,
             }}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
             </svg>
           </div>
 
-          {/* Brand name + tagline */}
-          <div className="sidebar-brand-text" style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
-            <span style={{ fontWeight: 700, fontSize: "14px", letterSpacing: "-0.3px", color: "var(--text-primary)", whiteSpace: "nowrap" }}>
-              Repodar
-            </span>
-            <span style={{ fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
-              GitHub AI Radar
-            </span>
-          </div>
+          {/* Brand name + tagline (hidden when collapsed) */}
+          {!collapsed && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
+              <span style={{ fontWeight: 700, fontSize: "14px", letterSpacing: "-0.3px", color: "var(--text-primary)", whiteSpace: "nowrap" }}>
+                Repodar
+              </span>
+              <span style={{ fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
+                GitHub AI Radar
+              </span>
+            </div>
+          )}
 
-          {/* Collapse toggle */}
-          <button
-            className="sidebar-collapse-btn"
-            onClick={() => setCollapsed((c) => !c)}
-            style={{ marginLeft: "auto", width: "22px", height: "22px", flexShrink: 0 }}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            <svg
-              width="11"
-              height="11"
-              viewBox="0 0 12 12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              style={{
-                transform: collapsed ? "rotate(180deg)" : "rotate(0deg)",
-                transition: "transform 0.25s ease",
-              }}
+          {/* Collapse toggle (only shown when not collapsed, or centered when collapsed) */}
+          {!collapsed && (
+            <button
+              className="sidebar-collapse-btn"
+              onClick={() => setCollapsed((c) => !c)}
+              style={{ marginLeft: "auto", width: "22px", height: "22px", flexShrink: 0 }}
+              title="Collapse sidebar"
             >
-              <path d="M8 2L4 6l4 4"/>
-            </svg>
-          </button>
+              <svg
+                width="11"
+                height="11"
+                viewBox="0 0 12 12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              >
+                <path d="M8 2L4 6l4 4"/>
+              </svg>
+            </button>
+          )}
+
+          {/* Collapse toggle for collapsed state - centered below logo */}
+          {collapsed && (
+            <button
+              className="sidebar-collapse-btn"
+              onClick={() => setCollapsed((c) => !c)}
+              style={{
+                position: "absolute",
+                bottom: "10px",
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: "20px",
+                height: "20px",
+                flexShrink: 0,
+              }}
+              title="Expand sidebar"
+            >
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 12 12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                style={{
+                  transform: "rotate(180deg)",
+                }}
+              >
+                <path d="M8 2L4 6l4 4"/>
+              </svg>
+            </button>
+          )}
         </div>
 
         {/* ── Nav Items ────────────────────────────────── */}
@@ -352,26 +369,30 @@ export function Sidebar() {
         {/* ── Footer ───────────────────────────────────── */}
         <div
           style={{
-            padding: "12px 14px",
+            padding: collapsed ? "12px 10px" : "12px 14px",
             borderTop: "1px solid var(--border)",
             display: "flex",
             alignItems: "center",
+            justifyContent: collapsed ? "center" : "flex-start",
             gap: "8px",
           }}
+          title="About"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0 }}>
             <circle cx="12" cy="12" r="10"/>
             <line x1="12" y1="8" x2="12" y2="12"/>
             <line x1="12" y1="16" x2="12.01" y2="16"/>
           </svg>
-          <div className="sidebar-footer-text">
-            <div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: 600, whiteSpace: "nowrap" }}>
-              Repodar v2.0
+          {!collapsed && (
+            <div>
+              <div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: 600, whiteSpace: "nowrap" }}>
+                Repodar v2.0
+              </div>
+              <div style={{ fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap", marginTop: "1px" }}>
+                AI/ML ecosystem tracker
+              </div>
             </div>
-            <div style={{ fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap", marginTop: "1px" }}>
-              AI/ML ecosystem tracker
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </>
