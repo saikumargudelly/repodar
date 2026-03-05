@@ -4,7 +4,7 @@
 
 > Tired of GitHub Trending showing you last week's hype? Repodar tracks hundreds of AI/ML projects every 4 hours, scores them on both momentum and long-term health, and surfaces the ones worth paying attention to — while everyone else is still catching up.
 
-🚀 **[Live demo](https://repodar.up.railway.app)** &nbsp;·&nbsp; 📊 [What's on the dashboard](#-whats-on-the-dashboard) &nbsp;·&nbsp; ⚡ [Run it yourself](#-get-started-in-5-minutes)
+🚀 **[Live demo](https://repodar.up.railway.app)** &nbsp;·&nbsp; � **[GitHub](https://github.com/saikumargudelly/repodar)** &nbsp;·&nbsp; �📊 [What's on the dashboard](#-whats-on-the-dashboard) &nbsp;·&nbsp; ⚡ [Run it yourself](#-get-started-in-5-minutes)
 
 ---
 
@@ -131,14 +131,15 @@ The whole app is built responsive from the ground up. Stat cards reflow from 4 c
 ## 🔌 Embed a live badge in your README
 
 ```html
+<!-- Replace owner/repo-name with your actual GitHub repository -->
 <!-- Updates automatically every 4 hours when the pipeline runs -->
 <iframe
-  src="https://repodar.up.railway.app/widget/repo/langchain-ai/langchain"
+  src="https://repodar.up.railway.app/widget/repo/owner/repo-name"
   width="380" height="200" frameborder="0">
 </iframe>
 ```
 
-When someone opens your README they see your current TrendScore, star count, and sustainability label — not a screenshot taken six months ago.
+When someone opens your README they'll see a live TrendScore, current star count, and sustainability label. No stale screenshots.
 
 ---
 
@@ -208,7 +209,7 @@ npm install
 npm run dev
 ```
 
-Open **[http://localhost:3000](http://localhost:3000)** — the dashboard should be live.
+Open **[http://localhost:3000](http://localhost:3000)** and you should see a live dashboard. If it's empty, run the first sync (step 5) to populate it.
 
 ---
 
@@ -284,8 +285,8 @@ GET /admin/github-status
 |---------|-----------|
 | Empty dashboard, no repos showing | Run the first sync: `curl -X POST http://localhost:8000/admin/run-all-sync` |
 | GitHub 403 errors | Your token hit rate limits or is missing scopes — check with `GET /admin/github-status` |
-| `schema "np" does not exist` | Pull the latest code — this was a numpy type mapping bug, now fixed |
-| Backend startup fails on Railway | Check `DATABASE_URL` is set and the PostgreSQL service is linked |
+| `schema "np" does not exist` | Pull the latest code — this was a numpy/DuckDB type mapping bug, already fixed |
+| Backend startup fails in production | Check `DATABASE_URL` is set correctly and points to a reachable database |
 | Charts show empty area but tooltip still works | Clear the Next.js cache: `rm -rf frontend/.next` and redeploy |
 | Pipeline not running automatically | APScheduler is embedded in the app process — ensure the backend is running continuously |
 
@@ -295,11 +296,11 @@ GET /admin/github-status
 
 The interesting parts:
 
-- [Scoring logic](./backend/app/services/scoring.py) — exactly how TrendScore and SustainabilityScore are computed from raw GitHub data
-- [Discovery + delta ingestion](./backend/app/services/ingestion.py) — how repos are found and how re-runs avoid inflating numbers
-- [APScheduler setup](./backend/app/main.py) — the 4-hour scheduler wired into FastAPI's lifespan context
-- [Dashboard page](./frontend/app/page.tsx) — Recharts, responsive layout, leaderboard, and all the chart components
-- [Radar page](./frontend/app/radar/page.tsx) — sortable repo table and language rankings
+- [Scoring logic](https://github.com/saikumargudelly/repodar/blob/main/backend/app/services/scoring.py) — exactly how TrendScore and SustainabilityScore are computed from raw GitHub data
+- [Discovery + delta ingestion](https://github.com/saikumargudelly/repodar/blob/main/backend/app/services/ingestion.py) — how repos are found and how re-runs avoid inflating numbers
+- [APScheduler setup](https://github.com/saikumargudelly/repodar/blob/main/backend/app/main.py) — the 4-hour scheduler wired into FastAPI's lifespan context
+- [Dashboard page](https://github.com/saikumargudelly/repodar/blob/main/frontend/app/page.tsx) — Recharts, responsive layout, leaderboard, and all the chart components
+- [Radar page](https://github.com/saikumargudelly/repodar/blob/main/frontend/app/radar/page.tsx) — sortable repo table and language rankings
 
 ---
 
@@ -307,7 +308,7 @@ The interesting parts:
 
 **GNU Affero General Public License v3.0 (AGPL-3.0)**
 
-Use it freely for personal projects, research, and open-source work. If you run it as a public service, the AGPL requires you to open-source your modifications too. See [LICENSE](./LICENSE) for details.
+Use it freely for personal projects, research, and open-source work. If you run it as a public service, the AGPL requires you to open-source your modifications too. See [LICENSE](https://github.com/saikumargudelly/repodar/blob/main/LICENSE) for details.
 
 ---
 
@@ -315,11 +316,11 @@ Use it freely for personal projects, research, and open-source work. If you run 
 
 Found a bug? Have an idea for a new signal or vertical? Want to improve the scoring model?
 
-1. Read the [Contributing Guide](./CONTRIBUTING.md) for setup and conventions
+1. Read the [Contributing Guide](https://github.com/saikumargudelly/repodar/blob/main/CONTRIBUTING.md) for setup and conventions
 2. Fork, branch, build, test
 3. Open a PR with a clear description of what changed and why
 
-We follow the [Contributor Covenant](./CODE_OF_CONDUCT.md). Be good to each other.
+We follow the [Contributor Covenant](https://github.com/saikumargudelly/repodar/blob/main/CODE_OF_CONDUCT.md). Be good to each other.
 
 ---
 
