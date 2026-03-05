@@ -196,7 +196,7 @@ app.add_middleware(
     CORSMiddleware,
 allow_origins=[
     "http://localhost:3000",
-    "https://repodar.up.railway.app",
+    "https://repodar.vercel.app",
     "https://repodar.io",
 ],
     allow_credentials=True,
