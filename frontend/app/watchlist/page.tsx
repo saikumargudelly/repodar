@@ -2,28 +2,19 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useUser, SignInButton } from "@clerk/nextjs";
 import { api, WatchlistItemOut } from "@/lib/api";
 import { SustainBadge } from "@/components/Nav";
+import { useLocalUser } from "@/lib/localUser";
 
 export default function WatchlistPage() {
-  const { user, isLoaded } = useUser();
+  const { userId } = useLocalUser();
   const queryClient = useQueryClient();
-  const [authTimedOut, setAuthTimedOut] = useState(false);
-
-  useEffect(() => {
-    if (isLoaded) return;
-    const t = setTimeout(() => setAuthTimedOut(true), 4000);
-    return () => clearTimeout(t);
-  }, [isLoaded]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editThreshold, setEditThreshold] = useState<string>("");
   const [editEmail, setEditEmail] = useState<string>("");
   const [editWebhook, setEditWebhook] = useState<string>("");
-
-  const userId = user?.id ?? "";
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["watchlist", userId],
@@ -59,50 +50,6 @@ export default function WatchlistPage() {
     setEditWebhook(item.notify_webhook ?? "");
   };
 
-  if (!isLoaded && !authTimedOut) {
-    return (
-      <main style={{ maxWidth: "900px", margin: "0 auto", padding: "60px 20px", textAlign: "center" }}>
-        <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>Loading…</p>
-      </main>
-    );
-  }
-
-  if (!user) {
-    return (
-      <main
-        style={{
-          maxWidth: "900px",
-          margin: "0 auto",
-          padding: "80px 20px",
-          textAlign: "center",
-          color: "var(--text-primary)",
-        }}
-      >
-        <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔒</div>
-        <h1 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "8px" }}>Sign In to Access Your Watchlist</h1>
-        <p style={{ color: "var(--text-muted)", fontSize: "14px", marginBottom: "28px" }}>
-          Track repos, set alert thresholds, and never miss a breakout.
-        </p>
-        <SignInButton mode="modal">
-          <button
-            style={{
-              padding: "10px 24px",
-              background: "var(--accent-blue)",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              fontSize: "14px",
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Sign In
-          </button>
-        </SignInButton>
-      </main>
-    );
-  }
-
   return (
     <main
       style={{
@@ -120,8 +67,7 @@ export default function WatchlistPage() {
           <h1 style={{ fontSize: "22px", fontWeight: 700, margin: 0 }}>Your Watchlist</h1>
         </div>
         <p style={{ color: "var(--text-muted)", fontSize: "13px", margin: 0 }}>
-          {items.length} repo{items.length !== 1 ? "s" : ""} tracked · Signed in as{" "}
-          <strong>{user.emailAddresses[0]?.emailAddress ?? user.id}</strong>
+          {items.length} repo{items.length !== 1 ? "s" : ""} tracked
         </p>
       </div>
 

@@ -2,26 +2,17 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useUser, SignInButton } from "@clerk/nextjs";
 import { api, ApiKeyOut } from "@/lib/api";
+import { useLocalUser } from "@/lib/localUser";
 
 export default function DevPage() {
-  const { user, isLoaded } = useUser();
+  const { userId } = useLocalUser();
   const queryClient = useQueryClient();
-  const [authTimedOut, setAuthTimedOut] = useState(false);
-
-  useEffect(() => {
-    if (isLoaded) return;
-    const t = setTimeout(() => setAuthTimedOut(true), 4000);
-    return () => clearTimeout(t);
-  }, [isLoaded]);
   const [newKeyName, setNewKeyName] = useState("");
   const [rawKey, setRawKey] = useState<string | null>(null);
   const [copiedRaw, setCopiedRaw] = useState(false);
-
-  const userId = user?.id ?? "";
 
   const { data: keys, isLoading } = useQuery({
     queryKey: ["api-keys", userId],
@@ -53,50 +44,6 @@ export default function DevPage() {
   };
 
   const allKeys: ApiKeyOut[] = keys ?? [];
-
-  if (!isLoaded && !authTimedOut) {
-    return (
-      <main style={{ maxWidth: "900px", margin: "0 auto", padding: "60px 20px", textAlign: "center" }}>
-        <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>Loading…</p>
-      </main>
-    );
-  }
-
-  if (!user) {
-    return (
-      <main
-        style={{
-          maxWidth: "900px",
-          margin: "0 auto",
-          padding: "80px 20px",
-          textAlign: "center",
-          color: "var(--text-primary)",
-        }}
-      >
-        <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔑</div>
-        <h1 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "8px" }}>Developer API Access</h1>
-        <p style={{ color: "var(--text-muted)", fontSize: "14px", marginBottom: "28px" }}>
-          Sign in to generate API keys and integrate Repodar data into your own tools.
-        </p>
-        <SignInButton mode="modal">
-          <button
-            style={{
-              padding: "10px 24px",
-              background: "var(--accent-blue)",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              fontSize: "14px",
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Sign In
-          </button>
-        </SignInButton>
-      </main>
-    );
-  }
 
   return (
     <main
