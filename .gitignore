@@ -51,6 +51,9 @@ htmlcov/
 # Test files
 backend/test_a2a.py
 backend/test_a2a_full.py
+backend/test_a2a_realtime.py
+backend/test_a2a_monitor.py
+backend/test_a2a_load.py
 A2A_TEST_RESULTS.md
 A2A_QUICK_REFERENCE.md
 # AIIE & Task runners
