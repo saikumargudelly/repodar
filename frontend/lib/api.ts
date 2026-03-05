@@ -515,7 +515,7 @@ export interface A2AService {
   description: string | null;
   version: string | null;
   categories: string[] | null;
-  status: "active" | "unreachable" | "invalid" | string;
+  status: "active" | "unreachable" | "invalid" | "no_card" | "auth_required" | "rate_limited" | "sleeping" | string;
   response_latency_ms: number | null;
   created_at: string | null;
   last_checked_at: string | null;

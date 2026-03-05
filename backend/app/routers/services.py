@@ -114,14 +114,54 @@ async def register_service(
         raise HTTPException(status_code=502, detail=f"Failed to fetch A2A card: {exc}")
 
     if service is None:
-        raise HTTPException(
-            status_code=422,
-            detail=err or (
-                "Could not ingest A2A card. Ensure the service is publicly reachable "
-                "and exposes its capability card at one of: "
-                "/.well-known/agent.json, /.well-known/agent-card.json, or /a2a-card"
-            ),
+        # Build a context-aware hint based on the error type
+        from app.services.a2a_ingestion import (
+            _ERR_AUTH, _ERR_DNS, _ERR_NO_CARD, _ERR_RATE_LIMIT,
+            _ERR_SLEEPING, _ERR_SSL, _ERR_TIMEOUT,
         )
+        if err:
+            if _ERR_AUTH in err:
+                detail = (
+                    "The agent card appears to require authentication (HTTP 401/403). "
+                    "Only publicly-accessible cards can be registered without credentials."
+                )
+            elif _ERR_DNS in err:
+                detail = (
+                    f"Cannot reach {body.url}: the domain does not resolve. "
+                    "Check that the service is deployed and the URL is correct."
+                )
+            elif _ERR_TIMEOUT in err:
+                detail = (
+                    f"Timed out connecting to {body.url}. "
+                    "The service may be down or unreachable from this network."
+                )
+            elif _ERR_SSL in err:
+                detail = (
+                    f"TLS/SSL error when connecting to {body.url}. "
+                    "Ensure the certificate is valid and not self-signed."
+                )
+            elif _ERR_RATE_LIMIT in err:
+                detail = (
+                    f"The service at {body.url} is rate-limiting requests (HTTP 429). "
+                    "Please wait a few minutes and try again."
+                )
+            elif _ERR_SLEEPING in err:
+                detail = (
+                    f"The service at {body.url} is in a cold-start / sleeping state (HTTP 503). "
+                    "Wait a minute for it to wake up, then try again."
+                )
+            else:
+                detail = err
+        else:
+            detail = (
+                "Could not find an agent card at any known path. "
+                "Ensure the service exposes one of: "
+                "/.well-known/agent-card.json (A2A v0.3 current), "
+                "/.well-known/agent.json (A2A v1/deprecated), "
+                "/.well-known/ai-plugin.json (OpenAI plugin), "
+                "or /a2a-card, /agent-card, /mcp."
+            )
+        raise HTTPException(status_code=422, detail=detail)
 
     msg = "Service registered and capabilities indexed."
     if err:

@@ -6,9 +6,13 @@ import { useParams } from "next/navigation";
 import { api, A2AService, A2ACapability } from "@/lib/api";
 
 const STATUS_COLOR: Record<string, string> = {
-  active: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
-  unreachable: "text-amber-400 bg-amber-400/10 border-amber-400/20",
-  invalid: "text-red-400 bg-red-400/10 border-red-400/20",
+  active:        "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
+  unreachable:   "text-amber-400 bg-amber-400/10 border-amber-400/20",
+  invalid:       "text-red-400 bg-red-400/10 border-red-400/20",
+  no_card:       "text-orange-400 bg-orange-400/10 border-orange-400/20",
+  auth_required: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20",
+  rate_limited:  "text-purple-400 bg-purple-400/10 border-purple-400/20",
+  sleeping:      "text-sky-400 bg-sky-400/10 border-sky-400/20",
 };
 
 const METHOD_COLOR: Record<string, string> = {
