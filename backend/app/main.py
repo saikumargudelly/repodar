@@ -197,7 +197,7 @@ app.add_middleware(
 allow_origins=[
     "http://localhost:3000",
     "https://repodar.vercel.app",
-    "https://repodar.up.railway.app",
+    "https://repodar.up.railway.app",  
     "https://repodar.io",
 ],
     allow_credentials=True,
