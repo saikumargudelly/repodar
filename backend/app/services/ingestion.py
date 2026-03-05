@@ -14,6 +14,7 @@ Auto-discovery:
 import uuid
 import json
 import logging
+import asyncio
 from datetime import datetime, timezone, date, timedelta
 
 from app.database import SessionLocal
@@ -86,7 +87,6 @@ async def auto_discover_and_sync() -> dict:
 
     Returns: {"discovered": N, "reactivated": N, "refreshed": N}
     """
-    import asyncio
 
     db = SessionLocal()
     now = datetime.now(timezone.utc).replace(tzinfo=None)
