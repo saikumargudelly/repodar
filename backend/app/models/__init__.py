@@ -3,5 +3,14 @@ from app.models.daily_metrics import DailyMetric
 from app.models.computed_metrics import ComputedMetric
 from app.models.trend_alerts import TrendAlert
 from app.models.category_metrics_daily import CategoryMetricDaily
+from app.models.watchlist import WatchlistItem
+from app.models.api_key import ApiKey
+from app.models.repo_contributor import RepoContributor
+from app.models.fork_snapshot import ForkSnapshot
+from app.models.ecosystem_report import EcosystemReport
 
-__all__ = ["Repository", "DailyMetric", "ComputedMetric", "TrendAlert", "CategoryMetricDaily"]
+__all__ = [
+    "Repository", "DailyMetric", "ComputedMetric", "TrendAlert",
+    "CategoryMetricDaily", "WatchlistItem", "ApiKey",
+    "RepoContributor", "ForkSnapshot", "EcosystemReport",
+]

@@ -1,8 +1,10 @@
 """
 Reporting endpoints — generates weekly and monthly analyst reports.
 The Strategic Insight Summary section is LLM-generated via Groq.
+Reports are persisted in ecosystem_reports for historical access.
 """
 
+import json
 import os
 from datetime import date, timedelta
 from typing import List, Optional
@@ -13,6 +15,7 @@ from pydantic import BaseModel
 
 from app.database import get_db
 from app.models import Repository, ComputedMetric, DailyMetric
+from app.models.ecosystem_report import EcosystemReport
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
@@ -235,7 +238,7 @@ def get_weekly_report(db: Session = Depends(get_db)):
     ]
     strategic_insight = _generate_strategic_insight(top_dicts, cat_dicts)
 
-    return WeeklyReport(
+    report = WeeklyReport(
         week_ending=latest_date.isoformat(),
         generated_at=datetime.now(timezone.utc).isoformat(),
         top_breakout_repos=top_breakout,
@@ -244,6 +247,27 @@ def get_weekly_report(db: Session = Depends(get_db)):
         sustainability_watchlist=watchlist,
         strategic_insight=strategic_insight,
     )
+
+    # Persist to ecosystem_reports; upsert by (period_type, period_label)
+    week_label = latest_date.strftime("%Y-W%W")
+    try:
+        existing = db.query(EcosystemReport).filter_by(
+            period_type="weekly", period_label=week_label
+        ).first()
+        if existing:
+            existing.report_json = report.model_dump_json()
+            existing.generated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        else:
+            db.add(EcosystemReport(
+                period_type="weekly",
+                period_label=week_label,
+                report_json=report.model_dump_json(),
+            ))
+        db.commit()
+    except Exception:
+        db.rollback()  # non-fatal
+
+    return report
 
 
 @router.get("/monthly", response_model=MonthlyReport)
@@ -295,7 +319,7 @@ def get_monthly_report(db: Session = Depends(get_db)):
         f"Strongest month-over-month growth detected in: {accel_names}."
     )
 
-    return MonthlyReport(
+    report = MonthlyReport(
         month=month_label,
         generated_at=datetime.now(timezone.utc).isoformat(),
         macro_summary=macro_summary,
@@ -303,3 +327,63 @@ def get_monthly_report(db: Session = Depends(get_db)):
         adoption_patterns=adoption_patterns,
         infra_layer_shifts=infra_layer_shifts,
     )
+
+    # Persist
+    month_key = today.strftime("%Y-%m")
+    try:
+        existing = db.query(EcosystemReport).filter_by(
+            period_type="monthly", period_label=month_key
+        ).first()
+        if existing:
+            existing.report_json = report.model_dump_json()
+            existing.generated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        else:
+            db.add(EcosystemReport(
+                period_type="monthly",
+                period_label=month_key,
+                report_json=report.model_dump_json(),
+            ))
+        db.commit()
+    except Exception:
+        db.rollback()
+
+    return report
+
+
+# ─── Report history ───────────────────────────────────────────────────────────
+
+class ReportSummary(BaseModel):
+    id: str
+    period_type: str
+    period_label: str
+    generated_at: str
+
+
+@router.get("/history", response_model=List[ReportSummary])
+def get_report_history(
+    period_type: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """List all persisted reports (newest first), optionally filtered by type."""
+    q = db.query(EcosystemReport).order_by(EcosystemReport.generated_at.desc())
+    if period_type:
+        q = q.filter(EcosystemReport.period_type == period_type)
+    return [
+        ReportSummary(
+            id=r.id,
+            period_type=r.period_type,
+            period_label=r.period_label,
+            generated_at=r.generated_at.isoformat() if r.generated_at else "",
+        )
+        for r in q.limit(50).all()
+    ]
+
+
+@router.get("/history/{report_id}")
+def get_archived_report(report_id: str, db: Session = Depends(get_db)):
+    """Retrieve a specific archived report by ID."""
+    from fastapi import HTTPException
+    r = db.query(EcosystemReport).filter_by(id=report_id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Report not found")
+    return json.loads(r.report_json)

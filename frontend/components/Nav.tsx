@@ -10,8 +10,13 @@ import { useTheme, Theme } from "@/components/Providers";
 const NAV_LINKS = [
   { href: "/", label: "Overview" },
   { href: "/radar", label: "Breakout Radar" },
+  { href: "/early-radar", label: "Early Radar" },
+  { href: "/topics", label: "Topics" },
+  { href: "/network", label: "Network" },
   { href: "/compare", label: "Compare" },
   { href: "/orgs", label: "Org Health" },
+  { href: "/watchlist", label: "Watchlist" },
+  { href: "/dev", label: "Dev API" },
 ];
 
 const THEMES: { key: Theme; icon: string; label: string }[] = [

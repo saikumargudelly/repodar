@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import engine
 from app.models import Repository, DailyMetric, ComputedMetric  # noqa — registers models
+from app.models import WatchlistItem, ApiKey, RepoContributor, ForkSnapshot, EcosystemReport  # noqa
 from app.database import Base
 from app.routers import (
     repos_router,
@@ -17,6 +18,11 @@ from app.routers import (
     admin_router,
     widgets_router,
     orgs_router,
+    watchlist_router,
+    topics_router,
+    contributors_router,
+    forks_router,
+    apikeys_router,
 )
 from app.seed.seeder import seed_repos
 
@@ -193,6 +199,11 @@ app.include_router(reports_router)
 app.include_router(admin_router)
 app.include_router(widgets_router)
 app.include_router(orgs_router)
+app.include_router(watchlist_router)
+app.include_router(topics_router)
+app.include_router(contributors_router)
+app.include_router(forks_router)
+app.include_router(apikeys_router)
 
 
 # ─── Health ──────────────────────────────────────────────────────────────────

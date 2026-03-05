@@ -18,7 +18,11 @@ from datetime import datetime, timezone, date, timedelta
 
 from app.database import SessionLocal
 from app.models import Repository, DailyMetric
-from app.services.github_client import fetch_repo_metrics
+from app.services.github_client import (
+    fetch_repo_metrics,
+    get_top_contributors,
+    get_notable_forks,
+)
 from app.services.github_search import (
     search_top_repos,
     search_by_star_threshold,
@@ -369,12 +373,19 @@ async def run_daily_ingestion() -> dict:
                     existing_today[repo_id] = metric
                     inserted += 1
 
-                # Update repo metadata & advance the GitHub API cursor
+                # Update repo metadata & advance the GitHub API cursor.
+                # Persist topics and stars_snapshot for Early-Radar + Topic Intelligence.
                 if repo_id in repo_map:
                     repo = repo_map[repo_id]
                     repo.age_days = _calc_age_days(m.get("repo_created_at", ""))
                     if m.get("primary_language"):
                         repo.primary_language = m["primary_language"]
+                    # Persist GitHub topic tags as a JSON array
+                    raw_topics = m.get("topics")
+                    if raw_topics is not None:
+                        repo.topics = json.dumps(raw_topics)
+                    # Denormalised star count for fast Early-Radar queries
+                    repo.stars_snapshot = m.get("stars", 0)
                     repo.last_fetched_at = now
 
             except Exception as e:
@@ -382,6 +393,19 @@ async def run_daily_ingestion() -> dict:
                 failed += 1
 
         db.commit()
+
+        # ── Step 4: Enrich high-momentum repos with contributors & forks ──────
+        # Run for repos that pushed fresh metrics this cycle.
+        # We only target a top slice to keep GitHub API usage low.
+        high_momentum = [
+            r for r in repos
+            if r.id in {m["repo_id"] for m in metrics_list}
+            and (r.stars_snapshot or 0) > 500
+        ][:60]   # cap at 60 to stay well within hourly rate limits
+
+        if high_momentum:
+            await _enrich_contributors_and_forks(high_momentum, today)
+
         summary = {
             "total": len(repos),
             "inserted": inserted,
@@ -400,5 +424,104 @@ async def run_daily_ingestion() -> dict:
         db.rollback()
         logger.error(f"Ingestion pipeline error: {e}", exc_info=True)
         raise
+    finally:
+        db.close()
+
+
+async def _enrich_contributors_and_forks(repos: list, today) -> None:
+    """
+    For the given repos, fetch top contributors and notable forks from GitHub
+    and upsert them into repo_contributors / fork_snapshots.
+    Runs in parallel where possible.
+    """
+    from app.models import RepoContributor, ForkSnapshot
+
+    db = SessionLocal()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    async def _enrich_one(repo):
+        try:
+            # ── Contributors ──────────────────────────────────────────────
+            contributors = await get_top_contributors(repo.owner, repo.name, limit=25)
+            for c in contributors:
+                if not c.get("login"):
+                    continue
+                existing = (
+                    db.query(RepoContributor)
+                    .filter_by(repo_id=repo.id, login=c["login"])
+                    .first()
+                )
+                if existing:
+                    existing.contributions = c["contributions"]
+                    existing.avatar_url = c.get("avatar_url", "")
+                    existing.updated_at = now
+                else:
+                    db.add(RepoContributor(
+                        repo_id=repo.id,
+                        login=c["login"],
+                        avatar_url=c.get("avatar_url", ""),
+                        contributions=c["contributions"],
+                        updated_at=now,
+                    ))
+
+            # ── Notable forks (only for repos with > 1_000 stars to limit API use) ──
+            if (repo.stars_snapshot or 0) > 1000:
+                forks = await get_notable_forks(repo.owner, repo.name, min_stars=20, limit=20)
+                for f in forks:
+                    if not f.get("fork_full_name"):
+                        continue
+                    existing_fork = (
+                        db.query(ForkSnapshot)
+                        .filter_by(
+                            parent_repo_id=repo.id,
+                            fork_full_name=f["fork_full_name"],
+                            snapshot_date=today,
+                        )
+                        .first()
+                    )
+                    push_dt = None
+                    if f.get("last_push_at"):
+                        try:
+                            push_dt = datetime.fromisoformat(
+                                f["last_push_at"].replace("Z", "+00:00")
+                            ).replace(tzinfo=None)
+                        except Exception:
+                            pass
+
+                    if existing_fork:
+                        existing_fork.stars = f["stars"]
+                        existing_fork.forks = f["forks"]
+                        existing_fork.last_push_at = push_dt
+                        existing_fork.captured_at = now
+                    else:
+                        db.add(ForkSnapshot(
+                            parent_repo_id=repo.id,
+                            fork_owner=f["fork_owner"],
+                            fork_name=f["fork_name"],
+                            fork_full_name=f["fork_full_name"],
+                            github_url=f["github_url"],
+                            stars=f["stars"],
+                            forks=f["forks"],
+                            open_issues=f["open_issues"],
+                            primary_language=f.get("primary_language"),
+                            last_push_at=push_dt,
+                            snapshot_date=today,
+                            captured_at=now,
+                        ))
+        except Exception as e:
+            logger.warning(f"Enrichment failed for {repo.owner}/{repo.name}: {e}")
+
+    try:
+        # Process in parallel batches of 10 to respect rate limits
+        batch_size = 10
+        for start in range(0, len(repos), batch_size):
+            batch = repos[start:start + batch_size]
+            await asyncio.gather(*[_enrich_one(r) for r in batch], return_exceptions=True)
+            db.commit()
+            if start + batch_size < len(repos):
+                await asyncio.sleep(2)  # gentle pacing
+    except Exception as e:
+        logger.error(f"Contributor/fork enrichment error: {e}")
+        db.rollback()
     finally:
         db.close()

@@ -45,6 +45,14 @@ class Repository(Base):
     discovered_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
     last_seen_trending: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
 
+    # GitHub topic tags — JSON array of strings, e.g. '["llm","rag","langchain"]'
+    # Populated from GitHub's repositoryTopics API; refreshed on each ingestion run.
+    topics: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
+
+    # Current total stars snapshot — denormalised here for fast Early-Radar
+    # queries without joining daily_metrics. Updated by the ingestion pipeline.
+    stars_snapshot: Mapped[int] = mapped_column(Integer, default=0)
+
     # Relationships
     daily_metrics: Mapped[List["DailyMetric"]] = relationship("DailyMetric", back_populates="repository", cascade="all, delete-orphan")
     computed_metrics: Mapped[List["ComputedMetric"]] = relationship("ComputedMetric", back_populates="repository", cascade="all, delete-orphan")

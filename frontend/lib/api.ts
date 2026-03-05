@@ -140,6 +140,9 @@ export interface RadarRepo {
   sustainability_label: string;
   sustainability_score: number;
   age_days: number;
+  stars: number;
+  topics: string[] | null;
+  primary_language: string | null;
 }
 
 export interface WeeklyReport {
@@ -337,6 +340,153 @@ export interface RepoHistory {
   history: RepoHistoryPoint[];
 }
 
+// ─── Early Radar ─────────────────────────────────────────────────────────────
+
+export interface EarlyRadarRepo {
+  repo_id: string;
+  owner: string;
+  name: string;
+  category: string;
+  github_url: string;
+  primary_language: string | null;
+  age_days: number;
+  stars: number;
+  trend_score: number;
+  sustainability_label: string;
+  acceleration: number;
+  star_velocity_7d: number;
+  topics: string[] | null;
+}
+
+// ─── Watchlist ────────────────────────────────────────────────────────────────
+
+export interface WatchlistItemOut {
+  id: number;
+  repo_id: string;
+  owner: string;
+  name: string;
+  category: string;
+  github_url: string;
+  primary_language: string | null;
+  age_days: number;
+  stars: number;
+  trend_score: number | null;
+  sustainability_label: string | null;
+  acceleration: number | null;
+  alert_threshold: number | null;
+  notify_email: string | null;
+  notify_webhook: string | null;
+  created_at: string;
+}
+
+export interface WatchlistAddBody {
+  repo_id: string;
+  alert_threshold?: number | null;
+  notify_email?: string | null;
+  notify_webhook?: string | null;
+}
+
+export interface WatchlistPatchBody {
+  alert_threshold?: number | null;
+  notify_email?: string | null;
+  notify_webhook?: string | null;
+}
+
+// ─── Topic Intelligence ───────────────────────────────────────────────────────
+
+export interface TopicRepo {
+  repo_id: string;
+  owner: string;
+  name: string;
+  category: string;
+  github_url: string;
+  primary_language: string | null;
+  age_days: number;
+  stars: number;
+  trend_score: number;
+  acceleration: number;
+  sustainability_label: string;
+  topics: string[] | null;
+}
+
+export interface TopicMomentum {
+  topic: string;
+  repo_count: number;
+  avg_trend_score: number;
+  total_star_velocity: number;
+  avg_acceleration: number;
+  top_repos: TopicRepo[];
+}
+
+// ─── Contributor Network ──────────────────────────────────────────────────────
+
+export interface ContributorRepoEntry {
+  repo_id: string;
+  owner: string;
+  name: string;
+  category: string;
+  github_url: string;
+  primary_language: string | null;
+  trend_score: number;
+  stars: number;
+  contributions: number;
+}
+
+export interface CrossRepoContributor {
+  login: string;
+  avatar_url: string | null;
+  repo_count: number;
+  total_contributions: number;
+  repos: ContributorRepoEntry[];
+}
+
+// ─── Fork Intelligence ────────────────────────────────────────────────────────
+
+export interface NotableFork {
+  fork_owner: string;
+  fork_name: string;
+  fork_full_name: string;
+  github_url: string;
+  stars: number;
+  forks: number;
+  open_issues: number;
+  primary_language: string | null;
+  last_push_at: string | null;
+  parent_owner: string;
+  parent_name: string;
+  parent_trend_score: number | null;
+  snapshot_date: string;
+}
+
+// ─── API Keys ─────────────────────────────────────────────────────────────────
+
+export interface ApiKeyOut {
+  id: number;
+  name: string;
+  tier: string;
+  calls_today: number;
+  calls_this_month: number;
+  calls_total: number;
+  day_limit: number;
+  created_at: string;
+  last_used_at: string | null;
+  is_active: boolean;
+  raw_key?: string;
+}
+
+export interface CreateApiKeyBody {
+  name: string;
+}
+
+// ─── Report History ───────────────────────────────────────────────────────────
+
+export interface ReportSummary {
+  id: number;
+  period_type: string;
+  period_label: string;
+  generated_at: string;
+}
+
 // ─── API functions ───────────────────────────────────────────────────────────
 
 export const api = {
@@ -400,4 +550,68 @@ export const api = {
     apiFetch<AlertResponse[]>(`/dashboard/alerts?unread_only=${unreadOnly}&limit=${limit}`),
   markAlertRead: (alertId: string) =>
     apiFetch<AlertResponse>(`/dashboard/alerts/${alertId}/read`, { method: "PATCH" }),
+
+  // Early Radar
+  getEarlyRadar: (params?: { max_age_days?: number; max_stars?: number; min_acceleration?: number; category?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.max_age_days !== undefined) qs.set("max_age_days", String(params.max_age_days));
+    if (params?.max_stars !== undefined) qs.set("max_stars", String(params.max_stars));
+    if (params?.min_acceleration !== undefined) qs.set("min_acceleration", String(params.min_acceleration));
+    if (params?.category) qs.set("category", params.category);
+    if (params?.limit !== undefined) qs.set("limit", String(params.limit));
+    return apiFetch<EarlyRadarRepo[]>(`/dashboard/early-radar?${qs}`);
+  },
+
+  // Watchlist
+  getWatchlist: (userId: string) =>
+    apiFetch<WatchlistItemOut[]>("/watchlist", { headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
+  addToWatchlist: (userId: string, body: WatchlistAddBody) =>
+    apiFetch<WatchlistItemOut>("/watchlist", { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
+  updateWatchlistItem: (userId: string, id: number, body: WatchlistPatchBody) =>
+    apiFetch<WatchlistItemOut>(`/watchlist/${id}`, { method: "PATCH", body: JSON.stringify(body), headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
+  removeFromWatchlist: (userId: string, id: number) =>
+    apiFetch<{ ok: boolean }>(`/watchlist/${id}`, { method: "DELETE", headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
+  checkWatchlist: (userId: string, repoId: string) =>
+    apiFetch<{ watching: boolean; item: WatchlistItemOut | null }>(`/watchlist/check/${repoId}`, { headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
+
+  // Topic Intelligence
+  getTopicMomentum: (params?: { min_repos?: number; limit?: number; category?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.min_repos !== undefined) qs.set("min_repos", String(params.min_repos));
+    if (params?.limit !== undefined) qs.set("limit", String(params.limit));
+    if (params?.category) qs.set("category", params.category);
+    return apiFetch<TopicMomentum[]>(`/topics/momentum?${qs}`);
+  },
+  getReposByTopic: (topic: string, limit = 20) =>
+    apiFetch<TopicRepo[]>(`/topics/${encodeURIComponent(topic)}/repos?limit=${limit}`),
+
+  // Contributor Network
+  getContributorNetwork: (minRepos = 2) =>
+    apiFetch<CrossRepoContributor[]>(`/contributors/network?min_repos=${minRepos}`),
+  getContributorRepos: (login: string) =>
+    apiFetch<ContributorRepoEntry[]>(`/contributors/repos-by-contributor/${encodeURIComponent(login)}`),
+
+  // Fork Intelligence
+  getNotableForks: (owner: string, name: string, minStars = 20) =>
+    apiFetch<NotableFork[]>(`/forks/repo/${owner}/${name}?min_stars=${minStars}`),
+  getForkLeaderboard: (minStars = 50, limit = 30) =>
+    apiFetch<NotableFork[]>(`/forks/leaderboard?min_stars=${minStars}&limit=${limit}`),
+
+  // API Keys
+  createApiKey: (userId: string, body: CreateApiKeyBody) =>
+    apiFetch<ApiKeyOut>("/dev/keys", { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
+  listApiKeys: (userId: string) =>
+    apiFetch<ApiKeyOut[]>("/dev/keys", { headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
+  revokeApiKey: (userId: string, keyId: number) =>
+    apiFetch<{ ok: boolean }>(`/dev/keys/${keyId}`, { method: "DELETE", headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
+  getApiKeyStatus: (userId: string, keyId: number) =>
+    apiFetch<ApiKeyOut>(`/dev/keys/${keyId}/status`, { headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
+
+  // Report History
+  getReportHistory: (periodType?: string) => {
+    const qs = periodType ? `?period_type=${periodType}` : "";
+    return apiFetch<ReportSummary[]>(`/reports/history${qs}`);
+  },
+  getReportById: (id: number) =>
+    apiFetch<Record<string, unknown>>(`/reports/history/${id}`),
 };

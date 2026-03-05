@@ -95,6 +95,9 @@ class RadarRepo(BaseModel):
     sustainability_label: str
     sustainability_score: float
     age_days: int
+    stars: int = 0
+    topics: Optional[list] = None
+    primary_language: Optional[str] = None
 
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────
@@ -246,8 +249,10 @@ def get_breakout_radar(
     results = []
     for row in rows:
         repo = row[0]
-        # row[1] = subq.c.repo_id (skip), row[2..6] = metric columns
         ts, accel, vel, ss, sl = row[2], row[3], row[4], row[5], row[6]
+        import json as _json
+        topics_raw = repo.topics
+        topics_list = _json.loads(topics_raw) if topics_raw else []
         results.append(RadarRepo(
             repo_id=repo.id,
             owner=repo.owner,
@@ -260,9 +265,85 @@ def get_breakout_radar(
             sustainability_label=sl or "YELLOW",
             sustainability_score=ss or 0,
             age_days=repo.age_days,
+            stars=repo.stars_snapshot or 0,
+            topics=topics_list,
+            primary_language=repo.primary_language,
         ))
 
     results.sort(key=lambda x: x.trend_score, reverse=True)
+    return results[:limit]
+
+
+@router.get("/early-radar", response_model=List[RadarRepo])
+def get_early_radar(
+    max_age_days: int = Query(90, description="Max repo age in days (default 90)"),
+    max_stars: int = Query(1000, description="Max star count — surface pre-viral repos"),
+    min_acceleration: float = Query(0.0, description="Min acceleration score"),
+    category: Optional[str] = Query(None, description="Filter by category"),
+    limit: int = Query(50, le=100),
+    db: Session = Depends(get_db),
+):
+    """
+    Early Radar — 'Before It Trends' feed.
+    Surfaces repos < max_age_days old, under max_stars stars, with positive
+    acceleration — pre-viral breakouts before they hit GitHub Trending.
+    """
+    import json as _json
+    latest_date = _latest_scored_date(db)
+
+    subq = (
+        db.query(
+            ComputedMetric.repo_id,
+            ComputedMetric.trend_score,
+            ComputedMetric.acceleration,
+            ComputedMetric.star_velocity_7d,
+            ComputedMetric.sustainability_score,
+            ComputedMetric.sustainability_label,
+        )
+        .filter(ComputedMetric.date == latest_date)
+        .subquery()
+    )
+
+    q = (
+        db.query(Repository, subq)
+        .filter(
+            Repository.is_active == True,  # noqa: E712
+            Repository.age_days <= max_age_days,
+            Repository.stars_snapshot <= max_stars,
+        )
+        .outerjoin(subq, Repository.id == subq.c.repo_id)
+    )
+    if category:
+        q = q.filter(Repository.category == category)
+
+    rows = q.all()
+    results = []
+    for row in rows:
+        repo = row[0]
+        ts, accel, vel, ss, sl = row[2], row[3], row[4], row[5], row[6]
+        if (accel or 0) < min_acceleration:
+            continue
+        topics_raw = repo.topics
+        topics_list = _json.loads(topics_raw) if topics_raw else []
+        results.append(RadarRepo(
+            repo_id=repo.id,
+            owner=repo.owner,
+            name=repo.name,
+            category=repo.category,
+            github_url=repo.github_url,
+            trend_score=ts or 0,
+            acceleration=accel or 0,
+            star_velocity_7d=vel or 0,
+            sustainability_label=sl or "YELLOW",
+            sustainability_score=ss or 0,
+            age_days=repo.age_days,
+            stars=repo.stars_snapshot or 0,
+            topics=topics_list,
+            primary_language=repo.primary_language,
+        ))
+
+    # Sort by acceleration desc, break ties by trend_score
+    results.sort(key=lambda x: (x.acceleration, x.trend_score), reverse=True)
     return results[:limit]
 
 

@@ -79,6 +79,9 @@ def _build_graphql_query(repos: list[dict]) -> str:
     languages(first: 10, orderBy: {{field: SIZE, direction: DESC}}) {{
       edges {{ size node {{ name }} }}
     }}
+    repositoryTopics(first: 20) {{
+      nodes {{ topic {{ name }} }}
+    }}
     createdAt
   }}""")
     body = "\n".join(fragments)
@@ -208,6 +211,16 @@ async def _get_repo_rest_fallback(session: aiohttp.ClientSession, owner: str, na
 
 # ─── Language breakdown ──────────────────────────────────────────────────────
 
+def _parse_topics(topic_nodes: list) -> list[str]:
+    """Extract topic name strings from GraphQL repositoryTopics.nodes."""
+    result = []
+    for node in topic_nodes:
+        name = (node.get("topic") or {}).get("name", "")
+        if name:
+            result.append(name)
+    return result
+
+
 def _parse_language_breakdown(language_edges: list) -> dict:
     total = sum(e["size"] for e in language_edges)
     if total == 0:
@@ -268,6 +281,7 @@ async def fetch_repo_metrics(
 
                 if gdata:
                     lang_edges = gdata.get("languages", {}).get("edges", [])
+                    topic_nodes = gdata.get("repositoryTopics", {}).get("nodes", [])
                     parsed = {
                         "repo_id": repo["id"],
                         "owner": repo["owner"],
@@ -281,6 +295,7 @@ async def fetch_repo_metrics(
                         "primary_language": (gdata.get("primaryLanguage") or {}).get("name"),
                         "language_breakdown": _parse_language_breakdown(lang_edges),
                         "repo_created_at": gdata.get("createdAt", ""),
+                        "topics": _parse_topics(topic_nodes),
                     }
                 else:
                     # REST fallback
@@ -331,3 +346,80 @@ async def fetch_repo_metrics(
         ])
 
     return list(results.values())
+
+
+# ─── Top contributors list (REST) ────────────────────────────────────────────
+
+async def get_top_contributors(
+    owner: str, name: str, limit: int = 25
+) -> list[dict]:
+    """
+    Returns the top `limit` contributors for a repo as a list of
+    {login, avatar_url, contributions} dicts.
+    """
+    url = f"{REST_BASE}/repos/{owner}/{name}/contributors?per_page={limit}&anon=false"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url, headers=HEADERS, timeout=aiohttp.ClientTimeout(total=20)
+            ) as resp:
+                if resp.status != 200:
+                    logger.warning(f"Top contributors {owner}/{name}: HTTP {resp.status}")
+                    return []
+                data = await resp.json()
+                return [
+                    {
+                        "login": c.get("login", ""),
+                        "avatar_url": c.get("avatar_url", ""),
+                        "contributions": c.get("contributions", 0),
+                    }
+                    for c in data
+                    if c.get("type") == "User"
+                ]
+    except Exception as e:
+        logger.warning(f"Top contributors fetch failed for {owner}/{name}: {e}")
+        return []
+
+
+# ─── Notable forks (REST) ────────────────────────────────────────────────────
+
+async def get_notable_forks(
+    owner: str, name: str, min_stars: int = 10, limit: int = 20
+) -> list[dict]:
+    """
+    Returns forks of the repo that have >= min_stars stars,
+    sorted by stargazers count descending.
+    """
+    # GitHub API lets us sort forks by stargazers
+    url = (
+        f"{REST_BASE}/repos/{owner}/{name}/forks"
+        f"?sort=stargazers&per_page=100"
+    )
+    notable = []
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url, headers=HEADERS, timeout=aiohttp.ClientTimeout(total=20)
+            ) as resp:
+                if resp.status != 200:
+                    logger.warning(f"Forks {owner}/{name}: HTTP {resp.status}")
+                    return []
+                data = await resp.json()
+                for fork in data:
+                    if fork.get("stargazers_count", 0) >= min_stars:
+                        notable.append({
+                            "fork_owner": (fork.get("owner") or {}).get("login", ""),
+                            "fork_name": fork.get("name", ""),
+                            "fork_full_name": fork.get("full_name", ""),
+                            "github_url": fork.get("html_url", ""),
+                            "stars": fork.get("stargazers_count", 0),
+                            "forks": fork.get("forks_count", 0),
+                            "open_issues": fork.get("open_issues_count", 0),
+                            "primary_language": fork.get("language"),
+                            "last_push_at": fork.get("pushed_at"),
+                        })
+                        if len(notable) >= limit:
+                            break
+    except Exception as e:
+        logger.warning(f"Notable forks fetch failed for {owner}/{name}: {e}")
+    return notable

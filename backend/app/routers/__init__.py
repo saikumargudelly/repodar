@@ -5,8 +5,15 @@ from app.routers.reports import router as reports_router
 from app.routers.admin import router as admin_router
 from app.routers.widgets import router as widgets_router
 from app.routers.orgs import router as orgs_router
+from app.routers.watchlist import router as watchlist_router
+from app.routers.topics import router as topics_router
+from app.routers.contributors import router as contributors_router
+from app.routers.forks import router as forks_router
+from app.routers.apikeys import router as apikeys_router
 
 __all__ = [
     "repos_router", "metrics_router", "dashboard_router",
     "reports_router", "admin_router", "widgets_router", "orgs_router",
+    "watchlist_router", "topics_router", "contributors_router",
+    "forks_router", "apikeys_router",
 ]
