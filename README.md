@@ -2,9 +2,9 @@
 
 ### Real-time GitHub AI/ML radar — discover what's actually gaining momentum before everyone else knows about it
 
-> Tired of GitHub Trending showing you last week's hype? Repodar tracks hundreds of AI/ML projects every 4 hours, scores them on both momentum and long-term health, and surfaces the ones worth paying attention to — while everyone else is still catching up.
+> Tired of GitHub Trending showing you projects from last week? Repodar continuously tracks 500+ AI/ML repositories every 4 hours, scores them on momentum and health, and surfaces what's actually gaining traction — while everyone else is still catching up.
 
-🚀 **[Live demo](https://repodar.up.railway.app)** &nbsp;·&nbsp; � **[GitHub](https://github.com/saikumargudelly/repodar)** &nbsp;·&nbsp; �📊 [What's on the dashboard](#-whats-on-the-dashboard) &nbsp;·&nbsp; ⚡ [Run it yourself](#-get-started-in-5-minutes)
+🚀 **[Live demo](https://repodar.up.railway.app)** &nbsp;·&nbsp; 📂 **[GitHub repo](https://github.com/saikumargudelly/repodar)** &nbsp;·&nbsp; 📊 [What's on the dashboard](#-whats-on-the-dashboard) &nbsp;·&nbsp; ⚡ [Run it yourself](#-get-started-in-5-minutes)
 
 ---
 
@@ -122,9 +122,9 @@ The pipeline runs **every 4 hours** via APScheduler, embedded directly in the Fa
 
 ## 🎨 Three themes, works on any screen
 
-**Dark** (default) · **Semi-dark** (navy/indigo) · **Light** — pick from the nav bar. Your preference is saved in localStorage and applied immediately on every page.
+**Dark** (default) · **Semi-dark** (navy/indigo) · **Light** — pick from the nav. Your choice is saved and applied instantly.
 
-The whole app is built responsive from the ground up. Stat cards reflow from 4 columns down to 2 then 1. Charts stay readable at any width. Selector pills scroll horizontally on narrow screens. Tables scroll horizontally on mobile instead of squashing columns. Everything scales cleanly from a 375px phone to a 4K monitor.
+Fully responsive: stat cards flow from 4 columns → 2 → 1 on smaller screens. Charts scale intelligently. Selectors scroll horizontally on mobile. Tables scroll instead of squishing. Works great at 375px and at 4K.
 
 ---
 
@@ -145,39 +145,35 @@ When someone opens your README they'll see a live TrendScore, current star count
 
 ## 🚀 Get started in 5 minutes
 
-### What you need
+### What you'll need
 
 - Python 3.11+
 - Node.js 18+
-- A [GitHub Personal Access Token](https://github.com/settings/tokens) — gives you 5,000 API calls/hour instead of 60
-- A [Groq API key](https://console.groq.com) — free tier is more than enough for weekly AI reports
+- A [GitHub Personal Access Token](https://github.com/settings/tokens) (5,000 API calls/hour instead of 60)
+- A [Groq API key](https://console.groq.com) (free tier covers weekly reports)
 
-### 1. Clone and set up the backend
+### 1. Clone the repo
 
 ```bash
-git clone <repo-url>
-cd tool-github-monitor/backend
+git clone https://github.com/saikumargudelly/repodar.git
+cd repodar/backend
 
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. Create your `.env` file
+### 2. Set up the backend
 
 ```env
 GITHUB_TOKEN=github_pat_YOUR_TOKEN_HERE
 GROQ_API_KEY=gsk_YOUR_KEY_HERE
 GROQ_MODEL=llama-3.3-70b-versatile
-
-# SQLite for local development — zero setup required
-DATABASE_URL=sqlite:///./repodar.db
-
-# Swap for a PostgreSQL URL when deploying to Railway / Supabase
-# DATABASE_URL=postgresql://user:pass@host:5432/dbname
-
+DATABASE_URL=sqlite:///./repodar.db    # SQLite for local dev (zero setup)
 APP_ENV=development
 ```
+
+For production, swap `DATABASE_URL` to a PostgreSQL connection string.
 
 ### 3. Create the database
 
@@ -191,13 +187,13 @@ alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 ```
 
-### 5. Run the first data sync
-
-This fetches live data from GitHub and scores everything. Takes 2–8 minutes the first time.
+### 5. Seed the database with repos
 
 ```bash
 curl -X POST http://localhost:8000/admin/run-all-sync
 ```
+
+Fetches live GitHub data and computes scores. First run takes 2–5 minutes. Then it runs automatically every 4 hours.
 
 ### 6. Start the frontend
 
@@ -209,7 +205,9 @@ npm install
 npm run dev
 ```
 
-Open **[http://localhost:3000](http://localhost:3000)** and you should see a live dashboard. If it's empty, run the first sync (step 5) to populate it.
+### 7. Open the dashboard
+
+Go to **[http://localhost:3000](http://localhost:3000)**. You'll see the live dashboard with charts and repos. If the dashboard is empty, the sync from step 5 is still running — it takes 2–5 minutes on first run.
 
 ---
 
