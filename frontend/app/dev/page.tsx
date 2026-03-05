@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser, SignInButton } from "@clerk/nextjs";
 import { api, ApiKeyOut } from "@/lib/api";
@@ -10,6 +10,13 @@ import { api, ApiKeyOut } from "@/lib/api";
 export default function DevPage() {
   const { user, isLoaded } = useUser();
   const queryClient = useQueryClient();
+  const [authTimedOut, setAuthTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (isLoaded) return;
+    const t = setTimeout(() => setAuthTimedOut(true), 4000);
+    return () => clearTimeout(t);
+  }, [isLoaded]);
   const [newKeyName, setNewKeyName] = useState("");
   const [rawKey, setRawKey] = useState<string | null>(null);
   const [copiedRaw, setCopiedRaw] = useState(false);
@@ -47,7 +54,7 @@ export default function DevPage() {
 
   const allKeys: ApiKeyOut[] = keys ?? [];
 
-  if (!isLoaded) {
+  if (!isLoaded && !authTimedOut) {
     return (
       <main style={{ maxWidth: "900px", margin: "0 auto", padding: "60px 20px", textAlign: "center" }}>
         <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>Loading…</p>

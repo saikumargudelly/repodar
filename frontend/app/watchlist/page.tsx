@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser, SignInButton } from "@clerk/nextjs";
 import { api, WatchlistItemOut } from "@/lib/api";
@@ -11,6 +11,13 @@ import { SustainBadge } from "@/components/Nav";
 export default function WatchlistPage() {
   const { user, isLoaded } = useUser();
   const queryClient = useQueryClient();
+  const [authTimedOut, setAuthTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (isLoaded) return;
+    const t = setTimeout(() => setAuthTimedOut(true), 4000);
+    return () => clearTimeout(t);
+  }, [isLoaded]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editThreshold, setEditThreshold] = useState<string>("");
   const [editEmail, setEditEmail] = useState<string>("");
@@ -52,7 +59,7 @@ export default function WatchlistPage() {
     setEditWebhook(item.notify_webhook ?? "");
   };
 
-  if (!isLoaded) {
+  if (!isLoaded && !authTimedOut) {
     return (
       <main style={{ maxWidth: "900px", margin: "0 auto", padding: "60px 20px", textAlign: "center" }}>
         <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>Loading…</p>
