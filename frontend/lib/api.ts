@@ -522,6 +522,12 @@ export interface A2AService {
   last_seen_at: string | null;
   capabilities: A2ACapability[];
   capability_count: number;
+  // Rich metadata
+  auth_schemes: string[] | null;
+  input_modes: string[] | null;
+  output_modes: string[] | null;
+  documentation_url: string | null;
+  supports_streaming: boolean | null;
 }
 
 export interface RegisterServiceResponse {

@@ -78,9 +78,16 @@ export default function ServiceDetailPage() {
               <p className="text-sm text-white/50">by {service.provider}</p>
             )}
           </div>
-          <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${statusClass}`}>
-            {service.status}
-          </span>
+          <div className="flex items-center gap-2 flex-wrap">
+            {service.supports_streaming && (
+              <span className="text-xs font-semibold px-3 py-1 rounded-full border text-emerald-300 bg-emerald-400/10 border-emerald-400/20">
+                ⚡ Streaming
+              </span>
+            )}
+            <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${statusClass}`}>
+              {service.status}
+            </span>
+          </div>
         </div>
 
         {service.description && (
@@ -94,6 +101,44 @@ export default function ServiceDetailPage() {
             </span>
           ))}
         </div>
+
+        {/* Auth schemes */}
+        {(service.auth_schemes ?? []).length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 mb-2">
+            <span className="text-[10px] text-white/40 uppercase tracking-wider mr-1">Auth</span>
+            {(service.auth_schemes ?? []).map((s) => (
+              <span key={s} className="text-xs px-2 py-0.5 bg-amber-400/10 text-amber-300 rounded-full border border-amber-400/20">
+                {s}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Input / Output modes */}
+        {((service.input_modes ?? []).length > 0 || (service.output_modes ?? []).length > 0) && (
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            {(service.input_modes ?? []).length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-white/40 uppercase tracking-wider">In</span>
+                {(service.input_modes ?? []).map((m) => (
+                  <span key={m} className="text-xs px-2 py-0.5 bg-sky-400/10 text-sky-300 rounded-full border border-sky-400/20">
+                    {m}
+                  </span>
+                ))}
+              </div>
+            )}
+            {(service.output_modes ?? []).length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-white/40 uppercase tracking-wider">Out</span>
+                {(service.output_modes ?? []).map((m) => (
+                  <span key={m} className="text-xs px-2 py-0.5 bg-teal-400/10 text-teal-300 rounded-full border border-teal-400/20">
+                    {m}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 pt-4 border-t border-white/10">
           <Stat label="Base URL" value={
@@ -110,6 +155,14 @@ export default function ServiceDetailPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-white/10">
           <Stat label="Registered" value={service.created_at ? new Date(service.created_at).toLocaleString() : "—"} />
           <Stat label="Last Checked" value={service.last_checked_at ? new Date(service.last_checked_at).toLocaleString() : "—"} />
+          {service.documentation_url && (
+            <Stat label="Documentation" value={
+              <a href={service.documentation_url} target="_blank" rel="noreferrer"
+                 className="text-sky-400 hover:text-sky-300 text-xs break-all">
+                {service.documentation_url}
+              </a>
+            } />
+          )}
         </div>
       </div>
 

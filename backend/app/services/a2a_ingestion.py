@@ -1,15 +1,22 @@
 """
 A2A Card Ingestion Service
 ==========================
-Discovers, fetches, validates, and stores Agent-to-Agent capability cards
-from AI services that expose a GET /a2a-card endpoint.
+Discovers, fetches, validates, and stores Agent-to-Agent (A2A) capability cards.
+
+Handles every known agent/plugin card format:
+  - A2A spec v1   (Google standard): capabilities={streaming:true}, skills=[...]
+  - A2A spec v0.3: capabilities=[{name, method, path}]
+  - OpenAI plugin manifest: name_for_human, api.url
+  - MCP server info: serverInfo.name, tools/prompts/resources
+  - Custom / Repodar seeded cards: name, provider, categories, capabilities=[...]
+  - Unknown JSON: best-effort extraction of name/description from any field
 
 Security rules enforced:
   - Only http/https schemes allowed
-  - Private, loopback, link-local and reserved IPs are blocked
-  - localhost and 0.0.0.0 are blocked explicitly
+  - Private, loopback, link-local and reserved IPs are blocked (SSRF)
+  - localhost and 0.0.0.0 blocked explicitly
   - 10-second request timeout
-  - Only GET requests are used when fetching cards
+  - Only GET used for card fetching
 """
 
 import ipaddress
@@ -19,7 +26,7 @@ import socket
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Optional, Union
+from typing import Any, Optional
 from urllib.parse import urlparse
 
 import httpx
@@ -36,7 +43,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 class CapabilityCard(BaseModel):
-    """Legacy / custom-server capability entry (list of endpoints)."""
+    """A single callable capability / endpoint exposed by the agent."""
     name: str = ""
     method: str = "POST"
     path: str = ""
@@ -49,60 +56,92 @@ class CapabilityCard(BaseModel):
 
 
 class SkillCard(BaseModel):
-    """
-    A2A spec v1 skill entry.
-    Skills are agent capabilities described as task types, not raw HTTP endpoints.
-    See: https://google.github.io/A2A/specification/#agent-card
-    """
+    """A2A spec v1 skill — a high-level task type the agent can perform."""
     id: str = ""
     name: str = ""
     description: str = ""
     tags: list[str] = []
+    examples: list[str] = []
     inputModes: list[str] = []
     outputModes: list[str] = []
 
 
 class A2ACardSchema(BaseModel):
     """
-    Normalised A2A agent card.  Handles three real-world formats:
+    Normalised representation of any agent/plugin capability card.
 
-    Format 1 — A2A spec v1 (Google A2A standard):
-      { "name": "...", "url": "...", "version": "...",
-        "capabilities": {"streaming": true},   ← dict of feature flags
-        "skills": [{"id": "...", "name": "...", ...}] }
+    Supported source formats
+    ────────────────────────
+    A2A spec v1 (Google):
+        capabilities: {streaming: bool, pushNotifications: bool, ...}
+        skills: [{id, name, description, tags, examples, inputModes, outputModes}]
+        provider: {organization, url}
+        defaultInputModes / defaultOutputModes: [str]
+        authentication: {schemes: [str]}
+        documentationUrl: str
+        supportsAuthenticatedExtendedCard: bool
 
-    Format 2 — A2A spec v0.3 / legacy servers:
-      { "name": "...", "capabilities": [{"name": "...", "path": "...", "method": "POST"}] }
+    A2A spec v0.3 / legacy endpoint list:
+        capabilities: [{name, method, path, description}]
 
-    Format 3 — Custom / Repodar seeded cards:
-      { "name": "...", "provider": "...", "categories": [...], "capabilities": [...] }
+    OpenAI plugin manifest:
+        schema_version: "v1"
+        name_for_human / description_for_human
+        api: {type, url}
+        auth: {type}
 
-    The model_validator normalises all three into a single internal shape before
-    Pydantic field validation runs, so no format ever fails schema validation.
+    MCP server info:
+        serverInfo: {name, version}
+        tools / prompts / resources: [{name, description}]
+
+    Custom / Repodar seeded cards:
+        name, provider (str), categories, capabilities (list)
+
+    Unknown JSON:
+        Best-effort extraction: looks for any of dozens of common name/desc fields.
     """
+    # Core identity
     name: str = ""
     description: str = ""
     version: str = "1.0"
     provider: str = ""
     categories: list[str] = []
-    # After normalisation, always a list of CapabilityCard (may be empty)
+    documentation_url: str = ""
+
+    # Capabilities — always a flat list after normalisation
     capabilities: list[CapabilityCard] = []
-    # Spec v1 skills — kept separately so callers can inspect raw data
+    # Spec v1 raw skills (kept for reference)
     skills: list[SkillCard] = []
+
+    # Rich metadata extracted from the card
+    auth_schemes: list[str] = []        # e.g. ["Bearer", "ApiKey"]
+    input_modes: list[str] = []         # e.g. ["text", "voice"]
+    output_modes: list[str] = []        # e.g. ["text", "audio"]
+    supports_streaming: bool = False
 
     @model_validator(mode="before")
     @classmethod
-    def normalize_card(cls, data: Any) -> Any:
+    def normalize_card(cls, data: Any) -> Any:  # noqa: C901
         """
-        Pre-process the raw JSON dict so every known A2A card format is
-        accepted without schema errors.
+        Pre-process any raw JSON dict into the normalised shape.
+        Never raises — worst case returns an empty-but-valid card.
         """
         if not isinstance(data, dict):
             return data
 
-        # ── provider ──────────────────────────────────────────────────────
-        # Spec v1: provider = {"organization": "Acme Corp"}
-        # Legacy:  provider = "Acme Corp"
+        # ── FORMAT DETECTION ──────────────────────────────────────────────
+
+        # OpenAI plugin manifest
+        if data.get("schema_version") == "v1" and "name_for_human" in data:
+            return cls._from_openai_plugin(data)
+
+        # MCP server info (tools/prompts array at top level or under serverInfo)
+        if "serverInfo" in data or ("tools" in data and "prompts" in data):
+            return cls._from_mcp(data)
+
+        # ── A2A / custom card normalisation ───────────────────────────────
+
+        # provider: dict → string
         provider = data.get("provider", "")
         if isinstance(provider, dict):
             data["provider"] = (
@@ -111,55 +150,159 @@ class A2ACardSchema(BaseModel):
                 or provider.get("url", "")
             )
 
-        # ── capabilities ──────────────────────────────────────────────────
-        # Spec v1:  capabilities = {"streaming": True, ...}  ← feature flags
-        # Legacy:   capabilities = [{"name": "...", "path": "..."}]
+        # capabilities: feature-flag dict → clear; capability list → keep
         caps = data.get("capabilities")
         if isinstance(caps, dict):
-            # Feature-flags object — not a list of endpoints.
-            # Clear it; usable skills come from the 'skills' array below.
+            # Extract feature flags before clearing
+            data["supports_streaming"] = bool(caps.get("streaming", False))
             data["capabilities"] = []
         elif not isinstance(caps, list):
             data["capabilities"] = []
 
-        # ── skills → capabilities fallback ────────────────────────────────
-        # Spec v1 'skills' array becomes capability entries when the
-        # capabilities list is empty.
+        # skills → synthetic capability entries + rich metadata
         skills_raw = data.get("skills", [])
         if not isinstance(skills_raw, list):
             skills_raw = []
             data["skills"] = []
 
         if not data["capabilities"] and skills_raw:
-            synthetic = []
-            for sk in skills_raw:
-                if not isinstance(sk, dict):
-                    continue
-                skill_name = sk.get("name") or sk.get("id") or "skill"
-                skill_desc = sk.get("description", "")
-                tags = sk.get("tags", [])
-                # Represent each skill as a POST endpoint using the skill id/name
-                path = f"/{sk.get('id') or skill_name.lower().replace(' ', '-')}"
-                synthetic.append({
-                    "name": skill_name,
-                    "method": "POST",
-                    "path": path,
-                    "description": skill_desc or (", ".join(tags) if tags else ""),
-                })
-            data["capabilities"] = synthetic
+            data["capabilities"] = cls._skills_to_capabilities(skills_raw)
 
-        # ── categories ────────────────────────────────────────────────────
-        # Fall back to tags / topics if categories absent
-        if not data.get("categories"):
-            data["categories"] = (
-                data.get("tags")
-                or data.get("topics")
-                or []
+        # agentCapabilities (seen on some HF-hosted agents) — merge if present
+        agent_caps = data.get("agentCapabilities")
+        if isinstance(agent_caps, dict):
+            data["supports_streaming"] = bool(
+                data.get("supports_streaming")
+                or agent_caps.get("streaming", False)
             )
-        if not isinstance(data["categories"], list):
+
+        # Rich metadata
+        auth = data.get("authentication") or {}
+        if isinstance(auth, dict):
+            schemes = auth.get("schemes", [])
+            data["auth_schemes"] = [s for s in schemes if isinstance(s, str)]
+
+        data["input_modes"] = cls._coerce_str_list(
+            data.get("defaultInputModes") or data.get("inputModes") or []
+        )
+        data["output_modes"] = cls._coerce_str_list(
+            data.get("defaultOutputModes") or data.get("outputModes") or []
+        )
+        data["documentation_url"] = str(
+            data.get("documentationUrl") or data.get("documentation_url") or ""
+        )
+
+        # categories: fall back to skill tags if no explicit categories
+        if not data.get("categories"):
+            all_tags: list[str] = list(data.get("tags") or data.get("topics") or [])
+            for sk in skills_raw:
+                if isinstance(sk, dict):
+                    all_tags.extend(sk.get("tags", []))
+            # Deduplicate preserving order
+            seen: set[str] = set()
+            data["categories"] = [
+                t for t in all_tags if t and not (t in seen or seen.add(t))  # type: ignore[func-returns-value]
+            ]
+        if not isinstance(data.get("categories"), list):
             data["categories"] = []
 
+        # name: fall back to hostname-derived value (handled post-parse elsewhere)
+        if not data.get("name"):
+            data["name"] = (
+                data.get("title")
+                or data.get("agent_name")
+                or data.get("service_name")
+                or ""
+            )
+
         return data
+
+    # ── Static helpers ────────────────────────────────────────────────────
+
+    @staticmethod
+    def _skills_to_capabilities(skills_raw: list[Any]) -> list[dict]:
+        """Convert A2A spec v1 skills into CapabilityCard-compatible dicts."""
+        result = []
+        for sk in skills_raw:
+            if not isinstance(sk, dict):
+                continue
+            skill_id = sk.get("id") or ""
+            skill_name = sk.get("name") or skill_id or "skill"
+            skill_desc = sk.get("description", "")
+            tags = sk.get("tags") or []
+            examples = sk.get("examples") or []
+
+            # Build a rich description: desc + examples
+            parts = [p for p in [skill_desc, ", ".join(f'"{e}"' for e in examples[:3])] if p]
+            full_desc = " — Examples: ".join(parts) if len(parts) > 1 else (parts[0] if parts else "")
+
+            path = f"/{skill_id or skill_name.lower().replace(' ', '-')}"
+            result.append({
+                "name": skill_name,
+                "method": "POST",
+                "path": path,
+                "description": full_desc or (", ".join(tags) if tags else ""),
+            })
+        return result
+
+    @staticmethod
+    def _coerce_str_list(val: Any) -> list[str]:
+        if isinstance(val, list):
+            return [str(v) for v in val if v]
+        return []
+
+    @classmethod
+    def _from_openai_plugin(cls, data: dict) -> dict:
+        """Normalise an OpenAI plugin manifest into our card shape."""
+        api_info = data.get("api") or {}
+        api_url = str(api_info.get("url") or "")
+        auth_type = str((data.get("auth") or {}).get("type") or "none")
+        return {
+            "name": data.get("name_for_human") or data.get("name_for_model") or "",
+            "description": data.get("description_for_human") or data.get("description_for_model") or "",
+            "version": "openai-plugin-v1",
+            "provider": "",
+            "documentation_url": data.get("legal_info_url") or data.get("logo_url") or "",
+            "auth_schemes": [auth_type] if auth_type != "none" else [],
+            "capabilities": [{"name": "OpenAPI spec", "method": "GET", "path": api_url, "description": "OpenAPI spec endpoint"}] if api_url else [],
+            "skills": [],
+            "categories": ["openai-plugin"],
+            "input_modes": ["text"],
+            "output_modes": ["text"],
+            "supports_streaming": False,
+        }
+
+    @classmethod
+    def _from_mcp(cls, data: dict) -> dict:
+        """Normalise an MCP server info response into our card shape."""
+        server = data.get("serverInfo") or {}
+        tools = [t for t in (data.get("tools") or []) if isinstance(t, dict)]
+        prompts = [p for p in (data.get("prompts") or []) if isinstance(p, dict)]
+        resources = [r for r in (data.get("resources") or []) if isinstance(r, dict)]
+
+        caps = []
+        for item in (tools + prompts + resources):
+            item_name = item.get("name") or ""
+            caps.append({
+                "name": item_name,
+                "method": "POST",
+                "path": f"/{item_name}",
+                "description": item.get("description") or "",
+            })
+        return {
+            "name": server.get("name") or data.get("name") or "",
+            "description": data.get("description") or "",
+            "version": server.get("version") or "mcp",
+            "provider": "",
+            "documentation_url": "",
+            "auth_schemes": [],
+            "capabilities": caps,
+            "skills": [],
+            "categories": ["mcp"],
+            "input_modes": ["text"],
+            "output_modes": ["text"],
+            "supports_streaming": False,
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -219,13 +362,16 @@ def _is_safe_url(url: str) -> tuple[bool, str]:
 # ---------------------------------------------------------------------------
 
 # Candidate paths tried in priority order — first 200 + valid schema wins.
-# Covers: A2A spec v1, v0.3+, legacy Repodar default, and common variants.
 _CARD_PATHS = [
-    ".well-known/agent.json",       # A2A spec v1 (current standard)
-    ".well-known/agent-card.json",  # A2A spec v0.3+
-    "a2a-card",                     # legacy Repodar / custom path
-    "agent-card",                   # common alternative
-    "agent.json",                   # bare JSON variant
+    ".well-known/agent.json",        # A2A spec v1 (current standard)
+    ".well-known/agent-card.json",   # A2A spec v0.3+
+    ".well-known/ai-plugin.json",    # OpenAI plugin manifest
+    "a2a-card",                      # legacy Repodar / custom path
+    "a2a",                           # minimal custom path
+    "agent-card",                    # common alternative
+    "agent.json",                    # bare JSON variant
+    "agent-card.json",               # extension variant
+    "mcp",                           # MCP server info endpoint
 ]
 
 
@@ -300,6 +446,12 @@ async def fetch_a2a_card(base_url: str) -> tuple[Optional[A2ACardSchema], int, s
 # Database persistence
 # ---------------------------------------------------------------------------
 
+def _safe_set(obj: Any, attr: str, value: Any) -> None:
+    """Set attribute on obj only if it exists on the class (migration-safe)."""
+    if hasattr(type(obj), attr):
+        setattr(obj, attr, value)
+
+
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
@@ -337,7 +489,7 @@ async def ingest_service_by_url(base_url: str, db: Session) -> tuple[Optional[A2
         service = A2AService(id=str(uuid.uuid4()), base_url=base_url, created_at=now)
         db.add(service)
 
-    service.name = card.name or base_url
+    service.name = card.name or urlparse(base_url).netloc or base_url
     service.provider = card.provider or None
     service.description = card.description or None
     service.version = card.version or None
@@ -346,6 +498,12 @@ async def ingest_service_by_url(base_url: str, db: Session) -> tuple[Optional[A2
     service.response_latency_ms = latency_ms
     service.last_checked_at = now
     service.last_seen_at = now
+    # Rich metadata — stored only if the model columns exist (graceful if migration pending)
+    _safe_set(service, "auth_schemes", json.dumps(card.auth_schemes) if card.auth_schemes else None)
+    _safe_set(service, "input_modes", json.dumps(card.input_modes) if card.input_modes else None)
+    _safe_set(service, "output_modes", json.dumps(card.output_modes) if card.output_modes else None)
+    _safe_set(service, "documentation_url", card.documentation_url or None)
+    _safe_set(service, "supports_streaming", int(card.supports_streaming))
 
     # Wipe and re-insert capabilities (clean diff approach)
     db.query(A2ACapability).filter(A2ACapability.service_id == service.id).delete()

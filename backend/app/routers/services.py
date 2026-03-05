@@ -41,6 +41,12 @@ class ServiceOut(BaseModel):
     last_seen_at: Optional[str] = None
     capabilities: List[CapabilityOut] = []
     capability_count: int = 0
+    # Rich metadata
+    auth_schemes: Optional[List[str]] = None
+    input_modes: Optional[List[str]] = None
+    output_modes: Optional[List[str]] = None
+    documentation_url: Optional[str] = None
+    supports_streaming: Optional[bool] = None
 
     class Config:
         from_attributes = True
@@ -190,6 +196,11 @@ def _to_service_out(s: A2AService) -> ServiceOut:
         last_seen_at=s.last_seen_at.isoformat() if s.last_seen_at else None,
         capabilities=caps,
         capability_count=len(caps),
+        auth_schemes=_parse_json_list(getattr(s, "auth_schemes", None)),
+        input_modes=_parse_json_list(getattr(s, "input_modes", None)),
+        output_modes=_parse_json_list(getattr(s, "output_modes", None)),
+        documentation_url=getattr(s, "documentation_url", None),
+        supports_streaming=bool(getattr(s, "supports_streaming", 0)) if getattr(s, "supports_streaming", None) is not None else None,
     )
 
 

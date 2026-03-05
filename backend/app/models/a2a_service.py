@@ -35,6 +35,13 @@ class A2AService(Base):
     # Round-trip latency of the last /a2a-card fetch in milliseconds
     response_latency_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
+    # Rich metadata extracted from the capability card
+    auth_schemes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)      # JSON list e.g. '["Bearer","ApiKey"]'
+    input_modes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)       # JSON list e.g. '["text","voice"]'
+    output_modes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)      # JSON list e.g. '["text","audio"]'
+    documentation_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    supports_streaming: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=0)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
     last_checked_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     last_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
