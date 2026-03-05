@@ -141,8 +141,8 @@ export default function InsightsPage() {
             }}
           >
             <option value={10000}>All stars</option>
-            <option value={5000}>< 5k stars</option>
-            <option value={1000}>< 1k stars</option>
+            <option value={5000}>under 5k stars</option>
+            <option value={1000}>under 1k stars</option>
           </select>
         )}
       </div>

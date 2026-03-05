@@ -25,10 +25,10 @@ export default function RootLayout({
           <Nav />
           <main
             style={{
-              marginLeft: "240px",
+              marginLeft: "var(--sidebar-width, 240px)",
               maxWidth: "100%",
               marginTop: "56px",
-              padding: "0 16px 40px",
+              padding: "0 24px 60px",
               overflowX: "hidden",
               transition: "margin-left 0.3s ease",
             }}

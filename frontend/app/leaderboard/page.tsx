@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, Period } from "@/lib/api";
 import { SustainBadge } from "@/components/Nav";
 
-type View = "trending" | "sustainable" | "acceleration";
+type View = "trending" | "top_score" | "sustainable";
 
-const PERIODS = [
+const PERIODS: { key: Period; label: string }[] = [
   { key: "7d", label: "7 Days" },
   { key: "30d", label: "30 Days" },
   { key: "90d", label: "90 Days" },
@@ -15,7 +15,7 @@ const PERIODS = [
 
 export default function LeaderboardPage() {
   const [view, setView] = useState<View>("trending");
-  const [period, setPeriod] = useState("7d");
+  const [period, setPeriod] = useState<Period>("7d");
 
   // Fetch leaderboard for all periods
   const { data: leaderboardData } = useQuery({
@@ -34,13 +34,9 @@ export default function LeaderboardPage() {
 
     switch (view) {
       case "trending":
-        return lb.sort((a, b) => (b.current_stars ?? 0) - (a.current_stars ?? 0));
-      case "acceleration":
-        return lb.sort((a, b) => {
-          const aAccel = a.acceleration ?? 0;
-          const bAccel = b.acceleration ?? 0;
-          return bAccel - aAccel;
-        });
+        return lb.sort((a, b) => (b.star_gain ?? 0) - (a.star_gain ?? 0));
+      case "top_score":
+        return lb.sort((a, b) => (b.trend_score ?? 0) - (a.trend_score ?? 0));
       case "sustainable":
         return overview?.sustainability_ranking ?? [];
       default:
@@ -68,8 +64,8 @@ export default function LeaderboardPage() {
         <div style={{ display: "flex", gap: "6px" }}>
           {(
             [
-              { key: "trending", label: "📈 Trending" },
-              { key: "acceleration", label: "🚀 Acceleration" },
+              { key: "trending", label: "📈 Star Gain" },
+              { key: "top_score", label: "🚀 Trend Score" },
               { key: "sustainable", label: "💚 Sustainability" },
             ] as const
           ).map(({ key, label }) => (
@@ -97,7 +93,7 @@ export default function LeaderboardPage() {
         {view !== "sustainable" && (
           <select
             value={period}
-            onChange={(e) => setPeriod(e.target.value)}
+            onChange={(e) => setPeriod(e.target.value as Period)}
             style={{
               padding: "6px 10px",
               fontSize: "12px",
@@ -134,9 +130,9 @@ export default function LeaderboardPage() {
                 </th>
                 <th style={{ padding: "8px 12px", textAlign: "right", color: "var(--text-muted)" }}>
                   {view === "trending"
-                    ? "⭐ Stars"
-                    : view === "acceleration"
-                      ? "🚀 Accel."
+                    ? `⭐ Star Gain (${period})`
+                    : view === "top_score"
+                      ? "🚀 Trend Score"
                       : "💚 Score"}
                 </th>
                 <th style={{ padding: "8px 12px", textAlign: "center", color: "var(--text-muted)" }}>
@@ -169,9 +165,9 @@ export default function LeaderboardPage() {
                   </td>
                   <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 600 }}>
                     {view === "trending"
-                      ? (entry.current_stars ?? 0).toLocaleString()
-                      : view === "acceleration"
-                        ? entry.acceleration?.toFixed(2) ?? "N/A"
+                      ? `+${(entry.star_gain ?? 0).toLocaleString()} stars`
+                      : view === "top_score"
+                        ? entry.trend_score?.toFixed(4) ?? "N/A"
                         : entry.sustainability_score?.toFixed(4) ?? "N/A"}
                   </td>
                   <td style={{ padding: "10px 12px", textAlign: "center" }}>

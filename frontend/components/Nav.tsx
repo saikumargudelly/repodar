@@ -51,51 +51,17 @@ export function Nav() {
       >
         <div
           style={{
-            maxWidth: "1600px",
-            margin: "0 auto",
-            padding: "0 16px",
+            maxWidth: "100%",
+            paddingLeft: "var(--sidebar-width, 240px)",
+            paddingRight: "16px",
             height: "56px",
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent: "flex-end",
             gap: "12px",
+            transition: "padding-left 0.3s ease",
           }}
         >
-          {/* Logo + Desktop Links */}
-          <div style={{ display: "flex", alignItems: "center", gap: "16px", minWidth: 0 }}>
-            <Link href="/" style={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}>
-              <span style={{ fontWeight: 700, fontSize: "15px", letterSpacing: "-0.3px", whiteSpace: "nowrap" }}>
-                Repodar
-                <span className="nav-description">
-                  Real-time GitHub AI Ecosystem Radar
-                </span>
-              </span>
-            </Link>
-
-            {/* Desktop nav links */}
-            <div className="nav-links-desktop">
-              {NAV_LINKS.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: "6px",
-                    fontSize: "13px",
-                    fontWeight: 500,
-                    color: pathname === link.href ? "var(--text-primary)" : "var(--text-secondary)",
-                    background: pathname === link.href ? "var(--bg-elevated)" : "transparent",
-                    textDecoration: "none",
-                    transition: "all 0.15s",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-
           {/* Right side: Theme switcher + Report + Hamburger */}
           <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
             {/* Theme switcher */}

@@ -792,7 +792,7 @@ function AlertsPanel({
           </div>
         ))}
       </div>
-      )}
+      ))}
     </div>
   );
 }

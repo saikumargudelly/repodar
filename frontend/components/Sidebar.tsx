@@ -1,7 +1,8 @@
+"use client";
 // Sidebar implementation - collapsible left navigation
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const NAV_ITEMS = [
   { href: "/", icon: "📊", label: "Overview" },
@@ -18,6 +19,14 @@ const NAV_ITEMS = [
 export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+
+  // Sync sidebar width to a CSS variable so Nav + main can respond
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      "--sidebar-width",
+      collapsed ? "60px" : "240px"
+    );
+  }, [collapsed]);
 
   return (
     <div
