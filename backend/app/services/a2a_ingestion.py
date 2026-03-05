@@ -19,11 +19,11 @@ import socket
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Optional, Union
 from urllib.parse import urlparse
 
 import httpx
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
@@ -36,9 +36,10 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 class CapabilityCard(BaseModel):
-    name: str
-    method: str = "GET"
-    path: str
+    """Legacy / custom-server capability entry (list of endpoints)."""
+    name: str = ""
+    method: str = "POST"
+    path: str = ""
     description: str = ""
 
     @field_validator("method")
@@ -47,13 +48,118 @@ class CapabilityCard(BaseModel):
         return v.upper()
 
 
+class SkillCard(BaseModel):
+    """
+    A2A spec v1 skill entry.
+    Skills are agent capabilities described as task types, not raw HTTP endpoints.
+    See: https://google.github.io/A2A/specification/#agent-card
+    """
+    id: str = ""
+    name: str = ""
+    description: str = ""
+    tags: list[str] = []
+    inputModes: list[str] = []
+    outputModes: list[str] = []
+
+
 class A2ACardSchema(BaseModel):
-    name: str = ""  # optional — derived from hostname if blank
+    """
+    Normalised A2A agent card.  Handles three real-world formats:
+
+    Format 1 — A2A spec v1 (Google A2A standard):
+      { "name": "...", "url": "...", "version": "...",
+        "capabilities": {"streaming": true},   ← dict of feature flags
+        "skills": [{"id": "...", "name": "...", ...}] }
+
+    Format 2 — A2A spec v0.3 / legacy servers:
+      { "name": "...", "capabilities": [{"name": "...", "path": "...", "method": "POST"}] }
+
+    Format 3 — Custom / Repodar seeded cards:
+      { "name": "...", "provider": "...", "categories": [...], "capabilities": [...] }
+
+    The model_validator normalises all three into a single internal shape before
+    Pydantic field validation runs, so no format ever fails schema validation.
+    """
+    name: str = ""
     description: str = ""
     version: str = "1.0"
     provider: str = ""
     categories: list[str] = []
+    # After normalisation, always a list of CapabilityCard (may be empty)
     capabilities: list[CapabilityCard] = []
+    # Spec v1 skills — kept separately so callers can inspect raw data
+    skills: list[SkillCard] = []
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_card(cls, data: Any) -> Any:
+        """
+        Pre-process the raw JSON dict so every known A2A card format is
+        accepted without schema errors.
+        """
+        if not isinstance(data, dict):
+            return data
+
+        # ── provider ──────────────────────────────────────────────────────
+        # Spec v1: provider = {"organization": "Acme Corp"}
+        # Legacy:  provider = "Acme Corp"
+        provider = data.get("provider", "")
+        if isinstance(provider, dict):
+            data["provider"] = (
+                provider.get("organization")
+                or provider.get("name")
+                or provider.get("url", "")
+            )
+
+        # ── capabilities ──────────────────────────────────────────────────
+        # Spec v1:  capabilities = {"streaming": True, ...}  ← feature flags
+        # Legacy:   capabilities = [{"name": "...", "path": "..."}]
+        caps = data.get("capabilities")
+        if isinstance(caps, dict):
+            # Feature-flags object — not a list of endpoints.
+            # Clear it; usable skills come from the 'skills' array below.
+            data["capabilities"] = []
+        elif not isinstance(caps, list):
+            data["capabilities"] = []
+
+        # ── skills → capabilities fallback ────────────────────────────────
+        # Spec v1 'skills' array becomes capability entries when the
+        # capabilities list is empty.
+        skills_raw = data.get("skills", [])
+        if not isinstance(skills_raw, list):
+            skills_raw = []
+            data["skills"] = []
+
+        if not data["capabilities"] and skills_raw:
+            synthetic = []
+            for sk in skills_raw:
+                if not isinstance(sk, dict):
+                    continue
+                skill_name = sk.get("name") or sk.get("id") or "skill"
+                skill_desc = sk.get("description", "")
+                tags = sk.get("tags", [])
+                # Represent each skill as a POST endpoint using the skill id/name
+                path = f"/{sk.get('id') or skill_name.lower().replace(' ', '-')}"
+                synthetic.append({
+                    "name": skill_name,
+                    "method": "POST",
+                    "path": path,
+                    "description": skill_desc or (", ".join(tags) if tags else ""),
+                })
+            data["capabilities"] = synthetic
+
+        # ── categories ────────────────────────────────────────────────────
+        # Fall back to tags / topics if categories absent
+        if not data.get("categories"):
+            data["categories"] = (
+                data.get("tags")
+                or data.get("topics")
+                or []
+            )
+        if not isinstance(data["categories"], list):
+            data["categories"] = []
+
+        return data
 
 
 # ---------------------------------------------------------------------------
