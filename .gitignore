@@ -15,7 +15,9 @@ env/
 .env
 .env.railway
 *.db
+*.db-*
 *.sqlite3
+repodar.db*
 
 # Alembic
 alembic/versions/*.pyc
