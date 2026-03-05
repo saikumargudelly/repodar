@@ -11,7 +11,25 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
   });
   if (!res.ok) {
-    throw new Error(`API ${res.status}: ${path}`);
+    // Try to extract the real error message from the FastAPI response body
+    // before falling back to the generic status string.
+    let detail = `API ${res.status}: ${path}`;
+    try {
+      const body = await res.json();
+      if (typeof body?.detail === "string") {
+        detail = body.detail;
+      } else if (Array.isArray(body?.detail)) {
+        // Pydantic validation errors come back as an array of {msg, loc}
+        detail = body.detail.map((d: { msg?: string }) => d.msg ?? JSON.stringify(d)).join("; ");
+      } else if (typeof body?.message === "string") {
+        detail = body.message;
+      } else if (typeof body?.error === "string") {
+        detail = body.error;
+      }
+    } catch {
+      // response body is not JSON — keep the generic message
+    }
+    throw new Error(detail);
   }
   return res.json() as Promise<T>;
 }

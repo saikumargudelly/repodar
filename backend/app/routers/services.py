@@ -110,11 +110,20 @@ async def register_service(
     if service is None:
         raise HTTPException(
             status_code=422,
-            detail=err or "Could not ingest A2A card — check the URL is reachable and exposes /a2a-card.",
+            detail=err or (
+                "Could not ingest A2A card. Ensure the service is publicly reachable "
+                "and exposes its capability card at one of: "
+                "/.well-known/agent.json, /.well-known/agent-card.json, or /a2a-card"
+            ),
         )
 
+    msg = "Service registered and capabilities indexed."
+    if err:
+        # Existing service was re-checked but is currently unreachable
+        msg = f"Service re-registered but is currently {service.status}: {err}"
+
     return RegisterResponse(
-        message="Service registered and capabilities indexed.",
+        message=msg,
         service_id=service.id,
         status=service.status,
     )

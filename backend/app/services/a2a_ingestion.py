@@ -20,7 +20,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urlparse
 
 import httpx
 from pydantic import BaseModel, field_validator
@@ -48,7 +48,7 @@ class CapabilityCard(BaseModel):
 
 
 class A2ACardSchema(BaseModel):
-    name: str
+    name: str = ""  # optional — derived from hostname if blank
     description: str = ""
     version: str = "1.0"
     provider: str = ""
@@ -112,43 +112,82 @@ def _is_safe_url(url: str) -> tuple[bool, str]:
 # Core fetch logic
 # ---------------------------------------------------------------------------
 
+# Candidate paths tried in priority order — first 200 + valid schema wins.
+# Covers: A2A spec v1, v0.3+, legacy Repodar default, and common variants.
+_CARD_PATHS = [
+    ".well-known/agent.json",       # A2A spec v1 (current standard)
+    ".well-known/agent-card.json",  # A2A spec v0.3+
+    "a2a-card",                     # legacy Repodar / custom path
+    "agent-card",                   # common alternative
+    "agent.json",                   # bare JSON variant
+]
+
+
 async def fetch_a2a_card(base_url: str) -> tuple[Optional[A2ACardSchema], int, str]:
     """
-    Fetch and validate an A2A card from ``base_url/a2a-card``.
+    Fetch and validate an A2A capability card from base_url.
+
+    Tries each path in _CARD_PATHS in order; the first path that returns
+    HTTP 200 with a parseable schema is used.  This makes the ingestion
+    compatible with all known A2A spec revisions.
 
     Returns:
         (card, latency_ms, error_msg)
         card is None on failure; error_msg is "" on success.
     """
-    card_url = urljoin(base_url.rstrip("/") + "/", "a2a-card")
+    base = base_url.rstrip("/")
 
-    safe, reason = _is_safe_url(card_url)
+    # SSRF check on the base URL (hostname is identical for all candidate paths)
+    safe, reason = _is_safe_url(base + "/")
     if not safe:
         return None, 0, reason
 
-    start = time.monotonic()
-    try:
-        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-            resp = await client.get(card_url)
-            latency_ms = int((time.monotonic() - start) * 1000)
+    path_errors: list[str] = []
 
-            if resp.status_code != 200:
-                return None, latency_ms, f"HTTP {resp.status_code}"
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+        for path in _CARD_PATHS:
+            card_url = f"{base}/{path}"
+            start = time.monotonic()
+            try:
+                resp = await client.get(card_url)
+                latency_ms = int((time.monotonic() - start) * 1000)
 
-            data = resp.json()
-    except httpx.TimeoutException:
-        return None, 10_000, "Request timed out after 10 s"
-    except httpx.RequestError as exc:
-        return None, int((time.monotonic() - start) * 1000), f"Request error: {exc}"
-    except Exception as exc:
-        return None, int((time.monotonic() - start) * 1000), f"Unexpected error: {exc}"
+                if resp.status_code != 200:
+                    path_errors.append(f"{path}: HTTP {resp.status_code}")
+                    continue
 
-    try:
-        card = A2ACardSchema.model_validate(data)
-    except Exception as exc:
-        return None, latency_ms, f"Schema validation failed: {exc}"
+                try:
+                    data = resp.json()
+                except Exception as exc:
+                    path_errors.append(f"{path}: invalid JSON ({exc})")
+                    continue
 
-    return card, latency_ms, ""
+                try:
+                    card = A2ACardSchema.model_validate(data)
+                except Exception as exc:
+                    path_errors.append(f"{path}: schema error ({exc})")
+                    continue
+
+                # Derive name from hostname when card omits it
+                if not card.name:
+                    card.name = urlparse(base_url).netloc or base_url
+
+                logger.info(f"[a2a] Card found at {card_url} ({latency_ms} ms)")
+                return card, latency_ms, ""
+
+            except httpx.TimeoutException:
+                path_errors.append(f"{path}: timeout after 10 s")
+                continue
+            except httpx.RequestError as exc:
+                path_errors.append(f"{path}: connection error ({exc})")
+                continue
+            except Exception as exc:
+                path_errors.append(f"{path}: unexpected error ({exc})")
+                continue
+
+    summary = "; ".join(path_errors)
+    logger.warning(f"[a2a] No card found at {base_url} — tried {len(_CARD_PATHS)} paths: {summary}")
+    return None, 0, f"No agent card found. Tried {len(_CARD_PATHS)} paths — {summary}"
 
 
 # ---------------------------------------------------------------------------
