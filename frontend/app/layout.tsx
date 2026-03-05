@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { Nav } from "@/components/Nav";
+import { Sidebar } from "@/components/Sidebar";
 
 export const metadata: Metadata = {
   title: "Repodar — Real-time GitHub AI Ecosystem Radar",
@@ -20,8 +21,18 @@ export default function RootLayout({
       </head>
       <body>
         <Providers>
+          <Sidebar />
           <Nav />
-          <main style={{ maxWidth: "1600px", margin: "0 auto", padding: "0 16px 40px", width: "100%", overflowX: "hidden" }}>
+          <main
+            style={{
+              marginLeft: "240px",
+              maxWidth: "100%",
+              marginTop: "56px",
+              padding: "0 16px 40px",
+              overflowX: "hidden",
+              transition: "margin-left 0.3s ease",
+            }}
+          >
             {children}
           </main>
         </Providers>

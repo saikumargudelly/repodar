@@ -9,8 +9,8 @@ import { useTheme, Theme } from "@/components/Providers";
 
 const NAV_LINKS = [
   { href: "/", label: "Overview" },
-  { href: "/radar", label: "Breakout Radar" },
-  { href: "/early-radar", label: "Early Radar" },
+  { href: "/insights", label: "Insights" },
+  { href: "/leaderboard", label: "Leaderboard" },
   { href: "/topics", label: "Topics" },
   { href: "/network", label: "Network" },
   { href: "/compare", label: "Compare" },
