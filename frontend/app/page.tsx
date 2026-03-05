@@ -676,16 +676,31 @@ function AlertsPanel({
   onDismissAll: () => void;
 }) {
   const unread = alerts.filter((a) => !a.is_read).length;
+  const [collapsed, setCollapsed] = useState(false);
+
+  const handleDismissAll = () => {
+    onDismissAll();
+    setCollapsed(true);
+  };
 
   return (
     <div style={{
       background: "var(--bg-surface)",
       border: "1px solid var(--border)",
       borderRadius: "10px",
-      padding: "24px",
+      padding: collapsed ? "14px 24px" : "24px",
+      transition: "padding 0.2s",
     }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: collapsed ? 0 : "16px" }}>
+        {/* Left: title + badge + expand toggle */}
+        <button
+          onClick={() => setCollapsed((c) => !c)}
+          style={{
+            display: "flex", alignItems: "center", gap: "10px",
+            background: "none", border: "none", cursor: "pointer", padding: 0,
+          }}
+        >
+          <span style={{ fontSize: "13px", color: "var(--text-muted)", transition: "transform 0.2s", display: "inline-block", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>▾</span>
           <h2 style={{ fontSize: "13px", fontWeight: 600, margin: 0, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
             Trend Alerts
           </h2>
@@ -702,32 +717,42 @@ function AlertsPanel({
               {unread} new
             </span>
           )}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          {unread > 0 && (
-            <button
-              onClick={onDismissAll}
-              style={{
-                padding: "4px 12px",
-                fontSize: "11px",
-                fontWeight: 600,
-                background: "transparent",
-                border: "1px solid var(--border)",
-                borderRadius: "6px",
-                color: "var(--text-muted)",
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Dismiss All
-            </button>
+          {collapsed && alerts.length > 0 && (
+            <span style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>
+              — {alerts.length} alert{alerts.length !== 1 ? "s" : ""} (click to expand)
+            </span>
           )}
-          <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-            Last {alerts.length} alerts · click to dismiss
-          </span>
-        </div>
+        </button>
+
+        {/* Right: dismiss all + hint */}
+        {!collapsed && (
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            {unread > 0 && (
+              <button
+                onClick={handleDismissAll}
+                style={{
+                  padding: "4px 12px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  background: "transparent",
+                  border: "1px solid var(--border)",
+                  borderRadius: "6px",
+                  color: "var(--text-muted)",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Dismiss All
+              </button>
+            )}
+            <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+              Last {alerts.length} alerts · click to dismiss
+            </span>
+          </div>
+        )}
       </div>
-      {alerts.length === 0 ? (
+
+      {!collapsed && (alerts.length === 0 ? (
         <p style={{ color: "var(--text-muted)", fontSize: "13px", textAlign: "center", padding: "12px 0" }}>
           No active alerts — scores will trigger alerts after sufficient data accumulates.
         </p>
