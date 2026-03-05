@@ -2,7 +2,8 @@
 
 ### Real-time GitHub AI/ML radar — discover what's actually gaining momentum before everyone else knows about it
 
-> Tired of GitHub Trending showing you projects from last week? Repodar continuously tracks 500+ AI/ML repositories every 4 hours, scores them on momentum and health, and surfaces what's actually gaining traction — while everyone else is still catching up.
+> Tired of GitHub Trending showing you projects from last week? 
+Repodar continuously tracks 500+ AI/ML repositories every 4 hours, scores them on momentum and health, and surfaces what's actually gaining traction — while everyone else is still catching up.
 
 🚀 **[Live demo](https://repodar.up.railway.app)** &nbsp;·&nbsp; 📂 **[GitHub repo](https://github.com/saikumargudelly/repodar)** &nbsp;·&nbsp; 📊 [What's on the dashboard](#-whats-on-the-dashboard) &nbsp;·&nbsp; ⚡ [Run it yourself](#-get-started-in-5-minutes)
 
