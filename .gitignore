@@ -47,6 +47,12 @@ logs/
 .coverage
 htmlcov/
 .pytest_cache/
+
+# Test files
+backend/test_a2a.py
+backend/test_a2a_full.py
+A2A_TEST_RESULTS.md
+A2A_QUICK_REFERENCE.md
 # AIIE & Task runners
 aiie/
 .aiie/
@@ -65,6 +71,8 @@ aiie_*
 *.bak
 ~*
 *~
+.git_commit_msg.txt
+.commit_msg.txt
 
 # OS artifacts
 Thumbs.db
