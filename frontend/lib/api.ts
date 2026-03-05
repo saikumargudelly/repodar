@@ -550,6 +550,8 @@ export const api = {
     apiFetch<AlertResponse[]>(`/dashboard/alerts?unread_only=${unreadOnly}&limit=${limit}`),
   markAlertRead: (alertId: string) =>
     apiFetch<AlertResponse>(`/dashboard/alerts/${alertId}/read`, { method: "PATCH" }),
+  markAllAlertsRead: () =>
+    apiFetch<{ dismissed: boolean }>(`/dashboard/alerts/read-all`, { method: "PATCH" }),
 
   // Early Radar
   getEarlyRadar: (params?: { max_age_days?: number; max_stars?: number; min_acceleration?: number; category?: string; limit?: number }) => {

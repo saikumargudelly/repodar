@@ -429,6 +429,16 @@ def get_alerts(
     ]
 
 
+@router.patch("/alerts/read-all")
+def mark_all_alerts_read(
+    db: Session = Depends(get_db),
+):
+    """Mark all unread alerts as read in one shot."""
+    db.query(TrendAlert).filter(TrendAlert.is_read == False).update({"is_read": True})  # noqa: E712
+    db.commit()
+    return {"dismissed": True}
+
+
 @router.patch("/alerts/{alert_id}/read", response_model=AlertResponse)
 def mark_alert_read(
     alert_id: str,

@@ -669,9 +669,11 @@ const ALERT_ICONS: Record<string, string> = {
 function AlertsPanel({
   alerts,
   onMarkRead,
+  onDismissAll,
 }: {
   alerts: AlertResponse[];
   onMarkRead: (id: string) => void;
+  onDismissAll: () => void;
 }) {
   const unread = alerts.filter((a) => !a.is_read).length;
 
@@ -701,9 +703,29 @@ function AlertsPanel({
             </span>
           )}
         </div>
-        <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-          Last {alerts.length} alerts · click to dismiss
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {unread > 0 && (
+            <button
+              onClick={onDismissAll}
+              style={{
+                padding: "4px 12px",
+                fontSize: "11px",
+                fontWeight: 600,
+                background: "transparent",
+                border: "1px solid var(--border)",
+                borderRadius: "6px",
+                color: "var(--text-muted)",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Dismiss All
+            </button>
+          )}
+          <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+            Last {alerts.length} alerts · click to dismiss
+          </span>
+        </div>
       </div>
       {alerts.length === 0 ? (
         <p style={{ color: "var(--text-muted)", fontSize: "13px", textAlign: "center", padding: "12px 0" }}>
@@ -795,6 +817,14 @@ export default function OverviewPage() {
       await api.markAlertRead(alertId);
       setAlerts((prev) => prev.map((a) => a.id === alertId ? { ...a, is_read: true } : a));
     } catch { /* silent fail — UI still optimistic */ }
+  };
+
+  const handleDismissAllAlerts = async () => {
+    // Optimistic update first
+    setAlerts((prev) => prev.map((a) => ({ ...a, is_read: true })));
+    try {
+      await api.markAllAlertsRead();
+    } catch { /* silent fail */ }
   };
 
   const toggleCompare = (repo_id: string) => {
@@ -907,7 +937,7 @@ export default function OverviewPage() {
       </div>
 
       {/* Trend Alerts */}
-      <AlertsPanel alerts={alerts} onMarkRead={handleMarkAlertRead} />
+      <AlertsPanel alerts={alerts} onMarkRead={handleMarkAlertRead} onDismissAll={handleDismissAllAlerts} />
 
       {/* Category Charts Row */}
       <CategoryTrendHeatmap data={categoriesData ?? overview.category_growth} period={period} />
