@@ -46,7 +46,7 @@ export function Nav() {
           background: "var(--bg-surface)",
           position: "sticky",
           top: 0,
-          zIndex: 50,
+          zIndex: 40,
         }}
       >
         <div

@@ -210,7 +210,7 @@ export function Sidebar() {
           transition: "width 0.25s ease",
           overflowY: "auto",
           overflowX: "hidden",
-          zIndex: 40,
+          zIndex: 50,
         }}
       >
         {/* ── Brand Header ─────────────────────────────── */}
@@ -219,9 +219,9 @@ export function Sidebar() {
             height: "56px",
             display: "flex",
             alignItems: "center",
-            padding: collapsed ? "0 10px" : "0 14px",
+            padding: collapsed ? "0 8px" : "0 14px",
             borderBottom: "1px solid var(--border)",
-            gap: collapsed ? "6px" : "10px",
+            gap: collapsed ? "0" : "10px",
             flexShrink: 0,
             justifyContent: collapsed ? "center" : "flex-start",
           }}
@@ -256,60 +256,34 @@ export function Sidebar() {
             </div>
           )}
 
-          {/* Collapse toggle (only shown when not collapsed, or centered when collapsed) */}
-          {!collapsed && (
-            <button
-              className="sidebar-collapse-btn"
-              onClick={() => setCollapsed((c) => !c)}
-              style={{ marginLeft: "auto", width: "22px", height: "22px", flexShrink: 0 }}
-              title="Collapse sidebar"
-            >
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 12 12"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-              >
-                <path d="M8 2L4 6l4 4"/>
-              </svg>
-            </button>
-          )}
-
-          {/* Collapse toggle for collapsed state - centered below logo */}
-          {collapsed && (
-            <button
-              className="sidebar-collapse-btn"
-              onClick={() => setCollapsed((c) => !c)}
+          {/* Collapse toggle - always visible */}
+          <button
+            className="sidebar-collapse-btn"
+            onClick={() => setCollapsed((c) => !c)}
+            style={{
+              marginLeft: collapsed ? "0" : "auto",
+              width: "22px",
+              height: "22px",
+              flexShrink: 0,
+            }}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
               style={{
-                position: "absolute",
-                bottom: "10px",
-                left: "50%",
-                transform: "translateX(-50%)",
-                width: "20px",
-                height: "20px",
-                flexShrink: 0,
+                transform: collapsed ? "rotate(180deg)" : "rotate(0deg)",
+                transition: "transform 0.25s ease",
               }}
-              title="Expand sidebar"
             >
-              <svg
-                width="10"
-                height="10"
-                viewBox="0 0 12 12"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                style={{
-                  transform: "rotate(180deg)",
-                }}
-              >
-                <path d="M8 2L4 6l4 4"/>
-              </svg>
-            </button>
-          )}
+              <path d="M8 2L4 6l4 4"/>
+            </svg>
+          </button>
         </div>
 
         {/* ── Nav Items ────────────────────────────────── */}
