@@ -28,7 +28,6 @@ const THEMES: { key: Theme; icon: string; label: string }[] = [
 export function Nav() {
   const pathname = usePathname();
   const [reportOpen, setReportOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const { theme, setTheme } = useTheme();
 
   const { data: report, isLoading } = useQuery({
@@ -106,38 +105,18 @@ export function Nav() {
               <span className="nav-description" style={{ marginLeft: 0 }}>Weekly </span>Report
             </button>
 
-            {/* Hamburger */}
+            {/* Hamburger — mobile only, opens sidebar drawer */}
             <button
               className="nav-hamburger"
-              onClick={() => setMenuOpen((o) => !o)}
-              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              onClick={() => window.dispatchEvent(new CustomEvent("mobile-sidebar-toggle"))}
+              aria-label="Open menu"
             >
-              {menuOpen ? "✕" : "☰"}
+              ☰
             </button>
           </div>
         </div>
 
-        {/* Mobile menu */}
-        <div className={`nav-mobile-menu${menuOpen ? " open" : ""}`}>
-          {NAV_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={() => setMenuOpen(false)}
-              style={{
-                padding: "10px 12px",
-                borderRadius: "6px",
-                fontSize: "14px",
-                fontWeight: 500,
-                color: pathname === link.href ? "var(--text-primary)" : "var(--text-secondary)",
-                background: pathname === link.href ? "var(--bg-elevated)" : "transparent",
-                textDecoration: "none",
-              }}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </div>
+
       </nav>
 
       {/* Report Modal */}

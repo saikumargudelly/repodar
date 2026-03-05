@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 const NAV_ITEMS = [
   {
@@ -107,13 +107,128 @@ const NAV_ITEMS = [
 export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Detect mobile breakpoint
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth <= 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Sync --sidebar-width CSS var
   useEffect(() => {
     document.documentElement.style.setProperty(
       "--sidebar-width",
-      collapsed ? "64px" : "240px"
+      isMobile ? "0px" : collapsed ? "64px" : "240px"
     );
-  }, [collapsed]);
+  }, [collapsed, isMobile]);
+
+  // Listen for hamburger toggle event from Nav
+  const toggleMobile = useCallback(() => setMobileOpen((o) => !o), []);
+  useEffect(() => {
+    window.addEventListener("mobile-sidebar-toggle", toggleMobile);
+    return () => window.removeEventListener("mobile-sidebar-toggle", toggleMobile);
+  }, [toggleMobile]);
+
+  // Close mobile drawer on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // ── Shared nav content ─────────────────────────────────────
+  const navContent = (
+    <>
+      {/* Header */}
+      <div
+        onClick={() => !isMobile && setCollapsed((c) => !c)}
+        style={{
+          height: "56px",
+          display: "flex",
+          alignItems: "center",
+          padding: collapsed && !isMobile ? "0 8px" : "0 14px",
+          borderBottom: "1px solid var(--border)",
+          gap: collapsed && !isMobile ? "0" : "10px",
+          flexShrink: 0,
+          justifyContent: collapsed && !isMobile ? "center" : "flex-start",
+          cursor: isMobile ? "default" : "pointer",
+          transition: "background 0.13s",
+        }}
+        onMouseEnter={(e) => { if (!isMobile) e.currentTarget.style.background = "var(--bg-elevated)"; }}
+        onMouseLeave={(e) => { if (!isMobile) e.currentTarget.style.background = "transparent"; }}
+        title={isMobile ? "" : collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      >
+        <div style={{
+          width: "32px", height: "32px", borderRadius: "8px",
+          background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+        }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        </div>
+        {(!collapsed || isMobile) && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "1px", userSelect: "none" }}>
+            <span style={{ fontWeight: 700, fontSize: "14px", letterSpacing: "-0.3px", color: "var(--text-primary)", whiteSpace: "nowrap" }}>Repodar</span>
+            <span style={{ fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>GitHub AI Radar</span>
+          </div>
+        )}
+        {/* Close button on mobile */}
+        {isMobile && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setMobileOpen(false); }}
+            style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: "20px", lineHeight: 1, padding: "4px" }}
+            aria-label="Close menu"
+          >✕</button>
+        )}
+      </div>
+
+      {/* Nav items */}
+      <nav style={{ flex: 1, padding: "10px 8px", display: "flex", flexDirection: "column", gap: "2px" }}>
+        {NAV_ITEMS.map((item) => {
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="sidebar-nav-link"
+              style={{
+                padding: collapsed && !isMobile ? "9px 0" : "9px 10px",
+                fontWeight: isActive ? 600 : 400,
+                color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
+                background: isActive ? "var(--bg-elevated)" : "transparent",
+                justifyContent: "center",
+                borderLeft: isActive ? "2px solid var(--accent-blue)" : "2px solid transparent",
+              }}
+            >
+              <span style={{ display: "flex", alignItems: "center", justifyContent: "center", color: isActive ? "var(--accent-blue)" : "inherit", flexShrink: 0, width: "17px" }}>
+                {item.icon}
+              </span>
+              <span className="sidebar-label" style={{ flex: 1 }}>{item.label}</span>
+              <span className="sidebar-tooltip">{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Footer */}
+      <div
+        style={{ padding: collapsed && !isMobile ? "12px 10px" : "12px 14px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: collapsed && !isMobile ? "center" : "flex-start", gap: "8px" }}
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0 }}>
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        {(!collapsed || isMobile) && (
+          <div>
+            <div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: 600, whiteSpace: "nowrap" }}>Repodar v2.0</div>
+            <div style={{ fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap", marginTop: "1px" }}>AI/ML ecosystem tracker</div>
+          </div>
+        )}
+      </div>
+    </>
+  );
 
   return (
     <>
@@ -179,157 +294,69 @@ export function Sidebar() {
         }
       `}</style>
 
-      <div
-        className={collapsed ? "sidebar-collapsed" : ""}
-        style={{
-          position: "fixed",
-          left: 0,
-          top: 0,
-          height: "100vh",
-          width: collapsed ? "64px" : "240px",
-          background: "var(--bg-surface)",
-          borderRight: "1px solid var(--border)",
-          display: "flex",
-          flexDirection: "column",
-          transition: "width 0.25s ease",
-          overflowY: "auto",
-          overflowX: "hidden",
-          zIndex: 50,
-        }}
-      >
-        {/* ── Brand Header ─────────────────────────────── */}
+      {/* ── Desktop Sidebar ─────────────────────────── */}
+      {!isMobile && (
         <div
-          onClick={() => setCollapsed((c) => !c)}
+          className={collapsed ? "sidebar-collapsed" : ""}
           style={{
-            height: "56px",
-            display: "flex",
-            alignItems: "center",
-            padding: collapsed ? "0 8px" : "0 14px",
-            borderBottom: "1px solid var(--border)",
-            gap: collapsed ? "0" : "10px",
-            flexShrink: 0,
-            justifyContent: collapsed ? "center" : "flex-start",
-            cursor: "pointer",
-            transition: "background 0.13s",
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
-          onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {/* Logo mark */}
-          <div
-            style={{
-              width: "32px",
-              height: "32px",
-              borderRadius: "8px",
-              background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-            </svg>
-          </div>
-
-          {/* Brand name + tagline (hidden when collapsed) */}
-          {!collapsed && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "1px", userSelect: "none" }}>
-              <span style={{ fontWeight: 700, fontSize: "14px", letterSpacing: "-0.3px", color: "var(--text-primary)", whiteSpace: "nowrap" }}>
-                Repodar
-              </span>
-              <span style={{ fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
-                GitHub AI Radar
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* ── Nav Items ────────────────────────────────── */}
-        <nav
-          style={{
-            flex: 1,
-            padding: "10px 8px",
+            position: "fixed",
+            left: 0,
+            top: 0,
+            height: "100vh",
+            width: collapsed ? "64px" : "240px",
+            background: "var(--bg-surface)",
+            borderRight: "1px solid var(--border)",
             display: "flex",
             flexDirection: "column",
-            gap: "2px",
+            transition: "width 0.25s ease",
+            overflowY: "auto",
+            overflowX: "hidden",
+            zIndex: 50,
           }}
         >
-          {NAV_ITEMS.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="sidebar-nav-link"
-                style={{
-                  padding: collapsed ? "9px 0" : "9px 10px",
-                  fontWeight: isActive ? 600 : 400,
-                  color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
-                  background: isActive ? "var(--bg-elevated)" : "transparent",
-                  justifyContent: "center",
-                  borderLeft: isActive
-                    ? "2px solid var(--accent-blue)"
-                    : "2px solid transparent",
-                }}
-              >
-                {/* Icon */}
-                <span
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: isActive ? "var(--accent-blue)" : "inherit",
-                    flexShrink: 0,
-                    width: "17px",
-                  }}
-                >
-                  {item.icon}
-                </span>
-
-                {/* Label */}
-                <span className="sidebar-label" style={{ flex: 1 }}>
-                  {item.label}
-                </span>
-
-                {/* Tooltip (only shown when collapsed, via CSS) */}
-                <span className="sidebar-tooltip">{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* ── Footer ───────────────────────────────────── */}
-        <div
-          style={{
-            padding: collapsed ? "12px 10px" : "12px 14px",
-            borderTop: "1px solid var(--border)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: collapsed ? "center" : "flex-start",
-            gap: "8px",
-          }}
-          title="About"
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0 }}>
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="8" x2="12" y2="12"/>
-            <line x1="12" y1="16" x2="12.01" y2="16"/>
-          </svg>
-          {!collapsed && (
-            <div>
-              <div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: 600, whiteSpace: "nowrap" }}>
-                Repodar v2.0
-              </div>
-              <div style={{ fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap", marginTop: "1px" }}>
-                AI/ML ecosystem tracker
-              </div>
-            </div>
-          )}
+          {navContent}
         </div>
-      </div>
+      )}
+
+      {/* ── Mobile Drawer ───────────────────────────── */}
+      {isMobile && (
+        <>
+          {/* Backdrop */}
+          <div
+            onClick={() => setMobileOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.6)",
+              zIndex: 60,
+              opacity: mobileOpen ? 1 : 0,
+              pointerEvents: mobileOpen ? "auto" : "none",
+              transition: "opacity 0.25s ease",
+            }}
+          />
+          {/* Drawer */}
+          <div
+            style={{
+              position: "fixed",
+              left: 0,
+              top: 0,
+              height: "100vh",
+              width: "260px",
+              background: "var(--bg-surface)",
+              borderRight: "1px solid var(--border)",
+              display: "flex",
+              flexDirection: "column",
+              overflowY: "auto",
+              overflowX: "hidden",
+              zIndex: 70,
+              transform: mobileOpen ? "translateX(0)" : "translateX(-100%)",
+              transition: "transform 0.25s ease",
+            }}
+          >
+            {navContent}
+          </div>
+        </>
+      )}
     </>
   );
 }

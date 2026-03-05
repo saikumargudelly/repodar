@@ -276,6 +276,12 @@ img, video, canvas, iframe {
 }
 
 /* ── ≤ 640px ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .nav-hamburger {
+    display: block;
+  }
+}
+
 @media (max-width: 640px) {
   .stat-grid {
     grid-template-columns: repeat(2, 1fr);
