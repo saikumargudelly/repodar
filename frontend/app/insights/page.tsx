@@ -66,173 +66,95 @@ export default function InsightsPage() {
   const categories = stage === "early" ? EARLY_CATEGORIES : BREAKOUT_CATEGORIES;
 
   return (
-    <div style={{ paddingTop: "24px", display: "flex", flexDirection: "column", gap: "20px" }}>
+    <div className="page-root">
       {/* Header */}
       <div>
-        <h1 style={{ fontSize: "22px", fontWeight: 700, margin: "0 0 8px" }}>
-          {stage === "early" ? "🌱 Early Stage" : "🚀 Established Breakouts"}
-        </h1>
-        <p style={{ color: "var(--text-muted)", fontSize: "13px", margin: 0 }}>
+        <div className="section-title-cyber">
+          {stage === "early" ? "EARLY STAGE" : "ESTABLISHED BREAKOUTS"}<span className="terminal-cursor" />
+        </div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)", marginTop: "6px" }}>
           {stage === "early"
-            ? "Discover emerging repos with high momentum (< 90 days old)"
-            : "Track mature projects with strong upward trajectory"}
-        </p>
+            ? "// Emerging repos with high momentum · less than 90 days old"
+            : "// Mature projects with strong upward trajectory"}
+        </div>
       </div>
 
       {/* Stage toggle */}
-      <div style={{ display: "flex", gap: "8px" }}>
+      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
         {(["early", "established"] as const).map((s) => (
-          <button
-            key={s}
-            onClick={() => {
-              setStage(s);
-              setCategory("All");
-              setMaxStars(s === "early" ? 1000 : 10000);
-            }}
-            style={{
-              padding: "8px 16px",
-              fontSize: "13px",
-              fontWeight: 600,
-              background: stage === s ? "var(--accent-blue)" : "var(--bg-elevated)",
-              color: stage === s ? "#fff" : "var(--text-primary)",
-              border: "1px solid var(--border)",
-              borderRadius: "6px",
-              cursor: "pointer",
-              transition: "all 0.2s",
-            }}
-          >
-            {s === "early" ? "🌱 Early (< 90d, < 1k stars)" : "🚀 Established"}
+          <button key={s}
+            onClick={() => { setStage(s); setCategory("All"); setMaxStars(s === "early" ? 1000 : 10000); }}
+            className={`filter-btn-cyber${stage === s ? " active" : ""}`}>
+            {s === "early" ? "◈ Early (< 90d)" : "▲ Established"}
           </button>
         ))}
-      </div>
-
-      {/* Filters */}
-      <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          style={{
-            padding: "6px 10px",
-            fontSize: "12px",
-            background: "var(--bg-elevated)",
-            border: "1px solid var(--border)",
-            borderRadius: "4px",
-            color: "var(--text-primary)",
-          }}
-        >
-          {categories.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
-          ))}
+        <span style={{ width: "1px", height: "20px", background: "var(--border)", margin: "0 4px", alignSelf: "center" }} />
+        <select value={category} onChange={(e) => setCategory(e.target.value)} className="cyber-select">
+          {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
         </select>
-
         {stage === "established" && (
-          <select
-            value={maxStars}
-            onChange={(e) => setMaxStars(Number(e.target.value))}
-            style={{
-              padding: "6px 10px",
-              fontSize: "12px",
-              background: "var(--bg-elevated)",
-              border: "1px solid var(--border)",
-              borderRadius: "4px",
-              color: "var(--text-primary)",
-            }}
-          >
+          <select value={maxStars} onChange={(e) => setMaxStars(Number(e.target.value))} className="cyber-select">
             <option value={10000}>All stars</option>
-            <option value={5000}>under 5k stars</option>
-            <option value={1000}>under 1k stars</option>
+            <option value={5000}>Under 5k</option>
+            <option value={1000}>Under 1k</option>
           </select>
         )}
       </div>
 
       {/* Table */}
       {!data || data.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "60px 20px", color: "var(--text-muted)" }}>
-          No repos found matching filters.
+        <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", padding: "40px 0",
+          textAlign: "center", fontSize: "12px", letterSpacing: "0.06em" }}>
+          // NO REPOS FOUND<span className="terminal-cursor" />
         </div>
       ) : (
-        <div className="table-scroll">
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+        <div className="panel table-scroll">
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
             <thead>
-              <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                <th style={{ padding: "8px 12px", textAlign: "left", color: "var(--text-muted)" }}>
-                  Repo
-                </th>
-                <th style={{ padding: "8px 12px", textAlign: "right", color: "var(--text-muted)" }}>
-                  ⭐ Stars
-                </th>
-                <th style={{ padding: "8px 12px", textAlign: "right", color: "var(--text-muted)" }}>
-                  Trend Score
-                </th>
-                <th style={{ padding: "8px 12px", textAlign: "right", color: "var(--text-muted)" }}>
-                  Accel.
-                </th>
-                <th style={{ padding: "8px 12px", textAlign: "center", color: "var(--text-muted)" }}>
-                  Health
-                </th>
+              <tr>
+                <th className="th-mono">REPO</th>
+                <th className="th-mono" style={{ textAlign: "right" }}>STARS</th>
+                <th className="th-mono" style={{ textAlign: "right" }}>TREND SCORE</th>
+                <th className="th-mono" style={{ textAlign: "right" }}>ACCEL.</th>
+                <th className="th-mono" style={{ textAlign: "center" }}>HEALTH</th>
               </tr>
             </thead>
             <tbody>
               {data.map((repo: any) => (
-                <tr
-                  key={repo.repo_id}
+                <tr key={repo.repo_id} className="tr-cyber"
+                  style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}
                   onClick={() => router.push(`/repo/${repo.owner}/${repo.name}`)}
-                  style={{
-                    borderTop: "1px solid var(--border)",
-                    cursor: "pointer",
-                    transition: "background 0.15s",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = "var(--bg-elevated)")
-                  }
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                 >
-                  <td style={{ padding: "10px 12px" }}>
-                    <a
-                      href={repo.github_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                  <td style={{ padding: "10px 16px" }}>
+                    <a href={repo.github_url} target="_blank" rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      style={{
-                        color: "var(--accent-blue)",
-                        textDecoration: "none",
-                        fontWeight: 500,
-                      }}
-                    >
+                      style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--cyan)",
+                        textDecoration: "none", fontWeight: 600 }}>
                       {repo.owner}/{repo.name}
                     </a>
                     {repo.primary_language && (
-                      <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                      <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px",
+                        color: "var(--text-muted)", marginLeft: "8px" }}>
                         {repo.primary_language}
-                      </div>
+                      </span>
                     )}
                   </td>
-                  <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 600 }}>
-                    {repo.stars?.toLocaleString() || repo.current_stars?.toLocaleString()}
+                  <td style={{ padding: "10px 16px", textAlign: "right",
+                    fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--text-primary)" }}>
+                    {(repo.stars ?? repo.current_stars ?? 0).toLocaleString()}
                   </td>
-                  <td style={{ padding: "10px 12px", textAlign: "right" }}>
-                    {repo.trend_score?.toFixed(4)}
+                  <td style={{ padding: "10px 16px", textAlign: "right",
+                    fontFamily: "var(--font-mono)", color: "var(--amber)" }}>
+                    {repo.trend_score?.toFixed(4) ?? "—"}
                   </td>
-                  <td
-                    style={{
-                      padding: "10px 12px",
-                      textAlign: "right",
-                      color:
-                        (repo.acceleration ?? 0) > 1
-                          ? "var(--accent-blue)"
-                          : "var(--text-primary)",
-                    }}
-                  >
-                    {repo.acceleration?.toFixed(2)}
+                  <td style={{ padding: "10px 16px", textAlign: "right", fontFamily: "var(--font-mono)",
+                    color: (repo.acceleration ?? 0) > 1 ? "var(--green)" : "var(--text-primary)" }}>
+                    {repo.acceleration?.toFixed(2) ?? "—"}
                   </td>
-                  <td style={{ padding: "10px 12px", textAlign: "center" }}>
-                    {repo.sustainability_label ? (
-                      <SustainBadge label={repo.sustainability_label} />
-                    ) : (
-                      "—"
-                    )}
+                  <td style={{ padding: "10px 16px", textAlign: "center" }}>
+                    {repo.sustainability_label
+                      ? <SustainBadge label={repo.sustainability_label} />
+                      : <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: "10px" }}>—</span>}
                   </td>
                 </tr>
               ))}

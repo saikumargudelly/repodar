@@ -15,15 +15,10 @@ const FEATURED_ORGS = [
 // ─── Stat card ────────────────────────────────────────────────────────────────
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
-    <div style={{
-      background: "var(--bg-elevated)",
-      border: "1px solid var(--border)",
-      borderRadius: "8px",
-      padding: "16px 20px",
-    }}>
-      <p style={{ color: "var(--text-muted)", fontSize: "11px", fontWeight: 600, letterSpacing: "0.7px", textTransform: "uppercase", margin: "0 0 4px" }}>{label}</p>
-      <p style={{ fontSize: "22px", fontWeight: 700, margin: 0 }}>{value}</p>
-      {sub && <p style={{ color: "var(--text-muted)", fontSize: "12px", margin: "3px 0 0" }}>{sub}</p>}
+    <div className="kpi-card">
+      <div className="kpi-label">{label}</div>
+      <div className="kpi-value">{value}</div>
+      {sub && <div className="kpi-sub">{sub}</div>}
     </div>
   );
 }
@@ -46,24 +41,20 @@ function OrgResults({ data }: { data: OrgHealthResponse }) {
       </div>
 
       {/* Repo table */}
-      <div className="table-scroll" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px" }}>
-        <div style={{ padding: "18px 24px 14px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <h2 style={{ fontSize: "13px", fontWeight: 600, margin: 0, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
-            {data.org} / repositories
-          </h2>
-          <span style={{ fontSize: "11px", color: "var(--text-muted)", background: "var(--bg-elevated)", padding: "3px 10px", borderRadius: "4px" }}>
-            Sorted by stars
+      <div className="panel table-scroll">
+        <div className="panel-header" style={{ justifyContent: "space-between" }}>
+          <span className="panel-title">◈ {data.org.toUpperCase()} / REPOSITORIES</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)",
+            border: "1px solid var(--border)", padding: "2px 8px", letterSpacing: "0.04em" }}>
+            SORTED BY STARS
           </span>
         </div>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
           <thead>
-            <tr style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
-              {["Repository", "Language", "Stars", "Forks", "Issues", "Age", "Trend", "Sustainability", ""].map((h) => (
-                <th key={h} style={{
-                  padding: "9px 14px",
-                  textAlign: ["Stars", "Forks", "Issues", "Age"].includes(h) ? "right" : "left",
-                  fontWeight: 500, fontSize: "11px", letterSpacing: "0.4px", whiteSpace: "nowrap",
-                }}>
+            <tr>
+              {["REPOSITORY", "LANGUAGE", "STARS", "FORKS", "ISSUES", "AGE", "TREND", "HEALTH", ""].map((h) => (
+                <th key={h} className="th-mono"
+                  style={{ textAlign: ["STARS", "FORKS", "ISSUES", "AGE"].includes(h) ? "right" : "left", whiteSpace: "nowrap" }}>
                   {h}
                 </th>
               ))}
@@ -71,52 +62,53 @@ function OrgResults({ data }: { data: OrgHealthResponse }) {
           </thead>
           <tbody>
             {data.repos.map((repo) => (
-              <tr
-                key={repo.full_name}
+              <tr key={repo.full_name} className="tr-cyber"
                 style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}
-                onClick={() => window.open(repo.github_url, "_blank", "noopener")}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
-                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-              >
+                onClick={() => window.open(repo.github_url, "_blank", "noopener")}>
                 <td style={{ padding: "10px 14px", maxWidth: "280px" }}>
-                  <div>
-                    <span style={{ fontWeight: 600 }}>{repo.name}</span>
-                    {repo.description && (
-                      <p style={{ margin: "2px 0 0", fontSize: "11px", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "260px" }}>
-                        {repo.description}
-                      </p>
-                    )}
-                  </div>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "12px",
+                    color: "var(--cyan)", fontWeight: 600 }}>{repo.name}</div>
+                  {repo.description && (
+                    <div style={{ fontSize: "10px", color: "var(--text-muted)",
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      maxWidth: "260px", marginTop: "2px" }}>
+                      {repo.description}
+                    </div>
+                  )}
                 </td>
-                <td style={{ padding: "10px 14px", fontSize: "12px", color: "var(--text-muted)" }}>
-                  {repo.language ?? "—"}
-                </td>
-                <td style={{ padding: "10px 14px", textAlign: "right", fontFamily: "monospace", fontWeight: 600, color: "var(--accent-blue)" }}>
+                <td style={{ padding: "10px 14px", fontFamily: "var(--font-mono)",
+                  fontSize: "11px", color: "var(--text-muted)" }}>{repo.language ?? "—"}</td>
+                <td style={{ padding: "10px 14px", textAlign: "right",
+                  fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--amber)" }}>
                   {repo.stars.toLocaleString()}
                 </td>
-                <td style={{ padding: "10px 14px", textAlign: "right", fontFamily: "monospace", fontSize: "12px", color: "var(--text-muted)" }}>
+                <td style={{ padding: "10px 14px", textAlign: "right",
+                  fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)" }}>
                   {repo.forks.toLocaleString()}
                 </td>
-                <td style={{ padding: "10px 14px", textAlign: "right", fontFamily: "monospace", fontSize: "12px", color: "var(--text-muted)" }}>
+                <td style={{ padding: "10px 14px", textAlign: "right",
+                  fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)" }}>
                   {repo.open_issues.toLocaleString()}
                 </td>
-                <td style={{ padding: "10px 14px", textAlign: "right", fontSize: "12px", color: "var(--text-muted)" }}>
+                <td style={{ padding: "10px 14px", textAlign: "right",
+                  fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)" }}>
                   {repo.age_days}d
                 </td>
-                <td style={{ padding: "10px 14px", textAlign: "right", fontFamily: "monospace", fontSize: "12px" }}>
+                <td style={{ padding: "10px 14px", textAlign: "right",
+                  fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--cyan)" }}>
                   {repo.trend_score !== null ? repo.trend_score.toFixed(3) : "—"}
                 </td>
                 <td style={{ padding: "10px 14px" }}>
                   {repo.sustainability_label
                     ? <SustainBadge label={repo.sustainability_label} />
-                    : <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>{repo.is_tracked ? "—" : "not tracked"}</span>
-                  }
+                    : <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px",
+                        color: "var(--text-muted)" }}>{repo.is_tracked ? "—" : "untracked"}</span>}
                 </td>
                 <td style={{ padding: "10px 14px" }}>
                   {repo.is_tracked && (
-                    <span style={{ fontSize: "10px", color: "var(--accent-green)", border: "1px solid var(--accent-green)", borderRadius: "4px", padding: "1px 5px" }}>
-                      tracked
-                    </span>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px",
+                      color: "var(--green)", border: "1px solid var(--green)",
+                      padding: "1px 5px", letterSpacing: "0.06em" }}>◈ TRACKED</span>
                   )}
                 </td>
               </tr>
@@ -149,69 +141,34 @@ function OrgPageInner() {
   };
 
   return (
-    <div style={{ paddingTop: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
+    <div className="page-root">
       {/* Header */}
       <div>
-        <h1 style={{ fontSize: "22px", fontWeight: 700, margin: "0 0 4px" }}>Org Portfolio Health</h1>
-        <p style={{ color: "var(--text-muted)", fontSize: "13px", margin: 0 }}>
-          Aggregate health dashboard for any GitHub organization's public repositories
-        </p>
+        <div className="section-title-cyber">ORG PORTFOLIO HEALTH<span className="terminal-cursor" /></div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)", marginTop: "6px" }}>
+          // Aggregate health dashboard for any GitHub organization
+        </div>
       </div>
 
       {/* Search */}
-      <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "20px 24px", display: "flex", flexDirection: "column", gap: "14px" }}>
+      <div className="panel" style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
         <div style={{ display: "flex", gap: "8px" }}>
-          <input
-            value={inputVal}
-            onChange={(e) => setInputVal(e.target.value)}
+          <input value={inputVal} onChange={(e) => setInputVal(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && search()}
             placeholder="e.g. microsoft, huggingface, openai"
-            style={{
-              flex: 1,
-              padding: "8px 14px",
-              borderRadius: "6px",
-              border: "1px solid var(--border)",
-              background: "var(--bg-elevated)",
-              color: "var(--text-primary)",
-              fontSize: "14px",
-              outline: "none",
-            }}
-          />
-          <button
-            onClick={search}
-            style={{
-              padding: "8px 20px",
-              borderRadius: "6px",
-              border: "none",
-              background: "var(--accent-blue)",
-              color: "#fff",
-              fontSize: "13px",
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Analyze
+            className="cyber-input" style={{ flex: 1 }} />
+          <button onClick={search} className="btn-cyber btn-cyber-cyan" style={{ padding: "8px 20px" }}>
+            ANALYZE
           </button>
         </div>
-
         {/* Featured orgs */}
-        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-          <span style={{ fontSize: "11px", color: "var(--text-muted)", marginRight: "4px", alignSelf: "center" }}>Quick:</span>
+        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)",
+            marginRight: "4px", letterSpacing: "0.06em" }}>QUICK:</span>
           {FEATURED_ORGS.map((org) => (
-            <button
-              key={org}
+            <button key={org}
               onClick={() => { setInputVal(org); setSelectedOrg(org); router.replace(`/orgs?org=${org}`); }}
-              style={{
-                padding: "3px 10px",
-                borderRadius: "4px",
-                border: "1px solid var(--border)",
-                background: selectedOrg === org ? "var(--accent-blue)" : "var(--bg-elevated)",
-                color: selectedOrg === org ? "#fff" : "var(--text-secondary)",
-                fontSize: "11px",
-                cursor: "pointer",
-                transition: "all 0.15s",
-              }}
-            >
+              className={`filter-btn-cyber${selectedOrg === org ? " active" : ""}`}>
               {org}
             </button>
           ))}
@@ -219,17 +176,15 @@ function OrgPageInner() {
       </div>
 
       {isLoading && (
-        <div style={{ padding: "32px", textAlign: "center", color: "var(--text-muted)" }}>
-          Fetching {selectedOrg} portfolio from GitHub…
+        <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", padding: "32px",
+          textAlign: "center", fontSize: "12px", letterSpacing: "0.06em" }}>
+          // FETCHING {selectedOrg.toUpperCase()} FROM GITHUB<span className="terminal-cursor" />
         </div>
       )}
 
       {error && (
-        <div style={{ background: "var(--bg-surface)", border: "1px solid var(--accent-red)", borderRadius: "10px", padding: "20px 24px" }}>
-          <p style={{ color: "var(--accent-red)", margin: 0, fontWeight: 600 }}>Error</p>
-          <p style={{ color: "var(--text-muted)", fontSize: "13px", margin: "6px 0 0" }}>
-            {String(error)}. Check the org name and try again.
-          </p>
+        <div className="panel" style={{ border: "1px solid var(--pink)" }}>
+          <span style={{ fontFamily: "var(--font-mono)", color: "var(--pink)", fontSize: "12px" }}>✕ {String(error)}</span>
         </div>
       )}
 
@@ -240,7 +195,12 @@ function OrgPageInner() {
 
 export default function OrgPage() {
   return (
-    <Suspense fallback={<div style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>Loading...</div>}>
+    <Suspense fallback={
+      <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", padding: "40px",
+        textAlign: "center", fontSize: "12px", letterSpacing: "0.06em" }}>
+        // LOADING<span className="terminal-cursor" />
+      </div>
+    }>
       <OrgPageInner />
     </Suspense>
   );

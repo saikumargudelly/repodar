@@ -46,44 +46,24 @@ export default function RadarPage() {
     : [];
 
   return (
-    <div style={{ paddingTop: "24px", display: "flex", flexDirection: "column", gap: "20px" }}>
+    <div className="page-root">
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
         <div>
-          <h1 style={{ fontSize: "22px", fontWeight: 700, margin: "0 0 4px" }}>Breakout Radar</h1>
-          <p style={{ color: "var(--text-muted)", fontSize: "13px", margin: 0 }}>
-            All repos ranked by signal strength. {filtered.length} showing.
-          </p>
+          <div className="section-title-cyber">BREAKOUT RADAR<span className="terminal-cursor" /></div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)", marginTop: "6px" }}>
+            // {filtered.length} repos ranked by signal strength
+          </div>
         </div>
-
-        {/* Controls */}
-        <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "var(--text-secondary)", cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={newOnly}
-              onChange={(e) => setNewOnly(e.target.checked)}
-              style={{ accentColor: "var(--accent-blue)" }}
-            />
-            New only (&lt;180d)
+        <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "6px", fontFamily: "var(--font-mono)",
+            fontSize: "11px", color: "var(--text-muted)", cursor: "pointer", letterSpacing: "0.06em" }}>
+            <input type="checkbox" checked={newOnly} onChange={(e) => setNewOnly(e.target.checked)}
+              style={{ accentColor: "var(--cyan)" }} />
+            NEW ONLY (&lt;180D)
           </label>
-
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            style={{
-              background: "var(--bg-surface)",
-              border: "1px solid var(--border)",
-              borderRadius: "6px",
-              color: "var(--text-primary)",
-              padding: "6px 10px",
-              fontSize: "12px",
-              cursor: "pointer",
-            }}
-          >
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
+          <select value={category} onChange={(e) => setCategory(e.target.value)} className="cyber-select">
+            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
       </div>
@@ -91,39 +71,28 @@ export default function RadarPage() {
       {/* Sort bar */}
       <div className="scroll-selector">
         <div style={{ display: "flex", gap: "6px" }}>
-        {(["trend_score", "acceleration", "star_velocity_7d", "sustainability_score", "age_days"] as SortKey[]).map((key) => (
-          <button
-            key={key}
-            onClick={() => setSortKey(key)}
-            style={{
-              padding: "5px 12px",
-              borderRadius: "6px",
-              fontSize: "12px",
-              border: "1px solid var(--border)",
-              background: sortKey === key ? "var(--accent-blue)" : "var(--bg-surface)",
-              color: sortKey === key ? "white" : "var(--text-secondary)",
-              cursor: "pointer",
-              fontWeight: sortKey === key ? 600 : 400,
-            }}
-          >
-            {key.replace(/_/g, " ")}
-          </button>
-        ))}
+          {(["trend_score", "acceleration", "star_velocity_7d", "sustainability_score", "age_days"] as SortKey[]).map((key) => (
+            <button key={key} onClick={() => setSortKey(key)}
+              className={`filter-btn-cyber${sortKey === key ? " active" : ""}`}>
+              {key.replace(/_/g, " ").toUpperCase()}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Table */}
-      <div className="table-scroll" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px" }}>
+      <div className="panel table-scroll">
         {isLoading ? (
-          <p style={{ color: "var(--text-muted)", textAlign: "center", padding: "60px 0" }}>Loading radar data...</p>
+          <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", textAlign: "center", padding: "60px 0",
+            fontSize: "12px", letterSpacing: "0.06em" }}>
+            // LOADING RADAR DATA<span className="terminal-cursor" />
+          </div>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
             <thead>
-              <tr style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
-                {["#", "Repo", "Category", "Trend Score", "Stars/d", "Accel.", "Sustain. Score", "Label", "Age"].map((h) => (
-                  <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontWeight: 500, fontSize: "11px", letterSpacing: "0.5px" }}>
-                    {h}
-                  </th>
+              <tr>
+                {["#", "REPO", "CATEGORY", "TREND SCORE", "STARS/D", "ACCEL.", "SUSTAIN.", "LABEL", "AGE"].map((h) => (
+                  <th key={h} className="th-mono">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -133,8 +102,9 @@ export default function RadarPage() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>
-                    No repos with scores yet. Run the pipeline first via <code>POST /admin/run-all</code>.
+                  <td colSpan={9} style={{ padding: "40px", textAlign: "center",
+                    fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px" }}>
+                    // NO DATA — run the pipeline via POST /admin/run-all
                   </td>
                 </tr>
               )}
@@ -143,33 +113,32 @@ export default function RadarPage() {
         )}
       </div>
 
-      {/* ── Language & Tech Stack Radar ─────────────────────────────────── */}
-      <div className="table-scroll" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px" }}>
-        <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid var(--border)" }}>
-          <h2 style={{ fontSize: "14px", fontWeight: 700, margin: "0 0 4px" }}>
-            Language &amp; Tech Stack Radar
-          </h2>
-          <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: 0 }}>
-            Which programming languages are growing fastest across tracked AI/ML repos — ranked by combined 7-day star velocity.
-          </p>
+      {/* Language & Tech Stack Radar */}
+      <div className="panel table-scroll">
+        <div className="panel-header">
+          <div>
+            <div className="panel-title">⬡ Language &amp; Tech Stack Radar</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", marginTop: "3px" }}>
+              // Languages ranked by combined 7-day star velocity across AI/ML repos
+            </div>
+          </div>
         </div>
         {!langData || langData.length === 0 ? (
-          <p style={{ color: "var(--text-muted)", textAlign: "center", padding: "40px 0", fontSize: "13px" }}>
-            No language data yet — run the scoring pipeline first.
-          </p>
+          <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", textAlign: "center",
+            padding: "40px 0", fontSize: "11px", letterSpacing: "0.06em" }}>
+            // NO LANGUAGE DATA
+          </div>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
             <thead>
-              <tr style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
-                {["#", "Language", "Repos", "Weekly Star Velocity", "Avg Trend Score", "Avg Sustainability", "Top Repo", "Categories"].map((h) => (
-                  <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontWeight: 500, fontSize: "11px", letterSpacing: "0.5px" }}>{h}</th>
+              <tr>
+                {["#", "LANGUAGE", "REPOS", "WEEKLY STAR VEL.", "AVG TREND SCORE", "AVG SUSTAIN.", "TOP REPO", "CATEGORIES"].map((h) => (
+                  <th key={h} className="th-mono">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {langData.map((lang) => (
-                <LangRow key={lang.language} lang={lang} />
-              ))}
+              {langData.map((lang) => <LangRow key={lang.language} lang={lang} />)}
             </tbody>
           </table>
         )}
@@ -180,33 +149,27 @@ export default function RadarPage() {
 
 function LangRow({ lang }: { lang: LanguageStat }) {
   const vel = lang.weekly_star_velocity;
-  const velColor = vel > 100 ? "var(--accent-green)" : vel > 20 ? "var(--accent-blue)" : "var(--text-secondary)";
+  const velColor = vel > 100 ? "var(--green)" : vel > 20 ? "var(--cyan)" : "var(--text-secondary)";
   return (
-    <tr
-      style={{ borderBottom: "1px solid var(--border)" }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
-      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-    >
-      <td style={{ padding: "10px 16px", color: "var(--text-muted)", fontSize: "12px", fontWeight: 600 }}>{lang.growth_rank}</td>
-      <td style={{ padding: "10px 16px", fontWeight: 700, fontSize: "14px" }}>{lang.language}</td>
-      <td style={{ padding: "10px 16px", fontFamily: "monospace" }}>{lang.repo_count}</td>
-      <td style={{ padding: "10px 16px", fontFamily: "monospace", fontWeight: 700, color: velColor }}>
-        +{vel.toFixed(0)} ⭐/wk
+    <tr className="tr-cyber" style={{ borderBottom: "1px solid var(--border)" }}>
+      <td style={{ padding: "10px 16px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px" }}>{String(lang.growth_rank).padStart(2, "0")}</td>
+      <td style={{ padding: "10px 16px", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: "13px", color: "var(--text-primary)" }}>{lang.language}</td>
+      <td style={{ padding: "10px 16px", fontFamily: "var(--font-mono)" }}>{lang.repo_count}</td>
+      <td style={{ padding: "10px 16px", fontFamily: "var(--font-mono)", fontWeight: 700, color: velColor }}>
+        +{vel.toFixed(0)}/wk
       </td>
-      <td style={{ padding: "10px 16px", fontFamily: "monospace" }}>{lang.avg_trend_score.toFixed(4)}</td>
-      <td style={{ padding: "10px 16px", fontFamily: "monospace" }}>{(lang.avg_sustainability_score * 100).toFixed(0)}%</td>
-      <td style={{ padding: "10px 16px", fontSize: "12px", color: "var(--text-secondary)" }}>
+      <td style={{ padding: "10px 16px", fontFamily: "var(--font-mono)", color: "var(--amber)" }}>{lang.avg_trend_score.toFixed(4)}</td>
+      <td style={{ padding: "10px 16px", fontFamily: "var(--font-mono)" }}>{(lang.avg_sustainability_score * 100).toFixed(0)}%</td>
+      <td style={{ padding: "10px 16px", fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-secondary)" }}>
         {lang.top_repo ?? "—"}
       </td>
       <td style={{ padding: "10px 16px" }}>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
           {lang.categories.slice(0, 3).map((c) => (
-            <span key={c} style={{ fontSize: "10px", background: "var(--bg-elevated)", color: "var(--text-muted)", padding: "2px 6px", borderRadius: "4px" }}>
-              {c}
-            </span>
+            <span key={c} className="cyber-tag">{c}</span>
           ))}
           {lang.categories.length > 3 && (
-            <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>+{lang.categories.length - 3}</span>
+            <span style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>+{lang.categories.length - 3}</span>
           )}
         </div>
       </td>
@@ -216,31 +179,27 @@ function LangRow({ lang }: { lang: LanguageStat }) {
 
 function RadarRow({ repo, rank, onClick }: { repo: RadarRepo; rank: number; onClick: () => void }) {
   return (
-    <tr
-      style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}
-      onClick={onClick}
-      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
-      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-    >
-      <td style={{ padding: "11px 16px", color: "var(--text-muted)", fontSize: "12px" }}>{rank}</td>
-      <td style={{ padding: "11px 16px" }}>
-        <span style={{ fontWeight: 600 }}>{repo.owner}/</span>{repo.name}
+    <tr className="tr-cyber" style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }} onClick={onClick}>
+      <td style={{ padding: "11px 16px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px" }}>{String(rank).padStart(2, "0")}</td>
+      <td style={{ padding: "11px 16px", fontFamily: "var(--font-mono)" }}>
+        <span style={{ color: "var(--text-muted)" }}>{repo.owner}/</span><span style={{ fontWeight: 600, color: "var(--cyan)" }}>{repo.name}</span>
       </td>
-      <td style={{ padding: "11px 16px", color: "var(--text-muted)", fontSize: "12px" }}>{repo.category}</td>
-      <td style={{ padding: "11px 16px", fontFamily: "monospace", fontWeight: 700, color: "var(--accent-blue)" }}>
+      <td style={{ padding: "11px 16px", fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", letterSpacing: "0.04em" }}>{repo.category}</td>
+      <td style={{ padding: "11px 16px", fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--amber)" }}>
         {repo.trend_score.toFixed(4)}
       </td>
-      <td style={{ padding: "11px 16px", fontFamily: "monospace" }}>{repo.star_velocity_7d.toFixed(1)}</td>
-      <td style={{ padding: "11px 16px", fontFamily: "monospace", color: repo.acceleration > 0 ? "var(--accent-green)" : "var(--accent-red)" }}>
+      <td style={{ padding: "11px 16px", fontFamily: "var(--font-mono)" }}>{repo.star_velocity_7d.toFixed(1)}</td>
+      <td style={{ padding: "11px 16px", fontFamily: "var(--font-mono)",
+        color: repo.acceleration > 0 ? "var(--green)" : "var(--pink)" }}>
         {repo.acceleration > 0 ? "▲" : "▼"} {Math.abs(repo.acceleration).toFixed(3)}
       </td>
-      <td style={{ padding: "11px 16px", fontFamily: "monospace" }}>
+      <td style={{ padding: "11px 16px", fontFamily: "var(--font-mono)" }}>
         {(repo.sustainability_score * 100).toFixed(0)}%
       </td>
       <td style={{ padding: "11px 16px" }}>
         <SustainBadge label={repo.sustainability_label} />
       </td>
-      <td style={{ padding: "11px 16px", color: "var(--text-muted)", fontSize: "12px" }}>{repo.age_days}d</td>
+      <td style={{ padding: "11px 16px", fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)" }}>{repo.age_days}d</td>
     </tr>
   );
 }

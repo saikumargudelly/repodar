@@ -5,22 +5,22 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { api, A2AService, A2ACapability } from "@/lib/api";
 
-const STATUS_COLOR: Record<string, string> = {
-  active:        "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
-  unreachable:   "text-amber-400 bg-amber-400/10 border-amber-400/20",
-  invalid:       "text-red-400 bg-red-400/10 border-red-400/20",
-  no_card:       "text-orange-400 bg-orange-400/10 border-orange-400/20",
-  auth_required: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20",
-  rate_limited:  "text-purple-400 bg-purple-400/10 border-purple-400/20",
-  sleeping:      "text-sky-400 bg-sky-400/10 border-sky-400/20",
+const STATUS_STYLE: Record<string, { color: string; bg: string }> = {
+  active:        { color: "var(--green)",  bg: "var(--green)18" },
+  unreachable:   { color: "var(--amber)",  bg: "var(--amber)18" },
+  invalid:       { color: "var(--pink)",   bg: "var(--pink)18" },
+  no_card:       { color: "var(--amber)",  bg: "var(--amber)18" },
+  auth_required: { color: "var(--amber)",  bg: "var(--amber)18" },
+  rate_limited:  { color: "var(--cyan)",   bg: "var(--cyan)18" },
+  sleeping:      { color: "var(--cyan)",   bg: "var(--cyan)18" },
 };
 
-const METHOD_COLOR: Record<string, string> = {
-  GET: "text-sky-400 bg-sky-400/10",
-  POST: "text-emerald-400 bg-emerald-400/10",
-  PUT: "text-amber-400 bg-amber-400/10",
-  PATCH: "text-violet-400 bg-violet-400/10",
-  DELETE: "text-red-400 bg-red-400/10",
+const METHOD_STYLE: Record<string, { color: string; bg: string }> = {
+  GET:    { color: "var(--cyan)",  bg: "var(--cyan)18" },
+  POST:   { color: "var(--green)", bg: "var(--green)18" },
+  PUT:    { color: "var(--amber)", bg: "var(--amber)18" },
+  PATCH:  { color: "var(--cyan)",  bg: "var(--cyan)18" },
+  DELETE: { color: "var(--pink)",  bg: "var(--pink)18" },
 };
 
 export default function ServiceDetailPage() {
@@ -39,156 +39,180 @@ export default function ServiceDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-white/40 text-sm">
-        Loading…
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center",
+        height: "60vh", fontFamily: "var(--font-mono)", fontSize: "12px",
+        color: "var(--text-muted)", letterSpacing: "0.06em" }}>
+        // LOADING SERVICE DATA<span className="terminal-cursor" />
       </div>
     );
   }
 
   if (error || !service) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] flex flex-col items-center justify-center gap-4">
-        <p className="text-red-400 text-sm">{error ?? "Service not found"}</p>
-        <Link href="/services" className="text-xs text-violet-400 hover:text-violet-300 underline">
-          ← Back to Service Catalog
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center",
+        justifyContent: "center", height: "60vh", gap: "16px" }}>
+        <div style={{ fontFamily: "var(--font-mono)", color: "var(--pink)", fontSize: "13px" }}>
+          ✕ {error ?? "SERVICE NOT FOUND"}
+        </div>
+        <Link href="/services" style={{ fontFamily: "var(--font-mono)", fontSize: "11px",
+          color: "var(--cyan)", textDecoration: "none" }}>
+          ← BACK TO SERVICE CATALOG
         </Link>
       </div>
     );
   }
 
-  const statusClass = STATUS_COLOR[service.status] ?? "text-white/40 bg-white/5 border-white/10";
+  const ss = STATUS_STYLE[service.status] ?? { color: "var(--text-muted)", bg: "var(--bg-elevated)" };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white px-4 py-8 max-w-5xl mx-auto">
+    <div className="page-root">
       {/* Back */}
-      <Link
-        href="/services"
-        className="inline-flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70
-                   mb-6 transition"
-      >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-             strokeLinecap="round" strokeLinejoin="round">
-          <path d="M19 12H5M12 5l-7 7 7 7"/>
-        </svg>
-        A2A Service Catalog
+      <Link href="/services" style={{ display: "inline-flex", alignItems: "center", gap: "6px",
+        fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)",
+        textDecoration: "none", letterSpacing: "0.04em" }}>
+        ← A2A SERVICE CATALOG
       </Link>
 
       {/* Hero */}
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-6">
-        <div className="flex flex-wrap items-start justify-between gap-4 mb-3">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight mb-1">{service.name}</h1>
-            {service.provider && (
-              <p className="text-sm text-white/50">by {service.provider}</p>
-            )}
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {service.supports_streaming && (
-              <span className="text-xs font-semibold px-3 py-1 rounded-full border text-emerald-300 bg-emerald-400/10 border-emerald-400/20">
-                ⚡ Streaming
+      <div className="panel">
+        <div style={{ padding: "20px 20px 0" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start",
+            justifyContent: "space-between", gap: "12px", marginBottom: "10px" }}>
+            <div>
+              <div className="section-title-cyber" style={{ fontSize: "18px", marginBottom: "4px" }}>
+                {service.name}
+              </div>
+              {service.provider && (
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px",
+                  color: "var(--text-muted)" }}>by {service.provider}</div>
+              )}
+            </div>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+              {service.supports_streaming && (
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", fontWeight: 700,
+                  color: "var(--green)", border: "1px solid var(--green)",
+                  padding: "2px 8px", letterSpacing: "0.06em" }}>
+                  ⚡ STREAMING
+                </span>
+              )}
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", fontWeight: 700,
+                color: ss.color, background: ss.bg, border: `1px solid ${ss.color}`,
+                padding: "2px 8px", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                {service.status}
               </span>
-            )}
-            <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${statusClass}`}>
-              {service.status}
-            </span>
+            </div>
           </div>
-        </div>
 
-        {service.description && (
-          <p className="text-sm text-white/70 leading-relaxed mb-4">{service.description}</p>
-        )}
+          {service.description && (
+            <div style={{ fontSize: "12px", color: "var(--text-secondary)",
+              lineHeight: 1.6, marginBottom: "12px" }}>{service.description}</div>
+          )}
 
-        <div className="flex flex-wrap gap-1.5 mb-4">
-          {(service.categories ?? []).map((cat) => (
-            <span key={cat} className="text-xs px-2.5 py-0.5 bg-violet-500/10 text-violet-300 rounded-full border border-violet-400/20">
-              {cat}
-            </span>
-          ))}
-        </div>
-
-        {/* Auth schemes */}
-        {(service.auth_schemes ?? []).length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 mb-2">
-            <span className="text-[10px] text-white/40 uppercase tracking-wider mr-1">Auth</span>
-            {(service.auth_schemes ?? []).map((s) => (
-              <span key={s} className="text-xs px-2 py-0.5 bg-amber-400/10 text-amber-300 rounded-full border border-amber-400/20">
-                {s}
-              </span>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "12px" }}>
+            {(service.categories ?? []).map((cat) => (
+              <span key={cat} className="cyber-tag">{cat}</span>
             ))}
           </div>
-        )}
 
-        {/* Input / Output modes */}
-        {((service.input_modes ?? []).length > 0 || (service.output_modes ?? []).length > 0) && (
-          <div className="flex flex-wrap items-center gap-2 mb-2">
-            {(service.input_modes ?? []).length > 0 && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-white/40 uppercase tracking-wider">In</span>
-                {(service.input_modes ?? []).map((m) => (
-                  <span key={m} className="text-xs px-2 py-0.5 bg-sky-400/10 text-sky-300 rounded-full border border-sky-400/20">
-                    {m}
-                  </span>
-                ))}
-              </div>
-            )}
-            {(service.output_modes ?? []).length > 0 && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-white/40 uppercase tracking-wider">Out</span>
-                {(service.output_modes ?? []).map((m) => (
-                  <span key={m} className="text-xs px-2 py-0.5 bg-teal-400/10 text-teal-300 rounded-full border border-teal-400/20">
-                    {m}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+          {(service.auth_schemes ?? []).length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center",
+              gap: "6px", marginBottom: "8px" }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px",
+                color: "var(--text-muted)", letterSpacing: "0.08em" }}>AUTH</span>
+              {(service.auth_schemes ?? []).map((s) => (
+                <span key={s} style={{ fontFamily: "var(--font-mono)", fontSize: "10px",
+                  color: "var(--amber)", background: "var(--amber)18",
+                  border: "1px solid var(--amber)", padding: "1px 7px" }}>{s}</span>
+              ))}
+            </div>
+          )}
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 pt-4 border-t border-white/10">
-          <Stat label="Base URL" value={
-            <a href={service.base_url} target="_blank" rel="noreferrer"
-               className="text-violet-400 hover:text-violet-300 text-xs break-all">
-              {service.base_url}
-            </a>
-          } />
-          <Stat label="Version" value={service.version ?? "—"} />
-          <Stat label="Latency" value={service.response_latency_ms !== null ? `${service.response_latency_ms} ms` : "—"} />
-          <Stat label="Capabilities" value={String(service.capability_count)} />
-        </div>
+          {((service.input_modes ?? []).length > 0 || (service.output_modes ?? []).length > 0) && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "8px" }}>
+              {(service.input_modes ?? []).length > 0 && (
+                <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px",
+                    color: "var(--text-muted)", letterSpacing: "0.08em" }}>IN</span>
+                  {(service.input_modes ?? []).map((m) => (
+                    <span key={m} style={{ fontFamily: "var(--font-mono)", fontSize: "10px",
+                      color: "var(--cyan)", background: "var(--cyan)18",
+                      border: "1px solid var(--cyan)", padding: "1px 7px" }}>{m}</span>
+                  ))}
+                </div>
+              )}
+              {(service.output_modes ?? []).length > 0 && (
+                <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px",
+                    color: "var(--text-muted)", letterSpacing: "0.08em" }}>OUT</span>
+                  {(service.output_modes ?? []).map((m) => (
+                    <span key={m} style={{ fontFamily: "var(--font-mono)", fontSize: "10px",
+                      color: "var(--green)", background: "var(--green)18",
+                      border: "1px solid var(--green)", padding: "1px 7px" }}>{m}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-white/10">
-          <Stat label="Registered" value={service.created_at ? new Date(service.created_at).toLocaleString() : "—"} />
-          <Stat label="Last Checked" value={service.last_checked_at ? new Date(service.last_checked_at).toLocaleString() : "—"} />
-          {service.documentation_url && (
-            <Stat label="Documentation" value={
-              <a href={service.documentation_url} target="_blank" rel="noreferrer"
-                 className="text-sky-400 hover:text-sky-300 text-xs break-all">
-                {service.documentation_url}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)",
+            gap: "16px", marginTop: "16px", paddingTop: "16px",
+            borderTop: "1px solid var(--border)", paddingBottom: "16px" }}>
+            <Stat label="BASE URL" value={
+              <a href={service.base_url} target="_blank" rel="noreferrer"
+                style={{ color: "var(--cyan)", fontFamily: "var(--font-mono)",
+                  fontSize: "10px", wordBreak: "break-all", textDecoration: "none" }}>
+                {service.base_url}
               </a>
             } />
-          )}
+            <Stat label="VERSION" value={service.version ?? "—"} />
+            <Stat label="LATENCY" value={
+              service.response_latency_ms !== null ? `${service.response_latency_ms} ms` : "—"
+            } />
+            <Stat label="CAPABILITIES" value={String(service.capability_count)} />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)",
+            gap: "16px", paddingBottom: "20px",
+            borderTop: "1px solid var(--border)", paddingTop: "16px" }}>
+            <Stat label="REGISTERED" value={
+              service.created_at ? new Date(service.created_at).toLocaleString() : "—"
+            } />
+            <Stat label="LAST CHECKED" value={
+              service.last_checked_at ? new Date(service.last_checked_at).toLocaleString() : "—"
+            } />
+            {service.documentation_url && (
+              <Stat label="DOCUMENTATION" value={
+                <a href={service.documentation_url} target="_blank" rel="noreferrer"
+                  style={{ color: "var(--cyan)", fontFamily: "var(--font-mono)",
+                    fontSize: "10px", wordBreak: "break-all", textDecoration: "none" }}>
+                  {service.documentation_url}
+                </a>
+              } />
+            )}
+          </div>
         </div>
       </div>
 
       {/* Capabilities */}
-      <div>
-        <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-3">
-          Capabilities ({service.capabilities.length})
-        </h2>
-
+      <div className="panel">
+        <div className="panel-header">
+          <span className="panel-title">◈ CAPABILITIES ({service.capabilities.length})</span>
+        </div>
         {service.capabilities.length === 0 ? (
-          <div className="text-white/30 text-sm py-8 text-center bg-white/5 rounded-xl border border-white/10">
-            No capabilities indexed yet.
+          <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)",
+            textAlign: "center", padding: "40px 20px", fontSize: "11px",
+            letterSpacing: "0.06em" }}>
+            // NO CAPABILITIES INDEXED YET
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="table-scroll" style={{ padding: "0 0 4px" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
-                <tr className="border-b border-white/10 text-left text-xs text-white/40">
-                  <th className="pb-2 pr-4 font-medium">Method</th>
-                  <th className="pb-2 pr-4 font-medium">Path</th>
-                  <th className="pb-2 pr-4 font-medium">Name</th>
-                  <th className="pb-2 font-medium">Description</th>
+                <tr className="th-mono">
+                  <th style={{ padding: "10px 12px", textAlign: "left" }}>METHOD</th>
+                  <th style={{ padding: "10px 12px", textAlign: "left" }}>PATH</th>
+                  <th style={{ padding: "10px 12px", textAlign: "left" }}>NAME</th>
+                  <th style={{ padding: "10px 12px", textAlign: "left" }}>DESCRIPTION</th>
                 </tr>
               </thead>
               <tbody>
@@ -207,24 +231,31 @@ export default function ServiceDetailPage() {
 function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
-      <div className="text-[10px] text-white/40 uppercase tracking-wider mb-0.5">{label}</div>
-      <div className="text-sm text-white/90">{value}</div>
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: "9px",
+        color: "var(--text-muted)", letterSpacing: "0.08em", marginBottom: "4px" }}>{label}</div>
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: "12px",
+        color: "var(--text-primary)" }}>{value}</div>
     </div>
   );
 }
 
 function CapabilityRow({ cap }: { cap: A2ACapability }) {
-  const methodClass = METHOD_COLOR[cap.method.toUpperCase()] ?? "text-white/60 bg-white/5";
+  const ms = METHOD_STYLE[cap.method.toUpperCase()] ?? { color: "var(--text-muted)", bg: "var(--bg-elevated)" };
   return (
-    <tr className="border-b border-white/5 hover:bg-white/3 transition">
-      <td className="py-2.5 pr-4">
-        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${methodClass}`}>
+    <tr className="tr-cyber">
+      <td style={{ padding: "10px 12px" }}>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", fontWeight: 700,
+          color: ms.color, background: ms.bg, border: `1px solid ${ms.color}`,
+          padding: "2px 6px", letterSpacing: "0.06em" }}>
           {cap.method.toUpperCase()}
         </span>
       </td>
-      <td className="py-2.5 pr-4 font-mono text-xs text-white/70">{cap.path}</td>
-      <td className="py-2.5 pr-4 text-xs text-white/80">{cap.name}</td>
-      <td className="py-2.5 text-xs text-white/50">{cap.description ?? "—"}</td>
+      <td style={{ padding: "10px 12px", fontFamily: "var(--font-mono)",
+        fontSize: "11px", color: "var(--text-secondary)" }}>{cap.path}</td>
+      <td style={{ padding: "10px 12px", fontFamily: "var(--font-mono)",
+        fontSize: "11px", color: "var(--text-primary)" }}>{cap.name}</td>
+      <td style={{ padding: "10px 12px", fontSize: "11px",
+        color: "var(--text-muted)" }}>{cap.description ?? "—"}</td>
     </tr>
   );
 }

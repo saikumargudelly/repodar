@@ -13,7 +13,7 @@ import { api, CompareEntry, RepoHistory } from "@/lib/api";
 import { SustainBadge } from "@/components/Nav";
 
 // ─── Colour palette per repo slot ────────────────────────────────────────────
-const COLORS = ["#3b82f6", "#f59e0b", "#22c55e", "#ec4899", "#8b5cf6"];
+const COLORS = ["#00e5ff", "#ffab00", "#ff3d6b", "#39ff14", "#a78bfa"];
 
 // ─── History data builder ────────────────────────────────────────────────────
 function buildHistoryData(histories: RepoHistory[]) {
@@ -64,20 +64,14 @@ function MetricRow({ label, repos, accessor, fmt = (v: number) => v.toFixed(2) }
   const vals = repos.map((r) => accessor(r) ?? null);
   const max = Math.max(...vals.filter((v): v is number => v !== null));
   return (
-    <tr style={{ borderBottom: "1px solid var(--border)" }}>
-      <td style={{ padding: "10px 16px", fontSize: "12px", color: "var(--text-muted)", fontWeight: 500 }}>{label}</td>
+    <tr className="tr-cyber" style={{ borderBottom: "1px solid var(--border)" }}>
+      <td style={{ padding: "10px 16px", fontFamily: "var(--font-mono)", fontSize: "10px",
+        color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</td>
       {vals.map((v, i) => (
-        <td
-          key={i}
-          style={{
-            padding: "10px 16px",
-            textAlign: "center",
-            fontFamily: "monospace",
-            fontSize: "13px",
-            fontWeight: v !== null && v === max ? 700 : 400,
-            color: v !== null && v === max ? COLORS[i % COLORS.length] : "var(--text-secondary)",
-          }}
-        >
+        <td key={i} style={{ padding: "10px 16px", textAlign: "center",
+          fontFamily: "var(--font-mono)", fontSize: "12px",
+          fontWeight: v !== null && v === max ? 700 : 400,
+          color: v !== null && v === max ? COLORS[i % COLORS.length] : "var(--text-secondary)" }}>
           {v !== null ? fmt(v) : "—"}
         </td>
       ))}
@@ -97,36 +91,11 @@ function AddRepoBox({ onAdd }: { onAdd: (id: string) => void }) {
   };
   return (
     <div style={{ display: "flex", gap: "8px" }}>
-      <input
-        value={val}
-        onChange={(e) => setVal(e.target.value)}
+      <input value={val} onChange={(e) => setVal(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && handle()}
-        placeholder="owner/repo-name"
-        style={{
-          flex: 1,
-          padding: "7px 12px",
-          borderRadius: "6px",
-          border: "1px solid var(--border)",
-          background: "var(--bg-elevated)",
-          color: "var(--text-primary)",
-          fontSize: "13px",
-          outline: "none",
-        }}
-      />
-      <button
-        onClick={handle}
-        style={{
-          padding: "7px 16px",
-          borderRadius: "6px",
-          border: "none",
-          background: "var(--accent-blue)",
-          color: "#fff",
-          fontSize: "12px",
-          fontWeight: 600,
-          cursor: "pointer",
-        }}
-      >
-        Add
+        placeholder="owner/repo-name" className="cyber-input" style={{ flex: 1 }} />
+      <button onClick={handle} className="btn-cyber btn-cyber-cyan" style={{ padding: "7px 16px" }}>
+        + ADD
       </button>
     </div>
   );
@@ -171,42 +140,29 @@ function ComparePageInner() {
   const repoNames = repos?.map((r) => `${r.owner}/${r.name}`) ?? [];
 
   return (
-    <div style={{ paddingTop: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
+    <div className="page-root">
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
-        <div>
-          <h1 style={{ fontSize: "22px", fontWeight: 700, margin: "0 0 4px" }}>Repo Comparison</h1>
-          <p style={{ color: "var(--text-muted)", fontSize: "13px", margin: 0 }}>
-            Side-by-side analysis — select up to 5 repos
-          </p>
+      <div>
+        <div className="section-title-cyber">REPO COMPARISON<span className="terminal-cursor" /></div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)", marginTop: "6px" }}>
+          // Side-by-side analysis — select up to 5 repos
         </div>
       </div>
 
       {/* Add repos + chips */}
-      <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "20px 24px", display: "flex", flexDirection: "column", gap: "14px" }}>
+      <div className="panel" style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
           {ids.map((id, i) => (
-            <div
-              key={id}
-              style={{
-                display: "flex", alignItems: "center", gap: "6px",
-                background: COLORS[i % COLORS.length] + "22",
-                border: `1px solid ${COLORS[i % COLORS.length]}44`,
-                borderRadius: "20px",
-                padding: "4px 12px 4px 14px",
-                fontSize: "12px",
-                color: COLORS[i % COLORS.length],
-                fontWeight: 600,
-              }}
-            >
-              <span
-                style={{ width: "8px", height: "8px", borderRadius: "50%", background: COLORS[i % COLORS.length], flexShrink: 0 }}
-              />
+            <div key={id} style={{ display: "flex", alignItems: "center", gap: "6px",
+              background: COLORS[i % COLORS.length] + "18",
+              border: `1px solid ${COLORS[i % COLORS.length]}55`,
+              padding: "4px 10px", fontSize: "11px",
+              color: COLORS[i % COLORS.length], fontFamily: "var(--font-mono)", fontWeight: 600 }}>
+              <span style={{ width: "6px", height: "6px", background: COLORS[i % COLORS.length], flexShrink: 0 }} />
               {id}
-              <button
-                onClick={() => removeRepo(id)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: COLORS[i % COLORS.length], fontSize: "14px", padding: "0 0 0 4px", lineHeight: 1 }}
-              >
+              <button onClick={() => removeRepo(id)}
+                style={{ background: "none", border: "none", cursor: "pointer",
+                  color: COLORS[i % COLORS.length], fontSize: "14px", padding: "0 0 0 4px", lineHeight: 1 }}>
                 ×
               </button>
             </div>
@@ -214,19 +170,21 @@ function ComparePageInner() {
         </div>
         {ids.length < 5 && <AddRepoBox onAdd={addRepo} />}
         {ids.length < 2 && (
-          <p style={{ color: "var(--text-muted)", fontSize: "12px", margin: 0 }}>
-            Add at least 2 repos to compare. Try: <code>langchain-ai/langchain</code>, <code>vllm-project/vllm</code>
-          </p>
+          <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px" }}>
+            // Add at least 2 repos · e.g. <span style={{ color: "var(--cyan)" }}>langchain-ai/langchain</span>
+          </div>
         )}
       </div>
 
       {isLoading && (
-        <div style={{ padding: "32px", textAlign: "center", color: "var(--text-muted)" }}>Loading...</div>
+        <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", padding: "32px", textAlign: "center", fontSize: "12px", letterSpacing: "0.06em" }}>
+          // LOADING DATA<span className="terminal-cursor" />
+        </div>
       )}
 
       {error && (
-        <div style={{ background: "var(--bg-surface)", border: "1px solid var(--accent-red)", borderRadius: "10px", padding: "20px 24px", color: "var(--accent-red)" }}>
-          {String(error)}
+        <div className="panel" style={{ border: "1px solid var(--pink)" }}>
+          <span style={{ fontFamily: "var(--font-mono)", color: "var(--pink)", fontSize: "12px" }}>✕ {String(error)}</span>
         </div>
       )}
 
@@ -234,10 +192,8 @@ function ComparePageInner() {
         <>
           {/* Star History Chart */}
           {historyData.length > 1 && (
-            <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "24px" }}>
-              <h2 style={{ fontSize: "13px", fontWeight: 600, margin: "0 0 20px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
-                Star History
-              </h2>
+            <div className="panel">
+              <div className="panel-header"><span className="panel-title">◈ STAR HISTORY</span></div>
               <ResponsiveContainer width="100%" height={260}>
                 <LineChart data={historyData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -265,13 +221,11 @@ function ComparePageInner() {
           )}
 
           {/* Radar chart */}
-          <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "24px" }}>
-            <h2 style={{ fontSize: "13px", fontWeight: 600, margin: "0 0 20px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
-              Score Radar
-            </h2>
-            <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: "0 0 16px" }}>
-              All axes normalised 0–100 relative to the set. Only Repodar-tracked repos have real scores.
-            </p>
+          <div className="panel">
+            <div className="panel-header"><span className="panel-title">▲ SCORE RADAR</span></div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", padding: "0 20px 12px", letterSpacing: "0.04em" }}>
+              // All axes normalised 0–100 relative to set · tracked repos only
+            </div>
             <ResponsiveContainer width="100%" height={360}>
               <RadarChart data={radarData}>
                 <PolarGrid stroke="var(--border)" />
@@ -296,22 +250,20 @@ function ComparePageInner() {
           </div>
 
           {/* Metrics table */}
-          <div className="table-scroll" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px" }}>
-            <h2 style={{ fontSize: "13px", fontWeight: 600, margin: 0, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px", padding: "20px 24px 16px", borderBottom: "1px solid var(--border)" }}>
-              Metrics Breakdown
-            </h2>
+          <div className="panel table-scroll">
+            <div className="panel-header"><span className="panel-title">⬡ METRICS BREAKDOWN</span></div>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
-                <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                  <th style={{ padding: "10px 16px", textAlign: "left", fontSize: "11px", color: "var(--text-muted)", fontWeight: 500, width: "180px" }}>Metric</th>
+                <tr>
+                  <th className="th-mono" style={{ width: "180px" }}>METRIC</th>
                   {repos.map((r, i) => (
-                    <th
-                      key={r.repo_id}
-                      style={{ padding: "10px 16px", textAlign: "center", fontSize: "12px", fontWeight: 700, color: COLORS[i % COLORS.length] }}
-                    >
+                    <th key={r.repo_id} style={{ padding: "10px 16px", textAlign: "center",
+                      fontFamily: "var(--font-mono)", fontSize: "11px", fontWeight: 700,
+                      color: COLORS[i % COLORS.length], letterSpacing: "0.04em" }}>
                       {r.owner}/{r.name}
                       {r.is_tracked && (
-                        <span style={{ display: "block", fontSize: "10px", fontWeight: 400, color: "var(--text-muted)" }}>tracked</span>
+                        <span style={{ display: "block", fontSize: "9px", fontWeight: 400,
+                          color: "var(--green)", letterSpacing: "0.06em" }}>◈ TRACKED</span>
                       )}
                     </th>
                   ))}
@@ -349,13 +301,12 @@ function ComparePageInner() {
           </div>
 
           {/* Share link */}
-          <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Share this comparison</span>
-            <button
-              onClick={() => navigator.clipboard.writeText(window.location.href)}
-              style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "6px", padding: "5px 14px", fontSize: "12px", color: "var(--text-secondary)", cursor: "pointer" }}
-            >
-              Copy URL
+          <div className="panel" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 20px" }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)",
+              letterSpacing: "0.06em" }}>// SHARE THIS COMPARISON</span>
+            <button onClick={() => navigator.clipboard.writeText(window.location.href)}
+              className="btn-cyber" style={{ padding: "5px 14px", fontSize: "11px" }}>
+              COPY URL
             </button>
           </div>
         </>
@@ -366,7 +317,12 @@ function ComparePageInner() {
 
 export default function ComparePage() {
   return (
-    <Suspense fallback={<div style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>Loading...</div>}>
+    <Suspense fallback={
+      <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", padding: "40px",
+        textAlign: "center", fontSize: "12px", letterSpacing: "0.06em" }}>
+        // LOADING<span className="terminal-cursor" />
+      </div>
+    }>
       <ComparePageInner />
     </Suspense>
   );

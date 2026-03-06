@@ -2,13 +2,14 @@
 
 import { use } from "react";
 import { useQuery } from "@tanstack/react-query";
+import "@/app/globals.css";
 import { api, WidgetData } from "@/lib/api";
 
 // ─── Colour mapping ───────────────────────────────────────────────────────────
 const LABEL_COLOR: Record<string, string> = {
-  GREEN:  "#22c55e",
-  YELLOW: "#f59e0b",
-  RED:    "#ef4444",
+  GREEN:  "var(--green)",
+  YELLOW: "var(--amber)",
+  RED:    "var(--pink)",
 };
 
 // ─── Circular TrendScore gauge ────────────────────────────────────────────────
@@ -18,9 +19,10 @@ function TrendGauge({ pct, label }: { pct: number; label: string | null }) {
   const circ = 2 * Math.PI * r;
   const dash = (pct / 100) * circ;
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--text-muted)", letterSpacing: "0.08em" }}>◈ SIGNAL</div>
       <svg width="60" height="60" viewBox="0 0 60 60">
-        <circle cx="30" cy="30" r={r} fill="none" stroke="#1e2230" strokeWidth="5" />
+        <circle cx="30" cy="30" r={r} fill="none" stroke="var(--bg-elevated)" strokeWidth="5" />
         <circle
           cx="30" cy="30" r={r} fill="none"
           stroke={color} strokeWidth="5"
@@ -28,13 +30,13 @@ function TrendGauge({ pct, label }: { pct: number; label: string | null }) {
           strokeLinecap="round"
           transform="rotate(-90 30 30)"
         />
-        <text x="30" y="34" textAnchor="middle" fill="#f1f5f9" fontSize="13" fontWeight="700"
-          fontFamily="'Inter','system-ui',sans-serif">
+        <text x="30" y="34" textAnchor="middle" fill="var(--text-primary)" fontSize="13" fontWeight="700"
+          fontFamily="var(--font-mono)">
           {pct}
         </text>
       </svg>
-      <span style={{ fontSize: "9px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.4px" }}>
-        TrendScore
+      <span style={{ fontSize: "9px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.4px" }}>
+        TRENDSCORE
       </span>
     </div>
   );
@@ -56,12 +58,11 @@ function ScoreCard({ data }: { data: WidgetData }) {
 
   return (
     <div style={{
-      fontFamily: "'Inter','system-ui',sans-serif",
-      background: "#0f1117",
-      border: "1px solid #1e2230",
-      borderRadius: "10px",
+      fontFamily: "var(--font-mono)",
+      background: "var(--bg-surface)",
+      border: "1px solid var(--border)",
       padding: "16px 20px",
-      color: "#f1f5f9",
+      color: "var(--text-primary)",
       width: "360px",
       boxSizing: "border-box",
     }}>
@@ -72,18 +73,18 @@ function ScoreCard({ data }: { data: WidgetData }) {
             href={data.github_url}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ fontWeight: 700, fontSize: "14px", color: "#f1f5f9", textDecoration: "none" }}
+            style={{ fontWeight: 700, fontSize: "14px", color: "var(--text-primary)", textDecoration: "none" }}
           >
-            <span style={{ color: "#94a3b8" }}>{data.owner}/</span>
-            {data.name}
+            <span style={{ color: "var(--text-secondary)" }}>{data.owner}/</span>
+            <span style={{ color: "var(--cyan)" }}>{data.name}</span>
           </a>
           {data.language && (
-            <span style={{ marginLeft: "8px", fontSize: "11px", background: "#1e2230", color: "#94a3b8", padding: "2px 6px", borderRadius: "4px" }}>
+            <span style={{ marginLeft: "8px", fontSize: "11px", background: "var(--bg-elevated)", color: "var(--text-secondary)", padding: "2px 6px" }}>
               {data.language}
             </span>
           )}
           {data.description && (
-            <p style={{ fontSize: "11px", color: "#64748b", margin: "4px 0 0", lineHeight: "1.4" }}>
+            <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: "4px 0 0", lineHeight: "1.4" }}>
               {data.description.length > 75 ? data.description.slice(0, 74) + "…" : data.description}
             </p>
           )}
@@ -97,20 +98,20 @@ function ScoreCard({ data }: { data: WidgetData }) {
       {/* Star / Fork / Issue metrics row */}
       <div style={{ display: "flex", gap: "18px", marginBottom: "12px" }}>
         <div>
-          <p style={{ fontSize: "10px", color: "#64748b", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Stars</p>
-          <p style={{ fontSize: "15px", fontWeight: 700, margin: 0, color: "#3b82f6" }}>
-            {data.stars.toLocaleString()} ⭐
+          <p style={{ fontSize: "10px", color: "var(--text-muted)", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.5px", fontFamily: "var(--font-mono)" }}>STARS</p>
+          <p style={{ fontSize: "15px", fontWeight: 700, margin: 0, color: "var(--cyan)" }}>
+            {data.stars.toLocaleString()}
           </p>
         </div>
         {vel7d && (
           <div>
-            <p style={{ fontSize: "10px", color: "#64748b", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.5px" }}>This week</p>
-            <p style={{ fontSize: "15px", fontWeight: 700, margin: 0, color: "#22c55e" }}>{vel7d}{accelArrow}</p>
+            <p style={{ fontSize: "10px", color: "var(--text-muted)", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.5px", fontFamily: "var(--font-mono)" }}>THIS WEEK</p>
+            <p style={{ fontSize: "15px", fontWeight: 700, margin: 0, color: "var(--green)" }}>{vel7d}{accelArrow}</p>
           </div>
         )}
         <div>
-          <p style={{ fontSize: "10px", color: "#64748b", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Forks</p>
-          <p style={{ fontSize: "15px", fontWeight: 700, margin: 0, color: "#94a3b8" }}>
+          <p style={{ fontSize: "10px", color: "var(--text-muted)", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.5px", fontFamily: "var(--font-mono)" }}>FORKS</p>
+          <p style={{ fontSize: "15px", fontWeight: 700, margin: 0, color: "var(--text-secondary)" }}>
             {data.forks.toLocaleString()}
           </p>
         </div>
@@ -118,11 +119,11 @@ function ScoreCard({ data }: { data: WidgetData }) {
 
       {/* Repodar scores row */}
       {data.is_tracked ? (
-        <div style={{ borderTop: "1px solid #1e2230", paddingTop: "12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ borderTop: "1px solid var(--border)", paddingTop: "12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", gap: "20px" }}>
             {ssPercent && (
               <div>
-                <p style={{ fontSize: "10px", color: "#64748b", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Sustainability</p>
+                <p style={{ fontSize: "10px", color: "var(--text-muted)", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.5px", fontFamily: "var(--font-mono)" }}>SUSTAINABILITY</p>
                 <p style={{ fontSize: "16px", fontWeight: 800, margin: 0, color: labelColor }}>{ssPercent}</p>
               </div>
             )}
@@ -130,17 +131,17 @@ function ScoreCard({ data }: { data: WidgetData }) {
           {data.sustainability_label && (
             <span style={{
               fontSize: "11px", fontWeight: 700, color: labelColor,
-              border: `1.5px solid ${labelColor}`, borderRadius: "4px",
-              padding: "3px 8px", letterSpacing: "0.5px",
+              border: `1px solid ${labelColor}`,
+              padding: "2px 8px", letterSpacing: "0.5px", fontFamily: "var(--font-mono)"
             }}>
               {data.sustainability_label}
             </span>
           )}
         </div>
       ) : (
-        <div style={{ borderTop: "1px solid #1e2230", paddingTop: "10px" }}>
-          <p style={{ fontSize: "11px", color: "#64748b", margin: 0 }}>
-            Not tracked by Repodar — add to get TrendScore + sustainability scoring
+        <div style={{ borderTop: "1px solid var(--border)", paddingTop: "10px" }}>
+          <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: 0, fontFamily: "var(--font-mono)" }}>
+            // NOT TRACKED — ADD TO GET TRENDSCORE + SUSTAINABILITY
           </p>
         </div>
       )}
@@ -151,9 +152,9 @@ function ScoreCard({ data }: { data: WidgetData }) {
           href="https://repodar.app"
           target="_blank"
           rel="noopener noreferrer"
-          style={{ fontSize: "10px", color: "#475569", textDecoration: "none" }}
+          style={{ fontSize: "9px", color: "var(--text-muted)", textDecoration: "none", fontFamily: "var(--font-mono)" }}
         >
-          powered by Repodar ↗
+          powered by REPODAR ↗
         </a>
       </div>
     </div>
@@ -185,11 +186,11 @@ export default function WidgetPage({ params }: { params: Promise<{ owner: string
       gap: "16px",
     }}>
       {isLoading && (
-        <div style={{ fontSize: "12px", color: "#64748b" }}>Loading…</div>
+        <div style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>// LOADING…<span style={{ animation: "blink 0.7s infinite", display: "inline-block", width: "4px", marginLeft: "2px" }}>▮</span></div>
       )}
       {error && (
-        <div style={{ fontSize: "12px", color: "#ef4444", background: "#0f1117", border: "1px solid #1e2230", borderRadius: "8px", padding: "12px 16px" }}>
-          Repo not found
+        <div style={{ fontSize: "12px", color: "var(--pink)", background: "var(--bg-surface)", border: "1px solid var(--border)", padding: "12px 16px", fontFamily: "var(--font-mono)" }}>
+          ✕ REPO NOT FOUND
         </div>
       )}
       {data && <ScoreCard data={data} />}
@@ -197,24 +198,24 @@ export default function WidgetPage({ params }: { params: Promise<{ owner: string
       {/* Embed help panel */}
       {data && (
         <div style={{
-          background: "#0f1117",
-          border: "1px solid #1e2230",
-          borderRadius: "8px",
+          background: "var(--bg-surface)",
+          border: "1px solid var(--border)",
           padding: "14px 20px",
           width: "360px",
           boxSizing: "border-box",
           fontSize: "11px",
-          color: "#64748b",
+          color: "var(--text-muted)",
           display: "flex",
           flexDirection: "column",
           gap: "8px",
+          fontFamily: "var(--font-mono)"
         }}>
-          <p style={{ margin: 0, fontWeight: 600, color: "#94a3b8" }}>Embed this card in your README:</p>
-          <code style={{ background: "#1e2230", padding: "6px 10px", borderRadius: "4px", color: "#94a3b8", display: "block", wordBreak: "break-all", lineHeight: "1.5" }}>
+          <p style={{ margin: 0, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.05em" }}>// EMBED THIS CARD IN YOUR README:</p>
+          <code style={{ background: "var(--bg-elevated)", padding: "6px 10px", color: "var(--cyan)", display: "block", wordBreak: "break-all", lineHeight: "1.5" }}>
             {`<iframe src="${embedSrc}" width="380" height="200" frameborder="0" />`}
           </code>
-          <p style={{ margin: "4px 0 0", fontWeight: 600, color: "#94a3b8" }}>Or use the SVG badge:</p>
-          <code style={{ background: "#1e2230", padding: "6px 10px", borderRadius: "4px", color: "#94a3b8", display: "block", wordBreak: "break-all", lineHeight: "1.5" }}>
+          <p style={{ margin: "4px 0 0", fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.05em" }}>// OR USE THE SVG BADGE:</p>
+          <code style={{ background: "var(--bg-elevated)", padding: "6px 10px", color: "var(--cyan)", display: "block", wordBreak: "break-all", lineHeight: "1.5" }}>
             {`![Repodar](https://api.repodar.app/widget/badge/${owner}/${name}.svg)`}
           </code>
         </div>

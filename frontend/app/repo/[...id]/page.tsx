@@ -12,11 +12,9 @@ import { SustainBadge } from "@/components/Nav";
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "24px" }}>
-      <h3 style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px", margin: "0 0 20px" }}>
-        {title}
-      </h3>
-      {children}
+    <div className="panel">
+      <div className="panel-header"><span className="panel-title">{title}</span></div>
+      <div style={{ padding: "0 20px 20px" }}>{children}</div>
     </div>
   );
 }
@@ -39,15 +37,15 @@ function StarHistoryChart({ data, releases }: { data: DailyMetricPoint[]; releas
         <AreaChart data={enriched}>
           <defs>
             <linearGradient id="starGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+              <stop offset="5%" stopColor="var(--cyan)" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="var(--cyan)" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={(v) => v.slice(5)} />
           <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={42} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
           <Tooltip {...tooltipStyle} formatter={(v: number | undefined) => [v != null ? v.toLocaleString() : "—", "Stars"]} />
-          <Area type="monotone" dataKey="stars" stroke="#3b82f6" fill="url(#starGrad)" strokeWidth={2} dot={false} />
+          <Area type="monotone" dataKey="stars" stroke="var(--cyan)" fill="url(#starGrad)" strokeWidth={2} dot={false} />
         </AreaChart>
       </ResponsiveContainer>
     </ChartCard>
@@ -64,8 +62,8 @@ function VelocityChart({ data }: { data: ComputedMetricPoint[] }) {
           <YAxis yAxisId="vel" tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={36} />
           <YAxis yAxisId="accel" orientation="right" tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={36} />
           <Tooltip {...tooltipStyle} />
-          <Area yAxisId="vel" type="monotone" dataKey="star_velocity_7d" name="Velocity 7d" stroke="#3b82f6" fill="rgba(59,130,246,0.1)" strokeWidth={2} dot={false} />
-          <Bar yAxisId="accel" dataKey="acceleration" name="Acceleration" fill="rgba(34,197,94,0.4)" />
+          <Area yAxisId="vel" type="monotone" dataKey="star_velocity_7d" name="Velocity 7d" stroke="var(--cyan)" fill="rgba(0,229,255,0.1)" strokeWidth={2} dot={false} />
+          <Bar yAxisId="accel" dataKey="acceleration" name="Acceleration" fill="rgba(57,255,20,0.35)" />
         </ComposedChart>
       </ResponsiveContainer>
     </ChartCard>
@@ -81,7 +79,7 @@ function ContributorChart({ data }: { data: DailyMetricPoint[] }) {
           <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={(v) => v.slice(5)} />
           <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={36} />
           <Tooltip {...tooltipStyle} />
-          <Line type="monotone" dataKey="contributors" name="Contributors" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+          <Line type="monotone" dataKey="contributors" name="Contributors" stroke="var(--amber)" strokeWidth={2} dot={false} />
         </LineChart>
       </ResponsiveContainer>
     </ChartCard>
@@ -97,7 +95,7 @@ function DailyDeltaChart({ data }: { data: DailyMetricPoint[] }) {
           <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={(v) => v.slice(5)} />
           <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={36} />
           <Tooltip {...tooltipStyle} />
-          <Bar dataKey="daily_star_delta" name="Stars Added" fill="rgba(59,130,246,0.6)" />
+          <Bar dataKey="daily_star_delta" name="Stars Added" fill="rgba(0,229,255,0.5)" />
         </ComposedChart>
       </ResponsiveContainer>
     </ChartCard>
@@ -111,15 +109,15 @@ function ScoreTimeline({ data }: { data: ComputedMetricPoint[] }) {
         <AreaChart data={data}>
           <defs>
             <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+              <stop offset="5%" stopColor="var(--amber)" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="var(--amber)" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={(v) => v.slice(5)} />
           <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={52} />
           <Tooltip {...tooltipStyle} formatter={(v: number | undefined) => [v != null ? v.toFixed(6) : "—", "Trend Score"]} />
-          <Area type="monotone" dataKey="trend_score" stroke="#f59e0b" fill="url(#trendGrad)" strokeWidth={2} dot={false} />
+          <Area type="monotone" dataKey="trend_score" stroke="var(--amber)" fill="url(#trendGrad)" strokeWidth={2} dot={false} />
         </AreaChart>
       </ResponsiveContainer>
     </ChartCard>
@@ -205,19 +203,23 @@ function SignalExplainer({ scores, dailyMetrics }: { scores: ComputedMetricPoint
   if (signals.length === 0) return null;
 
   return (
-    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "20px 24px" }}>
-      <h3 style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px", margin: "0 0 16px" }}>
-        Signal Explainer — Why This Score?
-      </h3>
+    <div className="panel" style={{ padding: "20px 24px" }}>
+      <div className="panel-header" style={{ marginBottom: "12px" }}>
+        <span className="panel-title">◈ SIGNAL EXPLAINER — WHY THIS SCORE?</span>
+      </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
         {signals.map((s) => (
           <div key={s.label} className="signal-row">
-            <span style={{ fontSize: "16px", flexShrink: 0 }}>{s.icon}</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "12px",
+              color: "var(--text-muted)", flexShrink: 0 }}>{s.icon}</span>
             <span className="signal-label">{s.label}:</span>
-            <span style={{ fontWeight: 700, color: s.positive ? "var(--accent-green)" : s.positive === false ? "var(--accent-red)" : "var(--text-primary)", fontFamily: "monospace" }}>
+            <span style={{ fontWeight: 700,
+              color: s.positive ? "var(--green)" : s.positive === false ? "var(--pink)" : "var(--text-primary)",
+              fontFamily: "var(--font-mono)", fontSize: "12px" }}>
               {s.value}
             </span>
-            {s.detail && <span style={{ color: "var(--text-muted)", fontSize: "12px" }}>{s.detail}</span>}
+            {s.detail && <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)",
+              fontSize: "10px" }}>{s.detail}</span>}
           </div>
         ))}
       </div>
@@ -227,13 +229,9 @@ function SignalExplainer({ scores, dailyMetrics }: { scores: ComputedMetricPoint
 
 function MetricPill({ label, value, mono = false }: { label: string; value: string | number; mono?: boolean }) {
   return (
-    <div style={{ background: "var(--bg-elevated)", borderRadius: "8px", padding: "12px 16px" }}>
-      <p style={{ color: "var(--text-muted)", fontSize: "11px", fontWeight: 600, letterSpacing: "0.5px", textTransform: "uppercase", margin: "0 0 4px" }}>
-        {label}
-      </p>
-      <p style={{ fontSize: "18px", fontWeight: 700, margin: 0, fontFamily: mono ? "monospace" : undefined }}>
-        {value}
-      </p>
+    <div className="kpi-card">
+      <div className="kpi-label">{label}</div>
+      <div className="kpi-value" style={{ fontFamily: mono ? "var(--font-mono)" : undefined }}>{value}</div>
     </div>
   );
 }
@@ -263,74 +261,57 @@ export default function RepoDeepDive() {
   if (repoLoading) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
-        <p style={{ color: "var(--text-muted)" }}>Loading repo data...</p>
+        <p style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "12px",
+          letterSpacing: "0.06em" }}>
+          // LOADING REPO DATA<span className="terminal-cursor" />
+        </p>
       </div>
     );
   }
 
   if (!repo) {
-    return <p style={{ color: "var(--accent-red)", paddingTop: "40px" }}>Repository not found.</p>;
+    return <p style={{ fontFamily: "var(--font-mono)", color: "var(--pink)",
+      paddingTop: "40px", fontSize: "12px" }}>✕ REPOSITORY NOT FOUND</p>;
   }
 
   const latest = dailyMetrics?.[dailyMetrics.length - 1];
 
   return (
-    <div style={{ paddingTop: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
+    <div className="page-root">
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start",
+        flexWrap: "wrap", gap: "12px" }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "6px", flexWrap: "wrap" }}>
-            <h1 style={{ fontSize: "22px", fontWeight: 700, margin: 0 }}>
-              {repo.owner}/<span style={{ color: "var(--accent-blue)" }}>{repo.name}</span>
-            </h1>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "6px",
+            flexWrap: "wrap" }}>
+            <div className="section-title-cyber" style={{ fontSize: "16px", letterSpacing: "0.06em" }}>
+              {repo.owner}/<span style={{ color: "var(--cyan)" }}>{repo.name}</span>
+              <span className="terminal-cursor" />
+            </div>
             {repo.sustainability_label && <SustainBadge label={repo.sustainability_label} />}
           </div>
-          <p style={{ color: "var(--text-muted)", fontSize: "13px", margin: "0 0 4px" }}>
-            {repo.category} · {repo.age_days} days old
-            {repo.primary_language && ` · ${repo.primary_language}`}
-          </p>
+          <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px",
+            marginBottom: repo.description ? "4px" : 0 }}>
+            // {repo.category} · {repo.age_days}d old{repo.primary_language ? ` · ${repo.primary_language}` : ""}
+          </div>
           {repo.description && (
-            <p style={{ color: "var(--text-secondary)", fontSize: "13px", margin: 0, maxWidth: "600px" }}>
+            <div style={{ color: "var(--text-secondary)", fontSize: "12px", maxWidth: "600px" }}>
               {repo.description}
-            </p>
+            </div>
           )}
         </div>
         <div className="repo-header-actions">
-          <Link
-            href={`/widget/repo/${repo.owner}/${repo.name}`}
-            style={{
-              padding: "8px 16px",
-              border: "1px solid var(--border)",
-              borderRadius: "6px",
-              fontSize: "12px",
-              fontWeight: 600,
-              color: "var(--text-muted)",
-              textDecoration: "none",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-            }}
-          >
-            Widget ⧉
+          <Link href={`/widget/repo/${repo.owner}/${repo.name}`}
+            style={{ padding: "7px 14px", border: "1px solid var(--border)", fontSize: "11px",
+              fontFamily: "var(--font-mono)", color: "var(--text-muted)", textDecoration: "none",
+              letterSpacing: "0.06em" }}>
+            WIDGET ⧉
           </Link>
-          <a
-            href={repo.github_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              padding: "8px 16px",
-              border: "1px solid var(--border)",
-              borderRadius: "6px",
-              fontSize: "12px",
-              fontWeight: 600,
-              color: "var(--text-secondary)",
-              textDecoration: "none",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-            }}
-          >
-            View on GitHub ↗
+          <a href={repo.github_url} target="_blank" rel="noopener noreferrer"
+            style={{ padding: "7px 14px", border: "1px solid var(--cyan)", fontSize: "11px",
+              fontFamily: "var(--font-mono)", color: "var(--cyan)", textDecoration: "none",
+              letterSpacing: "0.06em" }}>
+            GITHUB ↗
           </a>
         </div>
       </div>
@@ -347,11 +328,11 @@ export default function RepoDeepDive() {
 
       {/* LLM Explanation */}
       {repo.explanation && (
-        <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "20px 24px" }}>
-          <h3 style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px", margin: "0 0 12px" }}>
-            Analyst Insight
-          </h3>
-          <p style={{ color: "var(--text-secondary)", lineHeight: "1.7", fontSize: "14px", margin: 0 }}>
+        <div className="panel" style={{ padding: "20px 24px" }}>
+          <div className="panel-header" style={{ marginBottom: "10px" }}>
+            <span className="panel-title">▲ ANALYST INSIGHT</span>
+          </div>
+          <p style={{ color: "var(--text-secondary)", lineHeight: "1.7", fontSize: "13px", margin: 0 }}>
             {repo.explanation}
           </p>
         </div>
@@ -376,41 +357,42 @@ export default function RepoDeepDive() {
           )}
         </>
       ) : (
-        <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "40px", textAlign: "center" }}>
-          <p style={{ color: "var(--text-muted)" }}>
-            No metric history yet. Run the ingestion pipeline via <code>POST /admin/run-all</code>.
+        <div className="panel" style={{ padding: "40px", textAlign: "center" }}>
+          <p style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px",
+            letterSpacing: "0.06em" }}>
+            // NO METRIC HISTORY YET — run <span style={{ color: "var(--cyan)" }}>POST /admin/run-all</span>
           </p>
         </div>
       )}
 
-      {/* Raw metrics table — last 7 days */}
+      {/* Raw metrics table */}
       {dailyMetrics && dailyMetrics.length > 0 && (
-        <div className="table-scroll" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px" }}>
-          <div style={{ padding: "20px 24px 0" }}>
-            <h3 style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px", margin: "0 0 0" }}>
-              Raw Metrics — Last 7 Snapshots
-            </h3>
-          </div>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", marginTop: "12px" }}>
+        <div className="panel table-scroll">
+          <div className="panel-header"><span className="panel-title">▣ RAW METRICS — LAST 7 SNAPSHOTS</span></div>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
             <thead>
-              <tr style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
-                {["Date", "Stars", "+Stars", "Forks", "Contributors", "Open Issues", "Releases"].map((h) => (
-                  <th key={h} style={{ padding: "8px 16px", textAlign: "left", fontWeight: 500, fontSize: "11px" }}>{h}</th>
+              <tr>
+                {["DATE", "STARS", "+STARS", "FORKS", "CONTRIBUTORS", "OPEN ISSUES", "RELEASES"].map((h) => (
+                  <th key={h} className="th-mono">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {dailyMetrics.slice(-7).reverse().map((m) => (
-                <tr key={m.date} style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td style={{ padding: "9px 16px", color: "var(--text-muted)" }}>{m.date}</td>
-                  <td style={{ padding: "9px 16px", fontFamily: "monospace" }}>{m.stars.toLocaleString()}</td>
-                  <td style={{ padding: "9px 16px", fontFamily: "monospace", color: m.daily_star_delta > 0 ? "var(--accent-green)" : "var(--text-muted)" }}>
+                <tr key={m.date} className="tr-cyber" style={{ borderBottom: "1px solid var(--border)" }}>
+                  <td style={{ padding: "9px 16px", fontFamily: "var(--font-mono)",
+                    fontSize: "11px", color: "var(--text-muted)" }}>{m.date}</td>
+                  <td style={{ padding: "9px 16px", fontFamily: "var(--font-mono)" }}>
+                    {m.stars.toLocaleString()}</td>
+                  <td style={{ padding: "9px 16px", fontFamily: "var(--font-mono)",
+                    color: m.daily_star_delta > 0 ? "var(--green)" : "var(--text-muted)" }}>
                     {m.daily_star_delta > 0 ? `+${m.daily_star_delta}` : m.daily_star_delta}
                   </td>
-                  <td style={{ padding: "9px 16px", fontFamily: "monospace" }}>{m.forks.toLocaleString()}</td>
-                  <td style={{ padding: "9px 16px", fontFamily: "monospace" }}>{m.contributors}</td>
-                  <td style={{ padding: "9px 16px", fontFamily: "monospace" }}>{m.open_issues}</td>
-                  <td style={{ padding: "9px 16px", fontFamily: "monospace" }}>{m.releases}</td>
+                  <td style={{ padding: "9px 16px", fontFamily: "var(--font-mono)" }}>
+                    {m.forks.toLocaleString()}</td>
+                  <td style={{ padding: "9px 16px", fontFamily: "var(--font-mono)" }}>{m.contributors}</td>
+                  <td style={{ padding: "9px 16px", fontFamily: "var(--font-mono)" }}>{m.open_issues}</td>
+                  <td style={{ padding: "9px 16px", fontFamily: "var(--font-mono)" }}>{m.releases}</td>
                 </tr>
               ))}
             </tbody>

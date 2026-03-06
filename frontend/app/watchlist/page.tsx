@@ -51,73 +51,60 @@ export default function WatchlistPage() {
   };
 
   return (
-    <main
-      style={{
-        maxWidth: "1100px",
-        margin: "0 auto",
-        padding: "32px 20px",
-        fontFamily: "var(--font-sans, sans-serif)",
-        color: "var(--text-primary)",
-      }}
-    >
+    <div className="page-root">
       {/* Header */}
-      <div style={{ marginBottom: "28px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
-          <span style={{ fontSize: "22px" }}>⭐</span>
-          <h1 style={{ fontSize: "22px", fontWeight: 700, margin: 0 }}>Your Watchlist</h1>
+      <div>
+        <div className="section-title-cyber">WATCHLIST<span className="terminal-cursor" /></div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)", marginTop: "6px" }}>
+          // {items.length} repo{items.length !== 1 ? "s" : ""} tracked
         </div>
-        <p style={{ color: "var(--text-muted)", fontSize: "13px", margin: 0 }}>
-          {items.length} repo{items.length !== 1 ? "s" : ""} tracked
-        </p>
       </div>
 
       {/* Loading */}
       {isLoading && (
-        <div style={{ textAlign: "center", padding: "60px 0", color: "var(--text-muted)", fontSize: "14px" }}>
-          Loading your watchlist…
+        <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", padding: "40px 0",
+          textAlign: "center", fontSize: "12px", letterSpacing: "0.06em" }}>
+          // LOADING WATCHLIST<span className="terminal-cursor" />
         </div>
       )}
 
       {/* Error */}
       {error && (
-        <div style={{ padding: "16px", background: "var(--accent-red)22", border: "1px solid var(--accent-red)", borderRadius: "8px", color: "var(--accent-red)", fontSize: "13px", marginBottom: "20px" }}>
-          Failed to load watchlist.
+        <div className="panel" style={{ border: "1px solid var(--pink)" }}>
+          <p style={{ fontFamily: "var(--font-mono)", color: "var(--pink)", margin: 0, fontSize: "12px" }}>
+            ✕ FAILED TO LOAD WATCHLIST
+          </p>
         </div>
       )}
 
       {/* Empty state */}
       {!isLoading && items.length === 0 && (
-        <div
-          style={{
-            textAlign: "center",
-            padding: "60px 20px",
-            background: "var(--bg-surface)",
-            border: "1px solid var(--border)",
-            borderRadius: "12px",
-          }}
-        >
-          <div style={{ fontSize: "40px", marginBottom: "12px" }}>🔭</div>
-          <h2 style={{ fontSize: "17px", fontWeight: 600, marginBottom: "8px" }}>Nothing here yet</h2>
-          <p style={{ color: "var(--text-muted)", fontSize: "13px" }}>
-            Navigate to a repo page and click "Watch" to start tracking it.
-          </p>
+        <div className="panel" style={{ textAlign: "center", padding: "60px 20px" }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "28px", marginBottom: "12px",
+            color: "var(--text-muted)" }}>◈</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--text-muted)",
+            letterSpacing: "0.08em", textTransform: "uppercase" }}>NOTHING HERE YET</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)",
+            marginTop: "8px" }}>
+            // Navigate to a repo page and click Watch
+          </div>
         </div>
       )}
 
       {/* Table */}
       {!isLoading && items.length > 0 && (
-        <div className="table-scroll">
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+        <div className="panel table-scroll">
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
             <thead>
-              <tr style={{ color: "var(--text-muted)", textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-                <th style={{ padding: "8px 12px" }}>Repo</th>
-                <th style={{ padding: "8px 12px" }}>Category</th>
-                <th style={{ padding: "8px 12px", textAlign: "right" }}>Stars</th>
-                <th style={{ padding: "8px 12px", textAlign: "right" }}>Trend Score</th>
-                <th style={{ padding: "8px 12px", textAlign: "right" }}>Accel.</th>
-                <th style={{ padding: "8px 12px" }}>Health</th>
-                <th style={{ padding: "8px 12px" }}>Alert</th>
-                <th style={{ padding: "8px 12px" }}>Actions</th>
+              <tr>
+                <th className="th-mono">REPO</th>
+                <th className="th-mono">CATEGORY</th>
+                <th className="th-mono" style={{ textAlign: "right" }}>STARS</th>
+                <th className="th-mono" style={{ textAlign: "right" }}>TREND SCORE</th>
+                <th className="th-mono" style={{ textAlign: "right" }}>ACCEL.</th>
+                <th className="th-mono">HEALTH</th>
+                <th className="th-mono">ALERT</th>
+                <th className="th-mono">ACTIONS</th>
               </tr>
             </thead>
             <tbody>
@@ -126,137 +113,96 @@ export default function WatchlistPage() {
                   <tr
                     key={item.id}
                     style={{
-                      borderTop: "1px solid var(--border)",
-                      background: editingId === item.id ? "var(--bg-elevated)" : "transparent",
+                      borderBottom: "1px solid var(--border)",
+                      background: editingId === item.id ? "rgba(0,229,255,0.03)" : "transparent",
                     }}
                   >
-                    <td style={{ padding: "12px" }}>
+                    <td style={{ padding: "12px 16px" }}>
                       <div>
-                        <a
-                          href={item.github_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ color: "var(--accent-blue)", textDecoration: "none", fontWeight: 600 }}
-                        >
+                        <a href={item.github_url} target="_blank" rel="noopener noreferrer"
+                          style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--cyan)",
+                            textDecoration: "none", fontWeight: 600 }}>
                           {item.owner}/{item.name}
                         </a>
                         {item.primary_language && (
-                          <span style={{ fontSize: "11px", color: "var(--text-muted)", marginLeft: "6px" }}>
+                          <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px",
+                            color: "var(--text-muted)", marginLeft: "6px" }}>
                             {item.primary_language}
                           </span>
                         )}
                       </div>
-                      <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>
-                        {item.age_days}d old · tracked since {new Date(item.created_at).toLocaleDateString()}
+                      <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", marginTop: "2px" }}>
+                        {item.age_days}d old · since {new Date(item.created_at).toLocaleDateString()}
                       </div>
                     </td>
-                    <td style={{ padding: "12px", color: "var(--text-secondary)" }}>
+                    <td style={{ padding: "12px 16px", fontFamily: "var(--font-mono)", fontSize: "11px",
+                      color: "var(--text-secondary)" }}>
                       {item.category.replace(/_/g, " ")}
                     </td>
-                    <td style={{ padding: "12px", textAlign: "right", fontWeight: 600 }}>
+                    <td style={{ padding: "12px 16px", textAlign: "right", fontFamily: "var(--font-mono)", fontWeight: 600 }}>
                       {item.stars?.toLocaleString() ?? "—"}
                     </td>
-                    <td style={{ padding: "12px", textAlign: "right" }}>
+                    <td style={{ padding: "12px 16px", textAlign: "right", fontFamily: "var(--font-mono)",
+                      color: "var(--amber)" }}>
                       {item.trend_score != null ? item.trend_score.toFixed(4) : "—"}
                     </td>
-                    <td style={{ padding: "12px", textAlign: "right", color: (item.acceleration ?? 0) > 1 ? "var(--accent-blue)" : "var(--text-primary)" }}>
+                    <td style={{ padding: "12px 16px", textAlign: "right", fontFamily: "var(--font-mono)",
+                      color: (item.acceleration ?? 0) > 1 ? "var(--green)" : "var(--text-primary)" }}>
                       {item.acceleration != null ? item.acceleration.toFixed(2) : "—"}
                     </td>
-                    <td style={{ padding: "12px" }}>
+                    <td style={{ padding: "12px 16px" }}>
                       {item.sustainability_label ? <SustainBadge label={item.sustainability_label} /> : "—"}
                     </td>
-                    <td style={{ padding: "12px", color: "var(--text-muted)", fontSize: "12px" }}>
+                    <td style={{ padding: "12px 16px", fontFamily: "var(--font-mono)", fontSize: "10px",
+                      color: "var(--text-muted)" }}>
                       {item.alert_threshold != null ? `≥ ${item.alert_threshold}` : "—"}
                       {item.notify_email && (
-                        <div style={{ fontSize: "11px" }}>📧 {item.notify_email}</div>
+                        <div style={{ fontSize: "10px", color: "var(--cyan)" }}>◈ {item.notify_email}</div>
                       )}
                     </td>
-                    <td style={{ padding: "12px" }}>
+                    <td style={{ padding: "12px 16px" }}>
                       <div style={{ display: "flex", gap: "6px" }}>
-                        <button
-                          onClick={() => editingId === item.id ? setEditingId(null) : startEdit(item)}
-                          style={{
-                            padding: "4px 10px",
-                            background: "var(--bg-elevated)",
-                            border: "1px solid var(--border)",
-                            borderRadius: "4px",
-                            fontSize: "11px",
-                            cursor: "pointer",
-                            color: "var(--text-primary)",
-                          }}
-                        >
-                          {editingId === item.id ? "Cancel" : "Edit"}
+                        <button onClick={() => editingId === item.id ? setEditingId(null) : startEdit(item)}
+                          style={{ padding: "4px 8px", background: "transparent",
+                            border: "1px solid var(--border)", cursor: "pointer",
+                            fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--cyan)",
+                            letterSpacing: "0.06em" }}>
+                          {editingId === item.id ? "CANCEL" : "EDIT"}
                         </button>
-                        <button
-                          onClick={() => removeMutation.mutate(item.id)}
-                          disabled={removeMutation.isPending}
-                          style={{
-                            padding: "4px 10px",
-                            background: "transparent",
-                            border: "1px solid var(--accent-red)",
-                            borderRadius: "4px",
-                            fontSize: "11px",
-                            cursor: "pointer",
-                            color: "var(--accent-red)",
-                          }}
-                        >
-                          Remove
+                        <button onClick={() => removeMutation.mutate(item.id)} disabled={removeMutation.isPending}
+                          style={{ padding: "4px 8px", background: "transparent",
+                            border: "1px solid var(--pink)", cursor: "pointer",
+                            fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--pink)",
+                            letterSpacing: "0.06em" }}>
+                          REMOVE
                         </button>
                       </div>
                     </td>
                   </tr>
 
-                  {/* Edit row */}
                   {editingId === item.id && (
-                    <tr key={`${item.id}-edit`} style={{ background: "var(--bg-elevated)", borderTop: "none" }}>
+                    <tr key={`${item.id}-edit`} style={{ background: "var(--bg-elevated)", borderBottom: "1px solid var(--border)" }}>
                       <td colSpan={8} style={{ padding: "12px 16px" }}>
                         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "flex-end" }}>
                           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                            <label style={{ fontSize: "11px", color: "var(--text-muted)" }}>Alert Threshold (trend score)</label>
-                            <input
-                              type="number"
-                              step="0.001"
-                              placeholder="e.g. 0.05"
-                              value={editThreshold}
-                              onChange={(e) => setEditThreshold(e.target.value)}
-                              style={inputStyle}
-                            />
+                            <label style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", letterSpacing: "0.06em" }}>ALERT THRESHOLD</label>
+                            <input type="number" step="0.001" placeholder="e.g. 0.05" value={editThreshold}
+                              onChange={(e) => setEditThreshold(e.target.value)} className="cyber-input" style={{ width: "140px" }} />
                           </div>
                           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                            <label style={{ fontSize: "11px", color: "var(--text-muted)" }}>Notify Email</label>
-                            <input
-                              type="email"
-                              placeholder="you@example.com"
-                              value={editEmail}
-                              onChange={(e) => setEditEmail(e.target.value)}
-                              style={{ ...inputStyle, width: "200px" }}
-                            />
+                            <label style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", letterSpacing: "0.06em" }}>NOTIFY EMAIL</label>
+                            <input type="email" placeholder="you@example.com" value={editEmail}
+                              onChange={(e) => setEditEmail(e.target.value)} className="cyber-input" style={{ width: "200px" }} />
                           </div>
                           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                            <label style={{ fontSize: "11px", color: "var(--text-muted)" }}>Webhook URL</label>
-                            <input
-                              type="url"
-                              placeholder="https://…"
-                              value={editWebhook}
-                              onChange={(e) => setEditWebhook(e.target.value)}
-                              style={{ ...inputStyle, width: "240px" }}
-                            />
+                            <label style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", letterSpacing: "0.06em" }}>WEBHOOK URL</label>
+                            <input type="url" placeholder="https://…" value={editWebhook}
+                              onChange={(e) => setEditWebhook(e.target.value)} className="cyber-input" style={{ width: "240px" }} />
                           </div>
-                          <button
-                            onClick={() => updateMutation.mutate({ id: item.id, threshold: editThreshold, email: editEmail, webhook: editWebhook })}
+                          <button onClick={() => updateMutation.mutate({ id: item.id, threshold: editThreshold, email: editEmail, webhook: editWebhook })}
                             disabled={updateMutation.isPending}
-                            style={{
-                              padding: "7px 16px",
-                              background: "var(--accent-blue)",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "6px",
-                              fontSize: "13px",
-                              fontWeight: 600,
-                              cursor: "pointer",
-                            }}
-                          >
-                            Save
+                            className="btn-cyber btn-cyber-cyan" style={{ padding: "7px 16px" }}>
+                            SAVE
                           </button>
                         </div>
                       </td>
@@ -268,7 +214,7 @@ export default function WatchlistPage() {
           </table>
         </div>
       )}
-    </main>
+    </div>
   );
 }
 
@@ -276,8 +222,8 @@ const inputStyle: React.CSSProperties = {
   padding: "6px 10px",
   background: "var(--bg-surface)",
   border: "1px solid var(--border)",
-  borderRadius: "6px",
   color: "var(--text-primary)",
-  fontSize: "13px",
+  fontFamily: "var(--font-mono)",
+  fontSize: "12px",
   width: "140px",
 };

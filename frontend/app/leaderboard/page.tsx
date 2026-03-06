@@ -14,168 +14,107 @@ const PERIODS: { key: Period; label: string }[] = [
 ];
 
 export default function LeaderboardPage() {
-  const [view, setView] = useState<View>("trending");
+  const [view, setView]     = useState<View>("trending");
   const [period, setPeriod] = useState<Period>("7d");
 
-  // Fetch leaderboard for all periods
   const { data: leaderboardData } = useQuery({
     queryKey: ["leaderboard", period],
     queryFn: () => api.getLeaderboard(period, undefined, 100),
   });
+  const { data: overview } = useQuery({ queryKey: ["overview"], queryFn: api.getOverview });
 
-  // Fetch overview for sustainability
-  const { data: overview } = useQuery({
-    queryKey: ["overview"],
-    queryFn: api.getOverview,
-  });
-
-  const getDisplayData = () => {
+  const data = (() => {
     const lb = leaderboardData?.entries ?? [];
-
     switch (view) {
-      case "trending":
-        return lb.sort((a, b) => (b.star_gain ?? 0) - (a.star_gain ?? 0));
-      case "top_score":
-        return lb.sort((a, b) => (b.trend_score ?? 0) - (a.trend_score ?? 0));
-      case "sustainable":
-        return overview?.sustainability_ranking ?? [];
-      default:
-        return [];
+      case "trending":    return [...lb].sort((a, b) => (b.star_gain ?? 0) - (a.star_gain ?? 0));
+      case "top_score":   return [...lb].sort((a, b) => (b.trend_score ?? 0) - (a.trend_score ?? 0));
+      case "sustainable": return overview?.sustainability_ranking ?? [];
+      default:            return [];
     }
-  };
-
-  const data = getDisplayData();
+  })();
 
   return (
-    <div style={{ paddingTop: "24px", display: "flex", flexDirection: "column", gap: "20px" }}>
+    <div className="page-root">
       {/* Header */}
       <div>
-        <h1 style={{ fontSize: "22px", fontWeight: 700, margin: "0 0 8px" }}>
-          🏆 Repository Leaderboard
-        </h1>
-        <p style={{ color: "var(--text-muted)", fontSize: "13px", margin: 0 }}>
-          Top AI/ML projects ranked by trending, acceleration, or health.
-        </p>
+        <div className="section-title-cyber">LEADERBOARD<span className="terminal-cursor" /></div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)", marginTop: "6px" }}>
+          // Top AI/ML repos ranked by star gain · trend score · sustainability
+        </div>
       </div>
 
       {/* Controls */}
-      <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center" }}>
-        {/* View tabs */}
-        <div style={{ display: "flex", gap: "6px" }}>
-          {(
-            [
-              { key: "trending", label: "📈 Star Gain" },
-              { key: "top_score", label: "🚀 Trend Score" },
-              { key: "sustainable", label: "💚 Sustainability" },
-            ] as const
-          ).map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setView(key)}
-              style={{
-                padding: "8px 14px",
-                fontSize: "13px",
-                fontWeight: 600,
-                background: view === key ? "var(--accent-blue)" : "var(--bg-elevated)",
-                color: view === key ? "#fff" : "var(--text-primary)",
-                border: "1px solid var(--border)",
-                borderRadius: "6px",
-                cursor: "pointer",
-                transition: "all 0.2s",
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Period selector - hidden for sustainability */}
+      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+        {([
+          { key: "trending"    as View, label: "◈ Star Gain"      },
+          { key: "top_score"   as View, label: "▲ Trend Score"    },
+          { key: "sustainable" as View, label: "⬡ Sustainability" },
+        ]).map(({ key, label }) => (
+          <button key={key} onClick={() => setView(key)}
+            className={`filter-btn-cyber${view === key ? " active" : ""}`}>
+            {label}
+          </button>
+        ))}
         {view !== "sustainable" && (
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value as Period)}
-            style={{
-              padding: "6px 10px",
-              fontSize: "12px",
-              background: "var(--bg-elevated)",
-              border: "1px solid var(--border)",
-              borderRadius: "4px",
-              color: "var(--text-primary)",
-            }}
-          >
+          <>
+            <span style={{ width: "1px", height: "20px", background: "var(--border)", margin: "0 4px", alignSelf: "center" }} />
             {PERIODS.map((p) => (
-              <option key={p.key} value={p.key}>
+              <button key={p.key} onClick={() => setPeriod(p.key)}
+                className={`filter-btn-cyber${period === p.key ? " active" : ""}`}>
                 {p.label}
-              </option>
+              </button>
             ))}
-          </select>
+          </>
         )}
       </div>
 
       {/* Table */}
       {!data || data.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "60px 20px", color: "var(--text-muted)" }}>
-          Loading leaderboard...
+        <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", padding: "40px 0",
+          textAlign: "center", fontSize: "12px", letterSpacing: "0.06em" }}>
+          // LOADING DATA<span className="terminal-cursor" />
         </div>
       ) : (
-        <div className="table-scroll">
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+        <div className="panel table-scroll">
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
             <thead>
-              <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                <th style={{ padding: "8px 12px", textAlign: "left", color: "var(--text-muted)" }}>
-                  Rank
-                </th>
-                <th style={{ padding: "8px 12px", textAlign: "left", color: "var(--text-muted)" }}>
-                  Repository
-                </th>
-                <th style={{ padding: "8px 12px", textAlign: "right", color: "var(--text-muted)" }}>
+              <tr>
+                <th className="th-mono" style={{ width: "48px" }}>#</th>
+                <th className="th-mono">REPOSITORY</th>
+                <th className="th-mono" style={{ textAlign: "right" }}>
                   {view === "trending"
-                    ? `⭐ Star Gain (${period})`
-                    : view === "top_score"
-                      ? "🚀 Trend Score"
-                      : "💚 Score"}
+                    ? `STAR GAIN (${period.toUpperCase()})`
+                    : view === "top_score" ? "TREND SCORE" : "SUSTAIN SCORE"}
                 </th>
-                <th style={{ padding: "8px 12px", textAlign: "center", color: "var(--text-muted)" }}>
-                  Health
-                </th>
+                <th className="th-mono" style={{ textAlign: "center" }}>HEALTH</th>
               </tr>
             </thead>
             <tbody>
               {data.slice(0, 50).map((entry: any, idx: number) => (
-                <tr
-                  key={entry.repo_id || entry.id}
-                  style={{ borderTop: "1px solid var(--border)" }}
-                >
-                  <td style={{ padding: "10px 12px", fontWeight: 700, width: "40px" }}>
-                    #{idx + 1}
+                <tr key={entry.repo_id || entry.id} className="tr-cyber"
+                  style={{ borderBottom: "1px solid var(--border)" }}>
+                  <td style={{ padding: "10px 16px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px" }}>
+                    {String(idx + 1).padStart(2, "0")}
                   </td>
-                  <td style={{ padding: "10px 12px" }}>
-                    <a
-                      href={entry.github_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        color: "var(--accent-blue)",
-                        textDecoration: "none",
-                        fontWeight: 500,
-                      }}
-                    >
+                  <td style={{ padding: "10px 16px" }}>
+                    <a href={entry.github_url} target="_blank" rel="noopener noreferrer"
+                      style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--cyan)",
+                        textDecoration: "none", fontWeight: 600 }}>
                       {entry.owner}/{entry.name}
                     </a>
                   </td>
-                  <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 600 }}>
+                  <td style={{ padding: "10px 16px", textAlign: "right",
+                    fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--amber)" }}>
                     {view === "trending"
-                      ? `+${(entry.star_gain ?? 0).toLocaleString()} stars`
+                      ? `+${(entry.star_gain ?? 0).toLocaleString()}`
                       : view === "top_score"
-                        ? entry.trend_score?.toFixed(4) ?? "N/A"
-                        : entry.sustainability_score?.toFixed(4) ?? "N/A"}
+                        ? (entry.trend_score?.toFixed(4) ?? "—")
+                        : (entry.sustainability_score?.toFixed(4) ?? "—")}
                   </td>
-                  <td style={{ padding: "10px 12px", textAlign: "center" }}>
-                    {entry.sustainability_label ? (
-                      <SustainBadge label={entry.sustainability_label} />
-                    ) : (
-                      "—"
-                    )}
+                  <td style={{ padding: "10px 16px", textAlign: "center" }}>
+                    {entry.sustainability_label
+                      ? <SustainBadge label={entry.sustainability_label} />
+                      : <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: "10px" }}>—</span>}
                   </td>
                 </tr>
               ))}

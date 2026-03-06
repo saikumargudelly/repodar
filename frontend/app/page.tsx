@@ -81,77 +81,51 @@ function useWatchlist() {
   return { items, toggle, isPinned, save };
 }
 
-function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+function StatCard({ label, value, sub, index = 0 }: { label: string; value: string | number; sub?: string; index?: number }) {
   return (
-    <div className="card-pad" style={{
-      background: "var(--bg-surface)",
-      border: "1px solid var(--border)",
-      borderRadius: "10px",
-      padding: "20px 24px",
-    }}>
-      <p style={{ color: "var(--text-muted)", fontSize: "11px", fontWeight: 600, letterSpacing: "0.7px", textTransform: "uppercase", margin: "0 0 6px" }}>
-        {label}
-      </p>
-      <p className="stat-value">{value}</p>
-      {sub && <p style={{ color: "var(--text-muted)", fontSize: "12px", margin: "4px 0 0" }}>{sub}</p>}
+    <div className="kpi-card card-pad">
+      <div className="kpi-label">// {label}</div>
+      <div className="kpi-value">{value}</div>
+      {sub && (
+        <div className="kpi-sub">
+          {/^[+]/.test(String(sub))
+            ? <><em>{String(sub).split(' ')[0]}</em>{' '}{String(sub).split(' ').slice(1).join(' ')}</>
+            : sub}
+        </div>
+      )}
+      <div className="kpi-corner">{String(index + 1).padStart(2, '0')}</div>
     </div>
   );
 }
 
 function PeriodSelector({ selected, onChange }: { selected: Period; onChange: (p: Period) => void }) {
   return (
-    <div className="scroll-selector" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "4px" }}>
-      <div style={{ display: "flex", gap: "4px" }}>
+    <div className="scroll-selector" style={{ display: "flex", gap: "2px" }}>
       {PERIODS.map(({ key, label }) => (
         <button
           key={key}
           onClick={() => onChange(key)}
-          style={{
-            padding: "5px 14px",
-            borderRadius: "6px",
-            border: "none",
-            cursor: "pointer",
-            fontSize: "12px",
-            fontWeight: selected === key ? 600 : 400,
-            background: selected === key ? "var(--accent-blue)" : "transparent",
-            color: selected === key ? "#fff" : "var(--text-muted)",
-            transition: "all 0.15s",
-            whiteSpace: "nowrap",
-          }}
+          className={`filter-btn-cyber${selected === key ? ' active' : ''}`}
         >
           {label}
         </button>
       ))}
-      </div>
     </div>
   );
 }
 
 function VerticalSelector({ selected, onChange }: { selected: Vertical; onChange: (v: Vertical) => void }) {
   return (
-    <div className="scroll-selector" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "4px" }}>
-      <div style={{ display: "flex", gap: "4px" }}>
+    <div className="scroll-selector" style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
       {VERTICALS.map(({ key, label }) => (
         <button
           key={key}
           onClick={() => onChange(key)}
-          style={{
-            padding: "5px 12px",
-            borderRadius: "6px",
-            border: "none",
-            cursor: "pointer",
-            fontSize: "12px",
-            fontWeight: selected === key ? 600 : 400,
-            background: selected === key ? "#7c3aed" : "transparent",
-            color: selected === key ? "#fff" : "var(--text-muted)",
-            transition: "all 0.15s",
-            whiteSpace: "nowrap",
-          }}
+          className={`cat-pill-cyber${selected === key ? ' active' : ''}`}
         >
           {label}
         </button>
       ))}
-      </div>
     </div>
   );
 }
@@ -168,25 +142,26 @@ function CategoryTrendHeatmap({ data, period }: { data: CategoryMetrics[]; perio
   const periodLabel = PERIODS.find((p) => p.key === period)?.label ?? period;
   const chartData = [...data].sort((a, b) => b.trend_composite - a.trend_composite);
   return (
-    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "24px" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "20px", flexWrap: "wrap", gap: "10px" }}>
+    <div className="panel">
+      <div className="panel-header">
         <div style={{ minWidth: 0 }}>
-          <h2 style={{ fontSize: "13px", fontWeight: 600, margin: "0 0 4px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
-            Category Trend Score ({periodLabel})
-          </h2>
-          <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: 0 }}>
-            Composite: Stars 40% · Acceleration 20% · Contributors 20% · Releases 10% · Issues 10%
-          </p>
+          <div className="panel-title">
+            ◈ Category Trend Score ({periodLabel})
+          </div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", marginTop: "3px", letterSpacing: "0.06em" }}>
+            // Stars 40% · Acceleration 20% · Contributors 20% · Releases 10% · Issues 10%
+          </div>
         </div>
-        <div style={{ display: "flex", gap: "10px", fontSize: "11px", color: "var(--text-muted)", flexShrink: 0 }}>
-          {[["#22c55e", "High"], ["#f59e0b", "Mid"], ["#6b7280", "Low"]].map(([c, l]) => (
+        <div style={{ display: "flex", gap: "10px", fontSize: "10px", color: "var(--text-muted)", flexShrink: 0, fontFamily: "var(--font-mono)" }}>
+          {[["#39ff14", "HIGH"], ["#ffab00", "MID"], ["#4a5a68", "LOW"]].map(([c, l]) => (
             <span key={l} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-              <span style={{ width: 8, height: 8, borderRadius: 2, background: c, display: "inline-block" }} />{l}
+              <span style={{ width: 8, height: 8, background: c, display: "inline-block" }} />{l}
             </span>
           ))}
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={260}>
+      <div style={{ padding: "20px 24px" }}>
+        <ResponsiveContainer width="100%" height={260}>
         <BarChart data={chartData} layout="vertical" barSize={18} margin={{ left: 0, right: 20, top: 4, bottom: 4 }}>
           <XAxis type="number" domain={[0, 1]} tick={{ fontSize: 10, fill: "var(--text-muted)" }}
             tickFormatter={(v) => `${(v * 100).toFixed(0)}`} />
@@ -213,6 +188,7 @@ function CategoryTrendHeatmap({ data, period }: { data: CategoryMetrics[]; perio
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+      </div>
     </div>
   );
 }
@@ -222,18 +198,20 @@ function CategoryStarsChart({ data }: { data: CategoryMetrics[] }) {
   const chartData = [...data].sort((a, b) => b.total_stars - a.total_stars);
   const total = chartData.reduce((s, c) => s + c.total_stars, 0);
   return (
-    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "24px", display: "flex", flexDirection: "column", gap: "0" }}>
-      <h2 style={{ fontSize: "13px", fontWeight: 600, margin: "0 0 4px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
-        Stars Distribution
-      </h2>
-      <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: "0 0 16px" }}>
-        {total.toLocaleString()} total stars across all categories
-      </p>
-
-      {/* Chart + legend side by side on desktop, stacked on mobile */}
-      <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
-        {/* Pie chart — takes up as much space as available */}
-        <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+    <div className="panel" style={{ display: "flex", flexDirection: "column" }}>
+      <div className="panel-header">
+        <div>
+          <div className="panel-title">◇ Stars Distribution</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", marginTop: "3px" }}>
+            // {total.toLocaleString()} total stars across all categories
+          </div>
+        </div>
+      </div>
+      <div style={{ padding: "16px 24px", flex: 1 }}>
+        {/* Chart + legend side by side on desktop, stacked on mobile */}
+        <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
+          {/* Pie chart — takes up as much space as available */}
+          <div style={{ flex: "1 1 200px", minWidth: 0 }}>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart margin={{ top: 4, bottom: 4, left: 4, right: 4 }}>
               <Pie
@@ -281,26 +259,27 @@ function CategoryStarsChart({ data }: { data: CategoryMetrics[] }) {
           </ResponsiveContainer>
         </div>
 
-        {/* Legend — stacked vertically next to the pie */}
-        <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", gap: "8px", minWidth: 0 }}>
-          {chartData.map((cat) => {
-            const pct = total > 0 ? ((cat.total_stars / total) * 100).toFixed(1) : "0";
-            return (
-              <div key={cat.category} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span style={{
-                  width: 10, height: 10, borderRadius: "2px", flexShrink: 0,
-                  background: CATEGORY_COLORS[cat.category] ?? "#6b7280",
-                  display: "inline-block",
-                }} />
-                <span style={{ fontSize: "12px", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
-                  {cat.category}
-                </span>
-                <span style={{ fontSize: "11px", color: "var(--text-muted)", marginLeft: "auto", paddingLeft: "12px", fontFamily: "monospace", fontWeight: 600 }}>
-                  {pct}%
-                </span>
-              </div>
-            );
-          })}
+          {/* Legend — stacked vertically next to the pie */}
+          <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", gap: "8px", minWidth: 0 }}>
+            {chartData.map((cat) => {
+              const pct = total > 0 ? ((cat.total_stars / total) * 100).toFixed(1) : "0";
+              return (
+                <div key={cat.category} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{
+                    width: 10, height: 10, flexShrink: 0,
+                    background: CATEGORY_COLORS[cat.category] ?? "#6b7280",
+                    display: "inline-block",
+                  }} />
+                  <span style={{ fontSize: "11px", color: "var(--text-secondary)", whiteSpace: "nowrap", fontFamily: "var(--font-mono)" }}>
+                    {cat.category}
+                  </span>
+                  <span style={{ fontSize: "10px", color: "var(--text-muted)", marginLeft: "auto", paddingLeft: "12px", fontFamily: "var(--font-mono)", fontWeight: 700 }}>
+                    {pct}%
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -314,13 +293,16 @@ function CategoryPRChart({ data, period }: { data: CategoryMetrics[]; period: Pe
     .sort((a, b) => (b.total_merged_prs + b.avg_open_prs) - (a.total_merged_prs + a.avg_open_prs))
     .slice(0, 8);
   return (
-    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "24px" }}>
-      <h2 style={{ fontSize: "13px", fontWeight: 600, margin: "0 0 4px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
-        PR Activity
-      </h2>
-      <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: "0 0 16px" }}>
-        Merged PRs (cumulative) · Open PRs (avg/repo)
-      </p>
+    <div className="panel">
+      <div className="panel-header">
+        <div>
+          <div className="panel-title">⬡ PR Activity ({periodLabel})</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", marginTop: "3px" }}>
+            // Merged PRs (cumulative) · Open PRs (avg/repo)
+          </div>
+        </div>
+      </div>
+      <div style={{ padding: "16px 24px" }}>
       <ResponsiveContainer width="100%" height={240}>
         <BarChart data={chartData} layout="vertical" barSize={10} margin={{ left: 0, right: 20, top: 4, bottom: 4 }} barGap={2}>
           <XAxis type="number" tick={{ fontSize: 10, fill: "var(--text-muted)" }}
@@ -344,6 +326,7 @@ function CategoryPRChart({ data, period }: { data: CategoryMetrics[]; period: Pe
           <Bar dataKey="avg_open_prs" name="Avg open PRs" fill="#67e8f9" radius={[0, 3, 3, 0]} />
         </BarChart>
       </ResponsiveContainer>
+      </div>
     </div>
   );
 }
@@ -368,33 +351,31 @@ function LeaderboardTable({
   const periodLabel = PERIODS.find((p) => p.key === period)?.label ?? period;
 
   return (
-    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px" }}>
-      <div style={{ padding: "20px 24px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px", borderBottom: "1px solid var(--border)" }}>
-        <h2 style={{ fontSize: "13px", fontWeight: 600, margin: 0, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
-          Top Repos — {periodLabel}
-        </h2>
-        <span style={{ fontSize: "11px", color: "var(--text-muted)", background: "var(--bg-elevated)", padding: "3px 10px", borderRadius: "4px" }}>
-          Live · GitHub Search API
+    <div className="panel">
+      <div className="panel-header">
+        <div className="panel-title">▲ Top Repos — {periodLabel}</div>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--cyan)", border: "1px solid rgba(0,229,255,0.2)", padding: "2px 8px", letterSpacing: "0.1em" }}>
+          LIVE · GITHUB SEARCH API
         </span>
       </div>
 
       {isLoading ? (
-        <div style={{ padding: "32px", textAlign: "center", color: "var(--text-muted)", fontSize: "13px" }}>
-          Searching GitHub…
+        <div style={{ padding: "32px", textAlign: "center", fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px", letterSpacing: "0.1em" }}>
+          // SEARCHING GITHUB…
         </div>
       ) : entries.length === 0 ? (
-        <div style={{ padding: "32px", textAlign: "center", color: "var(--text-muted)", fontSize: "13px" }}>
-          No repos found for this period. Try a longer window.
+        <div style={{ padding: "32px", textAlign: "center", fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px", letterSpacing: "0.08em" }}>
+          // No repos found for this period. Try a longer window.
         </div>
       ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", fontFamily: "var(--font-mono)" }}>
           <thead>
             <tr style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
               {["", "#", "Repo / Description", "Category", "Stars / Gained", "Forks", "Open Issues", "Age", ""].map((h, i) => (
                 <th key={i} style={{
-                  padding: "10px 12px",
+                  padding: "9px 12px",
                   textAlign: ["#", "Stars / Gained", "Forks", "Open Issues", "Age"].includes(h) ? "right" : "left",
-                  fontWeight: 500, fontSize: "11px", letterSpacing: "0.5px", whiteSpace: "nowrap",
+                  fontWeight: 500, fontSize: "9px", letterSpacing: "0.2em", whiteSpace: "nowrap", textTransform: "uppercase",
                 }}>
                   {h}
                 </th>
@@ -511,32 +492,32 @@ function LeaderboardTable({
 function SustainabilityRanking({ repos }: { repos: SustainabilityEntry[] }) {
   const router = useRouter();
   return (
-    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "24px" }}>
-      <h2 style={{ fontSize: "13px", fontWeight: 600, margin: "0 0 16px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
-        Sustainability Ranking
-      </h2>
+    <div className="panel">
+      <div className="panel-header">
+        <div className="panel-title">◈ Sustainability Ranking</div>
+      </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
         {repos.length === 0 ? (
-          <div style={{ padding: "16px 0", textAlign: "center", color: "var(--text-muted)", fontSize: "13px" }}>
-            No sustainability data yet — scores will populate after first ingestion run.
+          <div style={{ padding: "20px 24px", textAlign: "center", fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "12px", letterSpacing: "0.08em" }}>
+            // No sustainability data yet — scores will populate after first ingestion run.
           </div>
         ) : repos.slice(0, 15).map((repo, i) => (
           <div
             key={repo.repo_id}
-            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 10px", borderRadius: "6px", cursor: "pointer", minWidth: 0 }}
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px", cursor: "pointer", minWidth: 0, borderBottom: "1px solid rgba(28,40,48,0.6)", transition: "background 0.15s" }}
             onClick={() => router.push(`/repo/${repo.repo_id}`)}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(0,229,255,0.025)")}
             onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, overflow: "hidden" }}>
-              <span style={{ color: "var(--text-muted)", fontSize: "12px", width: "22px", textAlign: "right" }}>{i + 1}</span>
+              <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "10px", width: "22px", textAlign: "right", flexShrink: 0 }}>{i + 1}</span>
               <div>
-                <span style={{ fontSize: "13px", fontWeight: 500 }}>{repo.owner}/{repo.name}</span>
-                <span style={{ marginLeft: "8px", fontSize: "11px", color: "var(--text-muted)" }}>{repo.category}</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--text-primary)" }}>{repo.owner}/{repo.name}</span>
+                <span style={{ marginLeft: "8px", fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", letterSpacing: "0.06em" }}>{repo.category}</span>
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <span style={{ fontFamily: "monospace", fontSize: "12px", color: "var(--text-muted)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--amber)" }}>
                 {(repo.sustainability_score * 100).toFixed(0)}%
               </span>
               <SustainBadge label={repo.sustainability_label} />
@@ -571,30 +552,24 @@ function EcosystemMapChart({ repos }: { repos: RadarRepo[] }) {
   const categories = Object.keys(byCategory);
 
   return (
-    <div style={{
-      background: "var(--bg-surface)",
-      border: "1px solid var(--border)",
-      borderRadius: "10px",
-      padding: "24px",
-    }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "20px", flexWrap: "wrap", gap: "10px" }}>
-        <div style={{ minWidth: 0 }}>
-          <h2 style={{ fontSize: "13px", fontWeight: 600, margin: "0 0 4px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
-            AI Ecosystem Map
-          </h2>
-          <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: 0 }}>
-            X-axis: Trend Score · Y-axis: Sustainability Score · Each dot = one repo
-          </p>
+    <div className="panel">
+      <div className="panel-header">
+        <div>
+          <div className="panel-title">◎ AI Ecosystem Map</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", marginTop: "3px" }}>
+            // X-axis: Trend Score · Y-axis: Sustainability Score · Each dot = one repo
+          </div>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 10px", fontSize: "10px", maxWidth: "100%", justifyContent: "flex-start" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 10px", fontSize: "10px", maxWidth: "50%", justifyContent: "flex-end" }}>
           {categories.map((c) => (
-            <span key={c} style={{ display: "flex", alignItems: "center", gap: "4px", color: "var(--text-muted)" }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: CATEGORY_COLORS[c] ?? "#888", display: "inline-block" }} />
+            <span key={c} style={{ display: "flex", alignItems: "center", gap: "4px", fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>
+              <span style={{ width: 7, height: 7, background: CATEGORY_COLORS[c] ?? "#888", display: "inline-block", clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)" }} />
               {c}
             </span>
           ))}
         </div>
       </div>
+      <div style={{ padding: "16px 24px" }}>
       <ResponsiveContainer width="100%" height={320}>
         <ScatterChart margin={{ top: 10, right: 10, bottom: 30, left: 10 }}>
           <XAxis
@@ -617,11 +592,11 @@ function EcosystemMapChart({ repos }: { repos: RadarRepo[] }) {
               if (!payload?.length) return null;
               const d = payload[0]?.payload as { x: number; y: number; name: string; owner: string; category: string };
               return (
-                <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "6px", padding: "8px 12px", fontSize: "12px" }}>
-                  <p style={{ margin: "0 0 4px", fontWeight: 600 }}>{d.owner}/{d.name}</p>
-                  <p style={{ margin: "0 0 2px", color: "var(--text-muted)" }}>Trend: <strong>{d.x}</strong></p>
-                  <p style={{ margin: "0 0 2px", color: "var(--text-muted)" }}>Sustainability: <strong>{d.y}</strong></p>
-                  <p style={{ margin: 0, color: CATEGORY_COLORS[d.category] ?? "#888", fontSize: "11px" }}>{d.category}</p>
+                <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", padding: "8px 12px", fontSize: "12px", fontFamily: "var(--font-mono)" }}>
+                  <p style={{ margin: "0 0 4px", fontWeight: 600, color: "var(--text-primary)" }}>{d.owner}/{d.name}</p>
+                  <p style={{ margin: "0 0 2px", color: "var(--cyan)" }}>TREND: <strong>{d.x}</strong></p>
+                  <p style={{ margin: "0 0 2px", color: "var(--amber)" }}>SUSTAIN: <strong>{d.y}</strong></p>
+                  <p style={{ margin: 0, color: CATEGORY_COLORS[d.category] ?? "#888", fontSize: "10px", letterSpacing: "0.06em" }}>{d.category}</p>
                 </div>
               );
             }}
@@ -641,16 +616,17 @@ function EcosystemMapChart({ repos }: { repos: RadarRepo[] }) {
       {/* Quadrant hints */}
       <div className="quadrant-grid">
         {[
-          { bg: "#22c55e22", label: "⭐ Rising Stars", desc: "High trend, high sustainability" },
-          { bg: "#f59e0b22", label: "🚀 Breakouts", desc: "High trend, lower sustainability" },
-          { bg: "#3b82f622", label: "🏛 Established", desc: "Lower trend, high sustainability" },
-          { bg: "#6b728022", label: "⚠ Watch", desc: "Low trend, low sustainability" },
-        ].map(({ bg, label, desc }) => (
-          <div key={label} style={{ background: bg, borderRadius: "6px", padding: "6px 10px", fontSize: "11px" }}>
-            <span style={{ fontWeight: 600 }}>{label}</span>
+          { bg: "rgba(57,255,20,0.06)", border: "var(--green)", label: "◈ Rising Stars", desc: "High trend · high sustainability" },
+          { bg: "rgba(255,171,0,0.06)", border: "var(--amber)", label: "▲ Breakouts", desc: "High trend · lower sustainability" },
+          { bg: "rgba(0,229,255,0.06)", border: "var(--cyan)", label: "⬡ Established", desc: "Lower trend · high sustainability" },
+          { bg: "rgba(255,61,107,0.06)", border: "var(--pink)", label: "⚠ Watch", desc: "Low trend · low sustainability" },
+        ].map(({ bg, border, label, desc }) => (
+          <div key={label} style={{ background: bg, border: `1px solid ${border}22`, padding: "6px 10px", fontSize: "10px", fontFamily: "var(--font-mono)" }}>
+            <span style={{ color: border, letterSpacing: "0.06em" }}>{label}</span>
             <span style={{ color: "var(--text-muted)", marginLeft: "6px" }}>{desc}</span>
           </div>
         ))}
+      </div>
       </div>
     </div>
   );
@@ -684,14 +660,8 @@ function AlertsPanel({
   };
 
   return (
-    <div style={{
-      background: "var(--bg-surface)",
-      border: "1px solid var(--border)",
-      borderRadius: "10px",
-      padding: collapsed ? "14px 24px" : "24px",
-      transition: "padding 0.2s",
-    }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: collapsed ? 0 : "16px" }}>
+    <div className="panel">
+      <div className="panel-header">
         {/* Left: title + badge + expand toggle */}
         <button
           onClick={() => setCollapsed((c) => !c)}
@@ -700,52 +670,31 @@ function AlertsPanel({
             background: "none", border: "none", cursor: "pointer", padding: 0,
           }}
         >
-          <span style={{ fontSize: "13px", color: "var(--text-muted)", transition: "transform 0.2s", display: "inline-block", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>▾</span>
-          <h2 style={{ fontSize: "13px", fontWeight: 600, margin: 0, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
-            Trend Alerts
-          </h2>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--text-muted)", transition: "transform 0.2s", display: "inline-block", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>▾</span>
+          <span className="panel-title">
+            ▲ Trend Alerts
+          </span>
           {unread > 0 && (
-            <span style={{
-              background: "#ef4444",
-              color: "#fff",
-              borderRadius: "999px",
-              fontSize: "10px",
-              fontWeight: 700,
-              padding: "1px 7px",
-              lineHeight: "16px",
-            }}>
-              {unread} new
+            <span className="alert-badge-cyber">
+              {unread} NEW
             </span>
           )}
           {collapsed && alerts.length > 0 && (
-            <span style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>
-              — {alerts.length} alert{alerts.length !== 1 ? "s" : ""} (click to expand)
+            <span style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>
+              — {alerts.length} alert{alerts.length !== 1 ? "s" : ""}
             </span>
           )}
         </button>
 
         {/* Right: dismiss all + hint */}
         {!collapsed && (
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             {unread > 0 && (
-              <button
-                onClick={handleDismissAll}
-                style={{
-                  padding: "4px 12px",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  background: "transparent",
-                  border: "1px solid var(--border)",
-                  borderRadius: "6px",
-                  color: "var(--text-muted)",
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                }}
-              >
+              <button onClick={handleDismissAll} className="link-btn-cyber">
                 Dismiss All
               </button>
             )}
-            <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", letterSpacing: "0.06em" }}>
               Last {alerts.length} alerts · click to dismiss
             </span>
           </div>
@@ -753,45 +702,38 @@ function AlertsPanel({
       </div>
 
       {!collapsed && (alerts.length === 0 ? (
-        <p style={{ color: "var(--text-muted)", fontSize: "13px", textAlign: "center", padding: "12px 0" }}>
-          No active alerts — scores will trigger alerts after sufficient data accumulates.
+        <p style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: "12px", textAlign: "center", padding: "16px 20px", letterSpacing: "0.08em" }}>
+          // No active alerts — scores will trigger alerts after sufficient data accumulates.
         </p>
       ) : (
-      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-        {alerts.map((alert) => (
-          <div
-            key={alert.id}
-            onClick={() => !alert.is_read && onMarkRead(alert.id)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
-              padding: "10px 14px",
-              borderRadius: "8px",
-              border: "1px solid var(--border)",
-              background: alert.is_read ? "transparent" : "rgba(239,68,68,0.07)",
-              cursor: alert.is_read ? "default" : "pointer",
-              opacity: alert.is_read ? 0.6 : 1,
-              transition: "all 0.15s",
-            }}
-          >
-            <span style={{ fontSize: "18px", lineHeight: 1 }}>
-              {ALERT_ICONS[alert.alert_type] ?? "🔔"}
-            </span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: "13px", fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {alert.headline}
-              </p>
-              <p style={{ margin: "2px 0 0", fontSize: "11px", color: "var(--text-muted)" }}>
-                {alert.category} · {new Date(alert.triggered_at).toLocaleString()}
-              </p>
+        <div>
+          {alerts.map((alert) => (
+            <div
+              key={alert.id}
+              onClick={() => !alert.is_read && onMarkRead(alert.id)}
+              className={`alert-row-cyber${alert.is_read ? " read" : ""}`}
+            >
+              <span style={{ fontSize: "16px", flexShrink: 0 }}>
+                {ALERT_ICONS[alert.alert_type] ?? "★"}
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: "3px" }}>
+                  <strong style={{ color: "var(--cyan)", fontWeight: 700 }}>{alert.headline.split(" gained")[0]}</strong>
+                  {alert.headline.includes(" gained") ? " gained" + alert.headline.split(" gained")[1] : ""}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)" }}>
+                  <span style={{ border: "1px solid rgba(0,229,255,0.2)", color: "var(--cyan)", padding: "1px 5px", fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                    {alert.category}
+                  </span>
+                  {new Date(alert.triggered_at).toLocaleString()}
+                </div>
+              </div>
+              {!alert.is_read && (
+                <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--pink)", boxShadow: "0 0 6px var(--pink)", flexShrink: 0 }} />
+              )}
             </div>
-            {!alert.is_read && (
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#ef4444", flexShrink: 0 }} />
-            )}
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
       ))}
     </div>
   );
@@ -869,7 +811,9 @@ export default function OverviewPage() {
   if (overviewLoading) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
-        <p style={{ color: "var(--text-muted)" }}>Loading ecosystem data...</p>
+        <p style={{ fontFamily: "var(--font-mono)", color: "var(--cyan)", letterSpacing: "0.15em", fontSize: "11px" }}>
+          // LOADING ECOSYSTEM DATA<span className="terminal-cursor" />
+        </p>
       </div>
     );
   }
@@ -877,11 +821,13 @@ export default function OverviewPage() {
   if (error || !overview) {
     return (
       <div style={{ paddingTop: "40px" }}>
-        <div style={{ background: "var(--bg-surface)", border: "1px solid var(--accent-red)", borderRadius: "10px", padding: "24px" }}>
-          <p style={{ color: "var(--accent-red)", fontWeight: 600, marginBottom: "8px" }}>Backend not reachable</p>
-          <p style={{ color: "var(--text-secondary)", fontSize: "13px" }}>
-            Start the FastAPI server: <code>make dev-backend</code><br />
-            Run first-time setup: <code>POST /admin/run-all</code> from the API docs at <code>localhost:8000/docs</code>
+        <div className="panel" style={{ padding: "24px" }}>
+          <p style={{ color: "var(--pink)", fontFamily: "var(--font-mono)", fontWeight: 700, marginBottom: "8px", letterSpacing: "0.08em" }}>
+            ✕ BACKEND NOT REACHABLE
+          </p>
+          <p style={{ color: "var(--text-secondary)", fontSize: "12px", fontFamily: "var(--font-mono)", lineHeight: 1.8 }}>
+            Start the FastAPI server: <code style={{ color: "var(--cyan)" }}>make dev-backend</code><br />
+            Run first-time setup: <code style={{ color: "var(--cyan)" }}>POST /admin/run-all</code> from the API docs at <code style={{ color: "var(--cyan)" }}>localhost:8000/docs</code>
           </p>
         </div>
       </div>
@@ -898,23 +844,26 @@ export default function OverviewPage() {
       {/* Floating compare bar */}
       {compareSelection.length >= 2 && (
         <div style={{
-          position: "fixed", bottom: "24px", left: "50%", transform: "translateX(-50%)",
-          background: "#7c3aed", color: "#fff", borderRadius: "10px", padding: "12px 24px",
-          display: "flex", alignItems: "center", gap: "16px", zIndex: 200,
-          boxShadow: "0 8px 32px rgba(124,58,237,0.4)",
+          position: "fixed", bottom: "32px", left: "50%", transform: "translateX(-50%)",
+          background: "var(--bg-surface)", border: "1px solid var(--cyan)",
+          padding: "10px 20px",
+          display: "flex", alignItems: "center", gap: "16px", zIndex: 300,
+          boxShadow: "0 0 24px rgba(0,229,255,0.25)",
+          clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)",
         }}>
-          <span style={{ fontSize: "13px", fontWeight: 600 }}>
-            {compareSelection.length} repos selected
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", fontWeight: 700, color: "var(--cyan)", letterSpacing: "0.1em" }}>
+            {compareSelection.length} REPOS SELECTED
           </span>
           <button
             onClick={openCompare}
-            style={{ background: "#fff", color: "#7c3aed", border: "none", borderRadius: "6px", padding: "6px 16px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
+            className="btn-cyber btn-cyber-cyan"
+            style={{ fontSize: "10px" }}
           >
             Compare →
           </button>
           <button
             onClick={() => setCompareSelection([])}
-            style={{ background: "rgba(255,255,255,0.2)", color: "#fff", border: "none", borderRadius: "6px", padding: "6px 12px", fontSize: "12px", cursor: "pointer" }}
+            className="link-btn-cyber"
           >
             Clear
           </button>
@@ -922,40 +871,53 @@ export default function OverviewPage() {
       )}
 
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
         <div>
-          <h1 style={{ fontSize: "22px", fontWeight: 700, margin: "0 0 4px" }}>Ecosystem Overview</h1>
-          <p style={{ color: "var(--text-muted)", fontSize: "13px", margin: 0 }}>As of {overview.as_of}</p>
+          <div className="section-title-cyber">
+            Ecosystem <span>Overview</span>
+            <span className="terminal-cursor" />
+          </div>
+          <div style={{
+            fontFamily: "var(--font-mono)", fontSize: "10px",
+            color: "var(--text-muted)", letterSpacing: "0.12em",
+            marginTop: "6px", textTransform: "uppercase",
+          }}>
+            // as_of: {overview.as_of} · filter: {PERIODS.find(p => p.key === period)?.label ?? period} · category: {VERTICALS.find(v => v.key === vertical)?.label ?? vertical}
+          </div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "stretch", minWidth: 0, maxWidth: "100%" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "flex-end", minWidth: 0 }}>
           <PeriodSelector selected={period} onChange={setPeriod} />
           <VerticalSelector selected={vertical} onChange={(v) => { setVertical(v); setCompareSelection([]); }} />
         </div>
       </div>
 
       {/* Stat Cards */}
-      <div className="stat-grid">
+      <div className="stat-grid" style={{ gap: '1px', background: 'var(--border)' }}>
         <StatCard
-          label="Repos Tracked"
+          index={0}
+          label="repos_tracked"
           value={overview.total_repos}
           sub={overview.discovered_repos > 0
             ? `+${overview.discovered_repos} auto-discovered`
             : "curated baseline"}
         />
         <StatCard
-          label="Top Category"
+          index={1}
+          label="top_category"
           value={topCat?.category ?? "—"}
           sub={topCat ? `${topCat.total_stars.toLocaleString()} total stars` : undefined}
         />
         <StatCard
-          label={`#1 — ${PERIODS.find(p => p.key === period)?.label ?? period}`}
+          index={2}
+          label={`#1 — ${PERIODS.find(p => p.key === period)?.label ?? period} momentum`}
           value={topLeaderEntry ? `${topLeaderEntry.owner}/${topLeaderEntry.name}` : "—"}
           sub={topLeaderEntry
-            ? `${topLeaderEntry.current_stars.toLocaleString()} ⭐`
+            ? `★ ${topLeaderEntry.current_stars.toLocaleString()} stars`
             : undefined}
         />
         <StatCard
-          label="Green Sustainability"
+          index={3}
+          label="green_score"
           value={greenCount}
           sub={`of ${overview.sustainability_ranking.length} scored`}
         />
@@ -996,21 +958,25 @@ export default function OverviewPage() {
 
       {/* Watchlist */}
       {watchlist.length > 0 && (
-        <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "10px", padding: "24px" }}>
-          <h2 style={{ fontSize: "13px", fontWeight: 600, margin: "0 0 16px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
-            ★ Watchlist ({watchlist.length})
-          </h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+        <div className="panel">
+          <div className="panel-header">
+            <div className="panel-title">★ Watchlist</div>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--cyan)", border: "1px solid var(--cyan)", padding: "2px 8px", letterSpacing: "0.08em" }}>{watchlist.length}</span>
+          </div>
+          <div style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: "1px", background: "var(--border)" }}>
             {watchlist.map((item) => (
-              <div key={item.repo_id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", borderRadius: "6px", background: "var(--bg-elevated)" }}>
-                <a href={item.github_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "13px", fontWeight: 500, color: "var(--text-primary)", textDecoration: "none" }}>
+              <div key={item.repo_id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 12px", background: "var(--bg-surface)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(0,229,255,0.025)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "var(--bg-surface)")}
+              >
+                <a href={item.github_url} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--text-primary)", textDecoration: "none" }}>
                   {item.owner}/{item.name}
                 </a>
                 <button
                   onClick={() => togglePin(item)}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: "12px", padding: "2px 6px" }}
+                  style={{ background: "none", border: "1px solid var(--border)", cursor: "pointer", color: "var(--pink)", fontSize: "10px", padding: "2px 8px", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}
                 >
-                  Remove
+                  REMOVE
                 </button>
               </div>
             ))}
