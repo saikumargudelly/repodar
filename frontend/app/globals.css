@@ -40,6 +40,9 @@
 
   /* Theme icon (kept for Nav compatibility) */
   --theme-icon: "⬡";
+
+  /* Scanline colour — overridden per theme */
+  --scanline-color: rgba(0,229,255,0.015);
 }
 
 @theme inline {
@@ -75,8 +78,8 @@ body::before {
     0deg,
     transparent,
     transparent 2px,
-    rgba(0,229,255,0.015) 2px,
-    rgba(0,229,255,0.015) 4px
+    var(--scanline-color) 2px,
+    var(--scanline-color) 4px
   );
   pointer-events: none;
   z-index: 9997;
@@ -413,6 +416,151 @@ img, video, canvas, iframe {
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-primary); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ══════════════════════════════════════════════════════════════
+   CYBERPUNK THEME VARIANTS
+   All themes share the same component classes — only CSS vars
+   change, so every element updates automatically.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── FIRE — Cyberpunk 2077 yellow × hot orange on pure black ── */
+[data-theme="fire"] {
+  /* Primary = CP2077 signature electric yellow — highest luminance warm color */
+  --cyan:   #ffe600;   /* primary action — CP2077 electric yellow */
+  --amber:  #ff6d00;   /* secondary — deep orange */
+  --pink:   #ff1744;   /* hot red alert */
+  --green:  #ff9100;   /* bright amber warm */
+
+  /* backwards-compat aliases */
+  --accent-blue:   #ffe600;
+  --accent-green:  #ff9100;
+  --accent-yellow: #ff6d00;
+  --accent-red:    #ff1744;
+
+  /* Pure black base — same as ICE for maximum contrast */
+  --bg-primary:  #000000;
+  --bg-surface:  #070400;
+  --bg-elevated: #0e0900;
+  --bg-dim:      #1c1200;
+
+  --border: #2e1e00;
+
+  --text-primary:   #fff5cc;
+  --text-secondary: #b8922a;
+  --text-muted:     #5a3e10;
+
+  --scanline-color: rgba(255,230,0,0.018);
+}
+
+/* ── MATRIX — classic CRT phosphor green on pure black ─────── */
+[data-theme="matrix"] {
+  /* Primary = pure phosphor green #00ff00 — maximum green luminance */
+  --cyan:   #00ff00;   /* primary action — pure phosphor green */
+  --amber:  #39ff14;   /* neon lime green secondary */
+  --pink:   #00e5ff;   /* blue-cyan accent for contrast pop */
+  --green:  #00ff00;
+
+  /* backwards-compat aliases */
+  --accent-blue:   #00ff00;
+  --accent-green:  #00ff00;
+  --accent-yellow: #39ff14;
+  --accent-red:    #00e5ff;
+
+  /* Pure black base — same as ICE for maximum contrast */
+  --bg-primary:  #000000;
+  --bg-surface:  #010501;
+  --bg-elevated: #030d03;
+  --bg-dim:      #071507;
+
+  --border: #0d3a0d;
+
+  --text-primary:   #ccffcc;
+  --text-secondary: #5ab85a;
+  --text-muted:     #2a6030;
+
+  --scanline-color: rgba(0,255,0,0.02);
+}
+
+/* ── Theme-switch flash overlay ────────────────────────────── */
+@keyframes theme-flash {
+  0%   { opacity: 0.14; }
+  100% { opacity: 0; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   THEME-SPECIFIC COMPONENT OVERRIDES
+   Per-theme glow / hover colours for rules that have ICE-
+   hardcoded rgba() values in their base declarations.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── FIRE component overrides ───────────────────────────────── */
+[data-theme="fire"] .kpi-card:nth-child(1) .kpi-value {
+  text-shadow: 0 0 30px rgba(255,230,0,0.55), 0 0 55px rgba(255,230,0,0.25);
+}
+[data-theme="fire"] .kpi-card:nth-child(4) .kpi-value {
+  text-shadow: 0 0 25px rgba(255,145,0,0.5), 0 0 45px rgba(255,145,0,0.25);
+}
+[data-theme="fire"] .alert-row-cyber:hover {
+  background: rgba(255,230,0,0.04);
+}
+[data-theme="fire"] .section-title-cyber span {
+  text-shadow: 0 0 28px rgba(255,230,0,0.65), 0 0 50px rgba(255,230,0,0.3);
+}
+[data-theme="fire"] .tr-cyber:hover {
+  background: rgba(255,230,0,0.04) !important;
+}
+[data-theme="fire"] .repo-card-cyber:hover {
+  box-shadow: 0 0 18px rgba(255,230,0,0.18);
+}
+[data-theme="fire"] .repo-card-cyber.hot {
+  box-shadow: 0 0 26px rgba(255,230,0,0.3), 0 0 50px rgba(255,230,0,0.15);
+}
+[data-theme="fire"] .lb-row-cyber:hover {
+  background: rgba(255,230,0,0.05);
+}
+[data-theme="fire"] .alert-badge-cyber {
+  animation: glow-fire-badge 2s ease-in-out infinite;
+}
+@keyframes glow-fire-badge {
+  0%,100% { box-shadow: 0 0 8px rgba(255,23,68,0.6); }
+  50%     { box-shadow: 0 0 20px rgba(255,23,68,1); }
+}
+
+/* ── MATRIX component overrides ─────────────────────────────── */
+[data-theme="matrix"] .kpi-card:nth-child(1) .kpi-value {
+  text-shadow: 0 0 30px rgba(0,255,0,0.55), 0 0 55px rgba(0,255,0,0.25);
+}
+[data-theme="matrix"] .kpi-card:nth-child(4) .kpi-value {
+  text-shadow: 0 0 25px rgba(0,255,0,0.5), 0 0 45px rgba(0,255,0,0.25);
+}
+[data-theme="matrix"] .cat-pill-cyber.active {
+  background: rgba(57,255,20,0.1);
+}
+[data-theme="matrix"] .alert-row-cyber:hover {
+  background: rgba(0,255,0,0.04);
+}
+[data-theme="matrix"] .section-title-cyber span {
+  text-shadow: 0 0 28px rgba(0,255,0,0.65), 0 0 50px rgba(0,255,0,0.3);
+}
+[data-theme="matrix"] .tr-cyber:hover {
+  background: rgba(0,255,0,0.04) !important;
+}
+[data-theme="matrix"] .repo-card-cyber:hover {
+  box-shadow: 0 0 18px rgba(0,255,0,0.18);
+}
+[data-theme="matrix"] .repo-card-cyber.hot {
+  box-shadow: 0 0 26px rgba(0,255,0,0.3), 0 0 50px rgba(0,255,0,0.15);
+}
+[data-theme="matrix"] .lb-row-cyber:hover {
+  background: rgba(0,255,0,0.05);
+}
+[data-theme="matrix"] .alert-badge-cyber {
+  animation: glow-matrix-badge 2s ease-in-out infinite;
+}
+@keyframes glow-matrix-badge {
+  0%,100% { box-shadow: 0 0 8px rgba(0,229,255,0.6); }
+  50%     { box-shadow: 0 0 20px rgba(0,229,255,1); }
+}
 
 /* ══════════════════════════════════════════════════════════════
    Responsive Grid & Layout Utilities

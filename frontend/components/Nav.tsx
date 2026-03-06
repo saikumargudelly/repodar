@@ -19,16 +19,23 @@ const NAV_LINKS = [
   { href: "/dev", label: "Dev API" },
 ];
 
-const THEMES: { key: Theme; icon: string; label: string }[] = [
-  { key: "dark",      icon: "◼", label: "Dark" },
-  { key: "semi-dark", icon: "◧", label: "Semi" },
-  { key: "light",     icon: "◻", label: "Light" },
+const THEMES: { key: Theme; label: string; color: string }[] = [
+  { key: "dark",   label: "ICE",  color: "#00e5ff" },
+  { key: "fire",   label: "FIRE", color: "#ffe600" },
+  { key: "matrix", label: "MTX",  color: "#00ff00" },
 ];
 
 export function Nav() {
   const pathname = usePathname();
   const [reportOpen, setReportOpen] = useState(false);
+  const [flashKey, setFlashKey] = useState(0);
   const { theme, setTheme } = useTheme();
+
+  const handleThemeSwitch = (t: Theme) => {
+    if (t === theme) return;
+    setTheme(t);
+    setFlashKey((k) => k + 1);
+  };
 
   const { data: report, isLoading } = useQuery({
     queryKey: ["weekly-report"],
@@ -69,23 +76,24 @@ export function Nav() {
               {THEMES.map((t) => (
                 <button
                   key={t.key}
-                  onClick={() => setTheme(t.key)}
-                  title={t.label}
+                  onClick={() => handleThemeSwitch(t.key)}
+                  title={`Switch to ${t.label} theme`}
                   style={{
-                    padding: "4px 8px",
-                    border: "none",
+                    padding: "4px 10px",
+                    border: theme === t.key ? `1px solid ${t.color}` : "1px solid transparent",
                     cursor: "pointer",
                     fontFamily: "var(--font-mono)",
-                    fontSize: "11px",
+                    fontSize: "10px",
                     fontWeight: 700,
-                    letterSpacing: "0.04em",
-                    background: theme === t.key ? "var(--cyan)22" : "transparent",
-                    color: theme === t.key ? "var(--cyan)" : "var(--text-muted)",
+                    letterSpacing: "0.08em",
+                    background: theme === t.key ? `${t.color}22` : "transparent",
+                    color: theme === t.key ? t.color : "var(--text-muted)",
                     transition: "all 0.15s",
                     lineHeight: 1,
+                    textTransform: "uppercase",
                   }}
                 >
-                  {t.icon}
+                  {t.label}
                 </button>
               ))}
             </div>
@@ -118,6 +126,21 @@ export function Nav() {
 
 
       </nav>
+
+      {/* Theme-switch full-viewport flash */}
+      {flashKey > 0 && (
+        <div
+          key={flashKey}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9998,
+            pointerEvents: "none",
+            background: THEMES.find((t) => t.key === theme)?.color ?? "var(--cyan)",
+            animation: "theme-flash 0.45s ease-out forwards",
+          }}
+        />
+      )}
 
       {/* Report Modal */}
       {reportOpen && (

@@ -5,7 +5,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { createContext, useContext, useEffect, useState } from "react";
 
 // ── Theme ────────────────────────────────────────────────────────────────────
-export type Theme = "dark" | "semi-dark" | "light";
+export type Theme = "dark" | "fire" | "matrix";
 
 interface ThemeCtx {
   theme: Theme;
@@ -23,7 +23,7 @@ function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const stored = localStorage.getItem("repodar_theme") as Theme | null;
-    if (stored && ["dark", "semi-dark", "light"].includes(stored)) {
+    if (stored && ["dark", "fire", "matrix"].includes(stored)) {
       setThemeState(stored);
       document.documentElement.setAttribute("data-theme", stored);
     }
