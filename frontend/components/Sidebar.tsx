@@ -172,18 +172,20 @@ export function Sidebar() {
         title={isMobile ? "" : collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
         <div style={{
-          width: "32px", height: "32px", borderRadius: "8px",
-          background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+          width: "32px", height: "32px",
+          border: "1px solid var(--cyan)",
+          boxShadow: "0 0 8px var(--cyan)55, inset 0 0 8px var(--cyan)22",
           display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+          background: "var(--bg-elevated)",
         }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
           </svg>
         </div>
         {(!collapsed || isMobile) && (
           <div style={{ display: "flex", flexDirection: "column", gap: "1px", userSelect: "none" }}>
-            <span style={{ fontWeight: 700, fontSize: "14px", letterSpacing: "-0.3px", color: "var(--text-primary)", whiteSpace: "nowrap" }}>Repodar</span>
-            <span style={{ fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>GitHub AI Radar</span>
+            <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "15px", letterSpacing: "0.08em", color: "var(--cyan)", whiteSpace: "nowrap", textShadow: "0 0 12px var(--cyan)88" }}>REPODAR</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--text-muted)", whiteSpace: "nowrap", letterSpacing: "0.06em" }}>// github ai radar</span>
           </div>
         )}
         {/* Close button on mobile */}
@@ -207,17 +209,17 @@ export function Sidebar() {
               className="sidebar-nav-link"
               style={{
                 padding: collapsed && !isMobile ? "9px 0" : "9px 10px",
-                fontWeight: isActive ? 600 : 400,
-                color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
-                background: isActive ? "var(--bg-elevated)" : "transparent",
+                fontWeight: isActive ? 700 : 400,
+                color: isActive ? "var(--cyan)" : "var(--text-secondary)",
+                background: isActive ? "var(--cyan)0f" : "transparent",
                 justifyContent: "center",
-                borderLeft: isActive ? "2px solid var(--accent-blue)" : "2px solid transparent",
+                borderLeft: isActive ? "2px solid var(--cyan)" : "2px solid transparent",
               }}
             >
-              <span style={{ display: "flex", alignItems: "center", justifyContent: "center", color: isActive ? "var(--accent-blue)" : "inherit", flexShrink: 0, width: "17px" }}>
+              <span style={{ display: "flex", alignItems: "center", justifyContent: "center", color: isActive ? "var(--cyan)" : "var(--text-muted)", flexShrink: 0, width: "17px" }}>
                 {item.icon}
               </span>
-              <span className="sidebar-label" style={{ flex: 1 }}>{item.label}</span>
+              <span className="sidebar-label" style={{ flex: 1, fontFamily: "var(--font-mono)", fontSize: "11px", letterSpacing: "0.04em", textTransform: "uppercase" }}>{item.label}</span>
               <span className="sidebar-tooltip">{item.label}</span>
             </Link>
           );
@@ -228,13 +230,11 @@ export function Sidebar() {
       <div
         style={{ padding: collapsed && !isMobile ? "12px 10px" : "12px 14px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: collapsed && !isMobile ? "center" : "flex-start", gap: "8px" }}
       >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0 }}>
-          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-        </svg>
+        <div style={{ width: "8px", height: "8px", background: "var(--green)", boxShadow: "0 0 6px var(--green)", flexShrink: 0 }} />
         {(!collapsed || isMobile) && (
           <div>
-            <div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: 600, whiteSpace: "nowrap" }}>Repodar v2.0</div>
-            <div style={{ fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap", marginTop: "1px" }}>AI/ML ecosystem tracker</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--green)", fontWeight: 700, whiteSpace: "nowrap", letterSpacing: "0.06em" }}>v2.0 // ONLINE</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--text-muted)", whiteSpace: "nowrap", marginTop: "1px", letterSpacing: "0.04em" }}>ai/ml ecosystem tracker</div>
           </div>
         )}
       </div>
@@ -248,16 +248,19 @@ export function Sidebar() {
           display: flex;
           align-items: center;
           gap: 10px;
-          border-radius: 7px;
-          font-size: 13px;
+          font-size: 11px;
           text-decoration: none;
           transition: background 0.13s, color 0.13s;
           position: relative;
           cursor: pointer;
         }
         .sidebar-nav-link:hover {
-          background: var(--bg-elevated) !important;
-          color: var(--text-primary) !important;
+          background: var(--cyan)0d !important;
+          color: var(--cyan) !important;
+        }
+        .sidebar-nav-link:hover svg {
+          color: var(--cyan) !important;
+          stroke: var(--cyan) !important;
         }
         .sidebar-tooltip {
           display: none;
@@ -266,16 +269,18 @@ export function Sidebar() {
           top: 50%;
           transform: translateY(-50%);
           background: var(--bg-elevated);
-          border: 1px solid var(--border);
-          color: var(--text-primary);
-          font-size: 12px;
-          font-weight: 500;
-          padding: 5px 10px;
-          border-radius: 6px;
+          border: 1px solid var(--cyan);
+          color: var(--cyan);
+          font-size: 10px;
+          font-family: var(--font-mono);
+          font-weight: 700;
+          padding: 4px 10px;
           white-space: nowrap;
           pointer-events: none;
           z-index: 200;
-          box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+          box-shadow: 0 0 10px var(--cyan)44;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
         }
         .sidebar-tooltip::before {
           content: '';
@@ -284,7 +289,7 @@ export function Sidebar() {
           top: 50%;
           transform: translateY(-50%);
           border: 5px solid transparent;
-          border-right-color: var(--border);
+          border-right-color: var(--cyan);
         }
         .sidebar-collapsed .sidebar-nav-link:hover .sidebar-tooltip {
           display: block;

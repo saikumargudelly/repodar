@@ -20,9 +20,9 @@ const NAV_LINKS = [
 ];
 
 const THEMES: { key: Theme; icon: string; label: string }[] = [
-  { key: "dark",      icon: "🌑", label: "Dark" },
-  { key: "semi-dark", icon: "🌓", label: "Semi-dark" },
-  { key: "light",     icon: "🌕", label: "Light" },
+  { key: "dark",      icon: "◼", label: "Dark" },
+  { key: "semi-dark", icon: "◧", label: "Semi" },
+  { key: "light",     icon: "◻", label: "Light" },
 ];
 
 export function Nav() {
@@ -46,6 +46,7 @@ export function Nav() {
           position: "sticky",
           top: 0,
           zIndex: 40,
+          boxShadow: "0 1px 0 var(--cyan)22",
         }}
       >
         <div
@@ -64,7 +65,7 @@ export function Nav() {
           {/* Right side: Theme switcher + Report + Hamburger */}
           <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
             {/* Theme switcher */}
-            <div style={{ display: "flex", gap: "2px", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "8px", padding: "3px" }}>
+            <div style={{ display: "flex", gap: "2px", background: "var(--bg-elevated)", border: "1px solid var(--border)", padding: "3px" }}>
               {THEMES.map((t) => (
                 <button
                   key={t.key}
@@ -72,11 +73,14 @@ export function Nav() {
                   title={t.label}
                   style={{
                     padding: "4px 8px",
-                    borderRadius: "5px",
                     border: "none",
                     cursor: "pointer",
-                    fontSize: "14px",
-                    background: theme === t.key ? "var(--accent-blue)" : "transparent",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    letterSpacing: "0.04em",
+                    background: theme === t.key ? "var(--cyan)22" : "transparent",
+                    color: theme === t.key ? "var(--cyan)" : "var(--text-muted)",
                     transition: "all 0.15s",
                     lineHeight: 1,
                   }}
@@ -89,20 +93,16 @@ export function Nav() {
             {/* Weekly Report button */}
             <button
               onClick={() => setReportOpen(true)}
+              className="btn-cyber btn-cyber-cyan"
               style={{
-                padding: "7px 14px",
-                borderRadius: "6px",
-                fontSize: "12px",
-                fontWeight: 600,
-                background: "var(--accent-blue)",
-                color: "white",
-                border: "none",
-                cursor: "pointer",
-                letterSpacing: "0.3px",
+                padding: "6px 14px",
+                fontSize: "10px",
+                fontWeight: 700,
+                letterSpacing: "0.06em",
                 whiteSpace: "nowrap",
               }}
             >
-              <span className="nav-description" style={{ marginLeft: 0 }}>Weekly </span>Report
+              <span className="nav-description" style={{ marginLeft: 0 }}>WEEKLY </span>REPORT
             </button>
 
             {/* Hamburger — mobile only, opens sidebar drawer */}
@@ -139,7 +139,6 @@ export function Nav() {
             style={{
               background: "var(--bg-surface)",
               border: "1px solid var(--border)",
-              borderRadius: "12px",
               width: "100%",
               maxWidth: "780px",
               padding: "24px",
@@ -148,11 +147,14 @@ export function Nav() {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
               <div>
-                <h2 style={{ fontSize: "18px", fontWeight: 700, margin: 0 }}>Weekly Repodar Intelligence Report</h2>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "16px",
+                  color: "var(--cyan)", letterSpacing: "0.08em", textShadow: "0 0 10px var(--cyan)66" }}>
+                  WEEKLY INTELLIGENCE REPORT
+                </div>
                 {report && (
-                  <p style={{ color: "var(--text-muted)", fontSize: "12px", margin: "4px 0 0" }}>
-                    Week ending {report.week_ending}
-                  </p>
+                  <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "10px", margin: "4px 0 0", letterSpacing: "0.06em" }}>
+                    // week ending {report.week_ending}
+                  </div>
                 )}
               </div>
               <button
@@ -164,9 +166,9 @@ export function Nav() {
             </div>
 
             {isLoading && (
-              <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: "40px 0" }}>
-                Generating report...
-              </p>
+              <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", textAlign: "center", padding: "40px 0", fontSize: "12px", letterSpacing: "0.06em" }}>
+                // GENERATING REPORT<span className="terminal-cursor" />
+              </div>
             )}
 
             {report && (
@@ -201,7 +203,7 @@ export function Nav() {
                                 href={`https://github.com/${r.owner}/${r.name}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                style={{ color: "var(--accent-blue)", textDecoration: "none" }}
+                                style={{ color: "var(--cyan)", textDecoration: "none", fontFamily: "var(--font-mono)", fontSize: "11px" }}
                               >
                                 {r.owner}/{r.name}
                               </a>
@@ -229,7 +231,7 @@ export function Nav() {
                           <span style={{ color: "var(--text-muted)", fontSize: "12px" }}>
                             {c.weekly_velocity.toFixed(0)} stars/wk
                           </span>
-                          <span style={{ fontSize: "12px", color: c.mom_growth_pct >= 0 ? "var(--accent-green)" : "var(--accent-red)" }}>
+                          <span style={{ fontSize: "12px", fontFamily: "var(--font-mono)", color: c.mom_growth_pct >= 0 ? "var(--green)" : "var(--pink)" }}>
                             {c.mom_growth_pct >= 0 ? "+" : ""}{c.mom_growth_pct.toFixed(1)}% MoM
                           </span>
                           <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>{c.signal}</span>
@@ -244,7 +246,7 @@ export function Nav() {
                   <Section title="Sustainability Watchlist">
                     <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                       {report.sustainability_watchlist.slice(0, 5).map((w) => (
-                        <div key={`${w.owner}/${w.name}`} style={{ padding: "10px 12px", background: "var(--bg-elevated)", borderRadius: "6px", borderLeft: "3px solid var(--accent-red)" }}>
+                        <div key={`${w.owner}/${w.name}`} style={{ padding: "10px 12px", background: "var(--bg-elevated)", borderLeft: "3px solid var(--pink)" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "4px" }}>
                             <span style={{ fontSize: "13px", fontWeight: 600 }}>{w.owner}/{w.name}</span>
                             <SustainBadge label={w.sustainability_label} />
@@ -267,9 +269,11 @@ export function Nav() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h3 style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "12px" }}>
-        {title}
-      </h3>
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", fontWeight: 700,
+        color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em",
+        marginBottom: "12px", borderBottom: "1px solid var(--border)", paddingBottom: "6px" }}>
+        ◈ {title}
+      </div>
       {children}
     </div>
   );
@@ -277,11 +281,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export function SustainBadge({ label }: { label: string }) {
   const color =
-    label === "GREEN" ? "var(--accent-green)" :
-    label === "RED" ? "var(--accent-red)" :
-    "var(--accent-yellow)";
+    label === "GREEN" ? "var(--green)" :
+    label === "RED" ? "var(--pink)" :
+    "var(--amber)";
   return (
-    <span style={{ fontSize: "10px", fontWeight: 700, color, border: `1px solid ${color}`, borderRadius: "4px", padding: "2px 6px", letterSpacing: "0.5px" }}>
+    <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", fontWeight: 700, color,
+      border: `1px solid ${color}`, padding: "2px 6px", letterSpacing: "0.06em" }}>
       {label}
     </span>
   );
