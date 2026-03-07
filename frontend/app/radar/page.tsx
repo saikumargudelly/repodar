@@ -6,6 +6,23 @@ import { useRouter } from "next/navigation";
 import { api, RadarRepo, LanguageStat } from "@/lib/api";
 import { SustainBadge } from "@/components/Nav";
 
+function downloadBlob(content: string, filename: string, mime: string) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+function exportCSV(data: any[], filename: string) {
+  if (!data.length) return;
+  const keys = Object.keys(data[0]);
+  const rows = [keys.join(","), ...data.map((r) => keys.map((k) => JSON.stringify(r[k] ?? "")).join(","))];
+  downloadBlob(rows.join("\n"), filename, "text/csv");
+}
+function exportJSON(data: any[], filename: string) {
+  downloadBlob(JSON.stringify(data, null, 2), filename, "application/json");
+}
+
 const CATEGORIES = [
   "All",
   "LLM Models",
@@ -68,8 +85,8 @@ export default function RadarPage() {
         </div>
       </div>
 
-      {/* Sort bar */}
-      <div className="scroll-selector">
+      {/* Sort bar + export */}
+      <div className="scroll-selector" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", gap: "6px" }}>
           {(["trend_score", "acceleration", "star_velocity_7d", "sustainability_score", "age_days"] as SortKey[]).map((key) => (
             <button key={key} onClick={() => setSortKey(key)}
@@ -77,6 +94,18 @@ export default function RadarPage() {
               {key.replace(/_/g, " ").toUpperCase()}
             </button>
           ))}
+        </div>
+        <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
+          <button onClick={() => exportCSV(filtered, `radar-${category.replace(/ /g, "_")}-${sortKey}.csv`)}
+            style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", background: "transparent",
+              border: "1px solid var(--border)", borderRadius: "4px", padding: "4px 10px", cursor: "pointer" }}>
+            ↓ CSV
+          </button>
+          <button onClick={() => exportJSON(filtered, `radar-${category.replace(/ /g, "_")}-${sortKey}.json`)}
+            style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", background: "transparent",
+              border: "1px solid var(--border)", borderRadius: "4px", padding: "4px 10px", cursor: "pointer" }}>
+            ↓ JSON
+          </button>
         </div>
       </div>
 

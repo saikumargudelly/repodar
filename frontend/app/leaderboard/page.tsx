@@ -1,9 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, Period } from "@/lib/api";
 import { SustainBadge } from "@/components/Nav";
+
+function downloadBlob(content: string, filename: string, mime: string) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportCSV(data: any[], filename: string) {
+  if (!data.length) return;
+  const keys = Object.keys(data[0]);
+  const rows = [keys.join(","), ...data.map((row) => keys.map((k) => JSON.stringify(row[k] ?? "")).join(","))];
+  downloadBlob(rows.join("\n"), filename, "text/csv");
+}
+
+function exportJSON(data: any[], filename: string) {
+  downloadBlob(JSON.stringify(data, null, 2), filename, "application/json");
+}
 
 type View = "trending" | "top_score" | "sustainable";
 
@@ -36,11 +57,30 @@ export default function LeaderboardPage() {
   return (
     <div className="page-root">
       {/* Header */}
-      <div>
-        <div className="section-title-cyber">LEADERBOARD<span className="terminal-cursor" /></div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)", marginTop: "6px" }}>
-          // Top AI/ML repos ranked by star gain · trend score · sustainability
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
+        <div>
+          <div className="section-title-cyber">LEADERBOARD<span className="terminal-cursor" /></div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)", marginTop: "6px" }}>
+            // Top AI/ML repos ranked by star gain · trend score · sustainability
+          </div>
         </div>
+        <a
+          href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Top AI/ML repos on GitHub (${period} view) 🚀 via Repodar`)}&url=${encodeURIComponent(typeof window !== "undefined" ? window.location.href : "https://repodar.vercel.app/leaderboard")}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: "11px",
+            color: "var(--text-muted)",
+            border: "1px solid var(--border)",
+            borderRadius: "4px",
+            padding: "6px 14px",
+            textDecoration: "none",
+            alignSelf: "flex-start",
+          }}
+        >
+          ↗ Share
+        </a>
       </div>
 
       {/* Controls */}
@@ -66,6 +106,22 @@ export default function LeaderboardPage() {
             ))}
           </>
         )}
+        <span style={{ marginLeft: "auto", display: "flex", gap: "6px" }}>
+          <button
+            onClick={() => exportCSV(data.slice(0, 50), `leaderboard-${view}-${period}.csv`)}
+            style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", background: "transparent",
+              border: "1px solid var(--border)", borderRadius: "4px", padding: "4px 10px", cursor: "pointer" }}
+          >
+            ↓ CSV
+          </button>
+          <button
+            onClick={() => exportJSON(data.slice(0, 50), `leaderboard-${view}-${period}.json`)}
+            style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", background: "transparent",
+              border: "1px solid var(--border)", borderRadius: "4px", padding: "4px 10px", cursor: "pointer" }}
+          >
+            ↓ JSON
+          </button>
+        </span>
       </div>
 
       {/* Table */}

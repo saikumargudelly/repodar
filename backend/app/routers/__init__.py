@@ -11,10 +11,15 @@ from app.routers.contributors import router as contributors_router
 from app.routers.forks import router as forks_router
 from app.routers.apikeys import router as apikeys_router
 from app.routers.services import router as services_router
+from app.routers.feed import router as feed_router
+from app.routers.subscribe import router as subscribe_router
+from app.routers.search import router as search_router
+from app.routers.snapshots import router as snapshots_router
 
 __all__ = [
     "repos_router", "metrics_router", "dashboard_router",
     "reports_router", "admin_router", "widgets_router", "orgs_router",
     "watchlist_router", "topics_router", "contributors_router",
     "forks_router", "apikeys_router", "services_router",
+    "feed_router", "subscribe_router", "search_router", "snapshots_router",
 ]

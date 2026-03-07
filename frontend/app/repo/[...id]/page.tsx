@@ -5,9 +5,11 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
   AreaChart, Area, LineChart, Line, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, CartesianGrid, ComposedChart, Bar,
+  ResponsiveContainer, CartesianGrid, ComposedChart, Bar, ReferenceLine,
 } from "recharts";
-import { api, DailyMetricPoint, ComputedMetricPoint } from "@/lib/api";
+import {
+  api, DailyMetricPoint, ComputedMetricPoint, ReleaseItem, SocialMentionItem, CommitActivityPoint,
+} from "@/lib/api";
 import { SustainBadge } from "@/components/Nav";
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
@@ -24,12 +26,21 @@ const tooltipStyle = {
   labelStyle: { color: "var(--text-muted)" },
 };
 
-function StarHistoryChart({ data, releases }: { data: DailyMetricPoint[]; releases: number[] }) {
+function StarHistoryChart({ data, releases, mentions }: {
+  data: DailyMetricPoint[];
+  releases: number[];
+  mentions?: SocialMentionItem[];
+}) {
   // Mark dates where releases increased
   const enriched = data.map((d, i) => ({
     ...d,
     release_bump: i > 0 && data[i].releases > data[i - 1].releases ? d.stars : null,
   }));
+
+  // Build a set of dates with social mentions for ReferenceLine markers
+  const mentionDates = new Set(
+    (mentions || []).map((m) => m.posted_at.slice(0, 10))
+  );
 
   return (
     <ChartCard title="Star History">
@@ -46,8 +57,25 @@ function StarHistoryChart({ data, releases }: { data: DailyMetricPoint[]; releas
           <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={42} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
           <Tooltip {...tooltipStyle} formatter={(v: number | undefined) => [v != null ? v.toLocaleString() : "—", "Stars"]} />
           <Area type="monotone" dataKey="stars" stroke="var(--cyan)" fill="url(#starGrad)" strokeWidth={2} dot={false} />
+          {/* Social mention markers */}
+          {data.map((d) =>
+            mentionDates.has(d.date) ? (
+              <ReferenceLine
+                key={d.date}
+                x={d.date}
+                stroke="var(--amber)"
+                strokeDasharray="4 2"
+                label={{ value: "💬", position: "top", fontSize: 10 }}
+              />
+            ) : null
+          )}
         </AreaChart>
       </ResponsiveContainer>
+      {mentions && mentions.length > 0 && (
+        <div style={{ padding: "6px 0 0", fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+          <span style={{ color: "var(--amber)" }}>▌</span> Dashed lines = HN / Reddit posts
+        </div>
+      )}
     </ChartCard>
   );
 }
@@ -227,6 +255,162 @@ function SignalExplainer({ scores, dailyMetrics }: { scores: ComputedMetricPoint
   );
 }
 
+// ─── Feature 8: Commit Frequency Heatmap ─────────────────────────────────────
+
+function CommitHeatmap({ data }: { data: CommitActivityPoint[] }) {
+  if (!data || data.length === 0) return null;
+
+  // Build a map of date→count
+  const countMap: Record<string, number> = {};
+  let maxCount = 1;
+  for (const p of data) {
+    countMap[p.date] = p.count;
+    if (p.count > maxCount) maxCount = p.count;
+  }
+
+  // Build 52 weeks × 7 days grid starting from the earliest entry
+  const sorted = [...data].sort((a, b) => a.date.localeCompare(b.date));
+  const weeks: CommitActivityPoint[][] = [];
+  let week: CommitActivityPoint[] = [];
+  for (const p of sorted) {
+    week.push(p);
+    if (week.length === 7) {
+      weeks.push(week);
+      week = [];
+    }
+  }
+  if (week.length > 0) weeks.push(week);
+
+  const intensity = (count: number) => {
+    if (count === 0) return "var(--bg-elevated)";
+    const pct = count / maxCount;
+    if (pct < 0.25) return "rgba(0,229,255,0.2)";
+    if (pct < 0.5) return "rgba(0,229,255,0.45)";
+    if (pct < 0.75) return "rgba(0,229,255,0.7)";
+    return "var(--cyan)";
+  };
+
+  return (
+    <div className="panel" style={{ padding: "20px 24px", overflowX: "auto" }}>
+      <div className="panel-header" style={{ marginBottom: "12px" }}>
+        <span className="panel-title">◈ COMMIT ACTIVITY — LAST 52 WEEKS</span>
+      </div>
+      <div style={{ display: "flex", gap: "3px" }}>
+        {weeks.map((w, wi) => (
+          <div key={wi} style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+            {w.map((day) => (
+              <div
+                key={day.date}
+                title={`${day.date}: ${day.count} commit${day.count !== 1 ? "s" : ""}`}
+                style={{
+                  width: "12px",
+                  height: "12px",
+                  borderRadius: "2px",
+                  background: intensity(day.count),
+                  border: "1px solid rgba(255,255,255,0.05)",
+                  cursor: "default",
+                }}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "8px", fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+        Less
+        {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => (
+          <div key={i} style={{ width: "10px", height: "10px", borderRadius: "2px", background: intensity(Math.round(pct * maxCount)) }} />
+        ))}
+        More
+      </div>
+    </div>
+  );
+}
+
+// ─── Feature 7: Release Changelog ─────────────────────────────────────────────
+
+function ReleaseChangelog({ releases, owner, name }: { releases: ReleaseItem[]; owner: string; name: string }) {
+  if (!releases || releases.length === 0) return null;
+
+  return (
+    <div className="panel" style={{ padding: "20px 24px" }}>
+      <div className="panel-header" style={{ marginBottom: "12px" }}>
+        <span className="panel-title">◈ RECENT RELEASES</span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+        {releases.map((r) => (
+          <div key={r.id} style={{ borderBottom: "1px solid var(--border)", paddingBottom: "12px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "4px" }}>
+              <a
+                href={r.html_url || `https://github.com/${owner}/${name}/releases/tag/${r.tag_name}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontFamily: "var(--font-mono)", fontSize: "12px", fontWeight: 700, color: "var(--cyan)", textDecoration: "none" }}
+              >
+                {r.tag_name}
+              </a>
+              {r.is_prerelease && (
+                <span style={{ fontSize: "10px", background: "rgba(255,193,7,0.15)", color: "var(--amber)", padding: "2px 7px", borderRadius: "3px", fontFamily: "var(--font-mono)" }}>
+                  PRE-RELEASE
+                </span>
+              )}
+              <span style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                {r.published_at.slice(0, 10)}
+              </span>
+              {r.name && r.name !== r.tag_name && (
+                <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>{r.name}</span>
+              )}
+            </div>
+            {r.body_truncated && (
+              <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: 0, lineHeight: "1.5", whiteSpace: "pre-wrap" }}>
+                {r.body_truncated}
+                {r.body_truncated.length >= 500 ? "…" : ""}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Feature 6: Social Mentions Feed ─────────────────────────────────────────
+
+function SocialMentionsFeed({ mentions }: { mentions: SocialMentionItem[] }) {
+  if (!mentions || mentions.length === 0) return null;
+
+  const platformIcon = (p: string) => p === "hn" ? "🔶" : "🟠";
+  const platformLabel = (p: string, sub?: string | null) =>
+    p === "hn" ? "Hacker News" : sub ? `r/${sub}` : "Reddit";
+
+  return (
+    <div className="panel" style={{ padding: "20px 24px" }}>
+      <div className="panel-header" style={{ marginBottom: "12px" }}>
+        <span className="panel-title">◈ COMMUNITY MENTIONS — HN &amp; REDDIT</span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+        {mentions.slice(0, 10).map((m) => (
+          <div key={m.id} style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+            <span style={{ fontSize: "16px", flexShrink: 0 }}>{platformIcon(m.platform)}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <a
+                href={m.post_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: "12px", color: "var(--cyan)", textDecoration: "none", display: "block", marginBottom: "2px" }}
+              >
+                {m.post_title || "(no title)"}
+              </a>
+              <span style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                {platformLabel(m.platform, m.subreddit)} · {m.upvotes} pts · {m.posted_at.slice(0, 10)}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function MetricPill({ label, value, mono = false }: { label: string; value: string | number; mono?: boolean }) {
   return (
     <div className="kpi-card">
@@ -255,6 +439,27 @@ export default function RepoDeepDive() {
   const { data: scores } = useQuery({
     queryKey: ["computed-scores", repoId, 60],
     queryFn: () => api.getComputedScores(repoId, 60),
+    enabled: !!repoId,
+  });
+
+  // Feature 7: Releases
+  const { data: releases } = useQuery({
+    queryKey: ["releases", repoId],
+    queryFn: () => api.getReleases(repoId, 10),
+    enabled: !!repoId,
+  });
+
+  // Feature 6: Social Mentions
+  const { data: mentions } = useQuery({
+    queryKey: ["mentions", repoId],
+    queryFn: () => api.getSocialMentions(repoId, 20),
+    enabled: !!repoId,
+  });
+
+  // Feature 8: Commit Activity
+  const { data: commitActivity } = useQuery({
+    queryKey: ["commit-activity", repoId],
+    queryFn: () => api.getCommitActivity(repoId),
     enabled: !!repoId,
   });
 
@@ -326,6 +531,23 @@ export default function RepoDeepDive() {
         <MetricPill label="Total Stars" value={latest?.stars?.toLocaleString() ?? "—"} />
       </div>
 
+      {/* Feature 1: AI-Generated Summary */}
+      {repo.repo_summary && (
+        <div className="panel" style={{ padding: "20px 24px", borderLeft: "3px solid var(--cyan)" }}>
+          <div className="panel-header" style={{ marginBottom: "10px" }}>
+            <span className="panel-title">◈ AI SUMMARY</span>
+            {repo.repo_summary_generated_at && (
+              <span style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginLeft: "12px" }}>
+                generated {repo.repo_summary_generated_at.slice(0, 10)}
+              </span>
+            )}
+          </div>
+          <p style={{ color: "var(--text-secondary)", lineHeight: "1.75", fontSize: "13px", margin: 0 }}>
+            {repo.repo_summary}
+          </p>
+        </div>
+      )}
+
       {/* LLM Explanation */}
       {repo.explanation && (
         <div className="panel" style={{ padding: "20px 24px" }}>
@@ -344,7 +566,7 @@ export default function RepoDeepDive() {
           {scores && scores.length > 0 && (
             <SignalExplainer scores={scores} dailyMetrics={dailyMetrics} />
           )}
-          <StarHistoryChart data={dailyMetrics} releases={[]} />
+          <StarHistoryChart data={dailyMetrics} releases={[]} mentions={mentions} />
           <div className="chart-row-2">
             <DailyDeltaChart data={dailyMetrics} />
             <ContributorChart data={dailyMetrics} />
@@ -363,6 +585,19 @@ export default function RepoDeepDive() {
             // NO METRIC HISTORY YET — run <span style={{ color: "var(--cyan)" }}>POST /admin/run-all</span>
           </p>
         </div>
+      )}
+
+      {/* Feature 8: Commit Frequency Heatmap */}
+      {commitActivity && commitActivity.length > 0 && (
+        <CommitHeatmap data={commitActivity} />
+      )}
+
+      {/* Feature 6: Social Mentions Feed */}
+      <SocialMentionsFeed mentions={mentions || []} />
+
+      {/* Feature 7: Release Changelog */}
+      {repo && (
+        <ReleaseChangelog releases={releases || []} owner={repo.owner} name={repo.name} />
       )}
 
       {/* Raw metrics table */}

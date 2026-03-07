@@ -58,6 +58,9 @@ export interface RepoDetail extends RepoSummary {
   fork_to_star_ratio: number | null;
   issue_close_rate: number | null;
   explanation: string | null;
+  // AI-generated plain-English summary (Feature 1)
+  repo_summary: string | null;
+  repo_summary_generated_at: string | null;
 }
 
 export interface DailyMetricPoint {
@@ -545,6 +548,89 @@ export interface ReportSummary {
   generated_at: string;
 }
 
+// ─── Feature 7: Releases ─────────────────────────────────────────────────────
+
+export interface ReleaseItem {
+  id: string;
+  tag_name: string;
+  name: string | null;
+  body_truncated: string | null;
+  published_at: string;
+  is_prerelease: boolean;
+  html_url: string | null;
+}
+
+// ─── Feature 6: Social Mentions ──────────────────────────────────────────────
+
+export interface SocialMentionItem {
+  id: string;
+  platform: "hn" | "reddit" | string;
+  post_title: string | null;
+  post_url: string;
+  upvotes: number;
+  comment_count: number;
+  subreddit: string | null;
+  posted_at: string;
+}
+
+// ─── Feature 8: Commit Activity ──────────────────────────────────────────────
+
+export interface CommitActivityPoint {
+  date: string;  // YYYY-MM-DD
+  count: number;
+}
+
+// ─── Feature 5: NL Search ────────────────────────────────────────────────────
+
+export interface ParsedFilters {
+  vertical: string | null;
+  min_trend_score: number | null;
+  max_age_days: number | null;
+  min_stars: number | null;
+  sort_by: string | null;
+  time_window: string | null;
+  language: string | null;
+  min_sustainability: number | null;
+  query_understood: string;
+  raw_query: string;
+}
+
+export interface NLSearchResult {
+  filters: ParsedFilters;
+  repos: RadarRepo[];
+  total: number;
+}
+
+// ─── Feature 12: Weekly Snapshots ────────────────────────────────────────────
+
+export interface SnapshotSummary {
+  week_id: string;
+  published_at: string;
+  repo_count: number;
+}
+
+export interface SnapshotDetail {
+  week_id: string;
+  published_at: string;
+  repos: Array<{
+    rank: number;
+    repo_id: string;
+    owner: string;
+    name: string;
+    category: string;
+    github_url: string;
+    primary_language: string | null;
+    description: string | null;
+    trend_score: number;
+    sustainability_score: number;
+    sustainability_label: string;
+    star_velocity_7d: number;
+    acceleration: number;
+    stars: number;
+    age_days: number;
+  }>;
+}
+
 // ─── API functions ───────────────────────────────────────────────────────────
 
 export const api = {
@@ -692,4 +778,33 @@ export const api = {
     }),
   searchServices: (capability: string, limit = 20) =>
     apiFetch<A2AService[]>(`/services/search?capability=${encodeURIComponent(capability)}&limit=${limit}`),
+
+  // Releases (Feature 7)
+  getReleases: (repoId: string, limit = 10) =>
+    apiFetch<ReleaseItem[]>(`/repos/${repoId}/releases?limit=${limit}`),
+
+  // Social Mentions (Feature 6)
+  getSocialMentions: (repoId: string, limit = 20) =>
+    apiFetch<SocialMentionItem[]>(`/repos/${repoId}/mentions?limit=${limit}`),
+
+  // Commit Activity / Heatmap (Feature 8)
+  getCommitActivity: (repoId: string) =>
+    apiFetch<CommitActivityPoint[]>(`/repos/${repoId}/commit-activity`),
+
+  // Natural Language Search (Feature 5)
+  nlSearch: (query: string, limit = 30) =>
+    apiFetch<NLSearchResult>(`/search?query=${encodeURIComponent(query)}&limit=${limit}`),
+  parseSearchQuery: (query: string) =>
+    apiFetch<ParsedFilters>(`/search/parse?query=${encodeURIComponent(query)}`),
+
+  // Weekly Snapshots (Feature 12)
+  listSnapshots: () => apiFetch<SnapshotSummary[]>("/snapshots"),
+  getSnapshot: (weekId: string) => apiFetch<SnapshotDetail>(`/snapshots/${weekId}`),
+
+  // Email Subscribe (Feature 4)
+  subscribe: (email: string, verticals?: string[]) =>
+    apiFetch<{ message: string; confirmed: boolean }>("/subscribe", {
+      method: "POST",
+      body: JSON.stringify({ email, verticals }),
+    }),
 };

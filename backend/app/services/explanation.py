@@ -146,3 +146,176 @@ def enrich_top_repos_with_explanations(top_n: int = 20) -> int:
         return 0
     finally:
         db.close()
+
+
+# ─── Repo Summary ─────────────────────────────────────────────────────────────
+
+SUMMARY_SYSTEM_PROMPT = """You are a senior developer writing a brief introduction for a technical audience.
+Be concrete, informative, and jargon-free. Do not use hype. No bullet points. No headers.
+Output exactly 3 sentences."""
+
+SUMMARY_TEMPLATE = """Write a 3-sentence plain-English summary for the GitHub repository {owner}/{repo_name}.
+
+GitHub description: {description}
+Category: {category}
+Primary language: {primary_language}
+Topics/tags: {topics}
+Current TrendScore: {trend_score}
+Stars gained in last 30 days: {star_delta_30d}
+Total contributors: {contributors}
+
+Sentence 1: What this project does and who it is for.
+Sentence 2: The primary use case or problem it solves.
+Sentence 3: Why it is gaining momentum right now, based on the signals above."""
+
+
+def generate_repo_summary(
+    owner: str,
+    repo_name: str,
+    category: str,
+    description: Optional[str],
+    primary_language: Optional[str],
+    topics: Optional[str],
+    trend_score: float,
+    star_delta_30d: float,
+    contributors: int,
+) -> Optional[str]:
+    """Generate a 3-sentence plain-English summary for a repo. Cached weekly."""
+    if not client:
+        return None
+
+    prompt = SUMMARY_TEMPLATE.format(
+        owner=owner,
+        repo_name=repo_name,
+        description=description or "Not provided",
+        category=category,
+        primary_language=primary_language or "Unknown",
+        topics=topics or "None",
+        trend_score=round(trend_score, 4),
+        star_delta_30d=round(star_delta_30d, 0),
+        contributors=contributors,
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {"role": "system", "content": SUMMARY_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.4,
+            max_tokens=200,
+        )
+        summary = (response.choices[0].message.content or "").strip()
+        logger.info(f"Generated summary for {owner}/{repo_name}")
+        return summary
+    except Exception as e:
+        logger.error(f"Groq summary failed for {owner}/{repo_name}: {e}")
+        return None
+
+
+def enrich_repos_with_summaries(top_n: int = 30, score_delta_threshold: float = 10.0) -> int:
+    """
+    Generate or refresh repo summaries.
+
+    Regenerates a summary when:
+    - The repo has no existing summary, OR
+    - The repo's TrendScore changed by > score_delta_threshold since last generation.
+
+    Returns count of summaries written.
+    """
+    from app.database import SessionLocal
+    from app.models import Repository, ComputedMetric, DailyMetric
+    from datetime import date, datetime, timezone, timedelta
+
+    db = SessionLocal()
+    written = 0
+
+    try:
+        today = date.today()
+        week_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=7)
+
+        # Get top repos by trend score
+        top_cms = (
+            db.query(ComputedMetric, Repository)
+            .join(Repository, Repository.id == ComputedMetric.repo_id)
+            .filter(
+                ComputedMetric.date == today,
+                Repository.is_active == True,
+            )
+            .order_by(ComputedMetric.trend_score.desc())
+            .limit(top_n)
+            .all()
+        )
+
+        for cm, repo in top_cms:
+            # Skip if recently generated and score hasn't changed significantly
+            if repo.repo_summary and repo.repo_summary_generated_at:
+                if repo.repo_summary_generated_at > week_ago:
+                    # Only regenerate if score jumped significantly
+                    # Find the ComputedMetric from around that time to compare scores
+                    skip = True
+                    # Search for older score to compare
+                    older_cm = (
+                        db.query(ComputedMetric)
+                        .filter(
+                            ComputedMetric.repo_id == repo.id,
+                            ComputedMetric.date < today,
+                        )
+                        .order_by(ComputedMetric.date.desc())
+                        .first()
+                    )
+                    if older_cm and abs(cm.trend_score - older_cm.trend_score) > score_delta_threshold:
+                        skip = False
+                    if skip:
+                        continue
+
+            # Get 30-day star delta from daily metrics
+            thirty_days_ago = today - timedelta(days=30)
+            oldest_dm = (
+                db.query(DailyMetric)
+                .filter(
+                    DailyMetric.repo_id == repo.id,
+                    DailyMetric.date >= thirty_days_ago,
+                )
+                .order_by(DailyMetric.date.asc())
+                .first()
+            )
+            latest_dm = (
+                db.query(DailyMetric)
+                .filter_by(repo_id=repo.id)
+                .order_by(DailyMetric.date.desc())
+                .first()
+            )
+            star_delta_30d = 0.0
+            contributors = 0
+            if oldest_dm and latest_dm:
+                star_delta_30d = float(latest_dm.stars - oldest_dm.stars)
+                contributors = latest_dm.contributors or 0
+
+            summary = generate_repo_summary(
+                owner=repo.owner,
+                repo_name=repo.name,
+                category=repo.category,
+                description=repo.description,
+                primary_language=repo.primary_language,
+                topics=repo.topics,
+                trend_score=cm.trend_score,
+                star_delta_30d=star_delta_30d,
+                contributors=contributors,
+            )
+            if summary:
+                repo.repo_summary = summary
+                repo.repo_summary_generated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                written += 1
+
+        db.commit()
+        logger.info(f"Repo summaries written: {written}/{len(top_cms)}")
+        return written
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Summary enrichment failed: {e}")
+        return 0
+    finally:
+        db.close()

@@ -46,6 +46,9 @@ class RepoDetail(RepoSummary):
     fork_to_star_ratio: Optional[float] = None
     issue_close_rate: Optional[float] = None
     explanation: Optional[str] = None
+    # AI-generated plain-English summary (3 sentences)
+    repo_summary: Optional[str] = None
+    repo_summary_generated_at: Optional[str] = None
 
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────
@@ -332,4 +335,6 @@ def get_repo(repo_id: str, db: Session = Depends(get_db)):
         fork_to_star_ratio=latest_cm.fork_to_star_ratio if latest_cm else None,
         issue_close_rate=latest_cm.issue_close_rate if latest_cm else None,
         explanation=latest_cm.explanation if latest_cm else None,
+        repo_summary=repo.repo_summary,
+        repo_summary_generated_at=repo.repo_summary_generated_at.isoformat() if repo.repo_summary_generated_at else None,
     )

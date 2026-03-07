@@ -128,8 +128,8 @@ export default function NetworkPage() {
                     </td>
                     <td style={{ padding: "10px 12px" }}>
                       <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
-                        {c.repos.slice(0, 3).map((r) => (
-                          <span key={r.repo_id} className="cyber-tag">{r.name}</span>
+                        {c.repos.slice(0, 3).map((r, repoIdx) => (
+                          <span key={`${c.login}-${r.repo_id}-${repoIdx}`} className="cyber-tag">{r.name}</span>
                         ))}
                         {c.repos.length > 3 && (
                           <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px",

@@ -53,6 +53,14 @@ class Repository(Base):
     # queries without joining daily_metrics. Updated by the ingestion pipeline.
     stars_snapshot: Mapped[int] = mapped_column(Integer, default=0)
 
+    # AI-generated plain-English summary (3 sentences, refreshed weekly)
+    repo_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
+    repo_summary_generated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
+
+    # Commit activity heatmap — JSON array of {date, count} for 52 weeks
+    commit_activity_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
+    commit_activity_updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
+
     # Relationships
     daily_metrics: Mapped[List["DailyMetric"]] = relationship("DailyMetric", back_populates="repository", cascade="all, delete-orphan")
     computed_metrics: Mapped[List["ComputedMetric"]] = relationship("ComputedMetric", back_populates="repository", cascade="all, delete-orphan")

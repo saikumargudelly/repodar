@@ -5,9 +5,37 @@ import { Nav } from "@/components/Nav";
 import { Sidebar } from "@/components/Sidebar";
 import { StatusBar } from "@/components/StatusBar";
 
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://repodar.vercel.app";
+
 export const metadata: Metadata = {
-  title: "Repodar — Real-time GitHub AI Ecosystem Radar",
-  description: "Discover the most trending AI/ML repos on GitHub by day, week, month, or year.",
+  metadataBase: new URL(BASE_URL),
+  title: {
+    default: "Repodar — Real-time GitHub AI Ecosystem Radar",
+    template: "%s | Repodar",
+  },
+  description: "Discover the most trending AI/ML repos on GitHub by day, week, month, or year. Live breakout alerts, commit heatmaps, and deep-dive analytics.",
+  keywords: ["GitHub", "AI", "ML", "trending repos", "open source", "radar", "LLM", "machine learning"],
+  openGraph: {
+    type: "website",
+    siteName: "Repodar",
+    title: "Repodar — Real-time GitHub AI Ecosystem Radar",
+    description: "Live AI/ML GitHub repo tracking — trend scores, breakout alerts, sustainability ratings.",
+    url: BASE_URL,
+    images: [{ url: "/og-default.png", width: 1200, height: 630, alt: "Repodar" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Repodar — Real-time GitHub AI Ecosystem Radar",
+    description: "Live AI/ML GitHub repo tracking — trend scores, breakout alerts, sustainability ratings.",
+    images: ["/og-default.png"],
+  },
+  alternates: {
+    types: {
+      "application/rss+xml": [
+        { url: `${process.env.NEXT_PUBLIC_API_URL ?? ""}/feed.xml`, title: "Repodar Breakout Alerts" },
+      ],
+    },
+  },
 };
 
 export default function RootLayout({

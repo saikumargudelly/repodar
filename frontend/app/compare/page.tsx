@@ -301,13 +301,32 @@ function ComparePageInner() {
           </div>
 
           {/* Share link */}
-          <div className="panel" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 20px" }}>
+          <div className="panel" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 20px", flexWrap: "wrap", gap: "8px" }}>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)",
               letterSpacing: "0.06em" }}>// SHARE THIS COMPARISON</span>
-            <button onClick={() => navigator.clipboard.writeText(window.location.href)}
-              className="btn-cyber" style={{ padding: "5px 14px", fontSize: "11px" }}>
-              COPY URL
-            </button>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button onClick={() => navigator.clipboard.writeText(window.location.href)}
+                className="btn-cyber" style={{ padding: "5px 14px", fontSize: "11px" }}>
+                COPY URL
+              </button>
+              <a
+                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Comparing ${ids.join(" vs ")} on Repodar 📊`)}&url=${encodeURIComponent(typeof window !== "undefined" ? window.location.href : "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "11px",
+                  color: "var(--text-muted)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "4px",
+                  padding: "5px 14px",
+                  textDecoration: "none",
+                  display: "inline-block",
+                }}
+              >
+                ↗ Tweet
+              </a>
+            </div>
           </div>
         </>
       )}

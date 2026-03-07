@@ -6,10 +6,16 @@ from datetime import datetime, timezone
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.middleware import APIKeyMiddleware
+
 from app.database import engine
 from app.models import Repository, DailyMetric, ComputedMetric  # noqa — registers models
 from app.models import WatchlistItem, ApiKey, RepoContributor, ForkSnapshot, EcosystemReport  # noqa
 from app.models.a2a_service import A2AService, A2ACapability  # noqa — ensure A2A tables are created
+from app.models.social_mention import SocialMention  # noqa
+from app.models.repo_release import RepoRelease  # noqa
+from app.models.subscriber import Subscriber  # noqa
+from app.models.weekly_snapshot import WeeklySnapshot  # noqa
 from app.database import Base
 from app.routers import (
     repos_router,
@@ -25,6 +31,10 @@ from app.routers import (
     forks_router,
     apikeys_router,
     services_router,
+    feed_router,
+    subscribe_router,
+    search_router,
+    snapshots_router,
 )
 from app.seed.seeder import seed_repos
 
@@ -66,12 +76,19 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
         score_result = {"scored": 0, "failed": 0, "alerts": 0, "categories_cached": 0, "date": None}
 
     explain_count = 0
+    summary_count = 0
     if include_explanations:
         try:
             explain_count = enrich_top_repos_with_explanations(top_n=20)
             logger.info(f"[pipeline] Explanations: {explain_count}")
         except Exception as e:
             logger.warning(f"[pipeline] Explanation generation failed (non-fatal): {e}")
+        try:
+            from app.services.explanation import enrich_repos_with_summaries
+            summary_count = enrich_repos_with_summaries(top_n=30)
+            logger.info(f"[pipeline] Summaries: {summary_count}")
+        except Exception as e:
+            logger.warning(f"[pipeline] Summary generation failed (non-fatal): {e}")
 
     return {
         "run_at": run_at,
@@ -87,6 +104,7 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
         "alerts_generated": score_result.get("alerts", 0),
         "categories_cached": score_result.get("categories_cached", 0),
         "explanations": explain_count,
+        "summaries": summary_count,
         "scoring_date": score_result.get("date"),
     }
 
@@ -124,6 +142,37 @@ def _schedule_pipeline():
 
         # Daily A2A discovery at 02:00 UTC
         scheduler.add_job(_a2a_job, CronTrigger(hour=2, minute=0), id="a2a_discovery_24h", replace_existing=True)
+
+        # Weekly snapshot — Monday 06:00 UTC
+        async def _snapshot_job():
+            from app.services.weekly_snapshots import publish_weekly_snapshot
+            try:
+                result = publish_weekly_snapshot()
+                logger.info(f"[snapshot_scheduler] {result}")
+            except Exception as exc:
+                logger.error(f"[snapshot_scheduler] Failed: {exc}", exc_info=True)
+
+        scheduler.add_job(_snapshot_job, CronTrigger(day_of_week="mon", hour=6, minute=0), id="weekly_snapshot", replace_existing=True)
+
+        # Social mentions + releases + commit activity — daily at 03:00 UTC
+        async def _enrichment_job():
+            try:
+                from app.services.social_mentions import run_social_mentions_pipeline
+                await run_social_mentions_pipeline(top_n=50)
+            except Exception as exc:
+                logger.warning(f"[enrichment] Social mentions failed: {exc}")
+            try:
+                from app.services.releases import run_releases_pipeline
+                await run_releases_pipeline(top_n=100)
+            except Exception as exc:
+                logger.warning(f"[enrichment] Releases pipeline failed: {exc}")
+            try:
+                from app.services.commit_activity import run_commit_activity_pipeline
+                await run_commit_activity_pipeline(top_n=100)
+            except Exception as exc:
+                logger.warning(f"[enrichment] Commit activity pipeline failed: {exc}")
+
+        scheduler.add_job(_enrichment_job, CronTrigger(hour=3, minute=30), id="enrichment_daily", replace_existing=True)
 
         scheduler.start()
         logger.info("APScheduler started — pipeline runs every 4 h (00/04/08/12/16/20 UTC)")
@@ -205,6 +254,9 @@ allow_origins=[
     allow_headers=["*"],
 )
 
+# API Key middleware — validates X-API-Key for /api/v1/* routes
+app.add_middleware(APIKeyMiddleware)
+
 # ─── Routers ─────────────────────────────────────────────────────────────────
 
 app.include_router(repos_router)
@@ -220,6 +272,14 @@ app.include_router(contributors_router)
 app.include_router(forks_router)
 app.include_router(apikeys_router)
 app.include_router(services_router)
+app.include_router(feed_router)
+app.include_router(subscribe_router)
+app.include_router(search_router)
+app.include_router(snapshots_router)
+
+# ─── Public API v1 (X-API-Key required) ──────────────────────────────────────
+from app.routers.public_api import router as public_api_router
+app.include_router(public_api_router)
 
 
 # ─── Health ──────────────────────────────────────────────────────────────────
