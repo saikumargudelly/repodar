@@ -463,7 +463,7 @@ async def get_repo(repo_id: str, db: Session = Depends(get_db)):
     if repo:
         latest_cm = (
             db.query(ComputedMetric)
-            .filter_by(repo_id=repo_id)
+            .filter_by(repo_id=repo.id)
             .order_by(ComputedMetric.date.desc())
             .first()
         )
