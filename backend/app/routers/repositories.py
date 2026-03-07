@@ -452,7 +452,13 @@ async def get_deep_summary(owner: str, name: str, db: Session = Depends(get_db))
 @router.get("/{repo_id:path}", response_model=RepoDetail)
 async def get_repo(repo_id: str, db: Session = Depends(get_db)):
     """Get full repo detail. Checks DB first; falls back to live GitHub API for untracked repos."""
+    # Try by UUID id first
     repo = db.query(Repository).filter_by(id=repo_id).first()
+
+    # Try by owner/name (frontend navigates via /repo/owner/name, but DB id is a UUID)
+    if not repo and "/" in repo_id:
+        parts = repo_id.split("/", 1)
+        repo = db.query(Repository).filter_by(owner=parts[0], name=parts[1]).first()
 
     if repo:
         latest_cm = (

@@ -11,6 +11,19 @@ from app.models import Repository, DailyMetric, ComputedMetric
 router = APIRouter(prefix="/repos", tags=["Metrics"])
 
 
+# ─── Helper ──────────────────────────────────────────────────────────────────
+
+def _resolve_repo(repo_id: str, db: Session) -> Repository:
+    """Look up by UUID id first, then by owner/name for frontend-friendly paths."""
+    repo = db.query(Repository).filter_by(id=repo_id).first()
+    if not repo and "/" in repo_id:
+        parts = repo_id.split("/", 1)
+        repo = db.query(Repository).filter_by(owner=parts[0], name=parts[1]).first()
+    if not repo:
+        raise HTTPException(status_code=404, detail="Repository not found")
+    return repo
+
+
 # ─── Schemas ─────────────────────────────────────────────────────────────────
 
 class DailyMetricPoint(BaseModel):
@@ -52,15 +65,13 @@ def get_daily_metrics(
     db: Session = Depends(get_db),
 ):
     """Time-series of raw daily metrics for a repo."""
-    repo = db.query(Repository).filter_by(id=repo_id).first()
-    if not repo:
-        raise HTTPException(status_code=404, detail="Repository not found")
+    repo = _resolve_repo(repo_id, db)
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     rows = (
         db.query(DailyMetric)
         .filter(
-            DailyMetric.repo_id == repo_id,
+            DailyMetric.repo_id == repo.id,
             DailyMetric.captured_at >= cutoff.replace(tzinfo=None),
         )
         .order_by(DailyMetric.captured_at.asc())
@@ -89,15 +100,13 @@ def get_computed_scores(
     db: Session = Depends(get_db),
 ):
     """Time-series of computed trend and sustainability scores for a repo."""
-    repo = db.query(Repository).filter_by(id=repo_id).first()
-    if not repo:
-        raise HTTPException(status_code=404, detail="Repository not found")
+    repo = _resolve_repo(repo_id, db)
 
     cutoff = date.today() - timedelta(days=days)
     rows = (
         db.query(ComputedMetric)
         .filter(
-            ComputedMetric.repo_id == repo_id,
+            ComputedMetric.repo_id == repo.id,
             ComputedMetric.date >= cutoff,
         )
         .order_by(ComputedMetric.date.asc())
@@ -141,12 +150,10 @@ def get_releases(
 ):
     """Last N GitHub releases for a repo."""
     from app.models.repo_release import RepoRelease
-    repo = db.query(Repository).filter_by(id=repo_id).first()
-    if not repo:
-        raise HTTPException(status_code=404, detail="Repository not found")
+    repo = _resolve_repo(repo_id, db)
     rows = (
         db.query(RepoRelease)
-        .filter_by(repo_id=repo_id)
+        .filter_by(repo_id=repo.id)
         .order_by(RepoRelease.published_at.desc())
         .limit(limit)
         .all()
@@ -186,12 +193,10 @@ def get_social_mentions(
 ):
     """HN and Reddit posts that referenced this repo."""
     from app.models.social_mention import SocialMention
-    repo = db.query(Repository).filter_by(id=repo_id).first()
-    if not repo:
-        raise HTTPException(status_code=404, detail="Repository not found")
+    repo = _resolve_repo(repo_id, db)
     rows = (
         db.query(SocialMention)
-        .filter_by(repo_id=repo_id)
+        .filter_by(repo_id=repo.id)
         .order_by(SocialMention.posted_at.desc())
         .limit(limit)
         .all()
@@ -222,9 +227,7 @@ class CommitActivityPoint(BaseModel):
 def get_commit_activity(repo_id: str, db: Session = Depends(get_db)):
     """52-week daily commit activity (heatmap data)."""
     import json
-    repo = db.query(Repository).filter_by(id=repo_id).first()
-    if not repo:
-        raise HTTPException(status_code=404, detail="Repository not found")
+    repo = _resolve_repo(repo_id, db)
     if not repo.commit_activity_json:
         return []
     try:
