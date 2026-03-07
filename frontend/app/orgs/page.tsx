@@ -25,6 +25,7 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
 
 // ─── Results panel ────────────────────────────────────────────────────────────
 function OrgResults({ data }: { data: OrgHealthResponse }) {
+  const router = useRouter();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
       {/* Summary cards */}
