@@ -300,6 +300,153 @@ async def compare_history(
     return results
 
 
+# ─── Deep Summary (must be before the /{repo_id:path} catch-all) ─────────────
+
+class ContributorInfo(BaseModel):
+    login: str
+    avatar_url: str
+    contributions: int
+    profile_url: str
+
+
+class DeepSummaryResponse(BaseModel):
+    repo_id: str
+    owner: str
+    name: str
+    what: str
+    why: str
+    how: str
+    tech_stack: List[str]
+    use_cases: List[str]
+    contributors: List[ContributorInfo]
+    languages: dict
+    generated_at: str
+
+
+@router.get("/{owner}/{name}/deep-summary", response_model=DeepSummaryResponse)
+async def get_deep_summary(owner: str, name: str, db: Session = Depends(get_db)):
+    """
+    Returns a rich structured analysis of a repo: what/why/how, tech stack,
+    use cases, top contributors, and language breakdown. Fetches live from
+    GitHub API and generates analysis via Groq LLM.
+    """
+    repo_id = f"{owner}/{name}"
+
+    # Get basic repo info from DB or GitHub
+    repo = db.query(Repository).filter_by(id=repo_id).first()
+    description = repo.description if repo else None
+    primary_language = repo.primary_language if repo else None
+    topics_str = repo.topics if repo else None
+
+    async with aiohttp.ClientSession() as session:
+        headers = _GH_HEADERS.copy()
+
+        async def _fetch(url: str, accept: str = "application/vnd.github+json"):
+            h = {**headers, "Accept": accept}
+            try:
+                async with session.get(url, headers=h, timeout=aiohttp.ClientTimeout(total=10)) as r:
+                    if r.status == 200:
+                        return await r.json()
+                    return None
+            except Exception:
+                return None
+
+        async def _fetch_text(url: str):
+            try:
+                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as r:
+                    if r.status == 200:
+                        return await r.text()
+                    return ""
+            except Exception:
+                return ""
+
+        # Fetch all in parallel
+        languages_task = asyncio.create_task(_fetch(f"https://api.github.com/repos/{repo_id}/languages"))
+        contrib_task = asyncio.create_task(_fetch(
+            f"https://api.github.com/repos/{repo_id}/contributors?per_page=10&anon=false"
+        ))
+        readme_task = asyncio.create_task(_fetch_text(
+            f"https://api.github.com/repos/{repo_id}/readme"
+        ))
+        # Also fetch repo info if not in DB
+        repo_info_task = asyncio.create_task(_fetch(f"https://api.github.com/repos/{repo_id}")) if not repo else None
+
+        languages_data, contrib_data, readme_raw = await asyncio.gather(
+            languages_task, contrib_task, readme_task
+        )
+        if repo_info_task:
+            gh_repo = await repo_info_task
+            if gh_repo:
+                description = description or gh_repo.get("description")
+                primary_language = primary_language or gh_repo.get("language")
+                if not topics_str:
+                    topics_list = gh_repo.get("topics", [])
+                    topics_str = ", ".join(topics_list) if topics_list else None
+
+    languages = languages_data or {}
+    # Decode README (GitHub returns base64-encoded content in JSON)
+    readme_text = ""
+    try:
+        import json as _json
+        readme_json = _json.loads(readme_raw) if readme_raw else {}
+        if readme_json.get("encoding") == "base64":
+            import base64
+            readme_text = base64.b64decode(readme_json["content"]).decode("utf-8", errors="ignore")
+        else:
+            readme_text = readme_json.get("content", "")
+    except Exception:
+        readme_text = ""
+
+    # Build contributor list
+    contributors = []
+    if isinstance(contrib_data, list):
+        for c in contrib_data[:10]:
+            if isinstance(c, dict) and c.get("type") == "User":
+                contributors.append(ContributorInfo(
+                    login=c.get("login", ""),
+                    avatar_url=c.get("avatar_url", ""),
+                    contributions=c.get("contributions", 0),
+                    profile_url=c.get("html_url", f"https://github.com/{c.get('login', '')}"),
+                ))
+
+    # Parse topics
+    github_topics: list = []
+    if topics_str:
+        try:
+            import json as _j
+            parsed = _j.loads(topics_str)
+            github_topics = parsed if isinstance(parsed, list) else []
+        except Exception:
+            github_topics = [t.strip() for t in topics_str.split(",") if t.strip()]
+
+    # Generate deep summary via LLM
+    from app.services.explanation import generate_deep_summary
+    analysis = generate_deep_summary(
+        owner=owner,
+        repo_name=name,
+        description=description,
+        language=primary_language,
+        topics=topics_str,
+        github_topics=github_topics,
+        languages=languages,
+        readme=readme_text,
+    )
+
+    return DeepSummaryResponse(
+        repo_id=repo_id,
+        owner=owner,
+        name=name,
+        what=analysis.get("what", ""),
+        why=analysis.get("why", ""),
+        how=analysis.get("how", ""),
+        tech_stack=analysis.get("tech_stack", []),
+        use_cases=analysis.get("use_cases", []),
+        contributors=contributors,
+        languages=languages,
+        generated_at=datetime.now(timezone.utc).isoformat(),
+    )
+
+
 # ─── Repo Detail (must be last — uses :path which matches anything) ───────────
 
 @router.get("/{repo_id:path}", response_model=RepoDetail)

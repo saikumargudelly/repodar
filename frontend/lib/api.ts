@@ -63,6 +63,27 @@ export interface RepoDetail extends RepoSummary {
   repo_summary_generated_at: string | null;
 }
 
+export interface ContributorInfo {
+  login: string;
+  avatar_url: string;
+  contributions: number;
+  profile_url: string;
+}
+
+export interface DeepSummary {
+  repo_id: string;
+  owner: string;
+  name: string;
+  what: string;
+  why: string;
+  how: string;
+  tech_stack: string[];
+  use_cases: string[];
+  contributors: ContributorInfo[];
+  languages: Record<string, number>;
+  generated_at: string;
+}
+
 export interface DailyMetricPoint {
   date: string;
   stars: number;
@@ -591,13 +612,36 @@ export interface ParsedFilters {
   time_window: string | null;
   language: string | null;
   min_sustainability: number | null;
+  keywords: string[];
+  github_search_query: string | null;
   query_understood: string;
   raw_query: string;
 }
 
+export interface NLSearchRepo {
+  repo_id: string | number;
+  owner: string;
+  name: string;
+  category: string;
+  github_url: string;
+  primary_language: string | null;
+  age_days: number | null;
+  stars: number | null;
+  trend_score: number | null;
+  sustainability_score: number | null;
+  sustainability_label: string | null;
+  star_velocity_7d: number | null;
+  acceleration: number | null;
+  description: string | null;
+  topics: string[] | null;
+  forks?: number | null;
+  open_issues?: number | null;
+  source: "internal" | "github";
+}
+
 export interface NLSearchResult {
   filters: ParsedFilters;
-  repos: RadarRepo[];
+  repos: NLSearchRepo[];
   total: number;
 }
 
@@ -642,6 +686,8 @@ export const api = {
     return apiFetch<RepoSummary[]>(`/repos?${qs}`);
   },
   getRepo: (id: string) => apiFetch<RepoDetail>(`/repos/${id}`),
+  getDeepSummary: (owner: string, name: string) =>
+    apiFetch<DeepSummary>(`/repos/${owner}/${name}/deep-summary`),
 
   // Metrics
   getDailyMetrics: (id: string, days = 30) =>

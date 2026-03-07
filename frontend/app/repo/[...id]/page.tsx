@@ -8,7 +8,7 @@ import {
   ResponsiveContainer, CartesianGrid, ComposedChart, Bar, ReferenceLine,
 } from "recharts";
 import {
-  api, DailyMetricPoint, ComputedMetricPoint, ReleaseItem, SocialMentionItem, CommitActivityPoint,
+  api, DailyMetricPoint, ComputedMetricPoint, ReleaseItem, SocialMentionItem, CommitActivityPoint, DeepSummary,
 } from "@/lib/api";
 import { SustainBadge } from "@/components/Nav";
 
@@ -449,6 +449,16 @@ export default function RepoDeepDive() {
     enabled: !!repoId,
   });
 
+  // Deep Summary: what/why/how/tech-stack/contributors/languages
+  const owner = repoId.split("/")[0] ?? "";
+  const repoName = repoId.split("/").slice(1).join("/") ?? "";
+  const { data: deepSummary, isLoading: deepLoading } = useQuery<DeepSummary>({
+    queryKey: ["deep-summary", repoId],
+    queryFn: () => api.getDeepSummary(owner, repoName),
+    enabled: !!repoId && !!owner && !!repoName,
+    staleTime: 1000 * 60 * 30, // 30 min cache
+  });
+
   // Feature 6: Social Mentions
   const { data: mentions } = useQuery({
     queryKey: ["mentions", repoId],
@@ -531,8 +541,156 @@ export default function RepoDeepDive() {
         <MetricPill label="Total Stars" value={latest?.stars?.toLocaleString() ?? "—"} />
       </div>
 
-      {/* Feature 1: AI-Generated Summary */}
-      {repo.repo_summary && (
+      {/* ── Deep Repo Analysis ─────────────────────────────────────────── */}
+      {deepLoading && (
+        <div className="panel" style={{ padding: "20px 24px", borderLeft: "3px solid var(--cyan)" }}>
+          <div className="panel-header" style={{ marginBottom: "10px" }}>
+            <span className="panel-title">◈ AI DEEP ANALYSIS</span>
+          </div>
+          <p style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px",
+            letterSpacing: "0.06em" }}>// GENERATING ANALYSIS…<span className="terminal-cursor" /></p>
+        </div>
+      )}
+
+      {deepSummary && (
+        <>
+          {/* What / Why / How */}
+          <div className="panel" style={{ padding: "20px 24px", borderLeft: "3px solid var(--cyan)" }}>
+            <div className="panel-header" style={{ marginBottom: "16px" }}>
+              <span className="panel-title">◈ AI DEEP ANALYSIS</span>
+              <span style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginLeft: "12px" }}>
+                generated {deepSummary.generated_at.slice(0, 10)}
+              </span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              {[
+                { key: "WHAT", label: "What it is", value: deepSummary.what, color: "var(--cyan)" },
+                { key: "WHY", label: "Why it exists", value: deepSummary.why, color: "var(--amber)" },
+                { key: "HOW", label: "How it works", value: deepSummary.how, color: "var(--green)" },
+              ].map(({ key, label, value, color }) => value && (
+                <div key={key} style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", fontWeight: 700,
+                    color, minWidth: "36px", paddingTop: "2px", letterSpacing: "0.08em" }}>{key}</span>
+                  <div>
+                    <div style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--text-muted)",
+                      marginBottom: "3px", letterSpacing: "0.06em" }}>{label}</div>
+                    <p style={{ color: "var(--text-secondary)", lineHeight: "1.7", fontSize: "13px", margin: 0 }}>
+                      {value}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Tech Stack + Use Cases side by side */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+            {deepSummary.tech_stack.length > 0 && (
+              <div className="panel" style={{ padding: "20px 24px" }}>
+                <div className="panel-header" style={{ marginBottom: "12px" }}>
+                  <span className="panel-title">◈ TECH STACK</span>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                  {deepSummary.tech_stack.map((tech) => (
+                    <span key={tech} style={{ fontFamily: "var(--font-mono)", fontSize: "11px",
+                      padding: "4px 10px", borderRadius: "4px",
+                      background: "rgba(0,229,255,0.1)", color: "var(--cyan)",
+                      border: "1px solid rgba(0,229,255,0.25)" }}>
+                      {tech}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {deepSummary.use_cases.length > 0 && (
+              <div className="panel" style={{ padding: "20px 24px" }}>
+                <div className="panel-header" style={{ marginBottom: "12px" }}>
+                  <span className="panel-title">◈ USE CASES</span>
+                </div>
+                <ul style={{ margin: 0, paddingLeft: "16px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {deepSummary.use_cases.map((uc) => (
+                    <li key={uc} style={{ color: "var(--text-secondary)", fontSize: "12px", lineHeight: "1.5" }}>
+                      {uc}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Languages breakdown */}
+          {Object.keys(deepSummary.languages).length > 0 && (
+            <div className="panel" style={{ padding: "20px 24px" }}>
+              <div className="panel-header" style={{ marginBottom: "14px" }}>
+                <span className="panel-title">◈ LANGUAGE BREAKDOWN</span>
+              </div>
+              {(() => {
+                const total = Object.values(deepSummary.languages).reduce((a, b) => a + b, 0);
+                const sorted = Object.entries(deepSummary.languages).sort(([, a], [, b]) => b - a);
+                const COLORS = ["var(--cyan)", "var(--amber)", "var(--green)", "var(--pink)",
+                  "#9d7fff", "#ff9944", "#44aaff", "#ff44aa"];
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    <div style={{ display: "flex", height: "10px", borderRadius: "5px", overflow: "hidden", width: "100%" }}>
+                      {sorted.map(([lang, bytes], i) => (
+                        <div key={lang} title={`${lang}: ${((bytes / total) * 100).toFixed(1)}%`}
+                          style={{ width: `${(bytes / total) * 100}%`, background: COLORS[i % COLORS.length],
+                            minWidth: "2px", transition: "width 0.3s" }} />
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "10px 16px" }}>
+                      {sorted.slice(0, 8).map(([lang, bytes], i) => (
+                        <div key={lang} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <div style={{ width: "8px", height: "8px", borderRadius: "50%",
+                            background: COLORS[i % COLORS.length], flexShrink: 0 }} />
+                          <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px",
+                            color: "var(--text-secondary)" }}>
+                            {lang}
+                          </span>
+                          <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px",
+                            color: "var(--text-muted)" }}>
+                            {((bytes / total) * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* Top Contributors */}
+          {deepSummary.contributors.length > 0 && (
+            <div className="panel" style={{ padding: "20px 24px" }}>
+              <div className="panel-header" style={{ marginBottom: "14px" }}>
+                <span className="panel-title">◈ TOP CONTRIBUTORS</span>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "12px" }}>
+                {deepSummary.contributors.map((c) => (
+                  <a key={c.login} href={c.profile_url} target="_blank" rel="noopener noreferrer"
+                    style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px",
+                      textDecoration: "none", width: "72px" }}>
+                    <img src={c.avatar_url} alt={c.login}
+                      style={{ width: "44px", height: "44px", borderRadius: "50%",
+                        border: "2px solid var(--border)" }} />
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-secondary)",
+                      textAlign: "center", overflow: "hidden", textOverflow: "ellipsis",
+                      whiteSpace: "nowrap", width: "100%" }}>{c.login}</span>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)" }}>
+                      {c.contributions.toLocaleString()} commits
+                    </span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Fallback: show old 3-sentence summary only if deep analysis not available/loaded */}
+      {!deepSummary && !deepLoading && repo.repo_summary && (
         <div className="panel" style={{ padding: "20px 24px", borderLeft: "3px solid var(--cyan)" }}>
           <div className="panel-header" style={{ marginBottom: "10px" }}>
             <span className="panel-title">◈ AI SUMMARY</span>

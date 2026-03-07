@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, WatchlistItemOut } from "@/lib/api";
 import { SustainBadge } from "@/components/Nav";
@@ -119,7 +120,7 @@ export default function WatchlistPage() {
                   >
                     <td style={{ padding: "12px 16px" }}>
                       <div>
-                        <a href={item.github_url} target="_blank" rel="noopener noreferrer"
+                        <a href={`/repo/${item.owner}/${item.name}`}
                           style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--cyan)",
                             textDecoration: "none", fontWeight: 600 }}>
                           {item.owner}/{item.name}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api, Period } from "@/lib/api";
 import { SustainBadge } from "@/components/Nav";
@@ -35,6 +36,7 @@ const PERIODS: { key: Period; label: string }[] = [
 ];
 
 export default function LeaderboardPage() {
+  const router = useRouter();
   const [view, setView]     = useState<View>("trending");
   const [period, setPeriod] = useState<Period>("7d");
 
@@ -148,16 +150,16 @@ export default function LeaderboardPage() {
             <tbody>
               {data.slice(0, 50).map((entry: any, idx: number) => (
                 <tr key={entry.repo_id || entry.id} className="tr-cyber"
-                  style={{ borderBottom: "1px solid var(--border)" }}>
+                  style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}
+                  onClick={() => router.push(`/repo/${entry.owner}/${entry.name}`)}>
                   <td style={{ padding: "10px 16px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px" }}>
                     {String(idx + 1).padStart(2, "0")}
                   </td>
                   <td style={{ padding: "10px 16px" }}>
-                    <a href={entry.github_url} target="_blank" rel="noopener noreferrer"
-                      style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--cyan)",
-                        textDecoration: "none", fontWeight: 600 }}>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--cyan)",
+                      fontWeight: 600 }}>
                       {entry.owner}/{entry.name}
-                    </a>
+                    </span>
                   </td>
                   <td style={{ padding: "10px 16px", textAlign: "right",
                     fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--amber)" }}>

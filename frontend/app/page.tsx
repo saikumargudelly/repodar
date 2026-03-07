@@ -404,13 +404,13 @@ function LeaderboardTable({
                   </td>
                   <td
                     style={{ padding: "12px 12px", textAlign: "right", color: "var(--text-muted)", width: "40px", verticalAlign: "top", cursor: "pointer" }}
-                    onClick={() => window.open(repo.github_url, "_blank", "noopener")}
+                    onClick={() => router.push(`/repo/${repo.owner}/${repo.name}`)}
                   >
                     {repo.rank}
                   </td>
                   <td
                     style={{ padding: "12px 12px", maxWidth: "340px", cursor: "pointer" }}
-                    onClick={() => window.open(repo.github_url, "_blank", "noopener")}
+                    onClick={() => router.push(`/repo/${repo.owner}/${repo.name}`)}
                     onMouseEnter={(e) => (e.currentTarget.closest("tr")!.style.background = selected ? "rgba(124,58,237,0.10)" : "var(--bg-elevated)")}
                     onMouseLeave={(e) => (e.currentTarget.closest("tr")!.style.background = selected ? "rgba(124,58,237,0.06)" : "transparent")}
                   >
@@ -969,7 +969,7 @@ export default function OverviewPage() {
                 onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(0,229,255,0.025)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "var(--bg-surface)")}
               >
-                <a href={item.github_url} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--text-primary)", textDecoration: "none" }}>
+                <a href={`/repo/${item.owner}/${item.name}`} style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--text-primary)", textDecoration: "none" }}>
                   {item.owner}/{item.name}
                 </a>
                 <button

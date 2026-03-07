@@ -126,12 +126,10 @@ export default function InsightsPage() {
                   onClick={() => router.push(`/repo/${repo.owner}/${repo.name}`)}
                 >
                   <td style={{ padding: "10px 16px" }}>
-                    <a href={repo.github_url} target="_blank" rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--cyan)",
-                        textDecoration: "none", fontWeight: 600 }}>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--cyan)",
+                      fontWeight: 600 }}>
                       {repo.owner}/{repo.name}
-                    </a>
+                    </span>
                     {repo.primary_language && (
                       <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px",
                         color: "var(--text-muted)", marginLeft: "8px" }}>

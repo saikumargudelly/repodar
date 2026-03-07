@@ -64,7 +64,7 @@ function OrgResults({ data }: { data: OrgHealthResponse }) {
             {data.repos.map((repo) => (
               <tr key={repo.full_name} className="tr-cyber"
                 style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}
-                onClick={() => window.open(repo.github_url, "_blank", "noopener")}>
+                onClick={() => router.push(`/repo/${repo.full_name}`)}>  
                 <td style={{ padding: "10px 14px", maxWidth: "280px" }}>
                   <div style={{ fontFamily: "var(--font-mono)", fontSize: "12px",
                     color: "var(--cyan)", fontWeight: 600 }}>{repo.name}</div>

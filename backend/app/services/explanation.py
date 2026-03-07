@@ -319,3 +319,102 @@ def enrich_repos_with_summaries(top_n: int = 30, score_delta_threshold: float = 
         return 0
     finally:
         db.close()
+
+
+# ─── Deep Repo Summary ────────────────────────────────────────────────────────
+
+DEEP_SUMMARY_SYSTEM = """You are a senior software engineer writing structured technical analysis for developers.
+Return ONLY valid JSON with no extra text, no markdown code fences.
+Be precise, concrete, and data-driven. No hype words."""
+
+DEEP_SUMMARY_TEMPLATE = """Analyze the following GitHub repository and return a JSON object.
+
+Repository: {owner}/{repo_name}
+Description: {description}
+Primary language: {language}
+Topics/tags: {topics}
+GitHub topics: {github_topics}
+Languages used (bytes): {languages}
+README excerpt (first 3000 chars): {readme}
+
+Return exactly this JSON structure:
+{{
+  "what": "2-3 sentences: What this project is, its core purpose, and primary audience.",
+  "why": "2-3 sentences: The problem or gap it addresses and why it was created.",
+  "how": "2-3 sentences: How it works at a technical/architectural level.",
+  "tech_stack": ["list", "of", "key", "technologies", "frameworks", "tools", "from", "the", "repo"],
+  "use_cases": ["concrete use case 1", "concrete use case 2", "concrete use case 3"]
+}}
+
+Derive tech_stack from the README, topics, and languages — include runtimes, frameworks, databases, protocols.
+Keep each string concise. Output ONLY the JSON object."""
+
+
+def generate_deep_summary(
+    owner: str,
+    repo_name: str,
+    description: Optional[str],
+    language: Optional[str],
+    topics: Optional[str],
+    github_topics: list,
+    languages: dict,
+    readme: str,
+) -> dict:
+    """
+    Generate a structured deep summary with what/why/how/tech_stack/use_cases.
+    Falls back to a basic structure if Groq is unavailable or fails.
+    """
+    import json
+
+    fallback = {
+        "what": description or f"{owner}/{repo_name} is a GitHub repository.",
+        "why": "Refer to the project's README and documentation for details.",
+        "how": f"Built primarily with {language or 'multiple technologies'}.",
+        "tech_stack": ([language] if language else []) + list(languages.keys())[:5],
+        "use_cases": [],
+    }
+
+    if not client:
+        return fallback
+
+    languages_str = ", ".join(
+        f"{lang}: {round(bytes_ / 1024, 1)}KB"
+        for lang, bytes_ in sorted(languages.items(), key=lambda x: -x[1])[:8]
+    ) or "Not available"
+
+    prompt = DEEP_SUMMARY_TEMPLATE.format(
+        owner=owner,
+        repo_name=repo_name,
+        description=description or "Not provided",
+        language=language or "Unknown",
+        topics=topics or "None",
+        github_topics=", ".join(github_topics) if github_topics else "None",
+        languages=languages_str,
+        readme=readme[:3000] if readme else "Not available",
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {"role": "system", "content": DEEP_SUMMARY_SYSTEM},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
+            max_tokens=700,
+        )
+        raw = (response.choices[0].message.content or "").strip()
+        # Strip any accidental markdown fences
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        result = json.loads(raw)
+        # Ensure all keys present
+        for key in ("what", "why", "how", "tech_stack", "use_cases"):
+            if key not in result:
+                result[key] = fallback[key]
+        return result
+    except Exception as e:
+        logger.error(f"Deep summary failed for {owner}/{repo_name}: {e}")
+        return fallback
