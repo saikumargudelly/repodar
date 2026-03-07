@@ -259,8 +259,10 @@ app.add_middleware(APIKeyMiddleware)
 
 # ─── Routers ─────────────────────────────────────────────────────────────────
 
-app.include_router(repos_router)
+# metrics_router must come before repos_router — repos_router has a /{repo_id:path}
+# catch-all that would swallow /uuid/metrics, /uuid/scores etc. if registered first.
 app.include_router(metrics_router)
+app.include_router(repos_router)
 app.include_router(dashboard_router)
 app.include_router(reports_router)
 app.include_router(admin_router)

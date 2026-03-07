@@ -450,38 +450,87 @@ async def get_deep_summary(owner: str, name: str, db: Session = Depends(get_db))
 # ─── Repo Detail (must be last — uses :path which matches anything) ───────────
 
 @router.get("/{repo_id:path}", response_model=RepoDetail)
-def get_repo(repo_id: str, db: Session = Depends(get_db)):
-    """Get full repo detail with latest scores and LLM explanation."""
+async def get_repo(repo_id: str, db: Session = Depends(get_db)):
+    """Get full repo detail. Checks DB first; falls back to live GitHub API for untracked repos."""
     repo = db.query(Repository).filter_by(id=repo_id).first()
-    if not repo:
+
+    if repo:
+        latest_cm = (
+            db.query(ComputedMetric)
+            .filter_by(repo_id=repo_id)
+            .order_by(ComputedMetric.date.desc())
+            .first()
+        )
+        return RepoDetail(
+            id=repo.id,
+            owner=repo.owner,
+            name=repo.name,
+            category=repo.category,
+            description=repo.description,
+            github_url=repo.github_url,
+            primary_language=repo.primary_language,
+            age_days=repo.age_days,
+            trend_score=latest_cm.trend_score if latest_cm else None,
+            sustainability_score=latest_cm.sustainability_score if latest_cm else None,
+            sustainability_label=latest_cm.sustainability_label if latest_cm else None,
+            star_velocity_7d=latest_cm.star_velocity_7d if latest_cm else None,
+            star_velocity_30d=latest_cm.star_velocity_30d if latest_cm else None,
+            acceleration=latest_cm.acceleration if latest_cm else None,
+            contributor_growth_rate=latest_cm.contributor_growth_rate if latest_cm else None,
+            fork_to_star_ratio=latest_cm.fork_to_star_ratio if latest_cm else None,
+            issue_close_rate=latest_cm.issue_close_rate if latest_cm else None,
+            explanation=latest_cm.explanation if latest_cm else None,
+            repo_summary=repo.repo_summary,
+            repo_summary_generated_at=repo.repo_summary_generated_at.isoformat() if repo.repo_summary_generated_at else None,
+        )
+
+    # Not in DB — try fetching live from GitHub (for repos found via search but not yet tracked)
+    if "/" not in repo_id:
         raise HTTPException(status_code=404, detail="Repository not found")
 
-    latest_cm = (
-        db.query(ComputedMetric)
-        .filter_by(repo_id=repo_id)
-        .order_by(ComputedMetric.date.desc())
-        .first()
-    )
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"https://api.github.com/repos/{repo_id}",
+                headers=_GH_HEADERS,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status != 200:
+                    raise HTTPException(status_code=404, detail="Repository not found")
+                gh = await resp.json()
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"GitHub API error: {e}")
+
+    owner, name = repo_id.split("/", 1)
+    try:
+        age = (
+            datetime.now(timezone.utc)
+            - datetime.fromisoformat(gh["created_at"].replace("Z", "+00:00"))
+        ).days
+    except Exception:
+        age = 0
 
     return RepoDetail(
-        id=repo.id,
-        owner=repo.owner,
-        name=repo.name,
-        category=repo.category,
-        description=repo.description,
-        github_url=repo.github_url,
-        primary_language=repo.primary_language,
-        age_days=repo.age_days,
-        trend_score=latest_cm.trend_score if latest_cm else None,
-        sustainability_score=latest_cm.sustainability_score if latest_cm else None,
-        sustainability_label=latest_cm.sustainability_label if latest_cm else None,
-        star_velocity_7d=latest_cm.star_velocity_7d if latest_cm else None,
-        star_velocity_30d=latest_cm.star_velocity_30d if latest_cm else None,
-        acceleration=latest_cm.acceleration if latest_cm else None,
-        contributor_growth_rate=latest_cm.contributor_growth_rate if latest_cm else None,
-        fork_to_star_ratio=latest_cm.fork_to_star_ratio if latest_cm else None,
-        issue_close_rate=latest_cm.issue_close_rate if latest_cm else None,
-        explanation=latest_cm.explanation if latest_cm else None,
-        repo_summary=repo.repo_summary,
-        repo_summary_generated_at=repo.repo_summary_generated_at.isoformat() if repo.repo_summary_generated_at else None,
+        id=repo_id,
+        owner=owner,
+        name=name,
+        category="untracked",
+        description=gh.get("description"),
+        github_url=gh.get("html_url", f"https://github.com/{repo_id}"),
+        primary_language=gh.get("language"),
+        age_days=age,
+        trend_score=None,
+        sustainability_score=None,
+        sustainability_label=None,
+        star_velocity_7d=None,
+        star_velocity_30d=None,
+        acceleration=None,
+        contributor_growth_rate=None,
+        fork_to_star_ratio=None,
+        issue_close_rate=None,
+        explanation=None,
+        repo_summary=None,
+        repo_summary_generated_at=None,
     )
