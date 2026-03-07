@@ -348,6 +348,7 @@ function LeaderboardTable({
   isPinned: (repo_id: string) => boolean;
   onTogglePin: (entry: LeaderboardEntry) => void;
 }) {
+  const router = useRouter();
   const periodLabel = PERIODS.find((p) => p.key === period)?.label ?? period;
 
   return (
