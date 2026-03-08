@@ -67,7 +67,7 @@ export default function LeaderboardPage() {
           </div>
         </div>
         <a
-          href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Top AI/ML repos on GitHub (${period} view) 🚀 via Repodar`)}&url=${encodeURIComponent(typeof window !== "undefined" ? window.location.href : "https://repodar.vercel.app/leaderboard")}`}
+          href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Top AI/ML repos on GitHub (${period} view) 🚀 via Repodar`)}&url=${encodeURIComponent("https://repodar.vercel.app/leaderboard")}`}
           target="_blank"
           rel="noopener noreferrer"
           style={{

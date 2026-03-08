@@ -84,7 +84,7 @@ function useWatchlist() {
 function StatCard({ label, value, sub, index = 0 }: { label: string; value: string | number; sub?: string; index?: number }) {
   return (
     <div className="kpi-card card-pad">
-      <div className="kpi-label">// {label}</div>
+      <div className="kpi-label">{label}</div>
       <div className="kpi-value">{value}</div>
       {sub && (
         <div className="kpi-sub">
@@ -146,16 +146,16 @@ function CategoryTrendHeatmap({ data, period }: { data: CategoryMetrics[]; perio
       <div className="panel-header">
         <div style={{ minWidth: 0 }}>
           <div className="panel-title">
-            ◈ Category Trend Score ({periodLabel})
+            Category Trend Score ({periodLabel})
           </div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", marginTop: "3px", letterSpacing: "0.06em" }}>
-            // Stars 40% · Acceleration 20% · Contributors 20% · Releases 10% · Issues 10%
+          <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)", marginTop: "3px" }}>
+            Stars 40% · Acceleration 20% · Contributors 20% · Releases 10% · Issues 10%
           </div>
         </div>
-        <div style={{ display: "flex", gap: "10px", fontSize: "10px", color: "var(--text-muted)", flexShrink: 0, fontFamily: "var(--font-mono)" }}>
-          {[["#39ff14", "HIGH"], ["#ffab00", "MID"], ["#4a5a68", "LOW"]].map(([c, l]) => (
+        <div style={{ display: "flex", gap: "10px", fontSize: "11px", color: "var(--text-muted)", flexShrink: 0, fontFamily: "var(--font-sans)" }}>
+          {[["#3fb950", "HIGH"], ["#d29922", "MID"], ["#6e7681", "LOW"]].map(([c, l]) => (
             <span key={l} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-              <span style={{ width: 8, height: 8, background: c, display: "inline-block" }} />{l}
+              <span style={{ width: 8, height: 8, background: c, display: "inline-block", borderRadius: "2px" }} />{l}
             </span>
           ))}
         </div>
@@ -201,9 +201,9 @@ function CategoryStarsChart({ data }: { data: CategoryMetrics[] }) {
     <div className="panel" style={{ display: "flex", flexDirection: "column" }}>
       <div className="panel-header">
         <div>
-          <div className="panel-title">◇ Stars Distribution</div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", marginTop: "3px" }}>
-            // {total.toLocaleString()} total stars across all categories
+          <div className="panel-title">Stars Distribution</div>
+          <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)", marginTop: "3px" }}>
+            {total.toLocaleString()} total stars across all categories
           </div>
         </div>
       </div>
@@ -296,9 +296,9 @@ function CategoryPRChart({ data, period }: { data: CategoryMetrics[]; period: Pe
     <div className="panel">
       <div className="panel-header">
         <div>
-          <div className="panel-title">⬡ PR Activity ({periodLabel})</div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", marginTop: "3px" }}>
-            // Merged PRs (cumulative) · Open PRs (avg/repo)
+          <div className="panel-title">PR Activity ({periodLabel})</div>
+          <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)", marginTop: "3px" }}>
+            Merged PRs (cumulative) · Open PRs (avg/repo)
           </div>
         </div>
       </div>
@@ -354,29 +354,29 @@ function LeaderboardTable({
   return (
     <div className="panel">
       <div className="panel-header">
-        <div className="panel-title">▲ Top Repos — {periodLabel}</div>
+        <div className="panel-title">Top Repos — {periodLabel}</div>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--cyan)", border: "1px solid rgba(0,229,255,0.2)", padding: "2px 8px", letterSpacing: "0.1em" }}>
           LIVE · GITHUB SEARCH API
         </span>
       </div>
 
       {isLoading ? (
-        <div style={{ padding: "32px", textAlign: "center", fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px", letterSpacing: "0.1em" }}>
-          // SEARCHING GITHUB…
+        <div style={{ padding: "32px", textAlign: "center", fontFamily: "var(--font-sans)", color: "var(--text-muted)", fontSize: "13px" }}>
+          Searching GitHub…
         </div>
       ) : entries.length === 0 ? (
-        <div style={{ padding: "32px", textAlign: "center", fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px", letterSpacing: "0.08em" }}>
-          // No repos found for this period. Try a longer window.
+        <div style={{ padding: "32px", textAlign: "center", fontFamily: "var(--font-sans)", color: "var(--text-muted)", fontSize: "13px" }}>
+          No jutsu detected in this period. Try a longer window.
         </div>
       ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", fontFamily: "var(--font-mono)" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", fontFamily: "var(--font-sans)" }}>
           <thead>
             <tr style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
               {["", "#", "Repo / Description", "Category", "Stars / Gained", "Forks", "Open Issues", "Age", ""].map((h, i) => (
                 <th key={i} style={{
                   padding: "9px 12px",
                   textAlign: ["#", "Stars / Gained", "Forks", "Open Issues", "Age"].includes(h) ? "right" : "left",
-                  fontWeight: 500, fontSize: "9px", letterSpacing: "0.2em", whiteSpace: "nowrap", textTransform: "uppercase",
+                  fontWeight: 600, fontSize: "11px", letterSpacing: "0.03em", whiteSpace: "nowrap", textTransform: "uppercase",
                 }}>
                   {h}
                 </th>
@@ -495,19 +495,19 @@ function SustainabilityRanking({ repos }: { repos: SustainabilityEntry[] }) {
   return (
     <div className="panel">
       <div className="panel-header">
-        <div className="panel-title">◈ Sustainability Ranking</div>
+        <div className="panel-title">Sustainability Ranking</div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
         {repos.length === 0 ? (
-          <div style={{ padding: "20px 24px", textAlign: "center", fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "12px", letterSpacing: "0.08em" }}>
-            // No sustainability data yet — scores will populate after first ingestion run.
+          <div style={{ padding: "20px 24px", textAlign: "center", fontFamily: "var(--font-sans)", color: "var(--text-muted)", fontSize: "13px" }}>
+            No sustainability data yet — scores will populate after first ingestion run.
           </div>
-        ) : repos.slice(0, 15).map((repo, i) => (
+        ) : repos.slice(0, 10).map((repo, i) => (
           <div
             key={repo.repo_id}
-            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px", cursor: "pointer", minWidth: 0, borderBottom: "1px solid rgba(28,40,48,0.6)", transition: "background 0.15s" }}
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px", cursor: "pointer", minWidth: 0, borderBottom: "1px solid var(--border)", transition: "background 0.15s" }}
             onClick={() => router.push(`/repo/${repo.repo_id}`)}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(0,229,255,0.025)")}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
             onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, overflow: "hidden" }}>
@@ -556,15 +556,15 @@ function EcosystemMapChart({ repos }: { repos: RadarRepo[] }) {
     <div className="panel">
       <div className="panel-header">
         <div>
-          <div className="panel-title">◎ AI Ecosystem Map</div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", marginTop: "3px" }}>
-            // X-axis: Trend Score · Y-axis: Sustainability Score · Each dot = one repo
+          <div className="panel-title">AI Ecosystem Map</div>
+          <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)", marginTop: "3px" }}>
+            X-axis: Trend Score · Y-axis: Sustainability Score · Each dot = one repo
           </div>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 10px", fontSize: "10px", maxWidth: "50%", justifyContent: "flex-end" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 10px", fontSize: "11px", maxWidth: "50%", justifyContent: "flex-end" }}>
           {categories.map((c) => (
-            <span key={c} style={{ display: "flex", alignItems: "center", gap: "4px", fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>
-              <span style={{ width: 7, height: 7, background: CATEGORY_COLORS[c] ?? "#888", display: "inline-block", clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)" }} />
+            <span key={c} style={{ display: "flex", alignItems: "center", gap: "4px", fontFamily: "var(--font-sans)", color: "var(--text-muted)" }}>
+              <span style={{ width: 7, height: 7, background: CATEGORY_COLORS[c] ?? "#888", display: "inline-block", borderRadius: "50%" }} />
               {c}
             </span>
           ))}
@@ -617,13 +617,13 @@ function EcosystemMapChart({ repos }: { repos: RadarRepo[] }) {
       {/* Quadrant hints */}
       <div className="quadrant-grid">
         {[
-          { bg: "rgba(57,255,20,0.06)", border: "var(--green)", label: "◈ Rising Stars", desc: "High trend · high sustainability" },
-          { bg: "rgba(255,171,0,0.06)", border: "var(--amber)", label: "▲ Breakouts", desc: "High trend · lower sustainability" },
-          { bg: "rgba(0,229,255,0.06)", border: "var(--cyan)", label: "⬡ Established", desc: "Lower trend · high sustainability" },
-          { bg: "rgba(255,61,107,0.06)", border: "var(--pink)", label: "⚠ Watch", desc: "Low trend · low sustainability" },
+          { bg: "rgba(63,185,80,0.06)", border: "var(--accent-green)", label: "Rising Stars 🍃", desc: "High trend · high sustainability" },
+          { bg: "rgba(210,153,34,0.06)", border: "var(--accent-yellow)", label: "Breakouts", desc: "High trend · lower sustainability" },
+          { bg: "rgba(88,166,255,0.06)", border: "var(--accent-blue)", label: "Established", desc: "Lower trend · high sustainability" },
+          { bg: "rgba(248,81,73,0.06)", border: "var(--accent-red)", label: "Watch", desc: "Low trend · low sustainability" },
         ].map(({ bg, border, label, desc }) => (
-          <div key={label} style={{ background: bg, border: `1px solid ${border}22`, padding: "6px 10px", fontSize: "10px", fontFamily: "var(--font-mono)" }}>
-            <span style={{ color: border, letterSpacing: "0.06em" }}>{label}</span>
+          <div key={label} style={{ background: bg, border: `1px solid ${border}33`, borderRadius: "5px", padding: "7px 10px", fontSize: "12px", fontFamily: "var(--font-sans)" }}>
+            <span style={{ color: border, fontWeight: 600 }}>{label}</span>
             <span style={{ color: "var(--text-muted)", marginLeft: "6px" }}>{desc}</span>
           </div>
         ))}
@@ -640,7 +640,7 @@ const ALERT_ICONS: Record<string, string> = {
   star_spike_48h: "🌟",
   momentum_surge: "🚀",
   pr_surge: "🔀",
-  new_breakout: "🔥",
+  new_breakout: "🌀",   // Rasengan!
 };
 
 function AlertsPanel({
@@ -671,17 +671,17 @@ function AlertsPanel({
             background: "none", border: "none", cursor: "pointer", padding: 0,
           }}
         >
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--text-muted)", transition: "transform 0.2s", display: "inline-block", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>▾</span>
+          <span style={{ fontFamily: "var(--font-sans)", fontSize: "13px", color: "var(--text-muted)", transition: "transform 0.2s", display: "inline-block", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>▾</span>
           <span className="panel-title">
-            ▲ Trend Alerts
+            Trend Alerts
           </span>
           {unread > 0 && (
             <span className="alert-badge-cyber">
-              {unread} NEW
+              {unread} new
             </span>
           )}
           {collapsed && alerts.length > 0 && (
-            <span style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>
+            <span style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>
               — {alerts.length} alert{alerts.length !== 1 ? "s" : ""}
             </span>
           )}
@@ -695,7 +695,7 @@ function AlertsPanel({
                 Dismiss All
               </button>
             )}
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", letterSpacing: "0.06em" }}>
+            <span style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: "var(--text-muted)" }}>
               Last {alerts.length} alerts · click to dismiss
             </span>
           </div>
@@ -703,8 +703,8 @@ function AlertsPanel({
       </div>
 
       {!collapsed && (alerts.length === 0 ? (
-        <p style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: "12px", textAlign: "center", padding: "16px 20px", letterSpacing: "0.08em" }}>
-          // No active alerts — scores will trigger alerts after sufficient data accumulates.
+        <p style={{ color: "var(--text-muted)", fontFamily: "var(--font-sans)", fontSize: "13px", textAlign: "center", padding: "16px 20px" }}>
+          No active alerts — scores will trigger alerts after sufficient data accumulates.
         </p>
       ) : (
         <div>
@@ -718,19 +718,19 @@ function AlertsPanel({
                 {ALERT_ICONS[alert.alert_type] ?? "★"}
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: "3px" }}>
-                  <strong style={{ color: "var(--cyan)", fontWeight: 700 }}>{alert.headline.split(" gained")[0]}</strong>
+                <div style={{ fontFamily: "var(--font-sans)", fontSize: "13px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: "3px" }}>
+                  <strong style={{ color: "var(--accent-blue)", fontWeight: 600 }}>{alert.headline.split(" gained")[0]}</strong>
                   {alert.headline.includes(" gained") ? " gained" + alert.headline.split(" gained")[1] : ""}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)" }}>
-                  <span style={{ border: "1px solid rgba(0,229,255,0.2)", color: "var(--cyan)", padding: "1px 5px", fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)" }}>
+                  <span style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--accent-blue)", padding: "1px 6px", fontSize: "11px", borderRadius: "4px" }}>
                     {alert.category}
                   </span>
                   {new Date(alert.triggered_at).toLocaleString()}
                 </div>
               </div>
               {!alert.is_read && (
-                <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--pink)", boxShadow: "0 0 6px var(--pink)", flexShrink: 0 }} />
+                <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent-red)", flexShrink: 0 }} />
               )}
             </div>
           ))}
@@ -745,6 +745,7 @@ export default function OverviewPage() {
   const [period, setPeriod] = useState<Period>("7d");
   const [vertical, setVertical] = useState<Vertical>("ai_ml");
   const [compareSelection, setCompareSelection] = useState<string[]>([]);
+  const [alertsOpen, setAlertsOpen] = useState(false);
   const { items: watchlist, toggle: togglePin, isPinned } = useWatchlist();
 
   const { data: overview, isLoading: overviewLoading, error } = useQuery({
@@ -759,7 +760,7 @@ export default function OverviewPage() {
 
   const { data: leaderboard, isLoading: leaderboardLoading } = useQuery({
     queryKey: ["leaderboard", period, vertical],
-    queryFn: () => api.getLeaderboard(period, undefined, 20, vertical),
+    queryFn: () => api.getLeaderboard(period, undefined, 10, vertical),
   });
 
   // Ecosystem map — full repo set with both scores
@@ -779,6 +780,8 @@ export default function OverviewPage() {
   useEffect(() => {
     if (alertsData) setAlerts(alertsData);
   }, [alertsData]);
+
+  const unreadCount = alerts.filter((a) => !a.is_read).length;
 
   const handleMarkAlertRead = async (alertId: string) => {
     try {
@@ -812,8 +815,8 @@ export default function OverviewPage() {
   if (overviewLoading) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
-        <p style={{ fontFamily: "var(--font-mono)", color: "var(--cyan)", letterSpacing: "0.15em", fontSize: "11px" }}>
-          // LOADING ECOSYSTEM DATA<span className="terminal-cursor" />
+        <p style={{ fontFamily: "var(--font-sans)", color: "var(--text-muted)", fontSize: "13px" }}>
+          Channeling chakra…
         </p>
       </div>
     );
@@ -823,12 +826,12 @@ export default function OverviewPage() {
     return (
       <div style={{ paddingTop: "40px" }}>
         <div className="panel" style={{ padding: "24px" }}>
-          <p style={{ color: "var(--pink)", fontFamily: "var(--font-mono)", fontWeight: 700, marginBottom: "8px", letterSpacing: "0.08em" }}>
-            ✕ BACKEND NOT REACHABLE
+          <p style={{ color: "var(--accent-red)", fontFamily: "var(--font-sans)", fontWeight: 600, marginBottom: "8px", fontSize: "14px" }}>
+            Backend not reachable
           </p>
-          <p style={{ color: "var(--text-secondary)", fontSize: "12px", fontFamily: "var(--font-mono)", lineHeight: 1.8 }}>
-            Start the FastAPI server: <code style={{ color: "var(--cyan)" }}>make dev-backend</code><br />
-            Run first-time setup: <code style={{ color: "var(--cyan)" }}>POST /admin/run-all</code> from the API docs at <code style={{ color: "var(--cyan)" }}>localhost:8000/docs</code>
+          <p style={{ color: "var(--text-secondary)", fontSize: "13px", fontFamily: "var(--font-sans)", lineHeight: 1.7 }}>
+            Start the FastAPI server: <code style={{ color: "var(--accent-blue)", fontFamily: "var(--font-mono)" }}>make dev-backend</code><br />
+            Run first-time setup: <code style={{ color: "var(--accent-blue)", fontFamily: "var(--font-mono)" }}>POST /admin/run-all</code> from the API docs at <code style={{ color: "var(--accent-blue)", fontFamily: "var(--font-mono)" }}>localhost:8000/docs</code>
           </p>
         </div>
       </div>
@@ -846,14 +849,14 @@ export default function OverviewPage() {
       {compareSelection.length >= 2 && (
         <div style={{
           position: "fixed", bottom: "32px", left: "50%", transform: "translateX(-50%)",
-          background: "var(--bg-surface)", border: "1px solid var(--cyan)",
+          background: "var(--bg-surface)", border: "1px solid var(--border)",
+          borderRadius: "8px",
           padding: "10px 20px",
           display: "flex", alignItems: "center", gap: "16px", zIndex: 300,
-          boxShadow: "0 0 24px rgba(0,229,255,0.25)",
-          clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
         }}>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", fontWeight: 700, color: "var(--cyan)", letterSpacing: "0.1em" }}>
-            {compareSelection.length} REPOS SELECTED
+          <span style={{ fontFamily: "var(--font-sans)", fontSize: "13px", fontWeight: 600, color: "var(--accent-blue)" }}>
+            {compareSelection.length} repos selected
           </span>
           <button
             onClick={openCompare}
@@ -871,32 +874,136 @@ export default function OverviewPage() {
         </div>
       )}
 
+      {/* Trend Alerts Drawer */}
+      {alertsOpen && (
+        <div
+          onClick={() => setAlertsOpen(false)}
+          style={{ position: "fixed", inset: 0, zIndex: 390 }}
+        />
+      )}
+      <div style={{
+        position: "fixed",
+        top: "56px",
+        right: "16px",
+        width: "380px",
+        maxHeight: "70vh",
+        overflowY: "auto",
+        zIndex: 400,
+        background: "var(--bg-surface)",
+        border: "1px solid var(--border)",
+        borderRadius: "10px",
+        boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
+        transition: "opacity 0.15s, transform 0.15s",
+        opacity: alertsOpen ? 1 : 0,
+        pointerEvents: alertsOpen ? "auto" : "none",
+        transform: alertsOpen ? "translateY(0)" : "translateY(-6px)",
+      }}>
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, background: "var(--bg-surface)" }}>
+          <span style={{ fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: "13px", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "7px" }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+              <polyline points="16 7 22 7 22 13" />
+            </svg>
+            Trend Alerts
+            {unreadCount > 0 && (
+              <span style={{ background: "var(--accent-red)", color: "#fff", fontSize: "10px", fontWeight: 700, padding: "1px 5px", borderRadius: "10px" }}>
+                {unreadCount}
+              </span>
+            )}
+          </span>
+          {unreadCount > 0 && (
+            <button onClick={handleDismissAllAlerts} className="link-btn-cyber" style={{ fontSize: "11px" }}>
+              Dismiss all
+            </button>
+          )}
+        </div>
+        {alerts.length === 0 ? (
+          <p style={{ color: "var(--text-muted)", fontFamily: "var(--font-sans)", fontSize: "13px", textAlign: "center", padding: "24px 20px" }}>
+            No active alerts
+          </p>
+        ) : (
+          <div>
+            {alerts.map((alert) => (
+              <div
+                key={alert.id}
+                onClick={() => !alert.is_read && handleMarkAlertRead(alert.id)}
+                className={`alert-row-cyber${alert.is_read ? " read" : ""}`}
+              >
+                <span style={{ fontSize: "16px", flexShrink: 0 }}>{ALERT_ICONS[alert.alert_type] ?? "★"}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: "var(--font-sans)", fontSize: "13px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: "3px" }}>
+                    <strong style={{ color: "var(--accent-blue)", fontWeight: 600 }}>{alert.headline.split(" gained")[0]}</strong>
+                    {alert.headline.includes(" gained") ? " gained" + alert.headline.split(" gained")[1] : ""}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)" }}>
+                    <span style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--accent-blue)", padding: "1px 6px", fontSize: "11px", borderRadius: "4px" }}>{alert.category}</span>
+                    {new Date(alert.triggered_at).toLocaleString()}
+                  </div>
+                </div>
+                {!alert.is_read && (
+                  <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent-red)", flexShrink: 0 }} />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
         <div>
           <div className="section-title-cyber">
             Ecosystem <span>Overview</span>
-            <span className="terminal-cursor" />
+            <span title="Shinobi-grade analytics · 忍者の道" style={{ marginLeft: "10px", fontSize: "13px", opacity: 0.3, cursor: "default", verticalAlign: "middle", display: "inline-block", userSelect: "none" }}>忍</span>
           </div>
           <div style={{
-            fontFamily: "var(--font-mono)", fontSize: "10px",
-            color: "var(--text-muted)", letterSpacing: "0.12em",
-            marginTop: "6px", textTransform: "uppercase",
+            fontFamily: "var(--font-sans)", fontSize: "12px",
+            color: "var(--text-muted)",
+            marginTop: "6px",
           }}>
-            // as_of: {overview.as_of} · filter: {PERIODS.find(p => p.key === period)?.label ?? period} · category: {VERTICALS.find(v => v.key === vertical)?.label ?? vertical}
+            As of {overview.as_of} · {PERIODS.find(p => p.key === period)?.label ?? period} · {VERTICALS.find(v => v.key === vertical)?.label ?? vertical}
           </div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "flex-end", minWidth: 0 }}>
-          <PeriodSelector selected={period} onChange={setPeriod} />
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-end", minWidth: 0 }}>
+          {/* Period selector + Trends button — same row */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <PeriodSelector selected={period} onChange={setPeriod} />
+            <button
+              onClick={() => setAlertsOpen((o) => !o)}
+              title="Trend Alerts"
+              style={{
+                display: "flex", alignItems: "center", gap: "6px",
+                background: alertsOpen ? "var(--bg-elevated)" : "transparent",
+                border: "1px solid var(--border)", borderRadius: "6px",
+                cursor: "pointer", padding: "5px 10px",
+                fontFamily: "var(--font-sans)", fontSize: "12px",
+                color: unreadCount > 0 ? "var(--accent-blue)" : "var(--text-muted)",
+                transition: "all 0.15s", whiteSpace: "nowrap",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = alertsOpen ? "var(--bg-elevated)" : "transparent")}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+                <polyline points="16 7 22 7 22 13" />
+              </svg>
+              Trends
+              {unreadCount > 0 && (
+                <span style={{ background: "var(--accent-red)", color: "#fff", fontSize: "10px", fontWeight: 700, padding: "1px 5px", borderRadius: "10px", lineHeight: "14px" }}>
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+          </div>
           <VerticalSelector selected={vertical} onChange={(v) => { setVertical(v); setCompareSelection([]); }} />
         </div>
       </div>
 
       {/* Stat Cards */}
-      <div className="stat-grid" style={{ gap: '1px', background: 'var(--border)' }}>
+      <div className="stat-grid">
         <StatCard
           index={0}
-          label="repos_tracked"
+          label="Repos Tracked"
           value={overview.total_repos}
           sub={overview.discovered_repos > 0
             ? `+${overview.discovered_repos} auto-discovered`
@@ -904,13 +1011,13 @@ export default function OverviewPage() {
         />
         <StatCard
           index={1}
-          label="top_category"
+          label="Top Category"
           value={topCat?.category ?? "—"}
           sub={topCat ? `${topCat.total_stars.toLocaleString()} total stars` : undefined}
         />
         <StatCard
           index={2}
-          label={`#1 — ${PERIODS.find(p => p.key === period)?.label ?? period} momentum`}
+          label={`#1 — ${PERIODS.find(p => p.key === period)?.label ?? period} Momentum`}
           value={topLeaderEntry ? `${topLeaderEntry.owner}/${topLeaderEntry.name}` : "—"}
           sub={topLeaderEntry
             ? `★ ${topLeaderEntry.current_stars.toLocaleString()} stars`
@@ -918,14 +1025,11 @@ export default function OverviewPage() {
         />
         <StatCard
           index={3}
-          label="green_score"
+          label="Healthy Repos"
           value={greenCount}
           sub={`of ${overview.sustainability_ranking.length} scored`}
         />
       </div>
-
-      {/* Trend Alerts */}
-      <AlertsPanel alerts={alerts} onMarkRead={handleMarkAlertRead} onDismissAll={handleDismissAllAlerts} />
 
       {/* Category Charts Row */}
       <CategoryTrendHeatmap data={categoriesData ?? overview.category_growth} period={period} />

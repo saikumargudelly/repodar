@@ -20,9 +20,9 @@ const NAV_LINKS = [
 ];
 
 const THEMES: { key: Theme; label: string; color: string }[] = [
-  { key: "dark",   label: "ICE",  color: "#00e5ff" },
-  { key: "fire",   label: "FIRE", color: "#ffe600" },
-  { key: "matrix", label: "MTX",  color: "#00ff00" },
+  { key: "dark",   label: "Ice",    color: "#58a6ff" },
+  { key: "fire",   label: "Ember",  color: "#d4713a" },
+  { key: "matrix", label: "Indigo", color: "#818cf8" },
 ];
 
 export function Nav() {
@@ -53,7 +53,6 @@ export function Nav() {
           position: "sticky",
           top: 0,
           zIndex: 40,
-          boxShadow: "0 1px 0 var(--cyan)22",
         }}
       >
         <div
@@ -72,7 +71,7 @@ export function Nav() {
           {/* Right side: Theme switcher + Report + Hamburger */}
           <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
             {/* Theme switcher */}
-            <div style={{ display: "flex", gap: "2px", background: "var(--bg-elevated)", border: "1px solid var(--border)", padding: "3px" }}>
+            <div style={{ display: "flex", gap: "2px", background: "var(--bg-elevated)", border: "1px solid var(--border)", padding: "3px", borderRadius: "6px" }}>
               {THEMES.map((t) => (
                 <button
                   key={t.key}
@@ -82,15 +81,14 @@ export function Nav() {
                     padding: "4px 10px",
                     border: theme === t.key ? `1px solid ${t.color}` : "1px solid transparent",
                     cursor: "pointer",
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "10px",
-                    fontWeight: 700,
-                    letterSpacing: "0.08em",
-                    background: theme === t.key ? `${t.color}22` : "transparent",
+                    fontFamily: "var(--font-sans)",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    background: theme === t.key ? `${t.color}18` : "transparent",
                     color: theme === t.key ? t.color : "var(--text-muted)",
                     transition: "all 0.15s",
                     lineHeight: 1,
-                    textTransform: "uppercase",
+                    borderRadius: "4px",
                   }}
                 >
                   {t.label}
@@ -104,13 +102,12 @@ export function Nav() {
               className="btn-cyber btn-cyber-cyan"
               style={{
                 padding: "6px 14px",
-                fontSize: "10px",
-                fontWeight: 700,
-                letterSpacing: "0.06em",
+                fontSize: "12px",
+                fontWeight: 500,
                 whiteSpace: "nowrap",
               }}
             >
-              <span className="nav-description" style={{ marginLeft: 0 }}>WEEKLY </span>REPORT
+              <span className="nav-description" style={{ marginLeft: 0 }}>Weekly </span>Report
             </button>
 
             {/* Hamburger — mobile only, opens sidebar drawer */}
@@ -162,6 +159,7 @@ export function Nav() {
             style={{
               background: "var(--bg-surface)",
               border: "1px solid var(--border)",
+              borderRadius: "10px",
               width: "100%",
               maxWidth: "780px",
               padding: "24px",
@@ -170,13 +168,13 @@ export function Nav() {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
               <div>
-                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "16px",
-                  color: "var(--cyan)", letterSpacing: "0.08em", textShadow: "0 0 10px var(--cyan)66" }}>
-                  WEEKLY INTELLIGENCE REPORT
+                <div style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "16px",
+                  color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
+                  Weekly Intelligence Report
                 </div>
                 {report && (
-                  <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "10px", margin: "4px 0 0", letterSpacing: "0.06em" }}>
-                    // week ending {report.week_ending}
+                  <div style={{ fontFamily: "var(--font-sans)", color: "var(--text-muted)", fontSize: "12px", margin: "4px 0 0" }}>
+                    Week ending {report.week_ending}
                   </div>
                 )}
               </div>
@@ -189,8 +187,8 @@ export function Nav() {
             </div>
 
             {isLoading && (
-              <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", textAlign: "center", padding: "40px 0", fontSize: "12px", letterSpacing: "0.06em" }}>
-                // GENERATING REPORT<span className="terminal-cursor" />
+              <div style={{ fontFamily: "var(--font-sans)", color: "var(--text-muted)", textAlign: "center", padding: "40px 0", fontSize: "13px" }}>
+                Generating report<span className="terminal-cursor" />
               </div>
             )}
 

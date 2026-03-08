@@ -13,7 +13,7 @@ import { api, CompareEntry, RepoHistory } from "@/lib/api";
 import { SustainBadge } from "@/components/Nav";
 
 // ─── Colour palette per repo slot ────────────────────────────────────────────
-const COLORS = ["#00e5ff", "#ffab00", "#ff3d6b", "#39ff14", "#a78bfa"];
+const COLORS = ["#58a6ff", "#d29922", "#f85149", "#3fb950", "#a78bfa"];
 
 // ─── History data builder ────────────────────────────────────────────────────
 function buildHistoryData(histories: RepoHistory[]) {

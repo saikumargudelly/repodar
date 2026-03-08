@@ -215,19 +215,19 @@ export function Sidebar() {
       >
         <div style={{
           width: "32px", height: "32px",
-          border: "1px solid var(--cyan)",
-          boxShadow: "0 0 8px var(--cyan)55, inset 0 0 8px var(--cyan)22",
+          border: "1px solid var(--border)",
+          borderRadius: "6px",
           display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
           background: "var(--bg-elevated)",
         }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
           </svg>
         </div>
         {(!collapsed || isMobile) && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "1px", userSelect: "none" }}>
-            <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "15px", letterSpacing: "0.08em", color: "var(--cyan)", whiteSpace: "nowrap", textShadow: "0 0 12px var(--cyan)88" }}>REPODAR</span>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--text-muted)", whiteSpace: "nowrap", letterSpacing: "0.06em" }}>// github ai radar</span>
+          <div style={{ display: "flex", flexDirection: "column", gap: "2px", userSelect: "none" }}>
+            <span style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "15px", letterSpacing: "0.01em", color: "var(--accent-blue)", whiteSpace: "nowrap" }}>Repodar</span>
+            <span style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>GitHub AI Radar</span>
           </div>
         )}
         {/* Close button on mobile */}
@@ -261,7 +261,7 @@ export function Sidebar() {
               <span style={{ display: "flex", alignItems: "center", justifyContent: "center", color: isActive ? "var(--cyan)" : "var(--text-muted)", flexShrink: 0, width: "17px" }}>
                 {item.icon}
               </span>
-              <span className="sidebar-label" style={{ flex: 1, fontFamily: "var(--font-mono)", fontSize: "11px", letterSpacing: "0.04em", textTransform: "uppercase" }}>{item.label}</span>
+              <span className="sidebar-label" style={{ flex: 1, fontFamily: "var(--font-sans)", fontSize: "13px", letterSpacing: "0" }}>{item.label}</span>
               <span className="sidebar-tooltip">{item.label}</span>
             </Link>
           );
@@ -272,11 +272,11 @@ export function Sidebar() {
       <div
         style={{ padding: collapsed && !isMobile ? "12px 10px" : "12px 14px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: collapsed && !isMobile ? "center" : "flex-start", gap: "8px" }}
       >
-        <div style={{ width: "8px", height: "8px", background: "var(--green)", boxShadow: "0 0 6px var(--green)", flexShrink: 0 }} />
+        <div style={{ width: "7px", height: "7px", borderRadius: "50%", background: "var(--accent-green)", flexShrink: 0 }} />
         {(!collapsed || isMobile) && (
           <div>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--green)", fontWeight: 700, whiteSpace: "nowrap", letterSpacing: "0.06em" }}>v2.0 // ONLINE</div>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--text-muted)", whiteSpace: "nowrap", marginTop: "1px", letterSpacing: "0.04em" }}>ai/ml ecosystem tracker</div>
+            <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--accent-green)", fontWeight: 600, whiteSpace: "nowrap" }}>v2.0 · Online</div>
+            <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)", whiteSpace: "nowrap", marginTop: "1px" }}>AI/ML Ecosystem Tracker</div>
           </div>
         )}
       </div>
@@ -297,12 +297,12 @@ export function Sidebar() {
           cursor: pointer;
         }
         .sidebar-nav-link:hover {
-          background: var(--cyan)0d !important;
-          color: var(--cyan) !important;
+          background: rgba(88,166,255,0.07) !important;
+          color: var(--accent-blue) !important;
         }
         .sidebar-nav-link:hover svg {
-          color: var(--cyan) !important;
-          stroke: var(--cyan) !important;
+          color: var(--accent-blue) !important;
+          stroke: var(--accent-blue) !important;
         }
         .sidebar-tooltip {
           display: none;
@@ -311,18 +311,17 @@ export function Sidebar() {
           top: 50%;
           transform: translateY(-50%);
           background: var(--bg-elevated);
-          border: 1px solid var(--cyan);
-          color: var(--cyan);
-          font-size: 10px;
-          font-family: var(--font-mono);
-          font-weight: 700;
-          padding: 4px 10px;
+          border: 1px solid var(--border);
+          color: var(--text-primary);
+          font-size: 12px;
+          font-family: var(--font-sans);
+          font-weight: 500;
+          padding: 5px 10px;
           white-space: nowrap;
           pointer-events: none;
           z-index: 200;
-          box-shadow: 0 0 10px var(--cyan)44;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
+          border-radius: 5px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
         .sidebar-tooltip::before {
           content: '';
@@ -331,7 +330,7 @@ export function Sidebar() {
           top: 50%;
           transform: translateY(-50%);
           border: 5px solid transparent;
-          border-right-color: var(--cyan);
+          border-right-color: var(--border);
         }
         .sidebar-collapsed .sidebar-nav-link:hover .sidebar-tooltip {
           display: block;
