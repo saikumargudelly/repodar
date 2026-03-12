@@ -47,6 +47,8 @@ DISCOVERY_SEARCHES = [
     ("7d",  "security"),
     ("7d",  "data_engineering"),
     ("7d",  "blockchain"),
+    ("7d",  "oss_tools"),
+    ("30d", "oss_tools"),
 ]
 
 # Broad star-threshold discovery: verticals to scan every cycle.
@@ -58,6 +60,7 @@ STAR_THRESHOLD_SEARCHES = [
     "data_engineering",
     "security",
     "web_frameworks",
+    "oss_tools",
 ]
 
 

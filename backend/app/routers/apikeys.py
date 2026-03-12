@@ -74,6 +74,22 @@ class RateLimitStatus(BaseModel):
     last_used_at: Optional[str]
 
 
+def _serialize_api_key(key: ApiKey, raw_key: Optional[str] = None) -> ApiKeyOut:
+    return ApiKeyOut(
+        id=key.id,
+        name=key.name,
+        tier=key.tier,
+        calls_today=key.calls_today,
+        calls_this_month=key.calls_this_month,
+        calls_total=key.calls_total,
+        day_limit=key.day_limit(),
+        created_at=key.created_at.isoformat() if key.created_at else "",
+        last_used_at=key.last_used_at.isoformat() if key.last_used_at else None,
+        is_active=key.is_active,
+        raw_key=raw_key,
+    )
+
+
 # ─── FastAPI dependency: validate API key header ──────────────────────────────
 
 def validate_api_key(
@@ -153,19 +169,38 @@ def create_api_key(
 
     logger.info(f"API key created: id={key.id} user={user_id}")
 
-    return ApiKeyOut(
-        id=key.id,
-        name=key.name,
-        tier=key.tier,
-        calls_today=key.calls_today,
-        calls_this_month=key.calls_this_month,
-        calls_total=key.calls_total,
-        day_limit=key.day_limit(),
-        created_at=key.created_at.isoformat(),
-        last_used_at=None,
-        is_active=key.is_active,
-        raw_key=raw_key,          # ← shown once only
+    return _serialize_api_key(key, raw_key=raw_key)
+
+
+@router.post("/keys/ensure", response_model=ApiKeyOut)
+def ensure_default_api_key(
+    user_id: str = Depends(_require_user),
+    db: Session = Depends(get_db),
+):
+    """Return an active key for the user, creating a default free key if needed."""
+    key = (
+        db.query(ApiKey)
+        .filter_by(user_id=user_id, is_active=True)
+        .order_by(ApiKey.created_at.asc())
+        .first()
     )
+    if key:
+        return _serialize_api_key(key)
+
+    raw_key = f"rdr_{secrets.token_urlsafe(32)}"
+    key = ApiKey(
+        key_hash=_hash_key(raw_key),
+        user_id=user_id,
+        name="Default key",
+        tier="free",
+        created_at=_utcnow(),
+        calls_day_reset_at=_utcnow(),
+    )
+    db.add(key)
+    db.commit()
+    db.refresh(key)
+    logger.info("Default API key created: id=%s user=%s", key.id, user_id)
+    return _serialize_api_key(key, raw_key=raw_key)
 
 
 @router.get("/keys", response_model=List[ApiKeyOut])
@@ -175,21 +210,7 @@ def list_api_keys(
 ):
     """List all API keys for the authenticated user (raw keys not shown)."""
     keys = db.query(ApiKey).filter_by(user_id=user_id, is_active=True).all()
-    return [
-        ApiKeyOut(
-            id=k.id,
-            name=k.name,
-            tier=k.tier,
-            calls_today=k.calls_today,
-            calls_this_month=k.calls_this_month,
-            calls_total=k.calls_total,
-            day_limit=k.day_limit(),
-            created_at=k.created_at.isoformat() if k.created_at else "",
-            last_used_at=k.last_used_at.isoformat() if k.last_used_at else None,
-            is_active=k.is_active,
-        )
-        for k in keys
-    ]
+    return [_serialize_api_key(k) for k in keys]
 
 
 @router.delete("/keys/{key_id}", status_code=204)

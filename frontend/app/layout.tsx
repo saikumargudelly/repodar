@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
-import { Nav } from "@/components/Nav";
-import { Sidebar } from "@/components/Sidebar";
-import { StatusBar } from "@/components/StatusBar";
+import { AppShell } from "@/components/AppShell";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://repodar.vercel.app";
+const rssFeedUrl = (process.env.NEXT_PUBLIC_API_URL ?? "") + "/feed.xml";
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   alternates: {
     types: {
       "application/rss+xml": [
-        { url: `${process.env.NEXT_PUBLIC_API_URL ?? ""}/feed.xml`, title: "Repodar Breakout Alerts" },
+        { url: rssFeedUrl, title: "Repodar Breakout Alerts" },
       ],
     },
   },
@@ -51,30 +51,17 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap"
           rel="stylesheet"
         />
       </head>
       <body>
-        <Providers>
-          <Sidebar />
-          <Nav />
-          <main
-            style={{
-              marginLeft: "var(--sidebar-width, 220px)",
-              maxWidth: "100%",
-              marginTop: "48px",
-              padding: "0 28px 52px",
-              overflowX: "hidden",
-              transition: "margin-left 0.3s ease",
-            }}
-          >
-            {children}
-          </main>
-          <StatusBar />
-        </Providers>
+        <ClerkProvider>
+          <Providers>
+            <AppShell>{children}</AppShell>
+          </Providers>
+        </ClerkProvider>
       </body>
     </html>
   );
 }
-

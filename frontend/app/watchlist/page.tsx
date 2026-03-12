@@ -2,36 +2,36 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Fragment, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
+import { useAuth } from "@clerk/nextjs";
 import { api, WatchlistItemOut } from "@/lib/api";
 import { SustainBadge } from "@/components/Nav";
-import { useLocalUser } from "@/lib/localUser";
 
 export default function WatchlistPage() {
-  const { userId } = useLocalUser();
+  const { isLoaded, userId } = useAuth();
   const queryClient = useQueryClient();
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [editThreshold, setEditThreshold] = useState<string>("");
   const [editEmail, setEditEmail] = useState<string>("");
   const [editWebhook, setEditWebhook] = useState<string>("");
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["watchlist", userId],
-    queryFn: () => api.getWatchlist(userId),
+    queryFn: () => api.getWatchlist(userId!),
     enabled: !!userId,
     staleTime: 2 * 60 * 1000,
   });
 
   const removeMutation = useMutation({
-    mutationFn: (id: number) => api.removeFromWatchlist(userId, id),
+    mutationFn: (id: string) => api.removeFromWatchlist(userId!, id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["watchlist", userId] }),
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, threshold, email, webhook }: { id: number; threshold: string; email: string; webhook: string }) =>
-      api.updateWatchlistItem(userId, id, {
+    mutationFn: ({ id, threshold, email, webhook }: { id: string; threshold: string; email: string; webhook: string }) =>
+      api.updateWatchlistItem(userId!, id, {
         alert_threshold: threshold ? Number(threshold) : null,
         notify_email: email || null,
         notify_webhook: webhook || null,
@@ -50,6 +50,30 @@ export default function WatchlistPage() {
     setEditEmail(item.notify_email ?? "");
     setEditWebhook(item.notify_webhook ?? "");
   };
+
+  if (!isLoaded) {
+    return (
+      <div className="page-root">
+        <div style={{ color: "var(--text-secondary)", fontSize: "13px" }}>Loading account...</div>
+      </div>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <div className="page-root">
+        <div className="panel" style={{ padding: "24px" }}>
+          <div style={{ fontSize: "20px", fontWeight: 700, marginBottom: "8px" }}>Sign in to access your watchlist</div>
+          <p style={{ margin: "0 0 14px", color: "var(--text-secondary)", fontSize: "14px" }}>
+            Your saved repositories and alert preferences are tied to your account.
+          </p>
+          <Link href="/sign-in" className="btn-cyber btn-cyber-cyan" style={{ display: "inline-block", textDecoration: "none", padding: "8px 14px" }}>
+            Sign in
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-root">
@@ -110,9 +134,8 @@ export default function WatchlistPage() {
             </thead>
             <tbody>
               {items.map((item) => (
-                <>
+                <Fragment key={item.id}>
                   <tr
-                    key={item.id}
                     style={{
                       borderBottom: "1px solid var(--border)",
                       background: editingId === item.id ? "rgba(0,229,255,0.03)" : "transparent",
@@ -182,7 +205,7 @@ export default function WatchlistPage() {
                   </tr>
 
                   {editingId === item.id && (
-                    <tr key={`${item.id}-edit`} style={{ background: "var(--bg-elevated)", borderBottom: "1px solid var(--border)" }}>
+                    <tr style={{ background: "var(--bg-elevated)", borderBottom: "1px solid var(--border)" }}>
                       <td colSpan={8} style={{ padding: "12px 16px" }}>
                         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "flex-end" }}>
                           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
@@ -209,7 +232,7 @@ export default function WatchlistPage() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -218,13 +241,3 @@ export default function WatchlistPage() {
     </div>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  padding: "6px 10px",
-  background: "var(--bg-surface)",
-  border: "1px solid var(--border)",
-  color: "var(--text-primary)",
-  fontFamily: "var(--font-mono)",
-  fontSize: "12px",
-  width: "140px",
-};

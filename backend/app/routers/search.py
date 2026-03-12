@@ -33,15 +33,17 @@ _GITHUB_HEADERS = {
     "X-GitHub-Api-Version": "2022-11-28",
 }
 
-# Map vertical names → DB category substrings
+# Map vertical names → DB category substrings (ilike matching in the query)
 VERTICAL_CATEGORY_MAP: dict[str, list[str]] = {
     "ai_ml":            ["AI / ML", "Agent Framework", "Inference Engine", "LLM Model",
-                         "Fine-tuning", "Evaluation Framework", "Vector Database"],
-    "devtools":         ["DevTools", "Model Serving", "Runtime"],
-    "web_frameworks":   ["Web Framework"],
+                         "Fine-tuning", "Evaluation Framework", "Vector Database",
+                         "Model Serving", "Distributed Compute"],
+    "devtools":         ["DevTools"],
+    "web_frameworks":   ["Web Framework", "Web Frameworks"],
     "security":         ["Security"],
     "data_engineering": ["Data Engineering", "Vector Database", "Data Pipeline"],
     "blockchain":       ["Blockchain"],
+    "oss_tools":        ["OSS Tools"],
 }
 
 TIME_WINDOW_DAYS: dict[str, int] = {"7d": 7, "30d": 30, "90d": 90, "365d": 365}
@@ -59,7 +61,7 @@ _STOP = frozenset({
 # ─── Schemas ─────────────────────────────────────────────────────────────────
 
 class ParsedFilters(BaseModel):
-    vertical:            Optional[str]   = None   # ai_ml | devtools | web_frameworks | security | data_engineering | blockchain
+    vertical:            Optional[str]   = None   # ai_ml | devtools | web_frameworks | security | data_engineering | blockchain | oss_tools
     min_trend_score:     Optional[float] = None
     max_age_days:        Optional[int]   = None
     min_stars:           Optional[int]   = None
@@ -92,7 +94,7 @@ ONLY output valid JSON — no prose, no markdown code fences.
 
 Schema (use JSON null for unknown/unspecified fields):
 {{
-  "vertical": "ai_ml" | "devtools" | "web_frameworks" | "security" | "data_engineering" | "blockchain" | null,
+  "vertical": "ai_ml" | "devtools" | "web_frameworks" | "security" | "data_engineering" | "blockchain" | "oss_tools" | null,
   "min_trend_score": <number 0-1> | null,
   "max_age_days": <integer> | null,
   "min_stars": <integer> | null,
@@ -181,21 +183,41 @@ def _keyword_fallback_parse(query: str) -> dict:
             parsed["language"] = lang.title() if lang != "c++" else "C++"
             break
 
-    # Vertical
-    if any(w in q_lower for w in ["inference", "agent", "llm", "fine-tun", "vector", "embedding",
-                                    "transformer", "gpt", "rag", "mlops", "model"]):
+    # Vertical — ordered from most-specific to most-general to reduce false matches
+    if any(w in q_lower for w in ["inference", "agent", "llm", "fine-tun", "vector",
+                                    "embedding", "transformer", "gpt", "rag", "mlops",
+                                    "diffusion", "stable diffusion", "hugging face",
+                                    "pytorch", "tensorflow", "neural network"]):
         parsed["vertical"] = "ai_ml"
-    elif any(w in q_lower for w in [" ai ", " ml ", "machine learning", "deep learning"]):
+    elif any(w in q_lower for w in [" ai ", " ml ", "machine learning", "deep learning",
+                                     "computer vision", "natural language"]):
         parsed["vertical"] = "ai_ml"
-    elif any(w in q_lower for w in ["security", "vulnerability", "pentest", "exploit", "cve"]):
+    elif any(w in q_lower for w in ["security", "vulnerability", "pentest", "exploit",
+                                     "cve", "malware", "zero-day", "penetration",
+                                     "fuzzing", "osint", "reverse engineer", "red team",
+                                     "cryptograph"]):
         parsed["vertical"] = "security"
-    elif any(w in q_lower for w in ["devtool", "developer tool", "cli tool", "terminal"]):
-        parsed["vertical"] = "devtools"
-    elif any(w in q_lower for w in ["data engineer", "pipeline", "etl", "airflow", "spark"]):
+    elif any(w in q_lower for w in ["data engineer", "pipeline", "etl", "airflow", "spark",
+                                     "kafka", "dbt", "data lake", "data warehouse",
+                                     "streaming", "flink", "trino", "databricks"]):
         parsed["vertical"] = "data_engineering"
-    elif any(w in q_lower for w in ["blockchain", "ethereum", "web3", "defi", "solidity"]):
+    elif any(w in q_lower for w in ["blockchain", "ethereum", "web3", "defi", "solidity",
+                                     "bitcoin", "layer 2", "zero knowledge", "nft",
+                                     "smart contract", "dao", "solana"]):
         parsed["vertical"] = "blockchain"
-    elif any(w in q_lower for w in ["web framework", " react ", " nextjs ", "fastapi", "django"]):
+    elif any(w in q_lower for w in ["kubernetes", "k8s", "docker", "container", "bundler",
+                                     "webpack", "vite", "rollup", "package manager",
+                                     "monorepo", "terraform", "ansible", "helm",
+                                     "observabilit", "grafana", "prometheus",
+                                     "ci/cd", "opentelemetry", " orm ", "build tool"]):
+        parsed["vertical"] = "oss_tools"
+    elif any(w in q_lower for w in ["devtool", "developer tool", "cli tool", "terminal",
+                                     "linter", "formatter", "language server", "vscode",
+                                     "neovim", "debugger", "ide plugin"]):
+        parsed["vertical"] = "devtools"
+    elif any(w in q_lower for w in ["web framework", " react ", " nextjs ", "fastapi",
+                                     "django", "flask", " vue ", " angular ", " svelte ",
+                                     "rest api", " graphql", " grpc", "websocket"]):
         parsed["vertical"] = "web_frameworks"
 
     # Time window
@@ -272,14 +294,14 @@ async def _search_github_api(filters: ParsedFilters) -> List[dict]:
 
     try:
         async with aiohttp.ClientSession() as session:
-            items = await _do_github_search(session, q, sort=sort_param, per_page=30)
+            items = await _do_github_search(session, q, sort=sort_param, per_page=50)
             if not items and filters.keywords:
                 # Retry with a simpler query on failure
                 simple_q = " ".join(filters.keywords[:3])
                 if filters.language:
                     simple_q += f" language:{filters.language}"
                 simple_q += " stars:>50"
-                items = await _do_github_search(session, simple_q, sort="stars", per_page=30)
+                items = await _do_github_search(session, simple_q, sort="stars", per_page=50)
             return items
     except Exception as e:
         logger.error(f"GitHub Search failed: {e}")
@@ -290,7 +312,7 @@ async def _do_github_search(
     session: aiohttp.ClientSession,
     q: str,
     sort: str = "stars",
-    per_page: int = 30,
+    per_page: int = 50,
 ) -> List[dict]:
     params = {"q": q, "sort": sort, "order": "desc", "per_page": per_page}
     try:
@@ -358,31 +380,90 @@ def _normalize_github_item(item: dict) -> dict:
 
 
 def _infer_category(topics: List[str], language: Optional[str]) -> str:
-    t = set(topics or [])
-    if t & {"llm", "large-language-model", "gpt", "llama", "generative-ai", "gpt4"}:
-        return "LLM Models"
-    if t & {"ai-agent", "autonomous-agents", "langchain", "autogpt", "agent-framework"}:
-        return "Agent Frameworks"
-    if t & {"llm-inference", "inference", "llama-cpp", "gguf", "vllm", "onnx"}:
-        return "Inference Engines"
-    if t & {"vector-database", "vector-search", "embeddings", "faiss", "hnswlib", "chromadb"}:
+    t    = set(topics or [])
+    lang = (language or "").lower()
+
+    # AI/ML sub-categories (specific first)
+    if t & {"vector-database", "vector-search", "faiss", "weaviate", "pinecone",
+            "chroma", "chromadb", "hnswlib", "milvus", "qdrant", "annoy"}:
         return "Vector Databases"
-    if t & {"fine-tuning", "lora", "rlhf", "peft", "sft"}:
+    if t & {"ai-agent", "autonomous-agents", "langchain", "autogpt", "llm-agent",
+            "agent-framework", "multi-agent", "crewai", "llamaindex", "agentic"}:
+        return "Agent Frameworks"
+    if t & {"llm-inference", "vllm", "llama-cpp", "gguf", "tensorrt", "onnxruntime",
+            "triton-inference", "tgi", "tensorrt-llm", "deepspeed-inference"}:
+        return "Inference Engines"
+    if t & {"fine-tuning", "lora", "rlhf", "peft", "sft", "dpo", "qlora",
+            "instruction-tuning", "adapter"}:
         return "Fine-tuning Toolkits"
-    if t & {"llm-evaluation", "benchmarks", "evals", "evaluation"}:
+    if t & {"model-serving", "mlflow", "bentoml", "kubeflow",
+            "kfserving", "seldon", "model-registry"}:
+        return "Model Serving / Runtimes"
+    if t & {"distributed-training", "deepspeed", "horovod", "megatron",
+            "pytorch-lightning", "ray-train"}:
+        return "Distributed Compute / Infra"
+    if t & {"llm-evaluation", "benchmarks", "evals", "evaluation",
+            "llm-benchmark", "lm-eval", "helm"}:
         return "Evaluation Frameworks"
-    if t & {"machine-learning", "deep-learning", "pytorch", "tensorflow", "ai"}:
-        return "AI / ML"
-    if t & {"security", "cybersecurity", "vulnerability-scanner", "penetration-testing"}:
-        return "Security"
-    if t & {"data-engineering", "etl", "data-pipeline", "apache-airflow"}:
-        return "Data Engineering"
-    if t & {"blockchain", "ethereum", "web3", "defi", "smart-contracts"}:
+    if t & {"llm", "large-language-model", "gpt", "llama", "generative-ai",
+            "foundation-model", "causal-lm", "mistral", "gemini", "claude"}:
+        return "LLM Models"
+
+    # Blockchain (check before generic ML)
+    if t & {"blockchain", "ethereum", "smart-contracts", "web3", "defi",
+            "solidity", "nft", "layer2", "zero-knowledge", "dao",
+            "bitcoin", "solana", "cosmos", "cross-chain", "evm", "substrate"}:
         return "Blockchain"
-    if t & {"developer-tools", "cli", "terminal", "devtools", "productivity"}:
-        return "DevTools"
-    if t & {"web-framework", "rest-api", "nodejs", "react", "fastapi", "django"}:
+    if lang == "solidity":
+        return "Blockchain"
+
+    # Security
+    if t & {"security", "cybersecurity", "vulnerability-scanner",
+            "penetration-testing", "devsecops", "cryptography",
+            "authentication", "zero-trust", "fuzzing", "reverse-engineering",
+            "malware-analysis", "osint", "network-security",
+            "supply-chain-security", "red-team", "exploit", "cve"}:
+        return "Security"
+
+    # Data Engineering
+    if t & {"data-engineering", "etl", "data-pipeline", "workflow-orchestration",
+            "apache-airflow", "streaming", "kafka", "spark", "data-lake",
+            "dbt", "data-warehouse", "flink", "delta-lake", "trino",
+            "presto", "databricks", "iceberg"}:
+        return "Data Engineering"
+
+    # Web Frameworks
+    if t & {"web-framework", "rest-api", "nodejs", "react", "vuejs", "svelte",
+            "fastapi", "nextjs", "django", "flask", "graphql", "grpc",
+            "microservices", "websocket", "typescript", "angular",
+            "nuxt", "remix", "htmx", "spring-boot", "rails"}:
         return "Web Frameworks"
+
+    # DevTools
+    if t & {"developer-tools", "cli", "terminal", "code-editor", "productivity",
+            "devtools", "linter", "formatter", "language-server",
+            "vscode-extension", "debugging", "profiler", "neovim",
+            "shell", "git", "intellij-plugin", "tmux", "dotfiles"}:
+        return "DevTools"
+
+    # OSS Tools
+    if t & {"build-tool", "bundler", "package-manager", "testing",
+            "infrastructure", "observability", "ci-cd", "automation",
+            "orm", "api-client", "linting", "code-generation",
+            "documentation", "monorepo", "containerization",
+            "kubernetes", "terraform", "ansible", "opentelemetry",
+            "prometheus", "grafana", "docker", "helm", "pulumi"}:
+        return "OSS Tools"
+
+    # Broader AI/ML
+    if t & {"machine-learning", "deep-learning", "pytorch", "tensorflow",
+            "scikit-learn", "neural-network", "computer-vision", "nlp",
+            "multimodal", "diffusion-model", "huggingface", "rag",
+            "embeddings", "ai", "ml"}:
+        return "AI / ML"
+    if lang in ("python", "jupyter notebook") and t & {"model", "training", "dataset"}:
+        return "AI / ML"
+
     return "Other"
 
 

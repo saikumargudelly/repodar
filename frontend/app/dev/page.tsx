@@ -3,12 +3,13 @@
 export const dynamic = "force-dynamic";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@clerk/nextjs";
 import { api, ApiKeyOut } from "@/lib/api";
-import { useLocalUser } from "@/lib/localUser";
 
 export default function DevPage() {
-  const { userId } = useLocalUser();
+  const { isLoaded, userId } = useAuth();
   const queryClient = useQueryClient();
   const [newKeyName, setNewKeyName] = useState("");
   const [rawKey, setRawKey] = useState<string | null>(null);
@@ -16,13 +17,13 @@ export default function DevPage() {
 
   const { data: keys, isLoading } = useQuery({
     queryKey: ["api-keys", userId],
-    queryFn: () => api.listApiKeys(userId),
+    queryFn: () => api.listApiKeys(userId!),
     enabled: !!userId,
     staleTime: 30 * 1000,
   });
 
   const createMutation = useMutation({
-    mutationFn: () => api.createApiKey(userId, { name: newKeyName.trim() || "My Key" }),
+    mutationFn: () => api.createApiKey(userId!, { name: newKeyName.trim() || "My Key" }),
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["api-keys", userId] });
       setNewKeyName("");
@@ -31,7 +32,7 @@ export default function DevPage() {
   });
 
   const revokeMutation = useMutation({
-    mutationFn: (keyId: number) => api.revokeApiKey(userId, keyId),
+    mutationFn: (keyId: string) => api.revokeApiKey(userId!, keyId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["api-keys", userId] }),
   });
 
@@ -44,6 +45,30 @@ export default function DevPage() {
   };
 
   const allKeys: ApiKeyOut[] = keys ?? [];
+
+  if (!isLoaded) {
+    return (
+      <div className="page-root">
+        <div style={{ color: "var(--text-secondary)", fontSize: "13px" }}>Loading account...</div>
+      </div>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <div className="page-root">
+        <div className="panel" style={{ padding: "24px" }}>
+          <div style={{ fontSize: "20px", fontWeight: 700, marginBottom: "8px" }}>Sign in to manage API keys</div>
+          <p style={{ margin: "0 0 14px", color: "var(--text-secondary)", fontSize: "14px" }}>
+            API keys are private to your account and require authentication.
+          </p>
+          <Link href="/sign-in" className="btn-cyber btn-cyber-cyan" style={{ display: "inline-block", textDecoration: "none", padding: "8px 14px" }}>
+            Sign in
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-root">

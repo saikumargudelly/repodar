@@ -13,6 +13,8 @@ from app.models.social_mention import SocialMention
 from app.models.repo_release import RepoRelease
 from app.models.subscriber import Subscriber
 from app.models.weekly_snapshot import WeeklySnapshot
+from app.models.alert_notification import AlertNotification
+from app.models.user_onboarding import UserOnboarding
 
 __all__ = [
     "Repository", "DailyMetric", "ComputedMetric", "TrendAlert",
@@ -20,4 +22,5 @@ __all__ = [
     "RepoContributor", "ForkSnapshot", "EcosystemReport",
     "A2AService", "A2ACapability",
     "SocialMention", "RepoRelease", "Subscriber", "WeeklySnapshot",
+    "AlertNotification", "UserOnboarding",
 ]

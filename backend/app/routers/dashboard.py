@@ -70,6 +70,12 @@ class AlertResponse(BaseModel):
     headline: str
     metric_value: float
     threshold: float
+    baseline_mean: Optional[float] = None
+    baseline_stddev: Optional[float] = None
+    z_score: Optional[float] = None
+    percentile: Optional[float] = None
+    is_sustained: bool = False
+    momentum_direction: Optional[str] = None
     triggered_at: str
     is_read: bool
 
@@ -422,6 +428,12 @@ def get_alerts(
             headline=alert.headline,
             metric_value=alert.metric_value,
             threshold=alert.threshold,
+            baseline_mean=alert.baseline_mean,
+            baseline_stddev=alert.baseline_stddev,
+            z_score=alert.z_score,
+            percentile=alert.percentile,
+            is_sustained=alert.is_sustained,
+            momentum_direction=alert.momentum_direction,
             triggered_at=alert.triggered_at.isoformat(),
             is_read=alert.is_read,
         )
@@ -463,6 +475,12 @@ def mark_alert_read(
         headline=alert.headline,
         metric_value=alert.metric_value,
         threshold=alert.threshold,
+        baseline_mean=alert.baseline_mean,
+        baseline_stddev=alert.baseline_stddev,
+        z_score=alert.z_score,
+        percentile=alert.percentile,
+        is_sustained=alert.is_sustained,
+        momentum_direction=alert.momentum_direction,
         triggered_at=alert.triggered_at.isoformat(),
         is_read=alert.is_read,
     )
@@ -519,7 +537,7 @@ class LeaderboardResponse(BaseModel):
 async def get_leaderboard(
     period: str = Query("7d", description="1d | 7d | 30d | 90d | 365d | 3y | 5y"),
     category: Optional[str] = Query(None, description="Filter by AI/ML sub-category"),
-    vertical: str = Query("ai_ml", description="ai_ml | devtools | web_frameworks | security | data_engineering | blockchain"),
+    vertical: str = Query("ai_ml", description="ai_ml | devtools | web_frameworks | security | data_engineering | blockchain | oss_tools"),
     limit: int = Query(30, le=100),
 ):
     """

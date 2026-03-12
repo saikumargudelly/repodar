@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { useState, useRef, useEffect } from "react";
+import { SignOutButton, useAuth, useUser } from "@clerk/nextjs";
 import { useTheme, Theme } from "@/components/Providers";
 
 const NAV_LINKS = [
-  { href: "/", label: "Overview" },
+  { href: "/overview", label: "Overview" },
   { href: "/insights", label: "Insights" },
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/topics", label: "Topics" },
@@ -27,9 +26,15 @@ const THEMES: { key: Theme; label: string; color: string }[] = [
 
 export function Nav() {
   const pathname = usePathname();
-  const [reportOpen, setReportOpen] = useState(false);
   const [flashKey, setFlashKey] = useState(0);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const { isLoaded, userId } = useAuth();
+  const { user } = useUser();
   const { theme, setTheme } = useTheme();
+  const profileActive = pathname === "/profile";
+  const profileName = user?.firstName ?? user?.fullName ?? "Profile";
+  const profileInitials = `${user?.firstName?.[0] ?? ""}${user?.lastName?.[0] ?? ""}`.toUpperCase() || profileName.slice(0, 2).toUpperCase();
 
   const handleThemeSwitch = (t: Theme) => {
     if (t === theme) return;
@@ -37,12 +42,16 @@ export function Nav() {
     setFlashKey((k) => k + 1);
   };
 
-  const { data: report, isLoading } = useQuery({
-    queryKey: ["weekly-report"],
-    queryFn: api.getWeeklyReport,
-    enabled: reportOpen,
-    staleTime: 30 * 60 * 1000,
-  });
+  // Close menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    if (userMenuOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [userMenuOpen]);
 
   return (
     <>
@@ -68,10 +77,188 @@ export function Nav() {
             transition: "padding-left 0.3s ease",
           }}
         >
-          {/* Right side: Theme switcher + Report + Hamburger */}
+          {/* Right side: Theme switcher + Report + User menu + Hamburger */}
           <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+            {isLoaded && userId ? (
+              /* ── Avatar button + dropdown ─────────────────────────────── */
+              <div ref={userMenuRef} style={{ position: "relative" }}>
+                <button
+                  onClick={() => setUserMenuOpen((o) => !o)}
+                  title={profileName}
+                  aria-haspopup="true"
+                  aria-expanded={userMenuOpen}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "7px",
+                    padding: "4px 10px 4px 5px",
+                    borderRadius: "20px",
+                    border: userMenuOpen
+                      ? "1px solid var(--accent-blue)"
+                      : "1px solid var(--border)",
+                    background: userMenuOpen
+                      ? "var(--accent-blue)1a"
+                      : "var(--bg-elevated)",
+                    color: "var(--text-primary)",
+                    cursor: "pointer",
+                    fontFamily: "var(--font-sans)",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    whiteSpace: "nowrap",
+                    transition: "border-color 0.15s, background 0.15s",
+                  }}
+                >
+                  {/* Initials avatar */}
+                  <span
+                    style={{
+                      width: "26px",
+                      height: "26px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderRadius: "50%",
+                      background: "var(--accent-blue)",
+                      color: "#fff",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      flexShrink: 0,
+                      letterSpacing: "0.02em",
+                    }}
+                  >
+                    {profileInitials}
+                  </span>
+                  <span className="nav-description">{profileName}</span>
+                  {/* Chevron */}
+                  <svg
+                    width="10" height="10" viewBox="0 0 10 10" fill="none"
+                    style={{
+                      transition: "transform 0.2s",
+                      transform: userMenuOpen ? "rotate(180deg)" : "rotate(0deg)",
+                      color: "var(--text-muted)",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+
+                {/* Dropdown menu */}
+                {userMenuOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "calc(100% + 8px)",
+                      right: 0,
+                      minWidth: "170px",
+                      background: "var(--bg-surface)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "10px",
+                      boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
+                      zIndex: 200,
+                      overflow: "hidden",
+                      animation: "fadeSlideDown 0.15s ease",
+                    }}
+                  >
+                    {/* User info header */}
+                    <div
+                      style={{
+                        padding: "12px 14px 10px",
+                        borderBottom: "1px solid var(--border)",
+                      }}
+                    >
+                      <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--text-primary)", fontFamily: "var(--font-sans)" }}>
+                        {profileName}
+                      </div>
+                      <div style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-sans)", marginTop: "1px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {user?.primaryEmailAddress?.emailAddress ?? ""}
+                      </div>
+                    </div>
+
+                    {/* Profile link */}
+                    <Link
+                      href="/profile"
+                      onClick={() => setUserMenuOpen(false)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        padding: "10px 14px",
+                        color: profileActive ? "var(--accent-blue)" : "var(--text-primary)",
+                        background: profileActive ? "var(--accent-blue)12" : "transparent",
+                        textDecoration: "none",
+                        fontFamily: "var(--font-sans)",
+                        fontSize: "13px",
+                        fontWeight: 500,
+                        transition: "background 0.12s",
+                      }}
+                      onMouseEnter={(e) => { if (!profileActive) (e.currentTarget as HTMLElement).style.background = "var(--bg-elevated)"; }}
+                      onMouseLeave={(e) => { if (!profileActive) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <circle cx="7" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.4"/>
+                        <path d="M2 12c0-2.21 2.24-4 5-4s5 1.79 5 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                      </svg>
+                      Profile
+                    </Link>
+
+                    {/* Divider */}
+                    <div style={{ height: "1px", background: "var(--border)", margin: "0 10px" }} />
+
+                    {/* Sign out */}
+                    <SignOutButton redirectUrl="/landing">
+                      <button
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                          width: "100%",
+                          padding: "10px 14px",
+                          background: "transparent",
+                          border: "none",
+                          color: "#f87171",
+                          fontFamily: "var(--font-sans)",
+                          fontSize: "13px",
+                          fontWeight: 500,
+                          cursor: "pointer",
+                          textAlign: "left",
+                          transition: "background 0.12s",
+                        }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(248,113,113,0.08)"; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                          <path d="M5 2H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                          <path d="M9.5 9.5L12 7l-2.5-2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M12 7H6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                        </svg>
+                        Sign out
+                      </button>
+                    </SignOutButton>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link
+                href="/sign-in"
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: "6px",
+                  border: "1px solid var(--border)",
+                  background: "var(--bg-elevated)",
+                  color: "var(--text-primary)",
+                  textDecoration: "none",
+                  fontFamily: "var(--font-sans)",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Sign in
+              </Link>
+            )}
+
             {/* Theme switcher */}
-            <div style={{ display: "flex", gap: "2px", background: "var(--bg-elevated)", border: "1px solid var(--border)", padding: "3px", borderRadius: "6px" }}>
+            <div className="nav-theme-switcher" style={{ display: "flex", gap: "2px", background: "var(--bg-elevated)", border: "1px solid var(--border)", padding: "3px", borderRadius: "6px" }}>
               {THEMES.map((t) => (
                 <button
                   key={t.key}
@@ -91,24 +278,11 @@ export function Nav() {
                     borderRadius: "4px",
                   }}
                 >
-                  {t.label}
+                  <span className="nav-theme-label">{t.label}</span>
+                  <span style={{ display: "none" }} className="nav-theme-dot" aria-hidden="true">●</span>
                 </button>
               ))}
             </div>
-
-            {/* Weekly Report button */}
-            <button
-              onClick={() => setReportOpen(true)}
-              className="btn-cyber btn-cyber-cyan"
-              style={{
-                padding: "6px 14px",
-                fontSize: "12px",
-                fontWeight: 500,
-                whiteSpace: "nowrap",
-              }}
-            >
-              <span className="nav-description" style={{ marginLeft: 0 }}>Weekly </span>Report
-            </button>
 
             {/* Hamburger — mobile only, opens sidebar drawer */}
             <button
@@ -139,164 +313,7 @@ export function Nav() {
         />
       )}
 
-      {/* Report Modal */}
-      {reportOpen && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.75)",
-            zIndex: 100,
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "center",
-            padding: "40px 16px",
-            overflowY: "auto",
-          }}
-          onClick={() => setReportOpen(false)}
-        >
-          <div
-            style={{
-              background: "var(--bg-surface)",
-              border: "1px solid var(--border)",
-              borderRadius: "10px",
-              width: "100%",
-              maxWidth: "780px",
-              padding: "24px",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
-              <div>
-                <div style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "16px",
-                  color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
-                  Weekly Intelligence Report
-                </div>
-                {report && (
-                  <div style={{ fontFamily: "var(--font-sans)", color: "var(--text-muted)", fontSize: "12px", margin: "4px 0 0" }}>
-                    Week ending {report.week_ending}
-                  </div>
-                )}
-              </div>
-              <button
-                onClick={() => setReportOpen(false)}
-                style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: "20px", cursor: "pointer" }}
-              >
-                ×
-              </button>
-            </div>
-
-            {isLoading && (
-              <div style={{ fontFamily: "var(--font-sans)", color: "var(--text-muted)", textAlign: "center", padding: "40px 0", fontSize: "13px" }}>
-                Generating report<span className="terminal-cursor" />
-              </div>
-            )}
-
-            {report && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-                {/* Strategic Insight */}
-                <Section title="Strategic Insight">
-                  <p style={{ color: "var(--text-secondary)", lineHeight: "1.7", fontSize: "14px" }}>
-                    {report.strategic_insight}
-                  </p>
-                </Section>
-
-                {/* Top Breakout */}
-                <Section title="Top Breakout Repos">
-                  <div className="table-scroll">
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-                      <thead>
-                        <tr style={{ color: "var(--text-muted)", textAlign: "left" }}>
-                          <th style={{ padding: "4px 8px" }}>#</th>
-                          <th style={{ padding: "4px 8px" }}>Repo</th>
-                          <th style={{ padding: "4px 8px" }}>Category</th>
-                          <th style={{ padding: "4px 8px", textAlign: "right" }}>Trend Score</th>
-                          <th style={{ padding: "4px 8px", textAlign: "right" }}>Velocity/d</th>
-                          <th style={{ padding: "4px 8px" }}>Sustain.</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {report.top_breakout_repos.slice(0, 8).map((r) => (
-                          <tr key={`${r.owner}/${r.name}`} style={{ borderTop: "1px solid var(--border)" }}>
-                            <td style={{ padding: "8px", color: "var(--text-muted)" }}>{r.rank}</td>
-                            <td style={{ padding: "8px" }}>
-                              <a
-                                href={`https://github.com/${r.owner}/${r.name}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{ color: "var(--cyan)", textDecoration: "none", fontFamily: "var(--font-mono)", fontSize: "11px" }}
-                              >
-                                {r.owner}/{r.name}
-                              </a>
-                            </td>
-                            <td style={{ padding: "8px", color: "var(--text-secondary)" }}>{r.category}</td>
-                            <td style={{ padding: "8px", textAlign: "right" }}>{r.trend_score.toFixed(4)}</td>
-                            <td style={{ padding: "8px", textAlign: "right" }}>{r.star_velocity_7d.toFixed(1)}</td>
-                            <td style={{ padding: "8px" }}>
-                              <SustainBadge label={r.sustainability_label} />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </Section>
-
-                {/* Category Momentum */}
-                <Section title="Category Momentum">
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    {report.category_momentum.map((c) => (
-                      <div key={c.category} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "4px" }}>
-                        <span style={{ fontSize: "13px" }}>{c.category}</span>
-                        <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
-                          <span style={{ color: "var(--text-muted)", fontSize: "12px" }}>
-                            {c.weekly_velocity.toFixed(0)} stars/wk
-                          </span>
-                          <span style={{ fontSize: "12px", fontFamily: "var(--font-mono)", color: c.mom_growth_pct >= 0 ? "var(--green)" : "var(--pink)" }}>
-                            {c.mom_growth_pct >= 0 ? "+" : ""}{c.mom_growth_pct.toFixed(1)}% MoM
-                          </span>
-                          <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>{c.signal}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </Section>
-
-                {/* Sustainability Watchlist */}
-                {report.sustainability_watchlist.length > 0 && (
-                  <Section title="Sustainability Watchlist">
-                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                      {report.sustainability_watchlist.slice(0, 5).map((w) => (
-                        <div key={`${w.owner}/${w.name}`} style={{ padding: "10px 12px", background: "var(--bg-elevated)", borderLeft: "3px solid var(--pink)" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "4px" }}>
-                            <span style={{ fontSize: "13px", fontWeight: 600 }}>{w.owner}/{w.name}</span>
-                            <SustainBadge label={w.sustainability_label} />
-                          </div>
-                          <p style={{ color: "var(--text-muted)", fontSize: "12px", margin: "4px 0 0" }}>{w.note}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </Section>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", fontWeight: 700,
-        color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em",
-        marginBottom: "12px", borderBottom: "1px solid var(--border)", paddingBottom: "6px" }}>
-        ◈ {title}
-      </div>
-      {children}
-    </div>
   );
 }
 

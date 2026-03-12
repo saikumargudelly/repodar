@@ -154,7 +154,7 @@ export default function ServiceDetailPage() {
             </div>
           )}
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)",
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))",
             gap: "16px", marginTop: "16px", paddingTop: "16px",
             borderTop: "1px solid var(--border)", paddingBottom: "16px" }}>
             <Stat label="BASE URL" value={

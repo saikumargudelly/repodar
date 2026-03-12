@@ -584,7 +584,7 @@ export default function RepoDeepDive() {
           </div>
 
           {/* Tech Stack + Use Cases side by side */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
             {deepSummary.tech_stack.length > 0 && (
               <div className="panel" style={{ padding: "20px 24px" }}>
                 <div className="panel-header" style={{ marginBottom: "12px" }}>

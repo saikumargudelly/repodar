@@ -7,13 +7,14 @@ X-Clerk-User-Id header for now; swap for proper JWT middleware in production).
 from typing import List, Optional
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Query
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from app.database import get_db
 from app.models import Repository, ComputedMetric
 from app.models.watchlist import WatchlistItem
+from app.services.notification_service import send_watchlist_test_email
 
 router = APIRouter(prefix="/watchlist", tags=["Watchlist"])
 
@@ -66,6 +67,42 @@ class WatchlistItemOut(BaseModel):
         from_attributes = True
 
 
+class WatchlistCheckOut(BaseModel):
+    watching: bool
+    item: Optional[WatchlistItemOut]
+
+
+def _serialize_watchlist_item(db: Session, item: WatchlistItem) -> WatchlistItemOut:
+    from sqlalchemy import func
+
+    repo = db.query(Repository).filter_by(id=item.repo_id).first()
+    latest_date = db.query(func.max(ComputedMetric.date)).scalar()
+    cm = (
+        db.query(ComputedMetric)
+        .filter_by(repo_id=item.repo_id, date=latest_date)
+        .first()
+    ) if latest_date else None
+
+    return WatchlistItemOut(
+        id=item.id,
+        repo_id=item.repo_id,
+        owner=repo.owner if repo else "",
+        name=repo.name if repo else "",
+        category=repo.category if repo else "",
+        github_url=repo.github_url if repo else "",
+        primary_language=repo.primary_language if repo else None,
+        age_days=repo.age_days if repo else 0,
+        stars=(repo.stars_snapshot or 0) if repo else 0,
+        trend_score=cm.trend_score if cm else None,
+        sustainability_label=cm.sustainability_label if cm else None,
+        acceleration=cm.acceleration if cm else None,
+        alert_threshold=item.alert_threshold,
+        notify_email=item.notify_email,
+        notify_webhook=item.notify_webhook,
+        created_at=item.created_at.isoformat() if item.created_at else "",
+    )
+
+
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
 @router.get("", response_model=List[WatchlistItemOut])
@@ -74,52 +111,12 @@ def get_watchlist(
     db: Session = Depends(get_db),
 ):
     """Return all watchlist items for the authenticated user with latest scores."""
-    from sqlalchemy import func
-
-    latest_date = (
-        db.query(func.max(ComputedMetric.date)).scalar()
-    )
-
     items = (
         db.query(WatchlistItem)
         .filter(WatchlistItem.user_id == user_id)
         .all()
     )
-
-    result = []
-    for item in items:
-        repo = db.query(Repository).filter_by(id=item.repo_id).first()
-        if not repo:
-            continue
-
-        cm = None
-        if latest_date:
-            cm = (
-                db.query(ComputedMetric)
-                .filter_by(repo_id=item.repo_id, date=latest_date)
-                .first()
-            )
-
-        result.append(WatchlistItemOut(
-            id=item.id,
-            repo_id=item.repo_id,
-            owner=repo.owner,
-            name=repo.name,
-            category=repo.category,
-            github_url=repo.github_url,
-            primary_language=repo.primary_language,
-            age_days=repo.age_days,
-            stars=repo.stars_snapshot or 0,
-            trend_score=cm.trend_score if cm else None,
-            sustainability_label=cm.sustainability_label if cm else None,
-            acceleration=cm.acceleration if cm else None,
-            alert_threshold=item.alert_threshold,
-            notify_email=item.notify_email,
-            notify_webhook=item.notify_webhook,
-            created_at=item.created_at.isoformat() if item.created_at else "",
-        ))
-
-    return result
+    return [_serialize_watchlist_item(db, item) for item in items]
 
 
 @router.post("", response_model=WatchlistItemOut, status_code=201)
@@ -156,32 +153,7 @@ def add_to_watchlist(
     db.add(item)
     db.commit()
     db.refresh(item)
-
-    latest_date = db.query(func.max(ComputedMetric.date)).scalar()
-    cm = (
-        db.query(ComputedMetric)
-        .filter_by(repo_id=body.repo_id, date=latest_date)
-        .first()
-    ) if latest_date else None
-
-    return WatchlistItemOut(
-        id=item.id,
-        repo_id=item.repo_id,
-        owner=repo.owner,
-        name=repo.name,
-        category=repo.category,
-        github_url=repo.github_url,
-        primary_language=repo.primary_language,
-        age_days=repo.age_days,
-        stars=repo.stars_snapshot or 0,
-        trend_score=cm.trend_score if cm else None,
-        sustainability_label=cm.sustainability_label if cm else None,
-        acceleration=cm.acceleration if cm else None,
-        alert_threshold=item.alert_threshold,
-        notify_email=item.notify_email,
-        notify_webhook=item.notify_webhook,
-        created_at=item.created_at.isoformat(),
-    )
+    return _serialize_watchlist_item(db, item)
 
 
 @router.patch("/{item_id}", response_model=WatchlistItemOut)
@@ -192,8 +164,6 @@ def update_watchlist_item(
     db: Session = Depends(get_db),
 ):
     """Update alert threshold or notification config for a watchlist item."""
-    from sqlalchemy import func
-
     item = (
         db.query(WatchlistItem)
         .filter_by(id=item_id, user_id=user_id)
@@ -211,33 +181,7 @@ def update_watchlist_item(
 
     db.commit()
     db.refresh(item)
-
-    repo = db.query(Repository).filter_by(id=item.repo_id).first()
-    latest_date = db.query(func.max(ComputedMetric.date)).scalar()
-    cm = (
-        db.query(ComputedMetric)
-        .filter_by(repo_id=item.repo_id, date=latest_date)
-        .first()
-    ) if latest_date else None
-
-    return WatchlistItemOut(
-        id=item.id,
-        repo_id=item.repo_id,
-        owner=repo.owner if repo else "",
-        name=repo.name if repo else "",
-        category=repo.category if repo else "",
-        github_url=repo.github_url if repo else "",
-        primary_language=repo.primary_language if repo else None,
-        age_days=repo.age_days if repo else 0,
-        stars=repo.stars_snapshot if repo else 0,
-        trend_score=cm.trend_score if cm else None,
-        sustainability_label=cm.sustainability_label if cm else None,
-        acceleration=cm.acceleration if cm else None,
-        alert_threshold=item.alert_threshold,
-        notify_email=item.notify_email,
-        notify_webhook=item.notify_webhook,
-        created_at=item.created_at.isoformat() if item.created_at else "",
-    )
+    return _serialize_watchlist_item(db, item)
 
 
 @router.delete("/{item_id}", status_code=204)
@@ -258,7 +202,7 @@ def remove_from_watchlist(
     db.commit()
 
 
-@router.get("/check/{repo_id}")
+@router.get("/check/{repo_id}", response_model=WatchlistCheckOut)
 def check_watchlist(
     repo_id: str,
     user_id: str = Depends(_require_user),
@@ -270,4 +214,22 @@ def check_watchlist(
         .filter_by(user_id=user_id, repo_id=repo_id)
         .first()
     )
-    return {"in_watchlist": item is not None, "item_id": item.id if item else None}
+    return WatchlistCheckOut(
+        watching=item is not None,
+        item=_serialize_watchlist_item(db, item) if item else None,
+    )
+
+
+@router.post("/{item_id}/test-email")
+def test_watchlist_email(
+    item_id: str,
+    user_id: str = Depends(_require_user),
+    db: Session = Depends(get_db),
+):
+    item = db.query(WatchlistItem).filter_by(id=item_id, user_id=user_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Watchlist item not found")
+    result = send_watchlist_test_email(item_id)
+    if not result.get("sent"):
+        raise HTTPException(status_code=400, detail=result.get("reason") or "Test email failed")
+    return result

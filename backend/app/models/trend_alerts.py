@@ -58,6 +58,14 @@ class TrendAlert(Base):
     # Threshold that was crossed
     threshold: Mapped[float] = mapped_column(Float, default=0.0)
 
+    # Statistical context for adaptive spike detection.
+    baseline_mean: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    baseline_stddev: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    z_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    percentile: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    is_sustained: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    momentum_direction: Mapped[Optional[str]] = mapped_column(String(24), nullable=True)
+
     triggered_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 

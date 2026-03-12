@@ -91,6 +91,37 @@ function AlertCard({ alert, onMarkRead }: { alert: AlertResponse; onMarkRead: (i
           <p style={{ color: "var(--text-secondary)", fontSize: "12px", margin: 0, lineHeight: "1.6", fontFamily: "var(--font-mono)" }}>
             {alert.headline}
           </p>
+
+          {alert.z_score != null && (
+            <div style={{ marginTop: "6px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--amber)",
+                background: "var(--amber, #f0a800)18", border: "1px solid var(--amber, #f0a800)44",
+                padding: "1px 7px", borderRadius: "3px", letterSpacing: "0.04em" }}>
+                {alert.z_score.toFixed(1)}σ
+              </span>
+              {alert.percentile != null && (
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)",
+                  background: "var(--bg-elevated)", border: "1px solid var(--border)",
+                  padding: "1px 7px", borderRadius: "3px" }}>
+                  p{alert.percentile.toFixed(0)}
+                </span>
+              )}
+              {alert.is_sustained && (
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--green)",
+                  background: "var(--green, #3fb950)18", border: "1px solid var(--green, #3fb950)44",
+                  padding: "1px 7px", borderRadius: "3px" }}>
+                  sustained
+                </span>
+              )}
+              {alert.momentum_direction && (
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)",
+                  background: "var(--bg-elevated)", border: "1px solid var(--border)",
+                  padding: "1px 7px", borderRadius: "3px" }}>
+                  {alert.momentum_direction === "accelerating" ? "↑ accel" : alert.momentum_direction === "decelerating" ? "↓ decel" : alert.momentum_direction}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "6px", flexShrink: 0 }}>

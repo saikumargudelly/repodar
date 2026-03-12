@@ -15,6 +15,8 @@ from app.routers.feed import router as feed_router
 from app.routers.subscribe import router as subscribe_router
 from app.routers.search import router as search_router
 from app.routers.snapshots import router as snapshots_router
+from app.routers.onboarding import router as onboarding_router
+from app.routers.profile import router as profile_router
 
 __all__ = [
     "repos_router", "metrics_router", "dashboard_router",
@@ -22,4 +24,5 @@ __all__ = [
     "watchlist_router", "topics_router", "contributors_router",
     "forks_router", "apikeys_router", "services_router",
     "feed_router", "subscribe_router", "search_router", "snapshots_router",
+    "onboarding_router", "profile_router",
 ]

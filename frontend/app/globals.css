@@ -468,6 +468,12 @@ p, span, div, td, th, a, label, li {
   100% { opacity: 0; }
 }
 
+/* ── User menu dropdown animation ─────────────────────────── */
+@keyframes fadeSlideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* ══════════════════════════════════════════════════════════════
    THEME-SPECIFIC COMPONENT OVERRIDES
    ══════════════════════════════════════════════════════════════ */
@@ -635,8 +641,31 @@ p, span, div, td, th, a, label, li {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  min-width: 0;
 }
 .scroll-selector::-webkit-scrollbar { display: none; }
+
+/* ── Overview page header selectors responsive ──────────────────────────── */
+.overview-selectors { flex-shrink: 0; }
+.overview-selector-row { overflow: hidden; }
+@media (max-width: 768px) {
+  .overview-header {
+    align-items: flex-start !important;
+  }
+  .overview-selectors {
+    width: 100%;
+    align-items: stretch !important;
+    flex-shrink: unset;
+  }
+  .overview-selector-row {
+    width: 100%;
+    overflow: hidden;
+  }
+  .overview-selector-row .scroll-selector {
+    flex: 1;
+    min-width: 0;
+  }
+}
 
 /* ════════════════════════════════════════════════════════════
    Breakpoints
@@ -816,4 +845,243 @@ p, span, div, td, th, a, label, li {
 }
 .repo-card-cyber.hot {
   border-color: var(--accent-blue);
+}
+
+/* ════════════════════════════════════════════════════════════
+   RESPONSIVE v2 — App Shell, Nav, Landing, Global
+   ════════════════════════════════════════════════════════════ */
+
+/* ─── App Shell main content ─────────────────────────────── */
+.main-content {
+  padding: 0 28px 52px;
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    /* Sidebar sets --sidebar-width to 0px on mobile */
+    padding: 0 16px 52px;
+  }
+  .status-bar-cyber {
+    /* Full-width status bar on mobile (no sidebar offset) */
+    padding-left: 16px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-content {
+    padding: 0 12px 52px;
+  }
+}
+
+/* ─── Panel headers: wrap on narrow screens ──────────────── */
+@media (max-width: 640px) {
+  .panel-header {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 14px;
+  }
+  .panel-header > * { min-width: 0; }
+}
+
+/* ─── KPI cards — tighter on small phones ────────────────── */
+@media (max-width: 480px) {
+  .kpi-value { font-size: 22px !important; }
+  .kpi-card { padding: 14px 16px; }
+  .kpi-corner { display: none; }
+}
+
+/* ─── Page root — tighter top padding on mobile ──────────── */
+@media (max-width: 768px) {
+  .page-root {
+    padding-top: 16px;
+    gap: 16px;
+  }
+}
+
+/* ─── Leaderboard rows — allow wrap on mobile ────────────── */
+@media (max-width: 640px) {
+  .lb-row-cyber {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 10px 14px;
+  }
+}
+
+/* ─── Alert rows — tighter on mobile ─────────────────────── */
+@media (max-width: 480px) {
+  .alert-row-cyber {
+    padding: 10px 14px;
+    gap: 10px;
+  }
+}
+
+/* ─── Repo card — compact on small screens ───────────────── */
+@media (max-width: 480px) {
+  .repo-card-cyber { padding: 12px; }
+}
+
+/* ─── Scrollable filter bar — hide scrollbar aesthetically ── */
+.filter-bar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+@media (max-width: 640px) {
+  .filter-bar {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .filter-bar::-webkit-scrollbar { display: none; }
+  .filter-bar .filter-btn-cyber,
+  .filter-bar .cat-pill-cyber {
+    flex-shrink: 0;
+  }
+}
+
+/* ─── Inputs / selects go full-width on mobile ───────────── */
+@media (max-width: 640px) {
+  .cyber-input { width: 100%; min-width: 0 !important; box-sizing: border-box; }
+  .cyber-select { width: 100%; }
+}
+
+/* ─── Nav bar responsive ─────────────────────────────────── */
+/* Hide theme button labels at very small screens */
+.nav-theme-label { display: inline; }
+.nav-theme-dot { display: none !important; }
+@media (max-width: 640px) {
+  .nav-theme-label { display: none !important; }
+  .nav-theme-dot { display: inline !important; }
+}
+/* Hide theme switcher entirely at tiny widths */
+@media (max-width: 420px) {
+  .nav-theme-switcher { display: none !important; }
+  .nav-weekly-text { display: none !important; }
+  .nav-report-icon { display: inline !important; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   LANDING PAGE RESPONSIVE
+   Uses !important to override inline styles via className hooks
+   ════════════════════════════════════════════════════════════ */
+
+/* Hero section padding */
+.landing-hero-section {}
+@media (max-width: 900px) {
+  .landing-hero-section { padding: 80px 24px 60px !important; }
+}
+@media (max-width: 640px) {
+  .landing-hero-section { padding: 60px 16px 40px !important; }
+}
+
+/* Hero h1 font size */
+.landing-hero-h1 {}
+@media (max-width: 900px) {
+  .landing-hero-h1 { font-size: 52px !important; }
+}
+@media (max-width: 640px) {
+  .landing-hero-h1 { font-size: 36px !important; }
+}
+@media (max-width: 380px) {
+  .landing-hero-h1 { font-size: 28px !important; }
+}
+
+/* Section h2 font size */
+.landing-section-h2 {}
+@media (max-width: 900px) {
+  .landing-section-h2 { font-size: 36px !important; }
+}
+@media (max-width: 640px) {
+  .landing-section-h2 { font-size: 26px !important; }
+}
+
+/* Outer section padding */
+.landing-outer-section {}
+@media (max-width: 900px) {
+  .landing-outer-section { padding: 60px 24px !important; }
+}
+@media (max-width: 640px) {
+  .landing-outer-section { padding: 48px 16px !important; }
+}
+
+/* Features 3-col grid */
+.landing-features-grid {}
+@media (max-width: 900px) {
+  .landing-features-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 20px !important; }
+}
+@media (max-width: 640px) {
+  .landing-features-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
+}
+
+/* Pipeline / How-it-works 3-col grid */
+.landing-pipeline-grid {}
+@media (max-width: 900px) {
+  .landing-pipeline-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 28px !important; margin-bottom: 48px !important; }
+}
+@media (max-width: 640px) {
+  .landing-pipeline-grid { grid-template-columns: 1fr !important; gap: 24px !important; margin-bottom: 32px !important; }
+}
+
+/* Pricing 3-col grid */
+.landing-pricing-grid {}
+@media (max-width: 900px) {
+  .landing-pricing-grid { grid-template-columns: 1fr !important; max-width: 480px !important; }
+}
+@media (max-width: 640px) {
+  .landing-pricing-grid { max-width: 100% !important; }
+}
+
+/* Highlighted pricing card — no scale on mobile (avoids overflow) */
+.landing-pricing-highlighted {}
+@media (max-width: 900px) {
+  .landing-pricing-highlighted { transform: none !important; }
+}
+
+/* Landing top nav */
+@media (max-width: 640px) {
+  .landing-nav { padding: 12px 16px !important; }
+}
+
+/* Hide nav text links on mobile, keep Sign In button */
+.landing-nav-link-hide {}
+@media (max-width: 640px) {
+  .landing-nav-link-hide { display: none !important; }
+}
+
+/* Auth sign-in/sign-up pages — full width on small screens */
+@media (max-width: 480px) {
+  .auth-card {
+    padding: 24px 20px !important;
+    border-radius: 8px !important;
+  }
+}
+
+/* Onboarding page full width on mobile */
+@media (max-width: 640px) {
+  .onboarding-card {
+    padding: 24px 20px !important;
+    border-radius: 10px !important;
+    margin: 0 12px !important;
+  }
+}
+
+/* ── Section title size on mobile ───────────────────────────── */
+@media (max-width: 768px) {
+  .section-title-cyber { font-size: 28px; }
+}
+@media (max-width: 480px) {
+  .section-title-cyber { font-size: 24px; }
+}
+
+/* ── KPI cards: tighter padding on mobile ───────────────────── */
+@media (max-width: 480px) {
+  .kpi-card { padding: 14px 16px !important; }
+  .kpi-label { font-size: 10px !important; }
+}
+
+/* ── Panel header: allow Trends badge to wrap ───────────────── */
+@media (max-width: 480px) {
+  .panel-header { gap: 8px !important; }
 }

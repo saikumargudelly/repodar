@@ -66,9 +66,19 @@ AI_TOPIC_QUERIES = [
     "topic:ai-agent",
     "topic:llm-inference",
     "topic:transformers",
+    "topic:computer-vision",
+    "topic:nlp",
+    "topic:multimodal",
+    "topic:diffusion-model",
+    "topic:rag",
+    "topic:embeddings",
+    "topic:huggingface",
+    "topic:pytorch",
 ]
 
-# Topic queries per vertical — each is queried in parallel
+# Topic queries per vertical — each is queried in parallel via _fetch_search.
+# Richer topic sets capture more of the true ecosystem surface area while
+# the semaphore in _search_api prevents rate-limit spikes.
 VERTICAL_TOPIC_QUERIES: dict[str, list[str]] = {
     "ai_ml": AI_TOPIC_QUERIES,
     "devtools": [
@@ -78,6 +88,15 @@ VERTICAL_TOPIC_QUERIES: dict[str, list[str]] = {
         "topic:code-editor",
         "topic:productivity",
         "topic:devtools",
+        "topic:linter",
+        "topic:formatter",
+        "topic:language-server",
+        "topic:vscode-extension",
+        "topic:debugging",
+        "topic:profiler",
+        "topic:neovim",
+        "topic:shell",
+        "topic:git",
     ],
     "web_frameworks": [
         "topic:web-framework",
@@ -86,6 +105,15 @@ VERTICAL_TOPIC_QUERIES: dict[str, list[str]] = {
         "topic:react",
         "topic:vuejs",
         "topic:fastapi",
+        "topic:graphql",
+        "topic:grpc",
+        "topic:typescript",
+        "topic:svelte",
+        "topic:nextjs",
+        "topic:django",
+        "topic:flask",
+        "topic:microservices",
+        "topic:websocket",
     ],
     "security": [
         "topic:security",
@@ -93,6 +121,16 @@ VERTICAL_TOPIC_QUERIES: dict[str, list[str]] = {
         "topic:vulnerability-scanner",
         "topic:penetration-testing",
         "topic:devsecops",
+        "topic:cryptography",
+        "topic:authentication",
+        "topic:zero-trust",
+        "topic:fuzzing",
+        "topic:reverse-engineering",
+        "topic:malware-analysis",
+        "topic:osint",
+        "topic:network-security",
+        "topic:supply-chain-security",
+        "topic:red-team",
     ],
     "data_engineering": [
         "topic:data-engineering",
@@ -100,6 +138,16 @@ VERTICAL_TOPIC_QUERIES: dict[str, list[str]] = {
         "topic:data-pipeline",
         "topic:workflow-orchestration",
         "topic:apache-airflow",
+        "topic:streaming",
+        "topic:kafka",
+        "topic:spark",
+        "topic:data-lake",
+        "topic:dbt",
+        "topic:data-warehouse",
+        "topic:analytics",
+        "topic:flink",
+        "topic:delta-lake",
+        "topic:trino",
     ],
     "blockchain": [
         "topic:blockchain",
@@ -107,15 +155,50 @@ VERTICAL_TOPIC_QUERIES: dict[str, list[str]] = {
         "topic:smart-contracts",
         "topic:web3",
         "topic:defi",
+        "topic:solidity",
+        "topic:nft",
+        "topic:layer2",
+        "topic:zero-knowledge",
+        "topic:dao",
+        "topic:bitcoin",
+        "topic:solana",
+        "topic:cosmos",
+        "topic:cross-chain",
+        "topic:evm",
+    ],
+    "oss_tools": [
+        "topic:build-tool",
+        "topic:bundler",
+        "topic:package-manager",
+        "topic:testing",
+        "topic:infrastructure",
+        "topic:observability",
+        "topic:ci-cd",
+        "topic:automation",
+        "topic:api-client",
+        "topic:orm",
+        "topic:linting",
+        "topic:code-generation",
+        "topic:documentation",
+        "topic:monorepo",
+        "topic:containerization",
+        "topic:kubernetes",
+        "topic:terraform",
+        "topic:ansible",
+        "topic:opentelemetry",
     ],
 }
 
-# Minimum star floor for Search API fallback
+# Minimum star floor per period for the Search API fallback.
+# Short windows use low floors so newly-viral repos aren't filtered out;
+# long windows demand proven traction to keep result sets manageable.
 MIN_STARS_SEARCH: dict[str, int] = {
-    "90d":  1_000,
-    "365d": 5_000,
-    "3y":   15_000,
-    "5y":   30_000,
+    "7d":   50,       # catch anything gaining momentum this week
+    "30d":  100,      # monthly: some traction required
+    "90d":  200,      # quarterly: genuine real-world use
+    "365d": 2_000,    # annual: must be widely adopted
+    "3y":   10_000,
+    "5y":   25_000,
 }
 
 PERIOD_DAYS: dict[str, int] = {
@@ -266,7 +349,11 @@ def _parse_gain_int(text: str) -> int:
         return 0
 
 
-# ─── GitHub Search API fallback (90d / 365d / 3y / 5y) ───────────────────────
+# ─── GitHub Search API fallback (all non-trending paths) ─────────────────────
+# Semaphore caps concurrent search requests at 8 to respect GitHub's 30 req/min
+# Search API rate limit without needing artificial sleep() delays.
+_SEARCH_SEMAPHORE = asyncio.Semaphore(8)
+
 
 async def _fetch_search(
     period: str,
@@ -274,78 +361,167 @@ async def _fetch_search(
     topics: list[str] | None = None,
 ) -> list[dict]:
     """
-    For longer periods (or non-AI verticals): find most starred repos that were
-    actively pushed within the window.  For 3y/5y skip the date filter.
+    Find the most relevant repos for a period + topic set.
+
+    Strategy
+    ────────
+    • Short periods (7d / 30d): dual-sort — for each topic run BOTH
+        sort=stars  (established leaders with recent activity)
+        sort=updated  (newly-active breakout repos with a lower star floor)
+      This captures repos gaining fast momentum that haven't yet accumulated
+      massive total stars.
+
+    • Medium/long periods (90d / 365d): sort=stars with pushed-date filter and
+      a modest star floor to exclude noise.
+
+    • Very long (3y / 5y): no pushed-date filter, sort=stars, high floor —
+      surfaces all-time established repos regardless of recent activity.
+
+    All calls share _SEARCH_SEMAPHORE to avoid rate-limit 429s.
     """
     if topics is None:
         topics = AI_TOPIC_QUERIES
-    min_stars = MIN_STARS_SEARCH.get(period, 500)
-    no_date   = period in {"3y", "5y"}
-    start     = _start_date(period)
 
-    def _q(topic: str) -> str:
+    no_date   = period in {"3y", "5y"}
+    short     = period in {"7d", "30d"}
+    start     = _start_date(period)
+    min_stars = MIN_STARS_SEARCH.get(period, 50)
+
+    queries: list[tuple[str, str]] = []   # (query_string, sort_key)
+    for topic in topics:
         if no_date:
-            return f"{topic} stars:>={min_stars}"
-        return f"{topic} pushed:>={start} stars:>={min_stars}"
+            queries.append((f"{topic} stars:>={min_stars}", "stars"))
+        else:
+            queries.append((f"{topic} pushed:>={start} stars:>={min_stars}", "stars"))
+            if short:
+                # Lower floor catches breakout repos not yet widely starred
+                floor = max(10, min_stars // 5)
+                queries.append((f"{topic} pushed:>={start} stars:>={floor}", "updated"))
 
     async with aiohttp.ClientSession() as session:
         batches = await asyncio.gather(*[
-            _search_api(session, _q(t), per_page=30)
-            for t in topics
-        ])
+            _search_api(session, q, sort=sort_key, per_page=50)
+            for q, sort_key in queries
+        ], return_exceptions=True)
 
     seen: dict[str, dict] = {}
     for batch in batches:
+        if not isinstance(batch, list):
+            logger.warning(f"_fetch_search batch error: {batch}")
+            continue
         for repo in batch:
-            fn = repo["full_name"]
-            if fn not in seen or repo["stargazers_count"] > seen[fn]["stargazers_count"]:
+            fn = repo.get("full_name", "")
+            if not fn:
+                continue
+            if fn not in seen or repo.get("stargazers_count", 0) > seen[fn].get("stargazers_count", 0):
                 seen[fn] = repo
 
-    return sorted(seen.values(), key=lambda r: r["stargazers_count"], reverse=True)[:limit]
+    return sorted(seen.values(), key=lambda r: r.get("stargazers_count", 0), reverse=True)[:limit]
 
 
 async def _search_api(
     session: aiohttp.ClientSession,
     query: str,
-    per_page: int = 30,
+    sort: str = "stars",
+    per_page: int = 50,
 ) -> list[dict]:
     url = f"{REST_BASE}/search/repositories"
-    params = {"q": query, "sort": "stars", "order": "desc", "per_page": per_page}
+    params = {"q": query, "sort": sort, "order": "desc", "per_page": per_page}
     try:
-        async with session.get(
-            url, headers=API_HEADERS, params=params,
-            timeout=aiohttp.ClientTimeout(total=15),
-        ) as resp:
-            if resp.status in (422, 403):
-                logger.warning(f"GitHub Search {resp.status}: {query[:80]}")
-                return []
-            if resp.status != 200:
-                logger.warning(f"GitHub Search HTTP {resp.status}")
-                return []
-            return (await resp.json()).get("items", [])
+        async with _SEARCH_SEMAPHORE:
+            async with session.get(
+                url, headers=API_HEADERS, params=params,
+                timeout=aiohttp.ClientTimeout(total=15),
+            ) as resp:
+                if resp.status in (422, 403):
+                    logger.warning(f"GitHub Search {resp.status}: {query[:80]}")
+                    return []
+                if resp.status != 200:
+                    logger.warning(f"GitHub Search HTTP {resp.status}")
+                    return []
+                return (await resp.json()).get("items", [])
     except Exception as e:
         logger.error(f"GitHub Search error: {e}")
         return []
 
 
 def _category_to_topics(category: str) -> list[str]:
-    """Map our internal category names to GitHub topic keywords."""
-    mapping = {
-        # AI/ML sub-categories
-        "LLM Models":                  ["llm", "large-language-model", "language-model"],
-        "Agent Frameworks":             ["ai-agent", "autonomous-agents", "langchain", "autogpt"],
-        "Inference Engines":            ["llm-inference", "inference", "llama-cpp"],
-        "Vector Databases":             ["vector-database", "vector-search", "embeddings"],
-        "Model Serving / Runtimes":     ["model-serving", "mlops", "triton"],
-        "Distributed Compute / Infra":  ["distributed-training", "mlops", "ray"],
-        "Evaluation Frameworks":        ["llm-evaluation", "benchmarks", "evals"],
-        "Fine-tuning Toolkits":         ["fine-tuning", "lora", "rlhf"],
-        # New verticals
-        "DevTools":                     ["developer-tools", "cli", "terminal", "code-editor", "productivity"],
-        "Web Frameworks":               ["web-framework", "rest-api", "nodejs", "react", "fastapi"],
-        "Security":                     ["security", "cybersecurity", "vulnerability-scanner", "penetration-testing"],
-        "Data Engineering":             ["data-engineering", "etl", "data-pipeline", "workflow-orchestration"],
-        "Blockchain":                   ["blockchain", "ethereum", "smart-contracts", "web3"],
+    """Map internal category names → GitHub topic keywords used for filtering."""
+    mapping: dict[str, list[str]] = {
+        # ── AI/ML sub-categories ──────────────────────────────────────────────
+        "LLM Models": [
+            "llm", "large-language-model", "language-model", "generative-ai",
+            "gpt", "llama", "mistral", "gemini", "claude", "foundation-model",
+            "causal-lm",
+        ],
+        "Agent Frameworks": [
+            "ai-agent", "autonomous-agents", "langchain", "autogpt",
+            "llm-agent", "agent-framework", "multi-agent", "crewai",
+            "llamaindex", "agentic",
+        ],
+        "Inference Engines": [
+            "llm-inference", "inference", "llama-cpp", "vllm", "gguf",
+            "tensorrt", "onnxruntime", "triton-inference", "tgi", "tensorrt-llm",
+        ],
+        "Vector Databases": [
+            "vector-database", "vector-search", "embeddings", "faiss",
+            "weaviate", "pinecone", "chroma", "chromadb", "hnswlib",
+            "milvus", "qdrant", "annoy",
+        ],
+        "Model Serving / Runtimes": [
+            "model-serving", "mlops", "triton", "bentoml", "kubeflow",
+            "seldon", "kfserving", "mlflow", "model-registry",
+        ],
+        "Distributed Compute / Infra": [
+            "distributed-training", "mlops", "ray", "deepspeed",
+            "horovod", "megatron", "pytorch-lightning", "ray-train",
+        ],
+        "Evaluation Frameworks": [
+            "llm-evaluation", "benchmarks", "evals", "evaluation",
+            "llm-benchmark", "lm-eval", "helm", "mmlu",
+        ],
+        "Fine-tuning Toolkits": [
+            "fine-tuning", "lora", "rlhf", "instruction-tuning",
+            "peft", "sft", "dpo", "qlora", "adapter",
+        ],
+        # ── Other verticals ───────────────────────────────────────────────────
+        "DevTools": [
+            "developer-tools", "cli", "terminal", "code-editor", "productivity",
+            "devtools", "linter", "formatter", "language-server",
+            "vscode-extension", "debugging", "profiler", "neovim",
+            "shell", "git", "intellij-plugin",
+        ],
+        "Web Frameworks": [
+            "web-framework", "rest-api", "nodejs", "react", "vuejs", "svelte",
+            "fastapi", "nextjs", "django", "flask", "graphql", "grpc",
+            "microservices", "websocket", "typescript", "angular", "nuxt",
+            "spring-boot",
+        ],
+        "Security": [
+            "security", "cybersecurity", "vulnerability-scanner",
+            "penetration-testing", "devsecops", "cryptography",
+            "authentication", "zero-trust", "fuzzing", "reverse-engineering",
+            "malware-analysis", "osint", "network-security",
+            "supply-chain-security", "red-team",
+        ],
+        "Data Engineering": [
+            "data-engineering", "etl", "data-pipeline", "workflow-orchestration",
+            "apache-airflow", "streaming", "kafka", "spark", "data-lake",
+            "dbt", "data-warehouse", "flink", "delta-lake", "trino", "analytics",
+        ],
+        "Blockchain": [
+            "blockchain", "ethereum", "smart-contracts", "web3", "defi",
+            "solidity", "nft", "layer2", "zero-knowledge", "dao",
+            "bitcoin", "solana", "cosmos", "cross-chain", "evm",
+        ],
+        "OSS Tools": [
+            "build-tool", "bundler", "package-manager", "testing",
+            "infrastructure", "observability", "ci-cd", "automation",
+            "orm", "api-client", "linting", "code-generation",
+            "documentation", "monorepo", "containerization",
+            "kubernetes", "terraform", "ansible", "opentelemetry",
+            "prometheus", "grafana", "helm",
+        ],
     }
     return mapping.get(category, [])
 
@@ -410,38 +586,93 @@ def normalize_search_result(repo: dict, rank: int, period: str) -> dict:
 # (older, stable libraries) but are widely used in the ecosystem.
 
 STAR_THRESHOLD_TOPICS: dict[str, list[tuple[str, int]]] = {
-    # Each entry is (topic_query, min_stars).
-    # Conservative floors keep result sets manageable; tighten over time.
+    # (topic_query, min_stars).  Floors are intentionally modest so well-established
+    # but niche tools aren't excluded.  Raise them as the DB grows.
     "ai_ml": [
-        ("topic:machine-learning", 500),
-        ("topic:deep-learning",    500),
-        ("topic:llm",              500),
-        ("topic:generative-ai",    500),
-        ("topic:transformers",     500),
-        ("topic:diffusion-model",  300),
-        ("topic:computer-vision",  500),
-        ("topic:nlp",              500),
+        ("topic:machine-learning",  300),
+        ("topic:deep-learning",     300),
+        ("topic:llm",               200),
+        ("topic:generative-ai",     200),
+        ("topic:transformers",      300),
+        ("topic:diffusion-model",   200),
+        ("topic:computer-vision",   300),
+        ("topic:nlp",               300),
+        ("topic:rag",               100),
+        ("topic:embeddings",        200),
+        ("topic:ai-agent",          100),
+        ("topic:huggingface",       200),
     ],
     "devtools": [
-        ("topic:developer-tools",  500),
-        ("topic:cli",              500),
-        ("topic:code-editor",      300),
-        ("topic:devtools",         300),
+        ("topic:developer-tools",   300),
+        ("topic:cli",               300),
+        ("topic:code-editor",       200),
+        ("topic:devtools",          200),
+        ("topic:linter",            200),
+        ("topic:formatter",         200),
+        ("topic:language-server",   100),
+        ("topic:vscode-extension",  100),
+        ("topic:debugging",         200),
+        ("topic:neovim",            100),
+        ("topic:shell",             200),
     ],
     "data_engineering": [
-        ("topic:data-engineering", 300),
-        ("topic:etl",              300),
-        ("topic:data-pipeline",    300),
+        ("topic:data-engineering",  200),
+        ("topic:etl",               200),
+        ("topic:data-pipeline",     200),
+        ("topic:kafka",             300),
+        ("topic:spark",             300),
+        ("topic:dbt",               200),
+        ("topic:data-warehouse",    200),
+        ("topic:streaming",         200),
+        ("topic:flink",             300),
+        ("topic:trino",             200),
     ],
     "security": [
-        ("topic:security",                300),
-        ("topic:penetration-testing",     300),
-        ("topic:vulnerability-scanner",   200),
+        ("topic:security",                200),
+        ("topic:penetration-testing",     200),
+        ("topic:vulnerability-scanner",   100),
+        ("topic:cryptography",            200),
+        ("topic:fuzzing",                 100),
+        ("topic:osint",                   100),
+        ("topic:malware-analysis",        100),
+        ("topic:network-security",        200),
     ],
     "web_frameworks": [
-        ("topic:web-framework", 500),
-        ("topic:rest-api",      500),
-        ("topic:graphql",       300),
+        ("topic:web-framework",   300),
+        ("topic:rest-api",        300),
+        ("topic:graphql",         200),
+        ("topic:grpc",            200),
+        ("topic:typescript",      300),
+        ("topic:microservices",   200),
+        ("topic:websocket",       200),
+    ],
+    "blockchain": [
+        ("topic:blockchain",        200),
+        ("topic:ethereum",          200),
+        ("topic:smart-contracts",   200),
+        ("topic:web3",              200),
+        ("topic:defi",              200),
+        ("topic:solidity",          100),
+        ("topic:layer2",            100),
+        ("topic:zero-knowledge",    100),
+        ("topic:dao",               100),
+        ("topic:solana",            200),
+    ],
+    "oss_tools": [
+        ("topic:build-tool",        200),
+        ("topic:bundler",           200),
+        ("topic:package-manager",   200),
+        ("topic:testing",           300),
+        ("topic:observability",     200),
+        ("topic:ci-cd",             200),
+        ("topic:infrastructure",    300),
+        ("topic:automation",        200),
+        ("topic:orm",               200),
+        ("topic:api-client",        100),
+        ("topic:monorepo",          100),
+        ("topic:kubernetes",        300),
+        ("topic:terraform",         200),
+        ("topic:opentelemetry",     100),
     ],
 }
 
@@ -462,7 +693,7 @@ async def search_by_star_threshold(
 
     async with aiohttp.ClientSession() as session:
         batches = await asyncio.gather(*[
-            _search_api(session, f"{topic} stars:>={min_stars}", per_page=30)
+            _search_api(session, f"{topic} stars:>={min_stars}")
             for topic, min_stars in queries
         ], return_exceptions=True)
 
@@ -492,62 +723,172 @@ def _age_days(created_at: str) -> int:
 
 
 def _infer_category(repo: dict) -> str:
-    """Best-effort category inference from topics and language."""
+    """
+    Best-effort category inference from topics, language, name, and description.
+    Ordered from most-specific (well-known topic signal) to least-specific
+    (keyword fallback).  Language is used as a tie-breaker / secondary signal.
+    """
     topics = set(repo.get("topics", []))
-    name = (repo.get("name") or "").lower()
-    desc = (repo.get("description") or "").lower()
-    text = name + " " + desc
+    name   = (repo.get("name")        or "").lower()
+    desc   = (repo.get("description") or "").lower()
+    lang   = (repo.get("language")    or "").lower()
+    text   = name + " " + desc
 
-    # AI/ML sub-categories
-    if topics & {"vector-database", "vector-search", "faiss", "weaviate", "pinecone", "chroma"}:
+    # ── AI/ML sub-categories (specific topic combos) ──────────────────────────
+    if topics & {"vector-database", "vector-search", "faiss", "weaviate", "pinecone",
+                 "chroma", "chromadb", "hnswlib", "milvus", "qdrant", "annoy"}:
         return "Vector Databases"
-    if topics & {"ai-agent", "autonomous-agents", "autogpt", "langchain", "llm-agent"}:
+    if any(w in text for w in ["vector database", "vector store", "vector search",
+                                "embedding store", "similarity search"]):
+        return "Vector Databases"
+
+    if topics & {"ai-agent", "autonomous-agents", "autogpt", "langchain", "llm-agent",
+                 "agent-framework", "multi-agent", "crewai", "llamaindex", "agentic"}:
         return "Agent Frameworks"
-    if topics & {"llm-inference", "inference", "llama-cpp", "vllm", "tensorrt"}:
+    if any(w in text for w in ["agent framework", "autonomous agent", "multi-agent",
+                                "llm agent", "ai agent"]):
+        return "Agent Frameworks"
+
+    if topics & {"llm-inference", "vllm", "llama-cpp", "gguf", "tensorrt",
+                 "onnxruntime", "triton-inference", "tgi", "tensorrt-llm",
+                 "deepspeed-inference"}:
         return "Inference Engines"
-    if topics & {"fine-tuning", "lora", "rlhf", "instruction-tuning", "peft"}:
+    if any(w in text for w in ["llm inference", "llm serving", "model inference",
+                                "inference server", "inference engine"]):
+        return "Inference Engines"
+
+    if topics & {"fine-tuning", "lora", "rlhf", "instruction-tuning", "peft",
+                 "sft", "dpo", "qlora", "adapter"}:
         return "Fine-tuning Toolkits"
-    if topics & {"model-serving", "triton", "mlops", "kubeflow", "bentoml"}:
+    if any(w in text for w in ["fine-tun", "finetun", "lora ", "rlhf",
+                                "instruction tun", "parameter-efficient"]):
+        return "Fine-tuning Toolkits"
+
+    if topics & {"model-serving", "mlops", "kubeflow", "bentoml", "seldon",
+                 "kfserving", "mlflow", "model-registry"}:
         return "Model Serving / Runtimes"
-    if topics & {"distributed-training", "ray", "deepspeed", "horovod"}:
+    if any(w in text for w in ["model serving", "model deployment", "ml pipeline",
+                                "mlops platform"]):
+        return "Model Serving / Runtimes"
+
+    if topics & {"distributed-training", "horovod", "deepspeed", "megatron",
+                 "ray-train", "pytorch-lightning"}:
         return "Distributed Compute / Infra"
-    if topics & {"llm-evaluation", "benchmarks", "evals", "evaluation"}:
+    if any(w in text for w in ["distributed training", "model parallelism",
+                                "tensor parallelism"]):
+        return "Distributed Compute / Infra"
+
+    if topics & {"llm-evaluation", "benchmarks", "evals", "evaluation",
+                 "llm-benchmark", "lm-eval", "helm", "mmlu"}:
         return "Evaluation Frameworks"
-    if topics & {"llm", "large-language-model", "language-model", "gpt", "llama"}:
+    if any(w in text for w in ["llm evaluation", "model evaluation", "benchmark suite",
+                                "eval framework", "evals platform"]):
+        return "Evaluation Frameworks"
+
+    if topics & {"llm", "large-language-model", "language-model", "gpt", "llama",
+                 "generative-ai", "foundation-model", "causal-lm",
+                 "mistral", "gemini", "claude"}:
         return "LLM Models"
 
-    # New vertical categories
-    if topics & {"blockchain", "ethereum", "smart-contracts", "web3", "defi", "solidity", "bitcoin"}:
+    # ── Blockchain (distinctive vocabulary — check before generic AI topics) ──
+    if topics & {"blockchain", "ethereum", "smart-contracts", "web3", "defi",
+                 "solidity", "nft", "layer2", "zero-knowledge", "dao",
+                 "bitcoin", "solana", "cosmos", "cross-chain", "evm", "substrate"}:
         return "Blockchain"
-    if topics & {"data-engineering", "etl", "data-pipeline", "workflow-orchestration", "apache-airflow", "dbt"}:
-        return "Data Engineering"
-    if topics & {"security", "cybersecurity", "vulnerability-scanner", "penetration-testing", "devsecops"}:
+    if lang == "solidity":
+        return "Blockchain"
+    if any(w in text for w in ["blockchain", "ethereum", "smart contract", "solidity",
+                                "bitcoin", "defi protocol", "web3", "nft minting",
+                                "zero-knowledge proof", "layer 2", " l2 "]):
+        return "Blockchain"
+
+    # ── Security ──────────────────────────────────────────────────────────────
+    if topics & {"security", "cybersecurity", "vulnerability-scanner",
+                 "penetration-testing", "devsecops", "cryptography",
+                 "authentication", "zero-trust", "fuzzing", "reverse-engineering",
+                 "malware-analysis", "osint", "network-security",
+                 "supply-chain-security", "red-team", "exploit", "cve"}:
         return "Security"
-    if topics & {"web-framework", "rest-api", "nodejs", "react", "vuejs", "svelte", "fastapi", "nextjs"}:
+    if any(w in text for w in ["security scanner", "vulnerability scan", "pentest",
+                                "exploit", " cve ", "malware", "osint tool",
+                                "intrusion detection", "threat intel",
+                                "security audit", "reverse engineer", "fuzzer"]):
+        return "Security"
+
+    # ── Data Engineering ──────────────────────────────────────────────────────
+    if topics & {"data-engineering", "etl", "data-pipeline", "workflow-orchestration",
+                 "apache-airflow", "streaming", "kafka", "spark", "data-lake",
+                 "dbt", "data-warehouse", "flink", "delta-lake", "trino",
+                 "presto", "databricks", "iceberg"}:
+        return "Data Engineering"
+    if any(w in text for w in ["data pipeline", "data engineering", "etl pipeline",
+                                "workflow orchestrat", "data lakehouse",
+                                "streaming pipeline", "batch processing",
+                                "data catalog", "data quality", "columnar storage",
+                                "query engine"]):
+        return "Data Engineering"
+
+    # ── Web Frameworks ─────────────────────────────────────────────────────────
+    if topics & {"web-framework", "rest-api", "nodejs", "react", "vuejs", "svelte",
+                 "fastapi", "nextjs", "django", "flask", "graphql", "grpc",
+                 "microservices", "websocket", "typescript", "angular",
+                 "nuxt", "remix", "htmx", "spring-boot", "rails"}:
         return "Web Frameworks"
-    if topics & {"developer-tools", "cli", "terminal", "code-editor", "productivity", "devtools"}:
+    if any(w in text for w in ["web framework", "http server", "rest api",
+                                "graphql server", "grpc framework",
+                                "frontend framework", "backend framework",
+                                "full-stack", "fullstack"]):
+        return "Web Frameworks"
+
+    # ── DevTools ──────────────────────────────────────────────────────────────
+    if topics & {"developer-tools", "cli", "terminal", "code-editor", "productivity",
+                 "devtools", "linter", "formatter", "language-server",
+                 "vscode-extension", "debugging", "profiler", "neovim",
+                 "intellij-plugin", "git", "shell", "zsh", "bash", "tmux",
+                 "dotfiles"}:
+        return "DevTools"
+    if lang in ("go", "rust", "zig") and any(
+        w in text for w in ["cli", "tool", "utility", "command", "plugin",
+                             "extension", "linter", "formatter", "debugger"]
+    ):
+        return "DevTools"
+    if any(w in text for w in ["developer tool", "dev tool", "cli tool",
+                                "code editor", "text editor", "ide plugin",
+                                "lsp server", "language server",
+                                "code formatter", "code linter",
+                                "terminal emulator"]):
         return "DevTools"
 
-    # Keyword fallback on name + description
-    if any(w in text for w in ["vector", "embed", "retriev"]):
-        return "Vector Databases"
-    if any(w in text for w in ["agent", "autogpt", "langchain"]):
-        return "Agent Frameworks"
-    if any(w in text for w in ["inference", "serving", "runtime"]):
-        return "Inference Engines"
-    if any(w in text for w in ["finetun", "fine-tun", "lora", "rlhf"]):
-        return "Fine-tuning Toolkits"
-    if any(w in text for w in ["eval", "benchmark", "leaderboard"]):
-        return "Evaluation Frameworks"
-    if any(w in text for w in ["blockchain", "ethereum", "smart contract", "solidity", "bitcoin"]):
-        return "Blockchain"
-    if any(w in text for w in ["data pipeline", "data engineering", "workflow", "orchestrat"]):
-        return "Data Engineering"
-    if any(w in text for w in ["security", "pentest", "vulnerability", "cve", "exploit"]):
-        return "Security"
-    if any(w in text for w in ["framework", "web server", "http server", "web app"]):
-        return "Web Frameworks"
-    if any(w in text for w in ["cli tool", "developer tool", "productivity", "terminal"]):
-        return "DevTools"
+    # ── OSS Tools ─────────────────────────────────────────────────────────────
+    if topics & {"build-tool", "bundler", "package-manager", "testing",
+                 "infrastructure", "observability", "ci-cd", "automation",
+                 "orm", "api-client", "linting", "code-generation",
+                 "documentation", "monorepo", "containerization",
+                 "kubernetes", "terraform", "ansible", "opentelemetry",
+                 "prometheus", "grafana", "docker", "helm", "pulumi"}:
+        return "OSS Tools"
+    if any(w in text for w in ["build tool", "build system", "bundler",
+                                "package manager", "test framework", "test runner",
+                                "monorepo tool", "container orchestrat",
+                                "infrastructure as code", "observabilit",
+                                "ci/cd", "deployment tool", "orm framework",
+                                "opentelemetry", "distributed tracing"]):
+        return "OSS Tools"
+
+    # ── Broader AI / ML (catch-all) ────────────────────────────────────────────
+    if topics & {"machine-learning", "deep-learning", "pytorch", "tensorflow",
+                 "scikit-learn", "neural-network", "computer-vision", "nlp",
+                 "multimodal", "diffusion-model", "huggingface", "rag",
+                 "embeddings", "ai", "ml"}:
+        return "AI / ML"
+    if lang in ("python", "jupyter notebook") and any(
+        w in text for w in ["neural", "model training", "gradient",
+                             "transformer", "attention", "dataset", "train loop"]
+    ):
+        return "AI / ML"
+    if any(w in text for w in ["machine learning", "deep learning", "neural network",
+                                "computer vision", "natural language processing",
+                                "model training", "dataset"]):
+        return "AI / ML"
 
     return "AI / ML"

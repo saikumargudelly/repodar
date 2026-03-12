@@ -18,36 +18,14 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.subscriber import Subscriber
+from app.services.email_service import FRONTEND_URL, send_email
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Subscriptions"])
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "https://repodar.vercel.app")
-RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
-FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "digest@repodar.vercel.app")
-
 
 def _utcnow():
     return datetime.now(timezone.utc).replace(tzinfo=None)
-
-
-def _send_email(to: str, subject: str, html: str) -> bool:
-    """Send email via Resend. Returns True on success."""
-    if not RESEND_API_KEY:
-        logger.warning("RESEND_API_KEY not set — skipping email send")
-        return False
-    try:
-        import httpx
-        resp = httpx.post(
-            "https://api.resend.com/emails",
-            headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
-            json={"from": FROM_EMAIL, "to": [to], "subject": subject, "html": html},
-            timeout=10,
-        )
-        return resp.status_code in (200, 201)
-    except Exception as e:
-        logger.error(f"Email send failed: {e}")
-        return False
 
 
 # ─── Schemas ─────────────────────────────────────────────────────────────────
@@ -100,7 +78,7 @@ def _dispatch_confirmation(sub: Subscriber):
     <p><a href="{confirm_url}" style="background:#00e5ff;color:#000;padding:10px 20px;text-decoration:none;border-radius:4px;">Confirm subscription</a></p>
     <p style="color:#888;font-size:12px;">If you did not sign up, ignore this email.</p>
     """
-    _send_email(sub.email, "Confirm your Repodar digest subscription", html)
+    send_email(sub.email, "Confirm your Repodar digest subscription", html)
 
 
 @router.get("/subscribe/confirm")

@@ -6,6 +6,7 @@ Writes results to computed_metrics table.
 
 import math
 import logging
+import os
 from datetime import date, datetime, timezone, timedelta
 
 import duckdb
@@ -15,6 +16,10 @@ from app.database import SessionLocal, engine
 from app.models import Repository, DailyMetric, ComputedMetric, TrendAlert, CategoryMetricDaily
 
 logger = logging.getLogger(__name__)
+
+SPIKE_Z_THRESHOLD = float(os.getenv("SPIKE_Z_THRESHOLD", "2.5"))
+SPIKE_MIN_HISTORY_DAYS = int(os.getenv("SPIKE_MIN_HISTORY_DAYS", "7"))
+SPIKE_SUSTAINED_Z_THRESHOLD = float(os.getenv("SPIKE_SUSTAINED_Z_THRESHOLD", "2.0"))
 
 
 def _today() -> date:
@@ -605,6 +610,112 @@ _ALERT_THRESHOLDS: dict[str, dict] = {
 }
 
 
+def _normal_cdf(z_score: float) -> float:
+    return 0.5 * (1.0 + math.erf(z_score / math.sqrt(2.0)))
+
+
+def _momentum_direction(values: list[float]) -> str:
+    if len(values) < 6:
+        return "stable"
+    recent = sum(values[-3:]) / 3
+    earlier = sum(values[-6:-3]) / 3
+    if earlier == 0:
+        if recent > 0:
+            return "accelerating"
+        return "stable"
+    delta = (recent - earlier) / abs(earlier)
+    if delta > 0.3:
+        return "accelerating"
+    if delta < -0.3:
+        return "declining"
+    return "stable"
+
+
+def _statistical_spike_context(df: pd.DataFrame, column: str) -> dict | None:
+    if column not in df.columns or len(df) < SPIKE_MIN_HISTORY_DAYS + 1:
+        return None
+
+    series = pd.to_numeric(df[column], errors="coerce").dropna().astype(float)
+    if len(series) < SPIKE_MIN_HISTORY_DAYS + 1:
+        return None
+
+    history = series.iloc[:-1].tail(max(SPIKE_MIN_HISTORY_DAYS, 14)).tolist()
+    current = float(series.iloc[-1])
+    if len(history) < SPIKE_MIN_HISTORY_DAYS:
+        return None
+
+    mean = float(sum(history) / len(history))
+    variance = float(sum((value - mean) ** 2 for value in history) / len(history))
+    stddev = math.sqrt(variance)
+    if stddev == 0:
+        if current <= mean:
+            return None
+        stddev = max(abs(mean) * 0.1, 1.0)
+
+    z_score = float((current - mean) / stddev)
+    if z_score < SPIKE_Z_THRESHOLD:
+        return None
+
+    recent_window = series.iloc[-2:].tolist()
+    sustained = all(((value - mean) / stddev) >= SPIKE_SUSTAINED_Z_THRESHOLD for value in recent_window)
+    percentile = round(_normal_cdf(z_score) * 100, 2)
+
+    return {
+        "current": round(current, 4),
+        "baseline_mean": round(mean, 4),
+        "baseline_stddev": round(stddev, 4),
+        "z_score": round(z_score, 4),
+        "percentile": percentile,
+        "is_sustained": sustained,
+        "momentum_direction": _momentum_direction(series.tail(6).tolist()),
+    }
+
+
+def _create_new_breakout_alerts(db, today: date) -> int:
+    new_alerts = 0
+    breakout_rows = (
+        db.query(ComputedMetric, Repository)
+        .join(Repository, Repository.id == ComputedMetric.repo_id)
+        .filter(
+            ComputedMetric.date == today,
+            Repository.age_days <= 45,
+            ComputedMetric.trend_score >= 0.35,
+        )
+        .order_by(ComputedMetric.trend_score.desc())
+        .limit(10)
+        .all()
+    )
+
+    start_of_day = datetime.combine(today, datetime.min.time())
+    for cm, repo in breakout_rows:
+        existing = (
+            db.query(TrendAlert)
+            .filter(
+                TrendAlert.repo_id == repo.id,
+                TrendAlert.alert_type == "new_breakout",
+                TrendAlert.triggered_at >= start_of_day,
+            )
+            .first()
+        )
+        if existing:
+            continue
+        db.add(
+            TrendAlert(
+                repo_id=repo.id,
+                alert_type="new_breakout",
+                window_days=1,
+                headline=f"{repo.owner}/{repo.name} entered today's breakout cohort",
+                metric_value=round(cm.trend_score or 0.0, 4),
+                threshold=0.35,
+                triggered_at=datetime.now(timezone.utc).replace(tzinfo=None),
+                is_read=False,
+                momentum_direction="accelerating",
+            )
+        )
+        new_alerts += 1
+    return new_alerts
+
+
 def detect_and_write_alerts(
     db,
     repo: "Repository",
@@ -613,7 +724,7 @@ def detect_and_write_alerts(
     yesterday_trend_score: float,
 ) -> int:
     """
-    Checks a single repo against alert thresholds and writes TrendAlert rows.
+    Checks a single repo against hard and adaptive thresholds and writes TrendAlert rows.
     Idempotent: skips if an identical (repo_id, alert_type, same calendar day)
     alert already exists.
     Returns the count of new alerts written.
@@ -636,11 +747,18 @@ def detect_and_write_alerts(
             .first()
         )
 
-    def _write(alert_type: str, headline: str, value: float, threshold: float,
-               window_days: int = 1, extra: dict | None = None):
+    def _write(
+        alert_type: str,
+        headline: str,
+        value: float,
+        threshold: float,
+        window_days: int = 1,
+        extra: dict | None = None,
+    ):
         nonlocal alerts_written
         if _already_alerted(alert_type):
             return
+        extra = extra or {}
         alert = TrendAlert(
             repo_id=repo.id,
             alert_type=alert_type,
@@ -648,6 +766,12 @@ def detect_and_write_alerts(
             headline=headline,
             metric_value=round(value, 2),
             threshold=round(threshold, 2),
+            baseline_mean=extra.get("baseline_mean"),
+            baseline_stddev=extra.get("baseline_stddev"),
+            z_score=extra.get("z_score"),
+            percentile=extra.get("percentile"),
+            is_sustained=bool(extra.get("is_sustained", False)),
+            momentum_direction=extra.get("momentum_direction"),
             triggered_at=now,
             is_read=False,
             extra_json=None,
@@ -682,6 +806,17 @@ def detect_and_write_alerts(
                 window_days=2,
             )
 
+    star_spike = _statistical_spike_context(df, "daily_star_delta")
+    if star_spike:
+        _write(
+            "stat_spike_24h",
+            f"{repo.owner}/{repo.name} is {star_spike['z_score']:.1f}σ above its normal star velocity",
+            value=star_spike["current"],
+            threshold=SPIKE_Z_THRESHOLD,
+            window_days=1,
+            extra=star_spike,
+        )
+
     # ── Momentum surge (trend score jump) ────────────────────────────────────
     thresh_surge = _ALERT_THRESHOLDS["momentum_surge"]
     score_jump = today_trend_score - yesterday_trend_score
@@ -692,6 +827,17 @@ def detect_and_write_alerts(
             value=score_jump,
             threshold=thresh_surge["min_trend_score_jump"],
             window_days=1,
+        )
+
+    pr_spike = _statistical_spike_context(df, "daily_pr_delta")
+    if pr_spike and pr_spike["current"] >= 5:
+        _write(
+            "pr_surge",
+            f"{repo.owner}/{repo.name} merged PR volume spiked {pr_spike['z_score']:.1f}σ above baseline",
+            value=pr_spike["current"],
+            threshold=SPIKE_Z_THRESHOLD,
+            window_days=1,
+            extra=pr_spike,
         )
 
     return alerts_written
@@ -794,9 +940,13 @@ def run_daily_scoring() -> dict:
                     db.add(cm)
 
                 # ── Alert detection ──────────────────────────────────────────
-                yesterday_score = 0.0
-                if existing:
-                    yesterday_score = existing.trend_score  # value before this run
+                previous_metric = (
+                    db.query(ComputedMetric)
+                    .filter(ComputedMetric.repo_id == repo.id, ComputedMetric.date < today)
+                    .order_by(ComputedMetric.date.desc())
+                    .first()
+                )
+                yesterday_score = previous_metric.trend_score if previous_metric and previous_metric.trend_score else 0.0
                 alert_count += detect_and_write_alerts(
                     db, repo, df,
                     today_trend_score=trend_metrics["trend_score"],
@@ -810,6 +960,11 @@ def run_daily_scoring() -> dict:
                 failed += 1
 
         # ── Pre-aggregate category metrics into cache ────────────────────────
+        try:
+            alert_count += _create_new_breakout_alerts(db, today)
+        except Exception as e:
+            logger.warning(f"New breakout alert generation failed (non-fatal): {e}")
+
         try:
             cats_written = _write_category_metrics_cache(db, days=7)
             logger.info(f"Category cache refreshed: {cats_written} categories")

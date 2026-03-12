@@ -6,9 +6,14 @@
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers = {
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string> | undefined),
+  };
+  
   const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...options,
+    headers,
   });
   if (!res.ok) {
     // Try to extract the real error message from the FastAPI response body
@@ -30,6 +35,13 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
       // response body is not JSON — keep the generic message
     }
     throw new Error(detail);
+  }
+  if (res.status === 204) {
+    return {} as T;
+  }
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    return {} as T;
   }
   return res.json() as Promise<T>;
 }
@@ -147,6 +159,12 @@ export interface AlertResponse {
   headline: string;
   metric_value: number;
   threshold: number;
+  baseline_mean?: number | null;
+  baseline_stddev?: number | null;
+  z_score?: number | null;
+  percentile?: number | null;
+  is_sustained?: boolean;
+  momentum_direction?: string | null;
   triggered_at: string;  // ISO-8601
   is_read: boolean;
 }
@@ -241,7 +259,8 @@ export type Vertical =
   | "web_frameworks"
   | "security"
   | "data_engineering"
-  | "blockchain";
+  | "blockchain"
+  | "oss_tools";
 
 export interface LeaderboardEntry {
   rank: number;
@@ -403,7 +422,7 @@ export interface EarlyRadarRepo {
 // ─── Watchlist ────────────────────────────────────────────────────────────────
 
 export interface WatchlistItemOut {
-  id: number;
+  id: string;
   repo_id: string;
   owner: string;
   name: string;
@@ -503,7 +522,7 @@ export interface NotableFork {
 // ─── API Keys ─────────────────────────────────────────────────────────────────
 
 export interface ApiKeyOut {
-  id: number;
+  id: string;
   name: string;
   tier: string;
   calls_today: number;
@@ -518,6 +537,35 @@ export interface ApiKeyOut {
 
 export interface CreateApiKeyBody {
   name: string;
+}
+
+export type DigestFrequency = "realtime" | "daily" | "weekly" | "monthly" | "off";
+
+export interface OnboardingStatus {
+  user_id: string;
+  current_step: "interests" | "watchlist" | "alerts" | "tour" | "complete" | string;
+  onboarding_completed: boolean;
+  selected_verticals: string[];
+  steps_completed: {
+    interests: boolean;
+    watchlist: boolean;
+    alerts: boolean;
+    tour: boolean;
+  };
+}
+
+export interface ProfilePreferences {
+  user_id: string;
+  email: string | null;
+  digest_frequency: DigestFrequency;
+  verticals: string[];
+  is_confirmed: boolean;
+}
+
+export interface ProfilePreferencesPatchBody {
+  email?: string;
+  digest_frequency?: DigestFrequency;
+  verticals?: string[];
 }
 
 // ─── A2A Service Catalog ─────────────────────────────────────────────────────
@@ -759,12 +807,22 @@ export const api = {
     apiFetch<WatchlistItemOut[]>("/watchlist", { headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
   addToWatchlist: (userId: string, body: WatchlistAddBody) =>
     apiFetch<WatchlistItemOut>("/watchlist", { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
-  updateWatchlistItem: (userId: string, id: number, body: WatchlistPatchBody) =>
+  updateWatchlistItem: (userId: string, id: string, body: WatchlistPatchBody) =>
     apiFetch<WatchlistItemOut>(`/watchlist/${id}`, { method: "PATCH", body: JSON.stringify(body), headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
-  removeFromWatchlist: (userId: string, id: number) =>
+  removeFromWatchlist: (userId: string, id: string) =>
     apiFetch<{ ok: boolean }>(`/watchlist/${id}`, { method: "DELETE", headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
   checkWatchlist: (userId: string, repoId: string) =>
     apiFetch<{ watching: boolean; item: WatchlistItemOut | null }>(`/watchlist/check/${repoId}`, { headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
+
+  // Profile
+  getProfilePreferences: (userId: string) =>
+    apiFetch<ProfilePreferences>("/profile/preferences", { headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
+  updateProfilePreferences: (userId: string, body: ProfilePreferencesPatchBody) =>
+    apiFetch<ProfilePreferences>("/profile/preferences", {
+      method: "PATCH",
+      body: JSON.stringify(body),
+      headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId },
+    }),
 
   // Topic Intelligence
   getTopicMomentum: (params?: { min_repos?: number; limit?: number; category?: string }) => {
@@ -792,12 +850,46 @@ export const api = {
   // API Keys
   createApiKey: (userId: string, body: CreateApiKeyBody) =>
     apiFetch<ApiKeyOut>("/dev/keys", { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
+  ensureApiKey: (userId: string) =>
+    apiFetch<ApiKeyOut>("/dev/keys/ensure", { method: "POST", headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
   listApiKeys: (userId: string) =>
     apiFetch<ApiKeyOut[]>("/dev/keys", { headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
-  revokeApiKey: (userId: string, keyId: number) =>
+  revokeApiKey: (userId: string, keyId: string) =>
     apiFetch<{ ok: boolean }>(`/dev/keys/${keyId}`, { method: "DELETE", headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
-  getApiKeyStatus: (userId: string, keyId: number) =>
+  getApiKeyStatus: (userId: string, keyId: string) =>
     apiFetch<ApiKeyOut>(`/dev/keys/${keyId}/status`, { headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
+
+  // Onboarding
+  getOnboardingStatus: (userId: string) =>
+    apiFetch<OnboardingStatus>("/onboarding/status", { headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
+  saveOnboardingInterests: (userId: string, verticals: string[]) =>
+    apiFetch<OnboardingStatus>("/onboarding/interests", {
+      method: "POST",
+      body: JSON.stringify({ verticals }),
+      headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId },
+    }),
+  saveOnboardingWatchlist: (userId: string, repos: string[]) =>
+    apiFetch<{ created: number; current_step: string }>("/onboarding/watchlist", {
+      method: "POST",
+      body: JSON.stringify({ repos }),
+      headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId },
+    }),
+  saveOnboardingAlerts: (userId: string, body: { email: string; frequency: DigestFrequency }) =>
+    apiFetch<{ saved: boolean; current_step: string }>("/onboarding/alerts", {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId },
+    }),
+  completeOnboarding: (userId: string) =>
+    apiFetch<OnboardingStatus>("/onboarding/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId },
+    }),
+  skipOnboarding: (userId: string) =>
+    apiFetch<OnboardingStatus>("/onboarding/skip", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId },
+    }),
 
   // Report History
   getReportHistory: (periodType?: string) => {

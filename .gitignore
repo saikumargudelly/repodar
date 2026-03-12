@@ -13,6 +13,8 @@ build/
 venv/
 env/
 .env
+.env.local
+.env.*.local
 .env.railway
 *.db
 *.db-*
@@ -31,6 +33,7 @@ node_modules/
 .next/
 out/
 .npm/
+.clerk/
 
 # IDE
 .vscode/

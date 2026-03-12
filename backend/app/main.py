@@ -16,6 +16,8 @@ from app.models.social_mention import SocialMention  # noqa
 from app.models.repo_release import RepoRelease  # noqa
 from app.models.subscriber import Subscriber  # noqa
 from app.models.weekly_snapshot import WeeklySnapshot  # noqa
+from app.models.alert_notification import AlertNotification  # noqa
+from app.models.user_onboarding import UserOnboarding  # noqa
 from app.database import Base
 from app.routers import (
     repos_router,
@@ -35,6 +37,8 @@ from app.routers import (
     subscribe_router,
     search_router,
     snapshots_router,
+    onboarding_router,
+    profile_router,
 )
 from app.seed.seeder import seed_repos
 
@@ -55,6 +59,7 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
     from app.services.ingestion import run_daily_ingestion
     from app.services.scoring import run_daily_scoring
     from app.services.explanation import enrich_top_repos_with_explanations
+    from app.services.notification_service import dispatch_pending_watchlist_alert_emails
 
     run_at = datetime.now(timezone.utc).isoformat()
     logger.info(f"[pipeline] Starting delta-sync at {run_at}")
@@ -77,6 +82,7 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
 
     explain_count = 0
     summary_count = 0
+    notification_result = {"sent": 0, "failed": 0, "skipped": 0}
     if include_explanations:
         try:
             explain_count = enrich_top_repos_with_explanations(top_n=20)
@@ -89,6 +95,12 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
             logger.info(f"[pipeline] Summaries: {summary_count}")
         except Exception as e:
             logger.warning(f"[pipeline] Summary generation failed (non-fatal): {e}")
+
+    try:
+        notification_result = dispatch_pending_watchlist_alert_emails()
+        logger.info(f"[pipeline] Alert notifications: {notification_result}")
+    except Exception as e:
+        logger.warning(f"[pipeline] Alert notifications failed (non-fatal): {e}")
 
     return {
         "run_at": run_at,
@@ -105,6 +117,7 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
         "categories_cached": score_result.get("categories_cached", 0),
         "explanations": explain_count,
         "summaries": summary_count,
+        "alert_emails_sent": notification_result.get("sent", 0),
         "scoring_date": score_result.get("date"),
     }
 
@@ -153,6 +166,27 @@ def _schedule_pipeline():
                 logger.error(f"[snapshot_scheduler] Failed: {exc}", exc_info=True)
 
         scheduler.add_job(_snapshot_job, CronTrigger(day_of_week="mon", hour=6, minute=0), id="weekly_snapshot", replace_existing=True)
+
+        async def _daily_digest_job():
+            from app.services.notification_service import dispatch_digest_emails
+            result = dispatch_digest_emails("daily")
+            logger.info(f"[digest_scheduler] Daily digest result: {result}")
+
+        scheduler.add_job(_daily_digest_job, CronTrigger(hour=9, minute=0), id="daily_digest", replace_existing=True)
+
+        async def _weekly_digest_job():
+            from app.services.notification_service import dispatch_digest_emails
+            result = dispatch_digest_emails("weekly")
+            logger.info(f"[digest_scheduler] Weekly digest result: {result}")
+
+        scheduler.add_job(_weekly_digest_job, CronTrigger(day_of_week="mon", hour=9, minute=15), id="weekly_digest", replace_existing=True)
+
+        async def _monthly_digest_job():
+            from app.services.notification_service import dispatch_digest_emails
+            result = dispatch_digest_emails("monthly")
+            logger.info(f"[digest_scheduler] Monthly digest result: {result}")
+
+        scheduler.add_job(_monthly_digest_job, CronTrigger(day=1, hour=9, minute=30), id="monthly_digest", replace_existing=True)
 
         # Social mentions + releases + commit activity — daily at 03:00 UTC
         async def _enrichment_job():
@@ -278,6 +312,8 @@ app.include_router(feed_router)
 app.include_router(subscribe_router)
 app.include_router(search_router)
 app.include_router(snapshots_router)
+app.include_router(onboarding_router)
+app.include_router(profile_router)
 
 # ─── Public API v1 (X-API-Key required) ──────────────────────────────────────
 from app.routers.public_api import router as public_api_router
