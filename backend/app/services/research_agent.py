@@ -136,20 +136,20 @@ SCOPE: GitHub repositories and open-source software ONLY.
 Set intent=out_of_scope for anything else.
 
 INTENT VALUES:
-  search       → find repos matching criteria
-  compare      → compare 2+ specific repos side-by-side
-  landscape    → map an ecosystem / technology space
-  temporal     → what changed over time (needs period mention)
-  report       → generate a structured research brief
-  repo_detail  → details about one specific repo (owner/name)
-  out_of_scope → not about GitHub/OSS
-  clarify      → too ambiguous to parse without more info
+  search       -> find repos matching criteria
+  compare      -> compare 2+ specific repos side-by-side
+  landscape    -> map an ecosystem / technology space
+  temporal     -> what changed over time (needs period mention)
+  report       -> generate a structured research brief
+  repo_detail  -> details about one specific repo (owner/name)
+  out_of_scope -> not about GitHub/OSS
+  clarify      -> too ambiguous to parse without more info
 
 OUTPUT SCHEMA (strict, no extra keys):
-{
+{{
   "intent": "<value>",
   "confidence": <0.0-1.0>,
-  "entities": {
+  "entities": {{
     "repos": ["owner/name"],
     "topics": ["llm", "vector-db"],
     "languages": ["Python"],
@@ -158,15 +158,15 @@ OUTPUT SCHEMA (strict, no extra keys):
     "min_stars": null,
     "exclude_forks": null,
     "exclude_archived": null
-  },
+  }},
   "github_query": "<github search q string or empty string>",
   "query_explanation": "<one plain-English sentence describing what will be searched>",
   "needs_clarification": false,
   "clarification_prompt": null,
   "rejection_reason": null
-}
+}}
 
-GUARDRAIL — query building rules:
+GUARDRAIL -- query building rules:
 - Only add `language:X` if user explicitly names a language
 - Only add `pushed:>=DATE` if user mentions a time period
 - Only add `stars:>N` if user specifies a star count
@@ -585,7 +585,7 @@ MANDATORY REPORT STRUCTURE (markdown):
 # {title}
 
 ## Executive Summary
-(2–3 sentences, data-grounded only)
+(2-3 sentences, data-grounded only)
 
 ## Rising Stars
 (repos with trend_label=HIGH, ranked by momentum, with real metric citations)
@@ -594,17 +594,17 @@ MANDATORY REPORT STRUCTURE (markdown):
 (group repos by primary_language or topics, only factual patterns)
 
 ## Underperformers / Watch Items
-(repos with trend_label=LOW — report honestly, do not soften)
+(repos with trend_label=LOW -- report honestly, do not soften)
 
 ## Key Observations
-(≤5 bullet points, each backed by specific data from REPOS DATA)
+(5 or fewer bullet points, each backed by specific data from REPOS DATA)
 
 ## Methodology
 - Data source: GitHub Search API (real-time)
 - Fetched at: {timestamp}
 - Queries used: {queries}
 - Repos analyzed: {repo_count}
-- Trend scoring: star velocity proxy · pushed_at recency · watcher momentum
+- Trend scoring: star velocity proxy, pushed_at recency, watcher momentum
 - This report is a snapshot; data changes continuously.
 
 --- REPOS DATA (use ONLY these) ---
