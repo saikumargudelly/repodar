@@ -81,6 +81,33 @@ AI_TOPIC_QUERIES = [
     "topic:gui-agent",
     "topic:computer-use",
     "topic:rpa",
+    # MCP & agentic tooling (2025-2026 wave)
+    "topic:mcp",
+    "topic:model-context-protocol",
+    "topic:coding-assistant",
+    "topic:ai-coding",
+    "topic:copilot",
+    # Modality-specific AI
+    "topic:text-to-speech",
+    "topic:tts",
+    "topic:speech-recognition",
+    "topic:text-to-image",
+    "topic:stable-diffusion",
+    "topic:vision-language-model",
+    "topic:vlm",
+    # Data & training
+    "topic:synthetic-data",
+    "topic:dataset",
+    # Local / on-device AI
+    "topic:ollama",
+    "topic:local-llm",
+    "topic:chatbot",
+    # Structured outputs & tool use
+    "topic:function-calling",
+    "topic:structured-output",
+    "topic:prompt-engineering",
+    # Agent-to-agent
+    "topic:a2a",
 ]
 
 # Topic queries per vertical — each is queried in parallel via _fetch_search.
@@ -104,6 +131,19 @@ VERTICAL_TOPIC_QUERIES: dict[str, list[str]] = {
         "topic:neovim",
         "topic:shell",
         "topic:git",
+        # Headless browsers & automation infra
+        "topic:headless-browser",
+        "topic:playwright",
+        "topic:puppeteer",
+        "topic:cdp",
+        # Modern runtimes & tools
+        "topic:bun",
+        "topic:deno",
+        "topic:wasm",
+        "topic:webassembly",
+        # API & backend platforms
+        "topic:supabase",
+        "topic:appwrite",
     ],
     "web_frameworks": [
         "topic:web-framework",
@@ -121,6 +161,19 @@ VERTICAL_TOPIC_QUERIES: dict[str, list[str]] = {
         "topic:flask",
         "topic:microservices",
         "topic:websocket",
+        # Trending 2025-2026 frameworks
+        "topic:astro",
+        "topic:htmx",
+        "topic:hono",
+        "topic:elysia",
+        "topic:remix",
+        "topic:sveltekit",
+        "topic:solid-js",
+        "topic:bun",
+        "topic:deno",
+        "topic:edge-runtime",
+        "topic:spring-boot",
+        "topic:rails",
     ],
     "security": [
         "topic:security",
@@ -138,6 +191,16 @@ VERTICAL_TOPIC_QUERIES: dict[str, list[str]] = {
         "topic:network-security",
         "topic:supply-chain-security",
         "topic:red-team",
+        # 2025-2026 supply-chain & cloud security
+        "topic:sbom",
+        "topic:sast",
+        "topic:dast",
+        "topic:api-security",
+        "topic:container-security",
+        "topic:cloud-security",
+        "topic:secrets-management",
+        "topic:sca",
+        "topic:vulnerability-management",
     ],
     "data_engineering": [
         "topic:data-engineering",
@@ -155,6 +218,20 @@ VERTICAL_TOPIC_QUERIES: dict[str, list[str]] = {
         "topic:flink",
         "topic:delta-lake",
         "topic:trino",
+        # 2025-2026 lakehouse & modern data stack
+        "topic:apache-iceberg",
+        "topic:iceberg",
+        "topic:dagster",
+        "topic:data-quality",
+        "topic:great-expectations",
+        "topic:polars",
+        "topic:duckdb",
+        "topic:data-lakehouse",
+        "topic:cdc",
+        "topic:debezium",
+        "topic:data-catalog",
+        "topic:parquet",
+        "topic:arrow",
     ],
     "blockchain": [
         "topic:blockchain",
@@ -172,6 +249,17 @@ VERTICAL_TOPIC_QUERIES: dict[str, list[str]] = {
         "topic:cosmos",
         "topic:cross-chain",
         "topic:evm",
+        # 2025-2026 blockchain trends
+        "topic:account-abstraction",
+        "topic:restaking",
+        "topic:rollup",
+        "topic:modular-blockchain",
+        "topic:ton",
+        "topic:sui",
+        "topic:move-language",
+        "topic:zk-rollup",
+        "topic:zk-snark",
+        "topic:depin",
     ],
     "oss_tools": [
         "topic:build-tool",
@@ -193,6 +281,20 @@ VERTICAL_TOPIC_QUERIES: dict[str, list[str]] = {
         "topic:terraform",
         "topic:ansible",
         "topic:opentelemetry",
+        # 2025-2026 infra & runtime trends
+        "topic:wasm",
+        "topic:wasi",
+        "topic:serverless",
+        "topic:edge-computing",
+        "topic:nix",
+        "topic:bazel",
+        "topic:vitest",
+        "topic:playwright",
+        "topic:pnpm",
+        "topic:turborepo",
+        "topic:docker",
+        "topic:podman",
+        "topic:github-actions",
     ],
 }
 
@@ -459,13 +561,19 @@ def _category_to_topics(category: str) -> list[str]:
         "LLM Models": [
             "llm", "large-language-model", "language-model", "generative-ai",
             "gpt", "llama", "mistral", "gemini", "claude", "foundation-model",
-            "causal-lm",
+            "causal-lm", "ollama", "local-llm",
         ],
         "Agent Frameworks": [
             "ai-agent", "ai-agents", "autonomous-agents", "langchain", "autogpt",
             "llm-agent", "agent-framework", "multi-agent", "crewai",
             "llamaindex", "agentic", "browser-automation", "ui-automation",
-            "web-agent", "gui-agent", "computer-use",
+            "web-agent", "gui-agent", "computer-use", "a2a",
+        ],
+        "MCP Tools": [
+            "mcp", "model-context-protocol",
+        ],
+        "Coding Assistants": [
+            "coding-assistant", "ai-coding", "copilot", "code-generation",
         ],
         "Inference Engines": [
             "llm-inference", "inference", "llama-cpp", "vllm", "gguf",
@@ -492,18 +600,31 @@ def _category_to_topics(category: str) -> list[str]:
             "fine-tuning", "lora", "rlhf", "instruction-tuning",
             "peft", "sft", "dpo", "qlora", "adapter",
         ],
+        "Speech & Audio": [
+            "text-to-speech", "tts", "speech-recognition", "asr",
+            "voice-cloning", "audio-processing",
+        ],
+        "Image Generation": [
+            "text-to-image", "stable-diffusion", "diffusion-model",
+            "image-generation", "sdxl", "comfyui",
+        ],
         # ── Other verticals ───────────────────────────────────────────────────
         "DevTools": [
             "developer-tools", "cli", "terminal", "code-editor", "productivity",
             "devtools", "linter", "formatter", "language-server",
             "vscode-extension", "debugging", "profiler", "neovim",
             "shell", "git", "intellij-plugin",
+            "headless-browser", "playwright", "puppeteer", "cdp",
+            "bun", "deno", "wasm", "webassembly",
+            "supabase", "appwrite",
         ],
         "Web Frameworks": [
             "web-framework", "rest-api", "nodejs", "react", "vuejs", "svelte",
             "fastapi", "nextjs", "django", "flask", "graphql", "grpc",
             "microservices", "websocket", "typescript", "angular", "nuxt",
             "spring-boot",
+            "astro", "htmx", "hono", "elysia", "remix", "sveltekit",
+            "solid-js", "bun", "deno", "edge-runtime", "rails",
         ],
         "Security": [
             "security", "cybersecurity", "vulnerability-scanner",
@@ -511,16 +632,25 @@ def _category_to_topics(category: str) -> list[str]:
             "authentication", "zero-trust", "fuzzing", "reverse-engineering",
             "malware-analysis", "osint", "network-security",
             "supply-chain-security", "red-team",
+            "sbom", "sast", "dast", "api-security",
+            "container-security", "cloud-security", "secrets-management",
+            "sca", "vulnerability-management",
         ],
         "Data Engineering": [
             "data-engineering", "etl", "data-pipeline", "workflow-orchestration",
             "apache-airflow", "streaming", "kafka", "spark", "data-lake",
             "dbt", "data-warehouse", "flink", "delta-lake", "trino", "analytics",
+            "apache-iceberg", "iceberg", "dagster", "data-quality",
+            "great-expectations", "polars", "duckdb", "data-lakehouse",
+            "cdc", "debezium", "data-catalog", "parquet", "arrow",
         ],
         "Blockchain": [
             "blockchain", "ethereum", "smart-contracts", "web3", "defi",
             "solidity", "nft", "layer2", "zero-knowledge", "dao",
             "bitcoin", "solana", "cosmos", "cross-chain", "evm",
+            "account-abstraction", "restaking", "rollup",
+            "modular-blockchain", "ton", "sui", "move-language",
+            "zk-rollup", "zk-snark", "depin",
         ],
         "OSS Tools": [
             "build-tool", "bundler", "package-manager", "testing",
@@ -529,6 +659,9 @@ def _category_to_topics(category: str) -> list[str]:
             "documentation", "monorepo", "containerization",
             "kubernetes", "terraform", "ansible", "opentelemetry",
             "prometheus", "grafana", "helm",
+            "wasm", "wasi", "serverless", "edge-computing",
+            "nix", "bazel", "vitest", "playwright", "pnpm",
+            "turborepo", "docker", "podman", "github-actions",
         ],
     }
     return mapping.get(category, [])
@@ -615,6 +748,23 @@ STAR_THRESHOLD_TOPICS: dict[str, list[tuple[str, int]]] = {
         ("topic:gui-agent",          100),
         ("topic:computer-use",       100),
         ("topic:huggingface",       200),
+        # MCP, coding assistants, local AI, modality-specific
+        ("topic:mcp",               100),
+        ("topic:model-context-protocol", 100),
+        ("topic:coding-assistant",  100),
+        ("topic:ai-coding",         100),
+        ("topic:ollama",            200),
+        ("topic:local-llm",         100),
+        ("topic:text-to-speech",    200),
+        ("topic:tts",               200),
+        ("topic:speech-recognition", 200),
+        ("topic:text-to-image",     200),
+        ("topic:stable-diffusion",  200),
+        ("topic:vision-language-model", 100),
+        ("topic:synthetic-data",    100),
+        ("topic:chatbot",           200),
+        ("topic:function-calling",  100),
+        ("topic:prompt-engineering", 100),
     ],
     "devtools": [
         ("topic:developer-tools",   300),
@@ -628,6 +778,15 @@ STAR_THRESHOLD_TOPICS: dict[str, list[tuple[str, int]]] = {
         ("topic:debugging",         200),
         ("topic:neovim",            100),
         ("topic:shell",             200),
+        # Headless browsers & modern runtimes
+        ("topic:headless-browser",  100),
+        ("topic:playwright",        200),
+        ("topic:puppeteer",         200),
+        ("topic:cdp",               100),
+        ("topic:bun",               200),
+        ("topic:deno",              200),
+        ("topic:wasm",              200),
+        ("topic:supabase",          200),
     ],
     "data_engineering": [
         ("topic:data-engineering",  200),
@@ -640,6 +799,18 @@ STAR_THRESHOLD_TOPICS: dict[str, list[tuple[str, int]]] = {
         ("topic:streaming",         200),
         ("topic:flink",             300),
         ("topic:trino",             200),
+        # Lakehouse & modern data stack
+        ("topic:apache-iceberg",    200),
+        ("topic:iceberg",           200),
+        ("topic:dagster",           200),
+        ("topic:polars",            200),
+        ("topic:duckdb",            200),
+        ("topic:data-quality",      100),
+        ("topic:data-lakehouse",    100),
+        ("topic:cdc",               100),
+        ("topic:debezium",          100),
+        ("topic:parquet",           200),
+        ("topic:arrow",             200),
     ],
     "security": [
         ("topic:security",                200),
@@ -650,6 +821,14 @@ STAR_THRESHOLD_TOPICS: dict[str, list[tuple[str, int]]] = {
         ("topic:osint",                   100),
         ("topic:malware-analysis",        100),
         ("topic:network-security",        200),
+        # Supply-chain & cloud security
+        ("topic:sbom",                    100),
+        ("topic:sast",                    100),
+        ("topic:dast",                    100),
+        ("topic:container-security",      100),
+        ("topic:cloud-security",          100),
+        ("topic:api-security",            100),
+        ("topic:secrets-management",      100),
     ],
     "web_frameworks": [
         ("topic:web-framework",   300),
@@ -659,6 +838,15 @@ STAR_THRESHOLD_TOPICS: dict[str, list[tuple[str, int]]] = {
         ("topic:typescript",      300),
         ("topic:microservices",   200),
         ("topic:websocket",       200),
+        # 2025-2026 rising frameworks
+        ("topic:astro",           200),
+        ("topic:htmx",            100),
+        ("topic:hono",            100),
+        ("topic:elysia",          100),
+        ("topic:remix",           200),
+        ("topic:sveltekit",       100),
+        ("topic:solid-js",        100),
+        ("topic:edge-runtime",    100),
     ],
     "blockchain": [
         ("topic:blockchain",        200),
@@ -671,6 +859,14 @@ STAR_THRESHOLD_TOPICS: dict[str, list[tuple[str, int]]] = {
         ("topic:zero-knowledge",    100),
         ("topic:dao",               100),
         ("topic:solana",            200),
+        # 2025-2026 blockchain trends
+        ("topic:account-abstraction", 100),
+        ("topic:restaking",         100),
+        ("topic:rollup",            100),
+        ("topic:zk-rollup",         100),
+        ("topic:ton",               100),
+        ("topic:sui",               100),
+        ("topic:depin",             100),
     ],
     "oss_tools": [
         ("topic:build-tool",        200),
@@ -687,6 +883,18 @@ STAR_THRESHOLD_TOPICS: dict[str, list[tuple[str, int]]] = {
         ("topic:kubernetes",        300),
         ("topic:terraform",         200),
         ("topic:opentelemetry",     100),
+        # 2025-2026 infra trends
+        ("topic:wasm",              200),
+        ("topic:wasi",              100),
+        ("topic:serverless",        200),
+        ("topic:edge-computing",    100),
+        ("topic:docker",            300),
+        ("topic:github-actions",    200),
+        ("topic:nix",               100),
+        ("topic:bazel",             200),
+        ("topic:vitest",            100),
+        ("topic:playwright",        200),
+        ("topic:turborepo",         100),
     ],
 }
 
@@ -759,13 +967,24 @@ def _infer_category(repo: dict) -> str:
     if topics & {"ai-agent", "ai-agents", "autonomous-agents", "autogpt", "langchain",
                  "llm-agent", "agent-framework", "multi-agent", "crewai", "llamaindex",
                  "agentic", "browser-automation", "ui-automation", "web-agent",
-                 "gui-agent", "computer-use"}:
+                 "gui-agent", "computer-use", "a2a"}:
         return "Agent Frameworks"
     if any(w in text for w in ["agent framework", "autonomous agent", "multi-agent",
                                 "llm agent", "ai agent", "browser agent", "gui agent",
                                 "web agent", "browser automation", "ui automation",
                                 "computer use", "page agent"]):
         return "Agent Frameworks"
+
+    if topics & {"mcp", "model-context-protocol"}:
+        return "MCP Tools"
+    if any(w in text for w in ["model context protocol", "mcp server", "mcp client"]):
+        return "MCP Tools"
+
+    if topics & {"coding-assistant", "ai-coding", "copilot", "code-generation"}:
+        return "Coding Assistants"
+    if any(w in text for w in ["coding assistant", "ai coding", "code completion",
+                                "ai pair programmer"]):
+        return "Coding Assistants"
 
     if topics & {"llm-inference", "vllm", "llama-cpp", "gguf", "tensorrt",
                  "onnxruntime", "triton-inference", "tgi", "tensorrt-llm",
@@ -781,6 +1000,19 @@ def _infer_category(repo: dict) -> str:
     if any(w in text for w in ["fine-tun", "finetun", "lora ", "rlhf",
                                 "instruction tun", "parameter-efficient"]):
         return "Fine-tuning Toolkits"
+
+    if topics & {"text-to-speech", "tts", "speech-recognition", "asr",
+                 "voice-cloning", "audio-processing"}:
+        return "Speech & Audio"
+    if any(w in text for w in ["text to speech", "speech to text", "voice cloning",
+                                "audio generation"]):
+        return "Speech & Audio"
+
+    if topics & {"text-to-image", "stable-diffusion", "diffusion-model",
+                 "image-generation", "sdxl", "comfyui"}:
+        return "Image Generation"
+    if any(w in text for w in ["text to image", "image generation", "stable diffusion"]):
+        return "Image Generation"
 
     if topics & {"model-serving", "mlops", "kubeflow", "bentoml", "seldon",
                  "kfserving", "mlflow", "model-registry"}:
@@ -805,15 +1037,17 @@ def _infer_category(repo: dict) -> str:
 
     if topics & {"llm", "large-language-model", "language-model", "gpt", "llama",
                  "generative-ai", "foundation-model", "causal-lm",
-                 "mistral", "gemini", "claude"}:
+                 "mistral", "gemini", "claude", "ollama", "local-llm"}:
         return "LLM Models"
 
     # ── Blockchain (distinctive vocabulary — check before generic AI topics) ──
     if topics & {"blockchain", "ethereum", "smart-contracts", "web3", "defi",
                  "solidity", "nft", "layer2", "zero-knowledge", "dao",
-                 "bitcoin", "solana", "cosmos", "cross-chain", "evm", "substrate"}:
+                 "bitcoin", "solana", "cosmos", "cross-chain", "evm", "substrate",
+                 "account-abstraction", "restaking", "rollup", "modular-blockchain",
+                 "ton", "sui", "move-language", "zk-rollup", "zk-snark", "depin"}:
         return "Blockchain"
-    if lang == "solidity":
+    if lang in ("solidity", "vyper", "move"):
         return "Blockchain"
     if any(w in text for w in ["blockchain", "ethereum", "smart contract", "solidity",
                                 "bitcoin", "defi protocol", "web3", "nft minting",
@@ -825,11 +1059,13 @@ def _infer_category(repo: dict) -> str:
                  "penetration-testing", "devsecops", "cryptography",
                  "authentication", "zero-trust", "fuzzing", "reverse-engineering",
                  "malware-analysis", "osint", "network-security",
-                 "supply-chain-security", "red-team", "exploit", "cve"}:
+                 "supply-chain-security", "red-team", "exploit", "cve",
+                 "sbom", "sast", "dast", "api-security", "container-security",
+                 "cloud-security", "secrets-management", "sca", "vulnerability-management"}:
         return "Security"
     if any(w in text for w in ["security scanner", "vulnerability scan", "pentest",
                                 "exploit", " cve ", "malware", "osint tool",
-                                "intrusion detection", "threat intel",
+                                "intrusion detection", "threat intel", "sbom", "dast", "sast",
                                 "security audit", "reverse engineer", "fuzzer"]):
         return "Security"
 
@@ -837,25 +1073,29 @@ def _infer_category(repo: dict) -> str:
     if topics & {"data-engineering", "etl", "data-pipeline", "workflow-orchestration",
                  "apache-airflow", "streaming", "kafka", "spark", "data-lake",
                  "dbt", "data-warehouse", "flink", "delta-lake", "trino",
-                 "presto", "databricks", "iceberg"}:
+                 "presto", "databricks", "iceberg", "apache-iceberg", "dagster",
+                 "data-quality", "great-expectations", "polars", "duckdb",
+                 "data-lakehouse", "cdc", "debezium", "data-catalog", "parquet", "arrow"}:
         return "Data Engineering"
     if any(w in text for w in ["data pipeline", "data engineering", "etl pipeline",
                                 "workflow orchestrat", "data lakehouse",
                                 "streaming pipeline", "batch processing",
                                 "data catalog", "data quality", "columnar storage",
-                                "query engine"]):
+                                "query engine", "apache iceberg", "cdc tool"]):
         return "Data Engineering"
 
     # ── Web Frameworks ─────────────────────────────────────────────────────────
     if topics & {"web-framework", "rest-api", "nodejs", "react", "vuejs", "svelte",
                  "fastapi", "nextjs", "django", "flask", "graphql", "grpc",
                  "microservices", "websocket", "typescript", "angular",
-                 "nuxt", "remix", "htmx", "spring-boot", "rails"}:
+                 "nuxt", "remix", "htmx", "spring-boot", "rails",
+                 "astro", "hono", "elysia", "sveltekit", "solid-js", "bun",
+                 "deno", "edge-runtime"}:
         return "Web Frameworks"
     if any(w in text for w in ["web framework", "http server", "rest api",
                                 "graphql server", "grpc framework",
                                 "frontend framework", "backend framework",
-                                "full-stack", "fullstack"]):
+                                "full-stack", "fullstack", "metaframework"]):
         return "Web Frameworks"
 
     # ── DevTools ──────────────────────────────────────────────────────────────
@@ -863,7 +1103,8 @@ def _infer_category(repo: dict) -> str:
                  "devtools", "linter", "formatter", "language-server",
                  "vscode-extension", "debugging", "profiler", "neovim",
                  "intellij-plugin", "git", "shell", "zsh", "bash", "tmux",
-                 "dotfiles"}:
+                 "dotfiles", "headless-browser", "playwright", "puppeteer", "cdp",
+                 "wasm", "webassembly", "supabase", "appwrite"}:
         return "DevTools"
     if lang in ("go", "rust", "zig") and any(
         w in text for w in ["cli", "tool", "utility", "command", "plugin",
@@ -874,7 +1115,7 @@ def _infer_category(repo: dict) -> str:
                                 "code editor", "text editor", "ide plugin",
                                 "lsp server", "language server",
                                 "code formatter", "code linter",
-                                "terminal emulator"]):
+                                "terminal emulator", "headless browser"]):
         return "DevTools"
 
     # ── OSS Tools ─────────────────────────────────────────────────────────────
@@ -883,21 +1124,25 @@ def _infer_category(repo: dict) -> str:
                  "orm", "api-client", "linting", "code-generation",
                  "documentation", "monorepo", "containerization",
                  "kubernetes", "terraform", "ansible", "opentelemetry",
-                 "prometheus", "grafana", "docker", "helm", "pulumi"}:
+                 "prometheus", "grafana", "docker", "helm", "pulumi",
+                 "wasm", "wasi", "serverless", "edge-computing",
+                 "nix", "bazel", "vitest", "pnpm", "turborepo", "podman", "github-actions"}:
         return "OSS Tools"
     if any(w in text for w in ["build tool", "build system", "bundler",
                                 "package manager", "test framework", "test runner",
                                 "monorepo tool", "container orchestrat",
                                 "infrastructure as code", "observabilit",
                                 "ci/cd", "deployment tool", "orm framework",
-                                "opentelemetry", "distributed tracing"]):
+                                "opentelemetry", "distributed tracing",
+                                "serverless framework", "edge computing"]):
         return "OSS Tools"
 
     # ── Broader AI / ML (catch-all) ────────────────────────────────────────────
     if topics & {"machine-learning", "deep-learning", "pytorch", "tensorflow",
                  "scikit-learn", "neural-network", "computer-vision", "nlp",
                  "multimodal", "diffusion-model", "huggingface", "rag",
-                 "embeddings", "ai", "ml"}:
+                 "embeddings", "ai", "ml", "synthetic-data", "dataset", 
+                 "chatbot", "function-calling", "structured-output", "prompt-engineering"}:
         return "AI / ML"
     if lang in ("python", "jupyter notebook") and any(
         w in text for w in ["neural", "model training", "gradient",
@@ -906,7 +1151,7 @@ def _infer_category(repo: dict) -> str:
         return "AI / ML"
     if any(w in text for w in ["machine learning", "deep learning", "neural network",
                                 "computer vision", "natural language processing",
-                                "model training", "dataset"]):
+                                "model training", "dataset", "synthetic data"]):
         return "AI / ML"
 
     return "AI / ML"
