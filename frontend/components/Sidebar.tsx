@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "@clerk/nextjs";
+import { api } from "@/lib/api";
 
 const NAV_ITEMS = [
   {
@@ -125,17 +127,6 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
-  // {
-  //   href: "/services",
-  //   label: "Services",
-  //   icon: (
-  //     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-  //       <path d="M12 2L2 7l10 5 10-5-10-5Z"/>
-  //       <path d="M2 17l10 5 10-5"/>
-  //       <path d="M2 12l10 5 10-5"/>
-  //     </svg>
-  //   ),
-  // },
   {
     href: "/watchlist",
     label: "Watchlist",
@@ -145,31 +136,46 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
-  // {
-  //   href: "/dev",
-  //   label: "Dev API",
-  //   icon: (
-  //     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-  //       <polyline points="16 18 22 12 16 6"/>
-  //       <polyline points="8 6 2 12 8 18"/>
-  //     </svg>
-  //   ),
-  // },
+];
+
+const ALL_VERTICALS = [
+  { key: "ai_ml",      label: "AI / ML",        icon: "🤖" },
+  { key: "devtools",   label: "DevTools",        icon: "🛠" },
+  { key: "web_mobile", label: "Web & Mobile",    icon: "🌐" },
+  { key: "data_infra", label: "Data & Infra",    icon: "📊" },
+  { key: "security",   label: "Security",        icon: "🔒" },
+  { key: "blockchain", label: "Blockchain",      icon: "⛓" },
+  { key: "oss_tools",  label: "OSS Tools",       icon: "📦" },
+  { key: "science",    label: "Science",          icon: "🔬" },
+  { key: "creative",   label: "Creative",         icon: "🎨" },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { isLoaded: authLoaded, userId } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [userVerticals, setUserVerticals] = useState<string[]>([]);
+  const [showMyTopics, setShowMyTopics] = useState(false);
 
-  // Detect mobile breakpoint
+  // Detect breakpoints
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth <= 768);
+    const check = () => {
+      setIsMobile(window.innerWidth <= 768);
+      setIsTablet(window.innerWidth > 768 && window.innerWidth <= 1024);
+    };
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+
+  // Auto-collapse sidebar on tablet
+  useEffect(() => {
+    if (isTablet) setCollapsed(true);
+    else if (!isMobile) setCollapsed(false);
+  }, [isTablet, isMobile]);
 
   // Sync --sidebar-width CSS var
   useEffect(() => {
@@ -191,10 +197,31 @@ export function Sidebar() {
     setMobileOpen(false);
   }, [pathname]);
 
+  // Load user preferred verticals
+  useEffect(() => {
+    if (!authLoaded || !userId) return;
+    api.getOnboardingStatus(userId)
+      .then((s) => {
+        const prefs = s.selected_verticals ?? [];
+        setUserVerticals(prefs);
+        if (prefs.length > 0) setShowMyTopics(true);
+      })
+      .catch(() => {/* silent */});
+  }, [authLoaded, userId]);
+
+  const displayedVerticals = showMyTopics && userVerticals.length > 0
+    ? ALL_VERTICALS.filter((v) => userVerticals.includes(v.key))
+    : ALL_VERTICALS;
+
+  const isVerticalActive = (key: string) =>
+    pathname === "/overview" || pathname === "/leaderboard"
+      ? false // those pages manage their own vertical state
+      : false;
+
   // ── Shared nav content ─────────────────────────────────────
   const navContent = (
     <>
-      {/* Header */}
+      {/* Logo / header */}
       <div
         onClick={() => !isMobile && setCollapsed((c) => !c)}
         style={{
@@ -240,8 +267,8 @@ export function Sidebar() {
         )}
       </div>
 
-      {/* Nav items */}
-      <nav style={{ flex: 1, padding: "10px 8px", display: "flex", flexDirection: "column", gap: "2px" }}>
+      {/* ── Nav items ───────────────────────────────── */}
+      <nav style={{ flex: 1, padding: "10px 8px", display: "flex", flexDirection: "column", gap: "2px", overflowY: "auto" }}>
         {NAV_ITEMS.map((item) => {
           const isActive = pathname === item.href;
           return (
@@ -266,6 +293,139 @@ export function Sidebar() {
             </Link>
           );
         })}
+
+        {/* ── Vertical Domain Filter ─────────────────────── */}
+        {(!collapsed || isMobile) && (
+          <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--border)" }}>
+            {/* Section header with My/All toggle */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "0 6px 8px",
+            }}>
+              <span style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "10px",
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                color: "var(--text-muted)",
+                textTransform: "uppercase",
+              }}>
+                Domains
+              </span>
+              {userVerticals.length > 0 && (
+                <div style={{ display: "flex", gap: "2px", background: "var(--bg-elevated)", borderRadius: "20px", padding: "2px" }}>
+                  <button
+                    onClick={() => setShowMyTopics(true)}
+                    style={{
+                      fontFamily: "var(--font-sans)",
+                      fontSize: "10px",
+                      fontWeight: 600,
+                      padding: "2px 8px",
+                      borderRadius: "10px",
+                      border: "none",
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                      background: showMyTopics ? "var(--accent-blue)" : "transparent",
+                      color: showMyTopics ? "#fff" : "var(--text-muted)",
+                    }}
+                    title="Show your preferred verticals"
+                  >
+                    Mine
+                  </button>
+                  <button
+                    onClick={() => setShowMyTopics(false)}
+                    style={{
+                      fontFamily: "var(--font-sans)",
+                      fontSize: "10px",
+                      fontWeight: 600,
+                      padding: "2px 8px",
+                      borderRadius: "10px",
+                      border: "none",
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                      background: !showMyTopics ? "var(--accent-blue)" : "transparent",
+                      color: !showMyTopics ? "#fff" : "var(--text-muted)",
+                    }}
+                    title="Show all verticals"
+                  >
+                    All
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Vertical pills */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
+              {displayedVerticals.map(({ key, label, icon }) => {
+                const isPreferred = userVerticals.includes(key);
+                return (
+                  <Link
+                    key={key}
+                    href={`/overview?vertical=${key}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      padding: "7px 10px",
+                      borderRadius: "6px",
+                      textDecoration: "none",
+                      transition: "background 0.13s",
+                      background: "transparent",
+                      borderLeft: isPreferred ? "2px solid var(--accent-blue)" : "2px solid transparent",
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(88,166,255,0.07)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                  >
+                    <span style={{ fontSize: "13px", flexShrink: 0, lineHeight: 1 }}>{icon}</span>
+                    <span style={{
+                      fontFamily: "var(--font-sans)",
+                      fontSize: "12px",
+                      color: isPreferred ? "var(--accent-blue)" : "var(--text-secondary)",
+                      fontWeight: isPreferred ? 600 : 400,
+                      flex: 1,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}>
+                      {label}
+                    </span>
+                    {isPreferred && (
+                      <span style={{ fontSize: "8px", color: "var(--accent-blue)", flexShrink: 0 }}>✦</span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Collapsed state: show icon-only vertical dots */}
+        {collapsed && !isMobile && (
+          <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: "2px", alignItems: "center" }}>
+            {ALL_VERTICALS.map(({ key, label, icon }) => (
+              <Link
+                key={key}
+                href={`/overview?vertical=${key}`}
+                title={label}
+                style={{
+                  width: "36px", height: "32px",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  borderRadius: "6px",
+                  textDecoration: "none",
+                  fontSize: "14px",
+                  transition: "background 0.13s",
+                  borderLeft: userVerticals.includes(key) ? "2px solid var(--accent-blue)" : "2px solid transparent",
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(88,166,255,0.1)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+              >
+                {icon}
+              </Link>
+            ))}
+          </div>
+        )}
       </nav>
 
       {/* Footer */}
@@ -295,6 +455,7 @@ export function Sidebar() {
           transition: background 0.13s, color 0.13s;
           position: relative;
           cursor: pointer;
+          border-radius: 6px;
         }
         .sidebar-nav-link:hover {
           background: rgba(88,166,255,0.07) !important;
@@ -346,9 +507,6 @@ export function Sidebar() {
           max-width: 0;
           opacity: 0;
         }
-        .sidebar-collapsed .sidebar-nav-link:hover .sidebar-tooltip {
-          display: block;
-        }
       `}</style>
 
       {/* ── Desktop Sidebar ─────────────────────────── */}
@@ -398,7 +556,7 @@ export function Sidebar() {
               left: 0,
               top: 0,
               height: "100vh",
-              width: "260px",
+              width: "280px",
               background: "var(--bg-surface)",
               borderRight: "1px solid var(--border)",
               display: "flex",

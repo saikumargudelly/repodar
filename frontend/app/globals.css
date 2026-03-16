@@ -645,25 +645,30 @@ p, span, div, td, th, a, label, li {
 }
 .scroll-selector::-webkit-scrollbar { display: none; }
 
-/* ── Overview page header selectors responsive ──────────────────────────── */
-.overview-selectors { flex-shrink: 0; }
-.overview-selector-row { overflow: hidden; }
+/* ── Overview page header — two-row layout ─────────────────────────────── */
+.overview-header {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Make scroll-selector always scroll (never wrap) inside vertical picker */
+.overview-header .scroll-selector {
+  flex-wrap: nowrap !important;
+  white-space: nowrap;
+}
+
+/* Small tablets / large phones: keep header clean */
 @media (max-width: 768px) {
   .overview-header {
-    align-items: flex-start !important;
+    gap: 8px;
   }
-  .overview-selectors {
-    width: 100%;
-    align-items: stretch !important;
-    flex-shrink: unset;
+  .cat-pill-cyber {
+    padding: 4px 10px;
+    font-size: 11px;
   }
-  .overview-selector-row {
-    width: 100%;
-    overflow: hidden;
-  }
-  .overview-selector-row .scroll-selector {
-    flex: 1;
-    min-width: 0;
+  .section-title-cyber {
+    font-size: 26px !important;
   }
 }
 
@@ -671,13 +676,20 @@ p, span, div, td, th, a, label, li {
    Breakpoints
    ════════════════════════════════════════════════════════════ */
 
-/* ── ≤ 1024px — collapse 5/6-col grids earlier ─────────────── */
+/* ── ≤ 1024px — tablet: sidebar collapses to 64px ──────────── */
 @media (max-width: 1024px) {
   .stat-grid-5 {
     grid-template-columns: repeat(3, 1fr);
   }
   .metric-pills-grid {
     grid-template-columns: repeat(3, 1fr);
+  }
+  .main-content {
+    /* Sidebar collapses to 64px on tablet */
+    padding-left: calc(64px + 20px);
+  }
+  .status-bar-cyber {
+    padding-left: calc(64px + 20px);
   }
 }
 

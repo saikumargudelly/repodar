@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -126,23 +126,57 @@ function PeriodSelector({ selected, onChange }: { selected: Period; onChange: (p
 }
 
 function VerticalSelector({ selected, onChange, userVerticals = [] }: { selected: Vertical; onChange: (v: Vertical) => void; userVerticals?: string[] }) {
+  const [showMine, setShowMine] = useState(false);
+
+  const displayed = showMine && userVerticals.length > 0
+    ? VERTICALS.filter((v) => userVerticals.includes(v.key))
+    : VERTICALS;
+
   return (
-    <div className="scroll-selector" style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-      {VERTICALS.map(({ key, label }) => {
-        const isFavorite = userVerticals.includes(key);
-        return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+      {/* Mine / All toggle — only show if user has preferences */}
+      {userVerticals.length > 0 && (
+        <div style={{ display: "flex", gap: "2px", alignSelf: "flex-start", background: "var(--bg-elevated)", borderRadius: "20px", padding: "2px" }}>
           <button
-            key={key}
-            onClick={() => onChange(key)}
-            className={`cat-pill-cyber${selected === key ? ' active' : ''}`}
-            title={isFavorite ? "Your preferred vertical" : undefined}
-            style={isFavorite && selected !== key ? { borderColor: "rgba(88,166,255,0.4)" } : undefined}
-          >
-            {isFavorite && <span style={{ marginRight: "3px", fontSize: "10px" }}>✦</span>}
-            {label}
-          </button>
-        );
-      })}
+            onClick={() => setShowMine(true)}
+            style={{
+              fontFamily: "var(--font-sans)", fontSize: "10px", fontWeight: 600,
+              padding: "2px 10px", borderRadius: "10px", border: "none", cursor: "pointer",
+              transition: "all 0.15s",
+              background: showMine ? "var(--accent-blue)" : "transparent",
+              color: showMine ? "#fff" : "var(--text-muted)",
+            }}
+          >✦ Mine</button>
+          <button
+            onClick={() => setShowMine(false)}
+            style={{
+              fontFamily: "var(--font-sans)", fontSize: "10px", fontWeight: 600,
+              padding: "2px 10px", borderRadius: "10px", border: "none", cursor: "pointer",
+              transition: "all 0.15s",
+              background: !showMine ? "var(--accent-blue)" : "transparent",
+              color: !showMine ? "#fff" : "var(--text-muted)",
+            }}
+          >All</button>
+        </div>
+      )}
+      {/* Scrollable pill row */}
+      <div className="scroll-selector" style={{ display: "flex", gap: "6px" }}>
+        {displayed.map(({ key, label }) => {
+          const isFavorite = userVerticals.includes(key);
+          return (
+            <button
+              key={key}
+              onClick={() => onChange(key)}
+              className={`cat-pill-cyber${selected === key ? ' active' : ''}`}
+              title={isFavorite ? "Your preferred vertical" : undefined}
+              style={isFavorite && selected !== key ? { borderColor: "rgba(88,166,255,0.4)" } : undefined}
+            >
+              {isFavorite && <span style={{ marginRight: "3px", fontSize: "10px" }}>✦</span>}
+              {label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -759,6 +793,7 @@ function AlertsPanel({
 
 export default function OverviewPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isLoaded: authLoaded, userId } = useAuth();
   const [period, setPeriod] = useState<Period>("7d");
   const [vertical, setVertical] = useState<Vertical>("ai_ml");
@@ -766,6 +801,14 @@ export default function OverviewPage() {
   const [compareSelection, setCompareSelection] = useState<string[]>([]);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const { items: watchlist, toggle: togglePin, isPinned } = useWatchlist();
+
+  // Read vertical from URL ?vertical=xxx (set by sidebar links)
+  useEffect(() => {
+    const v = searchParams.get("vertical");
+    if (v && VERTICALS.some((item) => item.key === v)) {
+      setVertical(v as Vertical);
+    }
+  }, [searchParams]);
 
   // Load user's preferred verticals from onboarding and set as default
   useEffect(() => {
@@ -985,28 +1028,29 @@ export default function OverviewPage() {
       </div>
 
       {/* Header */}
-      <div className="overview-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
-        <div>
-          <div className="section-title-cyber">
-            Ecosystem <span>Overview</span>
-            <span title="Shinobi-grade analytics · 忍者の道" style={{ marginLeft: "10px", fontSize: "13px", opacity: 0.3, cursor: "default", verticalAlign: "middle", display: "inline-block", userSelect: "none" }}>忍</span>
+      <div className="overview-header">
+        {/* Row 1: Title + Period + Alerts button */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
+          <div>
+            <div className="section-title-cyber">
+              Ecosystem <span>Overview</span>
+              <span title="Shinobi-grade analytics · 忍者の道" style={{ marginLeft: "10px", fontSize: "13px", opacity: 0.3, cursor: "default", verticalAlign: "middle", display: "inline-block", userSelect: "none" }}>忍</span>
+            </div>
+            <div style={{
+              fontFamily: "var(--font-sans)", fontSize: "12px",
+              color: "var(--text-muted)",
+              marginTop: "6px",
+            }}>
+              As of {overview.as_of} · {PERIODS.find(p => p.key === period)?.label ?? period} · {VERTICALS.find(v => v.key === vertical)?.label ?? vertical}
+              {userVerticals.length > 0 && (
+                <span style={{ marginLeft: "8px", padding: "2px 7px", background: "rgba(88,166,255,0.12)", border: "1px solid rgba(88,166,255,0.3)", borderRadius: "10px", color: "var(--accent-blue)", fontSize: "11px", fontWeight: 600 }}>
+                  ✦ Personalized
+                </span>
+              )}
+            </div>
           </div>
-          <div style={{
-            fontFamily: "var(--font-sans)", fontSize: "12px",
-            color: "var(--text-muted)",
-            marginTop: "6px",
-          }}>
-            As of {overview.as_of} · {PERIODS.find(p => p.key === period)?.label ?? period} · {VERTICALS.find(v => v.key === vertical)?.label ?? vertical}
-            {userVerticals.length > 0 && (
-              <span style={{ marginLeft: "8px", padding: "2px 7px", background: "rgba(88,166,255,0.12)", border: "1px solid rgba(88,166,255,0.3)", borderRadius: "10px", color: "var(--accent-blue)", fontSize: "11px", fontWeight: 600 }}>
-                ✦ Personalized
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="overview-selectors" style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-end", minWidth: 0 }}>
-          {/* Period selector + Trends button — same row */}
-          <div className="overview-selector-row" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {/* Period selector + Alerts button */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
             <PeriodSelector selected={period} onChange={setPeriod} />
             <button
               onClick={() => setAlertsOpen((o) => !o)}
@@ -1035,6 +1079,9 @@ export default function OverviewPage() {
               )}
             </button>
           </div>
+        </div>
+        {/* Row 2: Vertical selector — always full width */}
+        <div style={{ marginTop: "4px" }}>
           <VerticalSelector selected={vertical} onChange={(v) => { setVertical(v); setCompareSelection([]); }} userVerticals={userVerticals} />
         </div>
       </div>
