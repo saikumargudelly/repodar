@@ -64,6 +64,7 @@ AI_TOPIC_QUERIES = [
     "topic:large-language-model",
     "topic:generative-ai",
     "topic:ai-agent",
+    "topic:ai-agents",
     "topic:llm-inference",
     "topic:transformers",
     "topic:computer-vision",
@@ -74,6 +75,12 @@ AI_TOPIC_QUERIES = [
     "topic:embeddings",
     "topic:huggingface",
     "topic:pytorch",
+    "topic:browser-automation",
+    "topic:ui-automation",
+    "topic:web-agent",
+    "topic:gui-agent",
+    "topic:computer-use",
+    "topic:rpa",
 ]
 
 # Topic queries per vertical — each is queried in parallel via _fetch_search.
@@ -455,9 +462,10 @@ def _category_to_topics(category: str) -> list[str]:
             "causal-lm",
         ],
         "Agent Frameworks": [
-            "ai-agent", "autonomous-agents", "langchain", "autogpt",
+            "ai-agent", "ai-agents", "autonomous-agents", "langchain", "autogpt",
             "llm-agent", "agent-framework", "multi-agent", "crewai",
-            "llamaindex", "agentic",
+            "llamaindex", "agentic", "browser-automation", "ui-automation",
+            "web-agent", "gui-agent", "computer-use",
         ],
         "Inference Engines": [
             "llm-inference", "inference", "llama-cpp", "vllm", "gguf",
@@ -600,6 +608,12 @@ STAR_THRESHOLD_TOPICS: dict[str, list[tuple[str, int]]] = {
         ("topic:rag",               100),
         ("topic:embeddings",        200),
         ("topic:ai-agent",          100),
+        ("topic:ai-agents",         100),
+        ("topic:browser-automation", 100),
+        ("topic:ui-automation",      100),
+        ("topic:web-agent",          100),
+        ("topic:gui-agent",          100),
+        ("topic:computer-use",       100),
         ("topic:huggingface",       200),
     ],
     "devtools": [
@@ -742,11 +756,15 @@ def _infer_category(repo: dict) -> str:
                                 "embedding store", "similarity search"]):
         return "Vector Databases"
 
-    if topics & {"ai-agent", "autonomous-agents", "autogpt", "langchain", "llm-agent",
-                 "agent-framework", "multi-agent", "crewai", "llamaindex", "agentic"}:
+    if topics & {"ai-agent", "ai-agents", "autonomous-agents", "autogpt", "langchain",
+                 "llm-agent", "agent-framework", "multi-agent", "crewai", "llamaindex",
+                 "agentic", "browser-automation", "ui-automation", "web-agent",
+                 "gui-agent", "computer-use"}:
         return "Agent Frameworks"
     if any(w in text for w in ["agent framework", "autonomous agent", "multi-agent",
-                                "llm agent", "ai agent"]):
+                                "llm agent", "ai agent", "browser agent", "gui agent",
+                                "web agent", "browser automation", "ui automation",
+                                "computer use", "page agent"]):
         return "Agent Frameworks"
 
     if topics & {"llm-inference", "vllm", "llama-cpp", "gguf", "tensorrt",
