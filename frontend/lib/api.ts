@@ -947,4 +947,165 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ email, verticals }),
     }),
+
+  // ── Research Mode ────────────────────────────────────────────────────────
+  research: {
+    createSession: (userId: string, title?: string, description?: string, verticals?: string[]) =>
+      apiFetch<ResearchSession>("/research/sessions", {
+        method: "POST",
+        body: JSON.stringify({ user_id: userId, title: title ?? "Untitled Research", description, verticals: verticals ?? [] }),
+      }),
+
+    listSessions: (userId: string) =>
+      apiFetch<ResearchSession[]>(`/research/sessions?user_id=${encodeURIComponent(userId)}`),
+
+    getSession: (id: string, userId: string) =>
+      apiFetch<ResearchSessionDetail>(`/research/sessions/${id}?user_id=${encodeURIComponent(userId)}`),
+
+    updateSession: (id: string, userId: string, patch: { title?: string; description?: string; verticals?: string[] }) =>
+      apiFetch<ResearchSession>(`/research/sessions/${id}?user_id=${encodeURIComponent(userId)}`, {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+      }),
+
+    deleteSession: (id: string, userId: string) =>
+      apiFetch<void>(`/research/sessions/${id}?user_id=${encodeURIComponent(userId)}`, { method: "DELETE" }),
+
+    sendMessage: (sessionId: string, userId: string, content: string, tier?: string) =>
+      apiFetch<ResearchAgentMessage>(`/research/sessions/${sessionId}/message`, {
+        method: "POST",
+        body: JSON.stringify({ user_id: userId, content, user_tier: tier ?? "free" }),
+      }),
+
+    /** Returns the SSE stream URL — use EventSource on this URL */
+    streamUrl: (sessionId: string, userId: string, message: string, tier?: string) => {
+      const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+      return (
+        `${base}/research/sessions/${sessionId}/stream` +
+        `?user_id=${encodeURIComponent(userId)}` +
+        `&message=${encodeURIComponent(message)}` +
+        `&user_tier=${tier ?? "free"}`
+      );
+    },
+
+    pinRepo: (sessionId: string, userId: string, repoFullName: string, repoData: Record<string, unknown>, note?: string, stage?: string) =>
+      apiFetch<ResearchPin>(`/research/sessions/${sessionId}/pins`, {
+        method: "POST",
+        body: JSON.stringify({ user_id: userId, repo_full_name: repoFullName, repo_data: repoData, note, stage: stage ?? "watch" }),
+      }),
+
+    unpinRepo: (sessionId: string, userId: string, pinId: string) =>
+      apiFetch<void>(`/research/sessions/${sessionId}/pins/${pinId}?user_id=${encodeURIComponent(userId)}`, { method: "DELETE" }),
+
+    updatePin: (sessionId: string, userId: string, pinId: string, patch: { note?: string; stage?: string }) =>
+      apiFetch<ResearchPin>(`/research/sessions/${sessionId}/pins/${pinId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ user_id: userId, ...patch }),
+      }),
+
+    generateReport: (sessionId: string, userId: string) =>
+      apiFetch<{ content_md: string; repos_count: number; generated_at: string }>(`/research/sessions/${sessionId}/report`, {
+        method: "POST",
+        body: JSON.stringify({ user_id: userId }),
+      }),
+
+    getReport: (sessionId: string, userId: string) =>
+      apiFetch<{ content_md: string; repos_count: number; generated_at: string }>(`/research/sessions/${sessionId}/report?user_id=${encodeURIComponent(userId)}`),
+
+    createShare: (sessionId: string, userId: string, ttlDays?: number) =>
+      apiFetch<{ token: string; share_url: string; expires_at: string | null }>(`/research/sessions/${sessionId}/share`, {
+        method: "POST",
+        body: JSON.stringify({ user_id: userId, ttl_days: ttlDays ?? 7 }),
+      }),
+
+    getShared: (token: string) =>
+      apiFetch<ResearchSharedView>(`/research/share/${token}`),
+  },
 };
+
+// ── Research Mode Types ──────────────────────────────────────────────────────
+
+export interface ResearchSession {
+  id: string;
+  title: string;
+  description: string | null;
+  verticals: string[];
+  message_count: number;
+  pin_count: number;
+  has_report: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ResearchMessage {
+  id: string;
+  role: "user" | "agent";
+  content: string;
+  intent: string | null;
+  github_query: string | null;
+  query_explanation: string | null;
+  repos: ResearchRepo[];
+  confidence: number | null;
+  created_at: string;
+}
+
+export interface ResearchAgentMessage extends ResearchMessage {
+  suggested_follow_ups: string[];
+}
+
+export interface ResearchPin {
+  id: string;
+  repo_full_name: string;
+  repo_data: ResearchRepo;
+  note: string | null;
+  stage: "watch" | "evaluate" | "track" | "dismiss";
+  pinned_at: string;
+}
+
+export interface ResearchSessionDetail extends ResearchSession {
+  messages: ResearchMessage[];
+  pins: ResearchPin[];
+  report: { content_md: string; generated_at: string; repos_count: number } | null;
+}
+
+export interface ResearchRepo {
+  repo_id?: number;
+  owner: string;
+  name: string;
+  full_name: string;
+  description: string;
+  github_url: string;
+  primary_language: string;
+  stars: number;
+  forks: number;
+  open_issues: number;
+  watchers: number;
+  topics: string[];
+  license: string;
+  is_fork: boolean;
+  archived: boolean;
+  age_days: number;
+  pushed_at: string;
+  created_at: string;
+  velocity_proxy: number;
+  momentum: number;
+  trend_label: "HIGH" | "MID" | "LOW";
+}
+
+export interface ResearchSharedView {
+  title: string;
+  description: string | null;
+  created_at: string;
+  pins: ResearchPin[];
+  report: { content_md: string; generated_at: string; repos_count: number } | null;
+  message_count: number;
+}
+
+// SSE event types emitted by the stream endpoint
+export type ResearchSSEEvent =
+  | { type: "status"; text: string }
+  | { type: "query_explanation"; text: string }
+  | { type: "repos"; data: ResearchRepo[] }
+  | { type: "token"; text: string }
+  | { type: "done"; data: { follow_ups: string[]; intent: string; github_query: string; query_explanation: string; confidence: number } | string }
+  | { type: "error"; text: string };

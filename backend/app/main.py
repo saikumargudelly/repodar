@@ -18,6 +18,9 @@ from app.models.subscriber import Subscriber  # noqa
 from app.models.weekly_snapshot import WeeklySnapshot  # noqa
 from app.models.alert_notification import AlertNotification  # noqa
 from app.models.user_onboarding import UserOnboarding  # noqa
+from app.models.research import (  # noqa — ensures research tables are created
+    ResearchSession, ResearchMessage, ResearchPin, ResearchReport, ResearchShare
+)
 from app.database import Base
 from app.routers import (
     repos_router,
@@ -39,6 +42,7 @@ from app.routers import (
     snapshots_router,
     onboarding_router,
     profile_router,
+    research_router,
 )
 from app.seed.seeder import seed_repos
 
@@ -314,6 +318,7 @@ app.include_router(search_router)
 app.include_router(snapshots_router)
 app.include_router(onboarding_router)
 app.include_router(profile_router)
+app.include_router(research_router)
 
 # ─── Public API v1 (X-API-Key required) ──────────────────────────────────────
 from app.routers.public_api import router as public_api_router
