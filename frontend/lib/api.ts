@@ -256,11 +256,13 @@ export type Period = "1d" | "7d" | "30d" | "90d" | "365d" | "3y" | "5y";
 export type Vertical =
   | "ai_ml"
   | "devtools"
-  | "web_frameworks"
+  | "web_mobile"
+  | "data_infra"
   | "security"
-  | "data_engineering"
   | "blockchain"
-  | "oss_tools";
+  | "oss_tools"
+  | "science"
+  | "creative";
 
 export interface LeaderboardEntry {
   rank: number;

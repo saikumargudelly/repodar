@@ -10,13 +10,15 @@ type Step = "interests" | "watchlist" | "alerts" | "tour";
 const STEP_ORDER: Step[] = ["interests", "watchlist", "alerts", "tour"];
 
 const VERTICALS: Array<{ key: string; label: string }> = [
-  { key: "ai_ml", label: "AI / ML" },
-  { key: "devtools", label: "DevTools" },
-  { key: "web_frameworks", label: "Web Frameworks" },
-  { key: "security", label: "Security" },
-  { key: "data_engineering", label: "Data Engineering" },
+  { key: "ai_ml",      label: "AI / ML" },
+  { key: "devtools",   label: "DevTools" },
+  { key: "web_mobile", label: "Web & Mobile" },
+  { key: "security",   label: "Security" },
+  { key: "data_infra", label: "Data & Infrastructure" },
   { key: "blockchain", label: "Blockchain" },
-  { key: "oss_tools", label: "OSS Tools" },
+  { key: "oss_tools",  label: "OSS Tools" },
+  { key: "science",    label: "Science & Research" },
+  { key: "creative",   label: "Creative & Gaming" },
 ];
 
 export default function OnboardingPage() {

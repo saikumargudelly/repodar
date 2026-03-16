@@ -537,7 +537,7 @@ class LeaderboardResponse(BaseModel):
 async def get_leaderboard(
     period: str = Query("7d", description="1d | 7d | 30d | 90d | 365d | 3y | 5y"),
     category: Optional[str] = Query(None, description="Filter by AI/ML sub-category"),
-    vertical: str = Query("ai_ml", description="ai_ml | devtools | web_frameworks | security | data_engineering | blockchain | oss_tools"),
+    vertical: str = Query("ai_ml", description="ai_ml | devtools | web_mobile | data_infra | security | oss_tools | blockchain | science | creative"),
     limit: int = Query(30, le=100),
 ):
     """

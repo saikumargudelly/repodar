@@ -7,13 +7,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, DigestFrequency, ProfilePreferencesPatchBody } from "@/lib/api";
 
 const VERTICALS: Array<{ key: string; label: string }> = [
-  { key: "ai_ml", label: "AI / ML" },
-  { key: "devtools", label: "DevTools" },
-  { key: "web_frameworks", label: "Web Frameworks" },
-  { key: "security", label: "Security" },
-  { key: "data_engineering", label: "Data Engineering" },
+  { key: "ai_ml",      label: "AI / ML" },
+  { key: "devtools",   label: "DevTools" },
+  { key: "web_mobile", label: "Web & Mobile" },
+  { key: "data_infra", label: "Data & Infrastructure" },
+  { key: "security",   label: "Security" },
   { key: "blockchain", label: "Blockchain" },
-  { key: "oss_tools", label: "OSS Tools" },
+  { key: "oss_tools",  label: "OSS Tools" },
+  { key: "science",    label: "Science & Research" },
+  { key: "creative",   label: "Creative & Gaming" },
 ];
 
 const DIGEST_OPTIONS: Array<{ value: DigestFrequency; label: string; helper: string }> = [

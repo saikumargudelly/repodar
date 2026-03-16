@@ -35,15 +35,24 @@ _GITHUB_HEADERS = {
 
 # Map vertical names → DB category substrings (ilike matching in the query)
 VERTICAL_CATEGORY_MAP: dict[str, list[str]] = {
-    "ai_ml":            ["AI / ML", "Agent Framework", "Inference Engine", "LLM Model",
-                         "Fine-tuning", "Evaluation Framework", "Vector Database",
-                         "Model Serving", "Distributed Compute"],
-    "devtools":         ["DevTools"],
-    "web_frameworks":   ["Web Framework", "Web Frameworks"],
-    "security":         ["Security"],
-    "data_engineering": ["Data Engineering", "Vector Database", "Data Pipeline"],
-    "blockchain":       ["Blockchain"],
-    "oss_tools":        ["OSS Tools"],
+    "ai_ml": [
+        "AI / ML", "LLM Model", "Agent Framework", "Inference Engine",
+        "Fine-tuning", "Evaluation Framework", "Vector Database",
+        "Model Serving", "Distributed Compute",
+        "MCP Tools", "Coding Assistant", "RAG Framework",
+        "Speech & Audio", "Image Generation", "Video Generation",
+        "Multimodal", "Reasoning", "AI Safety", "Prompt Engineering",
+        "Synthetic Data",
+    ],
+    "devtools":    ["DevTools"],
+    "web_mobile":  ["Web & Mobile", "Web Framework", "Web Frameworks", "Mobile"],
+    "data_infra":  ["Data & Infrastructure", "Data Engineering", "Data Pipeline",
+                   "Vector Database", "Database"],
+    "security":    ["Security"],
+    "oss_tools":   ["OSS Tools"],
+    "blockchain":  ["Blockchain", "Fintech"],
+    "science":     ["Science & Research"],
+    "creative":    ["Creative & Gaming"],
 }
 
 TIME_WINDOW_DAYS: dict[str, int] = {"7d": 7, "30d": 30, "90d": 90, "365d": 365}
@@ -61,7 +70,7 @@ _STOP = frozenset({
 # ─── Schemas ─────────────────────────────────────────────────────────────────
 
 class ParsedFilters(BaseModel):
-    vertical:            Optional[str]   = None   # ai_ml | devtools | web_frameworks | security | data_engineering | blockchain | oss_tools
+    vertical:            Optional[str]   = None   # ai_ml | devtools | web_mobile | security | data_infra | blockchain | oss_tools | science | creative
     min_trend_score:     Optional[float] = None
     max_age_days:        Optional[int]   = None
     min_stars:           Optional[int]   = None
@@ -94,7 +103,7 @@ ONLY output valid JSON — no prose, no markdown code fences.
 
 Schema (use JSON null for unknown/unspecified fields):
 {{
-  "vertical": "ai_ml" | "devtools" | "web_frameworks" | "security" | "data_engineering" | "blockchain" | "oss_tools" | null,
+  "vertical": "ai_ml" | "devtools" | "web_mobile" | "data_infra" | "security" | "blockchain" | "oss_tools" | "science" | "creative" | null,
   "min_trend_score": <number 0-1> | null,
   "max_age_days": <integer> | null,
   "min_stars": <integer> | null,
@@ -106,6 +115,17 @@ Schema (use JSON null for unknown/unspecified fields):
   "github_search_query": "<optimised GitHub repository search string>",
   "query_understood": "<one sentence paraphrase of what the user wants>"
 }}
+
+Vertical guide:
+- ai_ml      → LLMs, agents, RAG, fine-tuning, inference, image/video/audio generation, reasoning, AI safety
+- devtools    → CLI tools, editors, VS Code extensions, terminal, neovim, headless browsers, Electron/Tauri
+- web_mobile  → web frameworks, REST/GraphQL APIs, mobile (Flutter/React Native/Swift/Kotlin)
+- data_infra  → databases, data engineering, ETL, Kafka, Spark, Iceberg, K8s, cloud infra, observability
+- security    → pentest, vulnerability scan, SBOM, SAST, secrets, zero-trust
+- blockchain  → Ethereum, Solana, smart contracts, DeFi, ZK-proofs, fintech/trading
+- oss_tools   → build tools, bundlers, package managers, CI/CD, testing, automation
+- science     → robotics, ROS2, IoT, embedded, bioinformatics, ML research, education
+- creative    → game engines, Godot, Bevy, shaders, generative art, music
 
 Guidelines for `github_search_query`:
 - Include the most important technical terms (e.g. "llm inference", "vector database", "agent framework")
@@ -123,7 +143,7 @@ Query: "agent frameworks under 1 year old with high sustainability"
 → {{"vertical":"ai_ml","max_age_days":365,"sort_by":"sustainability_score","min_sustainability":0.6,"keywords":["agent","framework","autonomous"],"github_search_query":"ai agent framework autonomous topic:ai-agent stars:>100","query_understood":"New AI agent framework repos with strong long-term health"}}
 
 Query: "vector databases with growing contributor counts"
-→ {{"vertical":"data_engineering","keywords":["vector","database","embeddings","similarity"],"github_search_query":"vector database embeddings topic:vector-database stars:>200","query_understood":"Vector database repos with growing community activity"}}
+→ {{"vertical":"data_infra","keywords":["vector","database","embeddings","similarity"],"github_search_query":"vector database embeddings topic:vector-database stars:>200","query_understood":"Vector database repos with growing community activity"}}
 
 Query: "fast inference engines with high momentum this week"
 → {{"vertical":"ai_ml","time_window":"7d","sort_by":"trend_score","keywords":["inference","engine","llm","fast"],"github_search_query":"llm inference engine fast topic:llm-inference pushed:>={_7D} stars:>50","query_understood":"High-momentum LLM inference engine repos trending this week"}}
@@ -133,6 +153,12 @@ Query: "security tools in Go under 6 months old"
 
 Query: "LLM fine-tuning repos gaining stars fast in last 30 days"
 → {{"vertical":"ai_ml","time_window":"30d","sort_by":"star_velocity_7d","keywords":["fine-tuning","lora","rlhf","llm"],"github_search_query":"llm fine-tuning lora rlhf topic:fine-tuning language:Python pushed:>={_30D} stars:>30","query_understood":"LLM fine-tuning repos that are rapidly gaining stars"}}
+
+Query: "robotics and ROS2 repos gaining attention"
+→ {{"vertical":"science","keywords":["robotics","ros2","autonomous"],"github_search_query":"robotics ros2 autonomous topic:ros2 stars:>50","query_understood":"Robotics and ROS2 repos gaining community attention"}}
+
+Query: "Godot or Bevy game engine tools"
+→ {{"vertical":"creative","keywords":["game","engine","godot","bevy"],"github_search_query":"game engine godot bevy topic:game-engine stars:>50","query_understood":"Game development tools using Godot or Bevy engine"}}
 """
 
 
@@ -187,7 +213,15 @@ def _keyword_fallback_parse(query: str) -> dict:
     if any(w in q_lower for w in ["inference", "agent", "llm", "fine-tun", "vector",
                                     "embedding", "transformer", "gpt", "rag", "mlops",
                                     "diffusion", "stable diffusion", "hugging face",
-                                    "pytorch", "tensorflow", "neural network"]):
+                                    "pytorch", "tensorflow", "neural network",
+                                    "mcp", "model context", "coding assistant",
+                                    "tts", "voice cloning", "text to speech",
+                                    "text to image", "image generation",
+                                    "text to video", "video generation",
+                                    "multimodal", "vision language", "vlm",
+                                    "reasoning model", "chain of thought",
+                                    "ai safety", "alignment", "interpretability",
+                                    "prompt engineer", "synthetic data"]):
         parsed["vertical"] = "ai_ml"
     elif any(w in q_lower for w in [" ai ", " ml ", "machine learning", "deep learning",
                                      "computer vision", "natural language"]):
@@ -195,30 +229,51 @@ def _keyword_fallback_parse(query: str) -> dict:
     elif any(w in q_lower for w in ["security", "vulnerability", "pentest", "exploit",
                                      "cve", "malware", "zero-day", "penetration",
                                      "fuzzing", "osint", "reverse engineer", "red team",
-                                     "cryptograph"]):
+                                     "cryptograph", "sbom", "sast", "dast",
+                                     "secrets management", "passkey", "webauthn"]):
         parsed["vertical"] = "security"
     elif any(w in q_lower for w in ["data engineer", "pipeline", "etl", "airflow", "spark",
                                      "kafka", "dbt", "data lake", "data warehouse",
-                                     "streaming", "flink", "trino", "databricks"]):
-        parsed["vertical"] = "data_engineering"
+                                     "streaming", "flink", "trino", "databricks",
+                                     "iceberg", "duckdb", "polars",
+                                     "postgres", "redis", "clickhouse", "database",
+                                     "kubernetes", "k8s", "terraform", "cloud infra",
+                                     "observabilit", "grafana", "prometheus",
+                                     "opentelemetry", "monitoring", "ebpf"]):
+        parsed["vertical"] = "data_infra"
     elif any(w in q_lower for w in ["blockchain", "ethereum", "web3", "defi", "solidity",
                                      "bitcoin", "layer 2", "zero knowledge", "nft",
-                                     "smart contract", "dao", "solana"]):
+                                     "smart contract", "dao", "solana",
+                                     "fintech", "trading", "payments", "quant"]):
         parsed["vertical"] = "blockchain"
-    elif any(w in q_lower for w in ["kubernetes", "k8s", "docker", "container", "bundler",
-                                     "webpack", "vite", "rollup", "package manager",
-                                     "monorepo", "terraform", "ansible", "helm",
-                                     "observabilit", "grafana", "prometheus",
-                                     "ci/cd", "opentelemetry", " orm ", "build tool"]):
+    elif any(w in q_lower for w in ["bundler", "webpack", "vite", "rollup", "package manager",
+                                     "monorepo", "ansible", "helm",
+                                     "ci/cd", " orm ", "build tool",
+                                     "vitest", "playwright test", "bazel", "nix"]):
         parsed["vertical"] = "oss_tools"
     elif any(w in q_lower for w in ["devtool", "developer tool", "cli tool", "terminal",
                                      "linter", "formatter", "language server", "vscode",
-                                     "neovim", "debugger", "ide plugin"]):
+                                     "neovim", "debugger", "ide plugin",
+                                     "tauri", "electron", "window manager"]):
         parsed["vertical"] = "devtools"
     elif any(w in q_lower for w in ["web framework", " react ", " nextjs ", "fastapi",
                                      "django", "flask", " vue ", " angular ", " svelte ",
-                                     "rest api", " graphql", " grpc", "websocket"]):
-        parsed["vertical"] = "web_frameworks"
+                                     "rest api", " graphql", " grpc", "websocket",
+                                     "mobile app", "flutter", "react native", " swift ",
+                                     " kotlin ", "swiftui", "expo", "android", " ios ",
+                                     "hono", "astro", "htmx", "actix", "axum"]):
+        parsed["vertical"] = "web_mobile"
+    elif any(w in q_lower for w in ["robotics", "ros2", " ros ", "autonomous driving",
+                                     "drone", "embedded", "esp32", "arduino",
+                                     "raspberry pi", "iot", "home automation",
+                                     "bioinformatics", "genomics", "drug discovery",
+                                     "protein", "alphafold", "jupyter"]):
+        parsed["vertical"] = "science"
+    elif any(w in q_lower for w in ["game engine", "godot", "bevy", "unity",
+                                     "vulkan", "webgpu", "shader", "threejs",
+                                     "creative coding", "generative art", "p5js",
+                                     "music generation", "midi"]):
+        parsed["vertical"] = "creative"
 
     # Time window
     if "this week" in q_lower or "7 day" in q_lower:

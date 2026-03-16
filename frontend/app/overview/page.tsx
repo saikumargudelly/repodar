@@ -44,13 +44,15 @@ const PERIODS: { key: Period; label: string }[] = [
 ];
 
 const VERTICALS: { key: Vertical; label: string }[] = [
-  { key: "ai_ml",           label: "AI / ML" },
-  { key: "devtools",        label: "DevTools" },
-  { key: "web_frameworks",  label: "Web Frameworks" },
-  { key: "security",        label: "Security" },
-  { key: "data_engineering",label: "Data Eng" },
-  { key: "blockchain",      label: "Blockchain" },
-  { key: "oss_tools",       label: "OSS Tools" },
+  { key: "ai_ml",      label: "AI / ML" },
+  { key: "devtools",   label: "DevTools" },
+  { key: "web_mobile", label: "Web & Mobile" },
+  { key: "data_infra", label: "Data & Infra" },
+  { key: "security",   label: "Security" },
+  { key: "blockchain", label: "Blockchain" },
+  { key: "oss_tools",  label: "OSS Tools" },
+  { key: "science",    label: "Science" },
+  { key: "creative",   label: "Creative" },
 ];
 
 // ─── Watchlist hook (localStorage) ───────────────────────────────────────────

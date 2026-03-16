@@ -39,28 +39,43 @@ STALE_DAYS = 60
 # Discovery config: (period, vertical) pairs run on every ingestion cycle.
 # Keep short periods + all verticals so we catch genuinely trending repos fast.
 DISCOVERY_SEARCHES = [
+    # ── AI / ML ───────────────────────────────────────────────────────
     ("1d",  "ai_ml"),
     ("7d",  "ai_ml"),
     ("30d", "ai_ml"),
+    # ── Dev Tools ────────────────────────────────────────────────────
     ("7d",  "devtools"),
-    ("7d",  "web_frameworks"),
+    # ── Web + Mobile ─────────────────────────────────────────────────
+    ("7d",  "web_mobile"),
+    ("30d", "web_mobile"),
+    # ── Data + Infrastructure ────────────────────────────────────────
+    ("7d",  "data_infra"),
+    ("30d", "data_infra"),
+    # ── Security ─────────────────────────────────────────────────────
     ("7d",  "security"),
-    ("7d",  "data_engineering"),
-    ("7d",  "blockchain"),
+    # ── OSS Tools ────────────────────────────────────────────────────
     ("7d",  "oss_tools"),
     ("30d", "oss_tools"),
+    # ── Blockchain ───────────────────────────────────────────────────
+    ("7d",  "blockchain"),
+    # ── Science & Research ───────────────────────────────────────────
+    ("7d",  "science"),
+    # ── Creative & Gaming ────────────────────────────────────────────
+    ("7d",  "creative"),
 ]
 
 # Broad star-threshold discovery: verticals to scan every cycle.
 # Surfaces established repos (stars >= floor) that don't appear in Trending.
-# Runs once per vertical so GitHub rate-limit impact is minimal.
 STAR_THRESHOLD_SEARCHES = [
     "ai_ml",
     "devtools",
-    "data_engineering",
+    "web_mobile",
+    "data_infra",
     "security",
-    "web_frameworks",
     "oss_tools",
+    "blockchain",
+    "science",
+    "creative",
 ]
 
 
