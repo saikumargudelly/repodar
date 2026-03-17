@@ -1,8 +1,8 @@
 """Add Collections, AlertRules, and SavedFilterPresets tables
 
-Revision ID: 7809d8ac72d2
-Revises: h8i9j0k1l2m
-Create Date: 2026-03-17 16:14:04.806402
+Revision ID: 2887a43d7aef
+Revises: e10338a3480e
+Create Date: 2026-03-17 17:40:08.703710
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '7809d8ac72d2'
-down_revision: Union[str, Sequence[str], None] = 'h8i9j0k1l2m'
+revision: str = '2887a43d7aef'
+down_revision: Union[str, Sequence[str], None] = 'e10338a3480e'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -152,80 +152,6 @@ def upgrade() -> None:
                nullable=False,
                existing_server_default=sa.text("'0'"))
 
-    with op.batch_alter_table('computed_metrics', schema=None) as batch_op:
-        batch_op.alter_column('computed_at',
-               existing_type=sa.DATETIME(),
-               nullable=False)
-        batch_op.alter_column('star_velocity_7d',
-               existing_type=sa.FLOAT(),
-               nullable=False)
-        batch_op.alter_column('star_velocity_30d',
-               existing_type=sa.FLOAT(),
-               nullable=False)
-        batch_op.alter_column('acceleration',
-               existing_type=sa.FLOAT(),
-               nullable=False)
-        batch_op.alter_column('contributor_growth_rate',
-               existing_type=sa.FLOAT(),
-               nullable=False)
-        batch_op.alter_column('fork_to_star_ratio',
-               existing_type=sa.FLOAT(),
-               nullable=False)
-        batch_op.alter_column('issue_close_rate',
-               existing_type=sa.FLOAT(),
-               nullable=False)
-        batch_op.alter_column('release_frequency',
-               existing_type=sa.FLOAT(),
-               nullable=False)
-        batch_op.alter_column('trend_score',
-               existing_type=sa.FLOAT(),
-               nullable=False)
-        batch_op.alter_column('sustainability_score',
-               existing_type=sa.FLOAT(),
-               nullable=False)
-        batch_op.alter_column('sustainability_label',
-               existing_type=sa.VARCHAR(length=10),
-               nullable=False)
-        batch_op.create_index('ix_computed_metrics_repo_date', ['repo_id', 'date'], unique=False)
-
-    with op.batch_alter_table('daily_metrics', schema=None) as batch_op:
-        batch_op.alter_column('stars',
-               existing_type=sa.INTEGER(),
-               nullable=False)
-        batch_op.alter_column('forks',
-               existing_type=sa.INTEGER(),
-               nullable=False)
-        batch_op.alter_column('watchers',
-               existing_type=sa.INTEGER(),
-               nullable=False)
-        batch_op.alter_column('contributors',
-               existing_type=sa.INTEGER(),
-               nullable=False)
-        batch_op.alter_column('open_issues',
-               existing_type=sa.INTEGER(),
-               nullable=False)
-        batch_op.alter_column('open_prs',
-               existing_type=sa.INTEGER(),
-               nullable=False,
-               existing_server_default=sa.text("'0'"))
-        batch_op.alter_column('merged_prs',
-               existing_type=sa.INTEGER(),
-               nullable=False)
-        batch_op.alter_column('releases',
-               existing_type=sa.INTEGER(),
-               nullable=False)
-        batch_op.alter_column('daily_star_delta',
-               existing_type=sa.INTEGER(),
-               nullable=False)
-        batch_op.alter_column('daily_fork_delta',
-               existing_type=sa.INTEGER(),
-               nullable=False)
-        batch_op.alter_column('daily_pr_delta',
-               existing_type=sa.INTEGER(),
-               nullable=False,
-               existing_server_default=sa.text("'0'"))
-        batch_op.create_index('ix_daily_metrics_repo_date', ['repo_id', 'captured_at'], unique=False)
-
     with op.batch_alter_table('ecosystem_reports', schema=None) as batch_op:
         batch_op.alter_column('generated_at',
                existing_type=sa.DATETIME(),
@@ -257,17 +183,6 @@ def upgrade() -> None:
         batch_op.alter_column('is_prerelease',
                existing_type=sa.BOOLEAN(),
                nullable=False)
-
-    with op.batch_alter_table('repositories', schema=None) as batch_op:
-        batch_op.alter_column('created_at',
-               existing_type=sa.DATETIME(),
-               nullable=False)
-        batch_op.alter_column('age_days',
-               existing_type=sa.INTEGER(),
-               nullable=False)
-        batch_op.create_index(batch_op.f('ix_repositories_is_active'), ['is_active'], unique=False)
-        batch_op.create_index('ix_repositories_owner_name', ['owner', 'name'], unique=False)
-        batch_op.create_index('ix_repositories_source_active', ['source', 'is_active'], unique=False)
 
     with op.batch_alter_table('social_mentions', schema=None) as batch_op:
         batch_op.alter_column('upvotes',
@@ -343,17 +258,6 @@ def downgrade() -> None:
                existing_type=sa.INTEGER(),
                nullable=True)
 
-    with op.batch_alter_table('repositories', schema=None) as batch_op:
-        batch_op.drop_index('ix_repositories_source_active')
-        batch_op.drop_index('ix_repositories_owner_name')
-        batch_op.drop_index(batch_op.f('ix_repositories_is_active'))
-        batch_op.alter_column('age_days',
-               existing_type=sa.INTEGER(),
-               nullable=True)
-        batch_op.alter_column('created_at',
-               existing_type=sa.DATETIME(),
-               nullable=True)
-
     with op.batch_alter_table('repo_releases', schema=None) as batch_op:
         batch_op.alter_column('is_prerelease',
                existing_type=sa.BOOLEAN(),
@@ -383,80 +287,6 @@ def downgrade() -> None:
         batch_op.create_index(batch_op.f('ix_er_period_type'), ['period_type'], unique=False)
         batch_op.create_index(batch_op.f('ix_er_generated_at'), ['generated_at'], unique=False)
         batch_op.alter_column('generated_at',
-               existing_type=sa.DATETIME(),
-               nullable=True)
-
-    with op.batch_alter_table('daily_metrics', schema=None) as batch_op:
-        batch_op.drop_index('ix_daily_metrics_repo_date')
-        batch_op.alter_column('daily_pr_delta',
-               existing_type=sa.INTEGER(),
-               nullable=True,
-               existing_server_default=sa.text("'0'"))
-        batch_op.alter_column('daily_fork_delta',
-               existing_type=sa.INTEGER(),
-               nullable=True)
-        batch_op.alter_column('daily_star_delta',
-               existing_type=sa.INTEGER(),
-               nullable=True)
-        batch_op.alter_column('releases',
-               existing_type=sa.INTEGER(),
-               nullable=True)
-        batch_op.alter_column('merged_prs',
-               existing_type=sa.INTEGER(),
-               nullable=True)
-        batch_op.alter_column('open_prs',
-               existing_type=sa.INTEGER(),
-               nullable=True,
-               existing_server_default=sa.text("'0'"))
-        batch_op.alter_column('open_issues',
-               existing_type=sa.INTEGER(),
-               nullable=True)
-        batch_op.alter_column('contributors',
-               existing_type=sa.INTEGER(),
-               nullable=True)
-        batch_op.alter_column('watchers',
-               existing_type=sa.INTEGER(),
-               nullable=True)
-        batch_op.alter_column('forks',
-               existing_type=sa.INTEGER(),
-               nullable=True)
-        batch_op.alter_column('stars',
-               existing_type=sa.INTEGER(),
-               nullable=True)
-
-    with op.batch_alter_table('computed_metrics', schema=None) as batch_op:
-        batch_op.drop_index('ix_computed_metrics_repo_date')
-        batch_op.alter_column('sustainability_label',
-               existing_type=sa.VARCHAR(length=10),
-               nullable=True)
-        batch_op.alter_column('sustainability_score',
-               existing_type=sa.FLOAT(),
-               nullable=True)
-        batch_op.alter_column('trend_score',
-               existing_type=sa.FLOAT(),
-               nullable=True)
-        batch_op.alter_column('release_frequency',
-               existing_type=sa.FLOAT(),
-               nullable=True)
-        batch_op.alter_column('issue_close_rate',
-               existing_type=sa.FLOAT(),
-               nullable=True)
-        batch_op.alter_column('fork_to_star_ratio',
-               existing_type=sa.FLOAT(),
-               nullable=True)
-        batch_op.alter_column('contributor_growth_rate',
-               existing_type=sa.FLOAT(),
-               nullable=True)
-        batch_op.alter_column('acceleration',
-               existing_type=sa.FLOAT(),
-               nullable=True)
-        batch_op.alter_column('star_velocity_30d',
-               existing_type=sa.FLOAT(),
-               nullable=True)
-        batch_op.alter_column('star_velocity_7d',
-               existing_type=sa.FLOAT(),
-               nullable=True)
-        batch_op.alter_column('computed_at',
                existing_type=sa.DATETIME(),
                nullable=True)
 
