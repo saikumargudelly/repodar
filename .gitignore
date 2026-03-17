@@ -88,3 +88,6 @@ Thumbs.db
 # Build artifacts
 *.whl
 *.tar.gz
+
+# Code CLI
+.code-cli/
