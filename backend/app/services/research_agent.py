@@ -264,10 +264,112 @@ def _keyword_fallback_intent(message: str) -> ParsedIntent:
     )
 
 
-# ─── Real-time GitHub fetch (ZERO DB reads) ───────────────────────────────────
+# ─── Topic expansion map (user term → real GitHub topic tags) ─────────────────
+# GitHub topics are lowercase slugs. Terms like "AI", "ML" are NOT valid tags.
+_TOPIC_EXPANSION: dict[str, list[str]] = {
+    # Broad AI / ML
+    "ai":               ["llm", "machine-learning", "artificial-intelligence", "deep-learning"],
+    "ml":               ["machine-learning", "deep-learning", "neural-network"],
+    "machine-learning": ["machine-learning", "deep-learning", "sklearn"],
+    "deep-learning":    ["deep-learning", "neural-network", "pytorch", "tensorflow"],
+    "llm":              ["llm", "large-language-model", "generative-ai", "foundation-model"],
+    "genai":            ["generative-ai", "llm", "stable-diffusion"],
+    "generativeai":     ["generative-ai", "llm", "stable-diffusion"],
+    # Agents
+    "agent":            ["ai-agent", "ai-agents", "autonomous-agents", "multi-agent"],
+    "agents":           ["ai-agent", "ai-agents", "autonomous-agents"],
+    # RAG / retrieval
+    "rag":              ["rag", "retrieval-augmented-generation", "vector-database"],
+    # Specific stacks
+    "rust":             ["rust"],
+    "python":           ["python"],
+    "typescript":       ["typescript"],
+    "go":               ["golang"],
+    "devtools":         ["developer-tools", "developer-experience", "dx"],
+    "security":         ["security", "cybersecurity", "appsec"],
+    "blockchain":       ["blockchain", "web3", "ethereum", "solidity"],
+    "data":             ["data-engineering", "data-science", "big-data"],
+    "infra":            ["infrastructure", "cloud", "kubernetes", "devops"],
+    "web":              ["web", "frontend", "nextjs", "react"],
+    "mobile":           ["android", "ios", "react-native", "flutter"],
+}
+
+# Regex: matches a bad topic like topic:AI or topic:ML (uppercase invalid tags)
+_BAD_TOPIC_RE = re.compile(r"topic:([A-Za-z0-9_-]+)", re.IGNORECASE)
+# Regex: strips pushed:>= date filters (often too restrictive)
+_DATE_FILTER_RE = re.compile(r"\s*pushed:>=\S+", re.IGNORECASE)
+# Regex: strips star filters
+_STAR_FILTER_RE = re.compile(r"\s*stars:[<>]=?\d+", re.IGNORECASE)
+
+
+def _sanitize_github_query(query: str, remove_date: bool = False, remove_stars: bool = False) -> str:
+    """
+    Fix LLM-generated GitHub search queries before sending to the API.
+
+    Problems fixed:
+    1. Invalid topic tags (e.g. topic:AI → replaced with real tags)
+    2. Date filters removed on request (too restrictive for trending queries)
+    3. Star filters removed on request
+    4. Duplicate whitespace cleaned up
+    """
+    result = query
+
+    # Replace invalid/generic topic tags with real GitHub topic slugs
+    def _expand_topic(m: re.Match) -> str:
+        tag = m.group(1).lower().replace(" ", "-")
+        real = _TOPIC_EXPANSION.get(tag)
+        if real:
+            # Use OR of real tags in parentheses: (topic:llm OR topic:machine-learning)
+            return "(" + " OR ".join(f"topic:{t}" for t in real[:3]) + ")"
+        # If it's already a valid lowercase slug, keep as-is
+        return f"topic:{tag}"
+
+    result = _BAD_TOPIC_RE.sub(_expand_topic, result)
+
+    if remove_date:
+        result = _DATE_FILTER_RE.sub("", result)
+    if remove_stars:
+        result = _STAR_FILTER_RE.sub("", result)
+
+    # Clean up extra whitespace
+    result = " ".join(result.split())
+    return result.strip()
+
+
+def _build_trending_query(keywords: list[str], topics: list[str]) -> str:
+    """
+    Build a reliable GitHub query for 'trending this week/month' style requests.
+    Uses star sort with no date filter (date filter kills results on short windows).
+    Expands topic terms to real GitHub topic slugs.
+    """
+    parts = []
+    for kw in keywords[:3]:
+        slug = kw.lower().replace(" ", "-")
+        real = _TOPIC_EXPANSION.get(slug)
+        if real:
+            # Use just the first real tag — broad enough to get results
+            parts.append(f"topic:{real[0]}")
+        elif len(kw) > 2:
+            parts.append(kw)
+
+    if not parts and topics:
+        for t in topics[:2]:
+            slug = t.lower().replace(" ", "-")
+            real = _TOPIC_EXPANSION.get(slug)
+            if real:
+                parts.append(f"topic:{real[0]}")
+            else:
+                parts.append(f"topic:{slug}")
+
+    # Fallback: at least a minimal query
+    if not parts:
+        return "stars:>100"
+
+    return " ".join(parts)
+
 
 async def _github_search(query: str, per_page: int = 20) -> list[dict]:
-    """Call GitHub Search API. Returns raw items list."""
+    """Call GitHub Search API (single attempt, no fallback)."""
     if not query.strip():
         return []
     params = {"q": query, "sort": "stars", "order": "desc", "per_page": str(per_page)}
@@ -280,12 +382,76 @@ async def _github_search(query: str, per_page: int = 20) -> list[dict]:
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as resp:
                 if resp.status == 422:
+                    logger.warning(f"GitHub 422 for query: {query!r}")
+                    return []
+                if resp.status != 200:
+                    logger.warning(f"GitHub search HTTP {resp.status} for: {query!r}")
                     return []
                 data = await resp.json()
-                return data.get("items", [])
+                items = data.get("items", [])
+                logger.info(f"GitHub search '{query[:80]}' → {len(items)} results")
+                return items
     except Exception as exc:
         logger.warning(f"GitHub search failed: {exc}")
         return []
+
+
+async def _github_search_with_fallback(
+    query: str,
+    parsed_entities: dict | None = None,
+    per_page: int = 20,
+) -> list[dict]:
+    """
+    Progressive fallback search — 3 attempts:
+
+    Attempt 1: sanitized original query (fix topic tags, keep date/star filters)
+    Attempt 2: sanitized query with date filter stripped
+    Attempt 3: sanitized + no date + no stars (broadest form)
+    Attempt 4: topic-based fallback built from entities (if entities provided)
+    """
+    entities = parsed_entities or {}
+
+    # Attempt 1 — sanitize bad topics but keep all filters
+    q1 = _sanitize_github_query(query)
+    items = await _github_search(q1, per_page)
+    if items:
+        return items
+
+    logger.info(f"Fallback attempt 2: strip date filter from '{q1}'")
+
+    # Attempt 2 — remove date filter (most common cause of zero results)
+    q2 = _sanitize_github_query(query, remove_date=True)
+    if q2 != q1:
+        items = await _github_search(q2, per_page)
+        if items:
+            return items
+
+    logger.info(f"Fallback attempt 3: strip all restrictive filters from '{q2}'")
+
+    # Attempt 3 — remove both date and star filters
+    q3 = _sanitize_github_query(query, remove_date=True, remove_stars=True)
+    if q3 != q2:
+        items = await _github_search(q3, per_page)
+        if items:
+            return items
+
+    logger.info(f"Fallback attempt 4: topic-based rebuild from entities")
+
+    # Attempt 4 — rebuild from entities using proper topic slugs
+    kws = entities.get("topics", []) + entities.get("keywords", [])
+    if not kws:
+        # Extract content words from the original query
+        clean = re.sub(r"(topic:|pushed:|stars:|language:|sort:|order:|per_page:)\S*", "", query)
+        kws = [w for w in clean.split() if len(w) > 3]
+
+    q4 = _build_trending_query(kws, entities.get("topics", []))
+    if q4 and q4 != q3:
+        items = await _github_search(q4, per_page)
+        if items:
+            return items
+
+    logger.warning(f"All fallback attempts exhausted for original query: {query!r}")
+    return []
 
 
 async def _github_repo(owner: str, name: str) -> dict | None:
@@ -368,8 +534,12 @@ def _normalize_repo(raw: dict) -> dict:
 # ─── Intent handlers ─────────────────────────────────────────────────────────
 
 async def _handle_search(parsed: ParsedIntent) -> tuple[list[dict], str]:
-    """Run a search and return (repos, summary_line)."""
-    items = await _github_search(parsed.github_query, per_page=20)
+    """Run a search with progressive fallback and return (repos, summary_line)."""
+    items = await _github_search_with_fallback(
+        parsed.github_query,
+        parsed_entities=parsed.entities,
+        per_page=20,
+    )
     repos = [_normalize_repo(r) for r in items
              if not r.get("archived") and not r.get("fork")]
     repos.sort(key=lambda r: r["momentum"], reverse=True)
@@ -393,18 +563,24 @@ async def _handle_compare(parsed: ParsedIntent) -> tuple[list[dict], str]:
 
 
 async def _handle_landscape(parsed: ParsedIntent) -> tuple[list[dict], str]:
-    """Run 2–3 parallel sub-queries to build an ecosystem map."""
+    """Run 2-3 parallel sub-queries to build an ecosystem map."""
     import asyncio as _aio
 
-    base_q = parsed.github_query
-    # Build variant queries by sorting differently
-    queries = [
-        base_q,
-        base_q.replace("sort:stars", "") + " sort:updated",
-    ]
+    # Sanitize the base query first
+    base_q = _sanitize_github_query(parsed.github_query, remove_date=True)
+    queries = [base_q]
+
+    # Add topic-based variant queries
     if parsed.entities.get("topics"):
         for t in parsed.entities["topics"][:2]:
-            queries.append(f"topic:{t} stars:>50")
+            slug = t.lower().replace(" ", "-")
+            real = _TOPIC_EXPANSION.get(slug)
+            topic_tag = f"topic:{real[0]}" if real else f"topic:{slug}"
+            queries.append(f"{topic_tag} stars:>100")
+
+    # Add an updated-sort variant
+    q_updated = base_q + " sort:updated"
+    queries.append(q_updated)
 
     all_items = await _aio.gather(*[_github_search(q, per_page=15) for q in queries[:3]])
     seen: set[int] = set()
@@ -414,6 +590,12 @@ async def _handle_landscape(parsed: ParsedIntent) -> tuple[list[dict], str]:
             if raw.get("id") not in seen and not raw.get("archived"):
                 seen.add(raw["id"])
                 repos.append(_normalize_repo(raw))
+
+    # If still empty, full fallback
+    if not repos:
+        items = await _github_search_with_fallback(parsed.github_query, parsed.entities, per_page=20)
+        repos = [_normalize_repo(r) for r in items if not r.get("archived")]
+
     repos.sort(key=lambda r: r["momentum"], reverse=True)
     repos = repos[:30]
     return repos, f"Mapped {len(repos)} repositories across the ecosystem."
@@ -421,24 +603,36 @@ async def _handle_landscape(parsed: ParsedIntent) -> tuple[list[dict], str]:
 
 async def _handle_temporal(parsed: ParsedIntent) -> tuple[list[dict], str]:
     """Compare recent vs older push dates to surface what's new."""
-    # Build two queries: one for very recent, one broader
-    base_q = parsed.github_query
+    import asyncio as _aio
+
+    # Sanitize base query (strip any existing date filter — we'll add our own)
+    base_q = _sanitize_github_query(parsed.github_query, remove_date=True, remove_stars=True)
     now = datetime.now(timezone.utc)
     cutoff_recent = (now - timedelta(days=7)).strftime("%Y-%m-%d")
-    cutoff_older = (now - timedelta(days=60)).strftime("%Y-%m-%d")
+    cutoff_older  = (now - timedelta(days=60)).strftime("%Y-%m-%d")
 
-    import asyncio as _aio
     recent_items, older_items = await _aio.gather(
         _github_search(f"{base_q} pushed:>={cutoff_recent}", per_page=15),
-        _github_search(f"{base_q} pushed:>={cutoff_older}", per_page=15),
+        _github_search(f"{base_q} pushed:>={cutoff_older}",  per_page=15),
     )
+
+    # If both return nothing, fall back to broad search without date filters
+    if not recent_items and not older_items:
+        logger.info("[temporal] Date-filtered queries returned 0. Falling back to star-sort.")
+        fallback_items = await _github_search_with_fallback(
+            base_q, parsed.entities, per_page=20
+        )
+        repos = [_normalize_repo(r) for r in fallback_items if not r.get("archived")]
+        repos.sort(key=lambda r: r["momentum"], reverse=True)
+        return repos, f"Found {len(repos)} repositories sorted by momentum (date filter produced no results)."
+
     recent_ids = {r["id"] for r in recent_items}
-    new_repos = [_normalize_repo(r) for r in recent_items]
+    new_repos   = [_normalize_repo(r) for r in recent_items]
     established = [_normalize_repo(r) for r in older_items if r["id"] not in recent_ids]
     repos = new_repos + established
     repos.sort(key=lambda r: r["momentum"], reverse=True)
     return repos, (
-        f"Found {len(new_repos)} repositories with recent activity (7d) "
+        f"Found {len(new_repos)} repositories with activity in the last 7 days "
         f"and {len(established)} established ones."
     )
 
