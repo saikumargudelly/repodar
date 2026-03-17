@@ -20,7 +20,7 @@ apscheduler>=3.10.4
 
 # API Response Caching
 fastapi-cache2[redis]>=0.2.1
-redis>=5.0.0
+redis>=4.2.0
 
 # Analytics
 pandas==3.0.1
