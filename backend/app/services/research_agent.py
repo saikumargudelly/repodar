@@ -471,43 +471,101 @@ async def _github_repo(owner: str, name: str) -> dict | None:
         return None
 
 
+def _compute_efficiency_score(stars: int, forks: int, open_issues: int,
+                               watchers: int, age_days: int, days_since_push: int) -> float:
+    """
+    Composite efficiency + scalability score (0.0 – 1.0).
+
+    Weights:
+      35%  Star velocity       — stars per day (growth efficiency)
+      25%  Maintenance health  — low open_issues relative to stars (team responsiveness)
+      20%  Community traction  — fork:star ratio (people building on top of it)
+      15%  Recency             — pushed_at freshness (still actively maintained)
+      5%   Watcher signal      — passive followers (awareness)
+
+    All individual signals are normalised 0-1 before weighting.
+    """
+    # 1. Star velocity: stars/day, cap at 50 stars/day being ~1.0
+    velocity = stars / max(age_days, 1)
+    v_norm = min(1.0, velocity / 50.0)
+
+    # 2. Maintenance health: ideal = 0 open issues per 100 stars
+    #    ratio = open_issues / max(stars, 1); invert so lower = better
+    issue_ratio = open_issues / max(stars, 1)
+    health_norm = max(0.0, 1.0 - min(issue_ratio, 1.0))
+
+    # 3. Community traction: fork:star ratio
+    #    Good open-source projects: 5-20% fork rate
+    #    Cap at 0.30 = 1.0 (very high adoption)
+    fork_ratio = forks / max(stars, 1)
+    community_norm = min(1.0, fork_ratio / 0.30)
+
+    # 4. Recency: decay over 180 days (longer window than before)
+    recency_norm = max(0.0, 1.0 - days_since_push / 180.0)
+
+    # 5. Watcher signal: normalise at 10k = 1.0
+    watcher_norm = min(1.0, watchers / 10_000.0)
+
+    score = (
+        0.35 * v_norm
+        + 0.20 * health_norm
+        + 0.20 * community_norm
+        + 0.20 * recency_norm
+        + 0.05 * watcher_norm
+    )
+    return round(min(1.0, score), 4)
+
+
 def _normalize_repo(raw: dict) -> dict:
-    """Convert GitHub API item → clean Repodar schema (no DB reads)."""
-    pushed = raw.get("pushed_at") or ""
-    age_days = 0
-    if raw.get("created_at"):
+    """Convert GitHub API item -> clean Repodar schema with efficiency scoring."""
+    pushed      = raw.get("pushed_at") or ""
+    created_at  = raw.get("created_at") or ""
+    age_days    = 0
+    days_since_push = 999  # assume stale if unknown
+
+    now = datetime.now(timezone.utc)
+    if created_at:
         try:
-            created = datetime.fromisoformat(raw["created_at"].replace("Z", "+00:00"))
-            age_days = (datetime.now(timezone.utc) - created).days
+            created = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+            age_days = max((now - created).days, 1)
         except Exception:
             pass
 
-    # Live star velocity proxy: stars / max(age_days, 1)
-    stars = raw.get("stargazers_count", 0)
-    velocity_proxy = round(stars / max(age_days, 1), 2) if age_days else 0.0
-
-    # Recency score (1.0 = pushed today, decays over 90 days)
-    recency = 0.0
     if pushed:
         try:
             pushed_dt = datetime.fromisoformat(pushed.replace("Z", "+00:00"))
-            days_since = (datetime.now(timezone.utc) - pushed_dt).days
-            recency = max(0.0, 1.0 - days_since / 90.0)
+            days_since_push = max((now - pushed_dt).days, 0)
         except Exception:
             pass
 
-    # Composite momentum signal (proxy — no DB history)
-    momentum = round(min(1.0, (velocity_proxy / 10.0) * 0.5 + recency * 0.5), 3)
-    if momentum >= 0.65:
+    stars       = raw.get("stargazers_count", 0)
+    forks       = raw.get("forks_count", 0)
+    open_issues = raw.get("open_issues_count", 0)
+    watchers    = raw.get("watchers_count", 0)
+
+    # Legacy velocity proxy kept for backward compat with synthesiser prompts
+    velocity_proxy = round(stars / max(age_days, 1), 4)
+
+    efficiency = _compute_efficiency_score(
+        stars=stars,
+        forks=forks,
+        open_issues=open_issues,
+        watchers=watchers,
+        age_days=age_days,
+        days_since_push=days_since_push,
+    )
+
+    # Trend label derived from efficiency score
+    if efficiency >= 0.55:
         trend_label = "HIGH"
-    elif momentum >= 0.35:
+    elif efficiency >= 0.25:
         trend_label = "MID"
     else:
         trend_label = "LOW"
 
     return {
         "repo_id":          raw.get("id"),
-        "owner":            raw.get("owner", {}).get("login", ""),
+        "owner":            (raw.get("owner") or {}).get("login", ""),
         "name":             raw.get("name", ""),
         "full_name":        raw.get("full_name", ""),
         "description":      raw.get("description") or "",
@@ -515,35 +573,42 @@ def _normalize_repo(raw: dict) -> dict:
         "homepage":         raw.get("homepage") or "",
         "primary_language": raw.get("language") or "",
         "stars":            stars,
-        "forks":            raw.get("forks_count", 0),
-        "open_issues":      raw.get("open_issues_count", 0),
-        "watchers":         raw.get("watchers_count", 0),
+        "forks":            forks,
+        "open_issues":      open_issues,
+        "watchers":         watchers,
         "topics":           raw.get("topics", []),
         "license":          (raw.get("license") or {}).get("spdx_id") or "",
         "is_fork":          raw.get("fork", False),
         "archived":         raw.get("archived", False),
         "age_days":         age_days,
         "pushed_at":        pushed,
-        "created_at":       raw.get("created_at", ""),
+        "created_at":       created_at,
         "velocity_proxy":   velocity_proxy,
-        "momentum":         momentum,
+        "efficiency":       efficiency,       # primary composite sort key
+        "momentum":         efficiency,       # alias — keeps frontend field name working
         "trend_label":      trend_label,
+        "days_since_push":  days_since_push,
     }
 
 
 # ─── Intent handlers ─────────────────────────────────────────────────────────
 
 async def _handle_search(parsed: ParsedIntent) -> tuple[list[dict], str]:
-    """Run a search with progressive fallback and return (repos, summary_line)."""
+    """
+    Search with progressive fallback.
+    NEVER filters to zero — returns whatever GitHub gives, even 1 result.
+    Results ranked by efficiency+scalability composite.
+    """
     items = await _github_search_with_fallback(
         parsed.github_query,
         parsed_entities=parsed.entities,
-        per_page=20,
+        per_page=30,  # fetch extra so ranking picks the best
     )
-    repos = [_normalize_repo(r) for r in items
-             if not r.get("archived") and not r.get("fork")]
-    repos.sort(key=lambda r: r["momentum"], reverse=True)
-    return repos, f"Found {len(repos)} repositories."
+    # Only skip truly archived repos (dead projects)
+    repos = [_normalize_repo(r) for r in items if not r.get("archived")]
+    # Sort: efficiency desc, then stars desc as tiebreaker
+    repos.sort(key=lambda r: (r["efficiency"], r["stars"]), reverse=True)
+    return repos, f"Found {len(repos)} repositories matching your query."
 
 
 async def _handle_compare(parsed: ParsedIntent) -> tuple[list[dict], str]:
@@ -566,11 +631,9 @@ async def _handle_landscape(parsed: ParsedIntent) -> tuple[list[dict], str]:
     """Run 2-3 parallel sub-queries to build an ecosystem map."""
     import asyncio as _aio
 
-    # Sanitize the base query first
     base_q = _sanitize_github_query(parsed.github_query, remove_date=True)
     queries = [base_q]
 
-    # Add topic-based variant queries
     if parsed.entities.get("topics"):
         for t in parsed.entities["topics"][:2]:
             slug = t.lower().replace(" ", "-")
@@ -578,62 +641,69 @@ async def _handle_landscape(parsed: ParsedIntent) -> tuple[list[dict], str]:
             topic_tag = f"topic:{real[0]}" if real else f"topic:{slug}"
             queries.append(f"{topic_tag} stars:>100")
 
-    # Add an updated-sort variant
-    q_updated = base_q + " sort:updated"
-    queries.append(q_updated)
+    queries.append(base_q + " sort:updated")
 
-    all_items = await _aio.gather(*[_github_search(q, per_page=15) for q in queries[:3]])
+    all_items = await _aio.gather(*[_github_search(q, per_page=20) for q in queries[:3]])
     seen: set[int] = set()
     repos = []
     for items in all_items:
         for raw in items:
-            if raw.get("id") not in seen and not raw.get("archived"):
-                seen.add(raw["id"])
+            rid = raw.get("id")
+            if rid not in seen and not raw.get("archived"):
+                seen.add(rid)
                 repos.append(_normalize_repo(raw))
 
-    # If still empty, full fallback
+    # If still empty, full fallback — never return zero if GitHub has anything
     if not repos:
-        items = await _github_search_with_fallback(parsed.github_query, parsed.entities, per_page=20)
+        items = await _github_search_with_fallback(parsed.github_query, parsed.entities, per_page=30)
         repos = [_normalize_repo(r) for r in items if not r.get("archived")]
 
-    repos.sort(key=lambda r: r["momentum"], reverse=True)
+    repos.sort(key=lambda r: (r["efficiency"], r["stars"]), reverse=True)
     repos = repos[:30]
     return repos, f"Mapped {len(repos)} repositories across the ecosystem."
 
 
 async def _handle_temporal(parsed: ParsedIntent) -> tuple[list[dict], str]:
-    """Compare recent vs older push dates to surface what's new."""
+    """Surface what's new vs established — ranked by efficiency."""
     import asyncio as _aio
 
-    # Sanitize base query (strip any existing date filter — we'll add our own)
     base_q = _sanitize_github_query(parsed.github_query, remove_date=True, remove_stars=True)
     now = datetime.now(timezone.utc)
-    cutoff_recent = (now - timedelta(days=7)).strftime("%Y-%m-%d")
-    cutoff_older  = (now - timedelta(days=60)).strftime("%Y-%m-%d")
+    cutoff_7d  = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+    cutoff_60d = (now - timedelta(days=60)).strftime("%Y-%m-%d")
 
     recent_items, older_items = await _aio.gather(
-        _github_search(f"{base_q} pushed:>={cutoff_recent}", per_page=15),
-        _github_search(f"{base_q} pushed:>={cutoff_older}",  per_page=15),
+        _github_search(f"{base_q} pushed:>={cutoff_7d}",  per_page=20),
+        _github_search(f"{base_q} pushed:>={cutoff_60d}", per_page=20),
     )
 
-    # If both return nothing, fall back to broad search without date filters
     if not recent_items and not older_items:
-        logger.info("[temporal] Date-filtered queries returned 0. Falling back to star-sort.")
-        fallback_items = await _github_search_with_fallback(
-            base_q, parsed.entities, per_page=20
-        )
-        repos = [_normalize_repo(r) for r in fallback_items if not r.get("archived")]
-        repos.sort(key=lambda r: r["momentum"], reverse=True)
-        return repos, f"Found {len(repos)} repositories sorted by momentum (date filter produced no results)."
+        logger.info("[temporal] Date queries returned 0 — falling back to star-sort.")
+        fallback = await _github_search_with_fallback(base_q, parsed.entities, per_page=30)
+        repos = [_normalize_repo(r) for r in fallback if not r.get("archived")]
+        repos.sort(key=lambda r: (r["efficiency"], r["stars"]), reverse=True)
+        return repos, f"Found {len(repos)} repositories (date filter produced no results — showing by efficiency)."
 
-    recent_ids = {r["id"] for r in recent_items}
-    new_repos   = [_normalize_repo(r) for r in recent_items]
-    established = [_normalize_repo(r) for r in older_items if r["id"] not in recent_ids]
+    seen: set[int]  = set()
+    new_repos: list[dict] = []
+    for r in recent_items:
+        if not r.get("archived"):
+            seen.add(r["id"])
+            new_repos.append(_normalize_repo(r))
+
+    established: list[dict] = []
+    for r in older_items:
+        if r["id"] not in seen and not r.get("archived"):
+            seen.add(r["id"])
+            established.append(_normalize_repo(r))
+
+    # Rank each group by efficiency, then merge (new first)
+    new_repos.sort(key=lambda r: (r["efficiency"], r["stars"]), reverse=True)
+    established.sort(key=lambda r: (r["efficiency"], r["stars"]), reverse=True)
     repos = new_repos + established
-    repos.sort(key=lambda r: r["momentum"], reverse=True)
     return repos, (
-        f"Found {len(new_repos)} repositories with activity in the last 7 days "
-        f"and {len(established)} established ones."
+        f"Found {len(new_repos)} repos active in the last 7 days "
+        f"and {len(established)} established repos — all ranked by efficiency."
     )
 
 
