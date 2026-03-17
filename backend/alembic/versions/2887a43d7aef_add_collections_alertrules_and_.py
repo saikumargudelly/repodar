@@ -84,23 +84,28 @@ def upgrade() -> None:
     with op.batch_alter_table('collection_votes', schema=None) as batch_op:
         batch_op.create_index('ix_collection_votes_collection_id', ['collection_id'], unique=False)
 
-    op.create_table('alert_notifications',
-    sa.Column('id', sa.String(length=36), nullable=False),
-    sa.Column('alert_id', sa.String(length=36), nullable=False),
-    sa.Column('user_id', sa.String(length=128), nullable=True),
-    sa.Column('destination_email', sa.String(length=255), nullable=False),
-    sa.Column('channel', sa.String(length=24), nullable=False),
-    sa.Column('status', sa.String(length=24), nullable=False),
-    sa.Column('error_message', sa.Text(), nullable=True),
-    sa.Column('sent_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['alert_id'], ['trend_alerts.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('alert_id', 'destination_email', 'channel', name='uq_alert_notification_delivery')
-    )
-    with op.batch_alter_table('alert_notifications', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_alert_notifications_alert_id'), ['alert_id'], unique=False)
-        batch_op.create_index(batch_op.f('ix_alert_notifications_destination_email'), ['destination_email'], unique=False)
-        batch_op.create_index(batch_op.f('ix_alert_notifications_user_id'), ['user_id'], unique=False)
+    from sqlalchemy.engine.reflection import Inspector
+    bind = op.get_bind()
+    inspector = Inspector.from_engine(bind)
+    
+    if not inspector.has_table('alert_notifications'):
+        op.create_table('alert_notifications',
+        sa.Column('id', sa.String(length=36), nullable=False),
+        sa.Column('alert_id', sa.String(length=36), nullable=False),
+        sa.Column('user_id', sa.String(length=128), nullable=True),
+        sa.Column('destination_email', sa.String(length=255), nullable=False),
+        sa.Column('channel', sa.String(length=24), nullable=False),
+        sa.Column('status', sa.String(length=24), nullable=False),
+        sa.Column('error_message', sa.Text(), nullable=True),
+        sa.Column('sent_at', sa.DateTime(), nullable=False),
+        sa.ForeignKeyConstraint(['alert_id'], ['trend_alerts.id'], ondelete='CASCADE'),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('alert_id', 'destination_email', 'channel', name='uq_alert_notification_delivery')
+        )
+        with op.batch_alter_table('alert_notifications', schema=None) as batch_op:
+            batch_op.create_index(batch_op.f('ix_alert_notifications_alert_id'), ['alert_id'], unique=False)
+            batch_op.create_index(batch_op.f('ix_alert_notifications_destination_email'), ['destination_email'], unique=False)
+            batch_op.create_index(batch_op.f('ix_alert_notifications_user_id'), ['user_id'], unique=False)
 
     with op.batch_alter_table('api_keys', schema=None) as batch_op:
         batch_op.alter_column('created_at',
