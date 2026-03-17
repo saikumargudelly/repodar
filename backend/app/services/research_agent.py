@@ -436,25 +436,58 @@ def _normalize_repo(raw: dict) -> dict:
 
 async def _handle_search(parsed: ParsedIntent) -> tuple[list[dict], str]:
     """
-    Search by executing queries in the dynamic github_queries array.
-    Executes sequentially and returns the first result set to avoid zero filters.
-    Results ranked by efficiency+scalability composite.
+    Search by executing ALL queries in github_queries and accumulating unique results.
+    Tries all queries rather than stopping at the first success, to handle cases where
+    the most specific query has strict filters that return 0 results.
+    Adds a broad safety-net fallback if everything returns empty.
     """
-    items = []
-    success_query = ""
-    for q in parsed.github_queries:
-        if not q.strip():
-            continue
-        res = await _github_search(q, per_page=30)
-        if res:
-            items = res
-            success_query = q
-            break
+    import asyncio as _aio
 
-    # Only skip truly archived repos (dead projects)
-    repos = [_normalize_repo(r) for r in items if not r.get("archived")]
-    # Sort: efficiency desc, then stars desc as tiebreaker
+    queries = [q.strip() for q in parsed.github_queries if q.strip()]
+    if not queries:
+        return [], "No valid search queries generated."
+
+    # Run ALL queries in parallel, then accumulate
+    results_batches = await _aio.gather(
+        *[_github_search(q, per_page=30) for q in queries],
+        return_exceptions=True,
+    )
+
+    seen: dict[int, dict] = {}
+    for batch in results_batches:
+        if not isinstance(batch, list):
+            continue
+        for r in batch:
+            rid = r.get("id")
+            if rid and not r.get("archived"):
+                # Keep the entry with the most stars if seen before
+                if rid not in seen or r.get("stargazers_count", 0) > seen[rid].get("stargazers_count", 0):
+                    seen[rid] = r
+
+    # --- Safety-net fallback: if ALL queries returned 0, broaden the search ---
+    if not seen:
+        logger.info("All LLM-generated queries returned 0 results — running broad fallback")
+        # Extract keywords from the first query (strip qualifiers like pushed:>= stars:>=)
+        import re as _re
+        first_q = queries[0] if queries else ""
+        broad = _re.sub(r'\S+:>=?\S+', '', first_q).strip()  # remove field:value qualifiers
+        if not broad:
+            # Build from entities topics
+            topics = parsed.entities.get("topics", [])
+            broad = " OR ".join(topics[:3]) if topics else "machine-learning"
+        # Try a completely unconstrained search
+        fallback_results = await _github_search(
+            f"{broad} stars:>=100",
+            per_page=30,
+        )
+        for r in fallback_results:
+            rid = r.get("id")
+            if rid and not r.get("archived"):
+                seen[rid] = r
+
+    repos = [_normalize_repo(r) for r in seen.values()]
     repos.sort(key=lambda r: (r["efficiency"], r["stars"]), reverse=True)
+    repos = repos[:30]  # cap at 30
     return repos, f"Found {len(repos)} repositories matching your query."
 
 
@@ -498,9 +531,37 @@ async def _handle_landscape(parsed: ParsedIntent) -> tuple[list[dict], str]:
 
 
 async def _handle_temporal(parsed: ParsedIntent) -> tuple[list[dict], str]:
-    """Surface what's new vs established — using dynamic LLM queries."""
+    """
+    Surface what's trending/new vs established.
+    For 'this week' / 'today' queries — tries the GitHub Trending scraper first
+    (same source the leaderboard uses) then falls back to Search API.
+    """
     import asyncio as _aio
 
+    time_period = (parsed.entities.get("time_period") or "").lower()
+    is_short_window = time_period in {"1d", "7d", ""} or any(
+        kw in " ".join(parsed.github_queries).lower()
+        for kw in ["pushed:>=", "week", "today", "daily"]
+    )
+
+    # --- Fast path: GitHub Trending scraper for short windows ---
+    if is_short_window:
+        try:
+            from app.services.github_search import _fetch_trending, normalize_search_result
+            period = "weekly" if "week" in str(parsed.entities).lower() else "daily"
+            since_key = "7d" if period == "weekly" else "1d"
+            raw_trending = await _fetch_trending(since_key, limit=30)
+            if raw_trending:
+                repos = []
+                for i, r in enumerate(raw_trending):
+                    norm = _normalize_repo(r)
+                    repos.append(norm)
+                repos.sort(key=lambda r: (r["efficiency"], r["stars"]), reverse=True)
+                return repos, f"Fetched {len(repos)} trending repos from GitHub Trending ({period})."
+        except Exception as exc:
+            logger.warning(f"GitHub Trending scrape fallback error: {exc}")
+
+    # --- Fallback: Search API with LLM-generated queries ---
     queries = [q for q in parsed.github_queries if q.strip()]
     if not queries:
         return [], "No valid queries generated."
@@ -513,10 +574,17 @@ async def _handle_temporal(parsed: ParsedIntent) -> tuple[list[dict], str]:
         _github_search(q_older, per_page=20),
     )
 
+    # If the date-constrained query returned nothing, broaden it
+    if not recent_items:
+        import re as _re
+        broad = _re.sub(r'pushed:>=\S+', '', q_recent).strip()
+        if broad:
+            recent_items = await _github_search(broad + " stars:>=50", per_page=20)
+
     if not recent_items and not older_items:
         return [], "Found 0 repositories matching the temporal queries."
 
-    seen: set[int]  = set()
+    seen: set[int] = set()
     new_repos: list[dict] = []
     for r in recent_items:
         if not r.get("archived"):
@@ -525,16 +593,15 @@ async def _handle_temporal(parsed: ParsedIntent) -> tuple[list[dict], str]:
 
     established: list[dict] = []
     for r in older_items:
-        if r["id"] not in seen and not r.get("archived"):
-            seen.add(r["id"])
+        if r.get("id") not in seen and not r.get("archived"):
+            seen.add(r.get("id"))
             established.append(_normalize_repo(r))
 
-    # Rank each group by efficiency, then merge (new first)
     new_repos.sort(key=lambda r: (r["efficiency"], r["stars"]), reverse=True)
     established.sort(key=lambda r: (r["efficiency"], r["stars"]), reverse=True)
-    repos = new_repos + established
+    repos = (new_repos + established)[:30]
     return repos, (
-        f"Found {len(new_repos)} repos active in the last 7 days "
+        f"Found {len(new_repos)} recently active repos "
         f"and {len(established)} established repos — all ranked by efficiency."
     )
 
