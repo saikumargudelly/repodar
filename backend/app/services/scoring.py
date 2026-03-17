@@ -14,6 +14,8 @@ import pandas as pd
 
 from app.database import SessionLocal, engine
 from app.models import Repository, DailyMetric, ComputedMetric, TrendAlert, CategoryMetricDaily
+from app.models.watchlist import WatchlistItem
+from app.services.alert_engine import evaluate_alert_rules
 
 logger = logging.getLogger(__name__)
 
@@ -952,6 +954,17 @@ def run_daily_scoring() -> dict:
                     today_trend_score=trend_metrics["trend_score"],
                     yesterday_trend_score=yesterday_score,
                 )
+
+                # ── Evaluate Real-time User Alert Rules ──
+                try:
+                    import asyncio
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        loop.create_task(evaluate_alert_rules(repo.id, db))
+                    else:
+                        loop.run_until_complete(evaluate_alert_rules(repo.id, db))
+                except Exception as e:
+                    logger.warning(f"Failed to evaluate custom alert rules for {repo.id}: {e}")
 
                 scored += 1
 

@@ -12,6 +12,8 @@ import {
   api, DailyMetricPoint, ComputedMetricPoint, ReleaseItem, SocialMentionItem, CommitActivityPoint, DeepSummary,
 } from "@/lib/api";
 import { SustainBadge } from "@/components/Nav";
+import { ForecastChart } from "@/components/forecast/ForecastChart";
+import { RecommendationsPanel } from "@/components/recommendations/RecommendationsPanel";
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -533,7 +535,8 @@ export default function RepoDeepDive() {
             marginBottom: repo.description ? "4px" : 0 }}>
             // {repo.category} · {repo.age_days}d old{repo.primary_language ? ` · ${repo.primary_language}` : ""}
           </div>
-          {repo.description && (
+
+          {!deepLoading && deepSummary && (
             <div style={{ color: "var(--text-secondary)", fontSize: "12px", maxWidth: "600px" }}>
               {repo.description}
             </div>
@@ -753,6 +756,9 @@ export default function RepoDeepDive() {
             <DailyDeltaChart data={dailyMetrics} />
             <ContributorChart data={dailyMetrics} />
           </div>
+          <div className="mt-8">
+            <ForecastChart owner={repo.owner} name={repo.name} />
+          </div>
           {scores && scores.length > 0 && (
             <div className="chart-row-2">
               <VelocityChart data={scores} />
@@ -790,6 +796,11 @@ export default function RepoDeepDive() {
       {repo && (
         <ReleaseChangelog releases={releases || []} owner={repo.owner} name={repo.name} />
       )}
+
+      {/* Similar repositories powered by AI recommendations */}
+      <div className="mt-6">
+        <RecommendationsPanel repoOwner={repo.owner} repoName={repo.name} />
+      </div>
 
       {/* Raw metrics table */}
       {dailyMetrics && dailyMetrics.length > 0 && (

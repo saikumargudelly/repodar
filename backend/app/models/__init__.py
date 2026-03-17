@@ -16,6 +16,10 @@ from app.models.weekly_snapshot import WeeklySnapshot
 from app.models.alert_notification import AlertNotification
 from app.models.user_onboarding import UserOnboarding
 
+from app.models.alert_rule import AlertRule
+from app.models.collection import Collection, CollectionVote
+from app.models.saved_filter import SavedFilterPreset
+
 __all__ = [
     "Repository", "DailyMetric", "ComputedMetric", "TrendAlert",
     "CategoryMetricDaily", "WatchlistItem", "ApiKey",
@@ -23,4 +27,5 @@ __all__ = [
     "A2AService", "A2ACapability",
     "SocialMention", "RepoRelease", "Subscriber", "WeeklySnapshot",
     "AlertNotification", "UserOnboarding",
+    "AlertRule", "Collection", "CollectionVote", "SavedFilterPreset",
 ]

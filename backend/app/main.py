@@ -43,6 +43,12 @@ from app.routers import (
     onboarding_router,
     profile_router,
     research_router,
+    filters_router,
+    forecast_router,
+    export_router,
+    recommendations_router,
+    webhooks_router,
+    collections_router,
 )
 from app.seed.seeder import seed_repos
 
@@ -344,6 +350,12 @@ app.include_router(snapshots_router)
 app.include_router(onboarding_router)
 app.include_router(profile_router)
 app.include_router(research_router)
+app.include_router(filters_router)
+app.include_router(forecast_router)
+app.include_router(export_router)
+app.include_router(recommendations_router)
+app.include_router(webhooks_router)
+app.include_router(collections_router)
 
 # ─── Public API v1 (X-API-Key required) ──────────────────────────────────────
 from app.routers.public_api import router as public_api_router

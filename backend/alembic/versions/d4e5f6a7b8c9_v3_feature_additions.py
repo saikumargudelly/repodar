@@ -51,8 +51,8 @@ def upgrade() -> None:
         )
         op.create_index("ix_watchlist_user_id",  "watchlist_items", ["user_id"])
         op.create_index("ix_watchlist_repo_id",  "watchlist_items", ["repo_id"])
-        op.create_unique_constraint("uq_watchlist_user_repo", "watchlist_items",
-                                    ["user_id", "repo_id"])
+        with op.batch_alter_table("watchlist_items") as batch_op:
+            batch_op.create_unique_constraint("uq_watchlist_user_repo", ["user_id", "repo_id"])
 
     # ── 3. api_keys ───────────────────────────────────────────────────────────
     if "api_keys" not in existing_tables:
@@ -71,7 +71,8 @@ def upgrade() -> None:
             sa.Column("last_used_at",        sa.DateTime(),  nullable=True),
             sa.Column("is_active",           sa.Boolean(),   nullable=False, server_default="true"),
         )
-        op.create_unique_constraint("uq_api_keys_hash", "api_keys", ["key_hash"])
+        with op.batch_alter_table("api_keys") as batch_op:
+            batch_op.create_unique_constraint("uq_api_keys_hash", ["key_hash"])
         op.create_index("ix_api_keys_hash",    "api_keys", ["key_hash"])
         op.create_index("ix_api_keys_user_id", "api_keys", ["user_id"])
 
@@ -89,8 +90,8 @@ def upgrade() -> None:
         )
         op.create_index("ix_rc_repo_id", "repo_contributors", ["repo_id"])
         op.create_index("ix_rc_login",   "repo_contributors", ["login"])
-        op.create_unique_constraint("uq_repo_contributor", "repo_contributors",
-                                    ["repo_id", "login"])
+        with op.batch_alter_table("repo_contributors") as batch_op:
+            batch_op.create_unique_constraint("uq_repo_contributor", ["repo_id", "login"])
 
     # ── 5. fork_snapshots ─────────────────────────────────────────────────────
     if "fork_snapshots" not in existing_tables:
@@ -114,8 +115,8 @@ def upgrade() -> None:
         )
         op.create_index("ix_fs_parent_repo_id",  "fork_snapshots", ["parent_repo_id"])
         op.create_index("ix_fs_snapshot_date",   "fork_snapshots", ["snapshot_date"])
-        op.create_unique_constraint("uq_fork_snapshot_daily", "fork_snapshots",
-                                    ["parent_repo_id", "fork_full_name", "snapshot_date"])
+        with op.batch_alter_table("fork_snapshots") as batch_op:
+            batch_op.create_unique_constraint("uq_fork_snapshot_daily", ["parent_repo_id", "fork_full_name", "snapshot_date"])
 
     # ── 6. ecosystem_reports ──────────────────────────────────────────────────
     if "ecosystem_reports" not in existing_tables:
@@ -129,8 +130,8 @@ def upgrade() -> None:
         )
         op.create_index("ix_er_period_type",   "ecosystem_reports", ["period_type"])
         op.create_index("ix_er_generated_at",  "ecosystem_reports", ["generated_at"])
-        op.create_unique_constraint("uq_report_period", "ecosystem_reports",
-                                    ["period_type", "period_label"])
+        with op.batch_alter_table("ecosystem_reports") as batch_op:
+            batch_op.create_unique_constraint("uq_report_period", ["period_type", "period_label"])
 
 
 def downgrade() -> None:

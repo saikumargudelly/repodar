@@ -15,6 +15,9 @@ const PUBLIC_PREFIXES = [
   "/sso-callback",
   "/post-auth",
   "/onboarding",
+  "/repo",
+  "/collections",
+  "/settings",
 ];
 
 function isPublicPath(pathname: string): boolean {

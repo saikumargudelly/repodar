@@ -77,6 +77,9 @@ export interface RepoSummary {
   github_url: string;
   primary_language: string | null;
   age_days: number;
+  stars: number;
+  forks: number;
+  pushed_at: string | null;
   trend_score: number | null;
   sustainability_score: number | null;
   sustainability_label: "GREEN" | "YELLOW" | "RED" | null;
@@ -753,6 +756,66 @@ export interface PaginatedResponse<T> {
   total_pages: number;
 }
 
+// ── Platform Features (Phase 1 & 2) ──────────────────────────────────────────
+
+export interface RepoFilterDTO {
+  languages?: string[];
+  categories?: string[];
+  min_stars?: number;
+  max_stars?: number;
+  min_age_days?: number;
+  max_age_days?: number;
+  min_trend_score?: number;
+  sustainability_label?: string;
+}
+
+export interface SavedFilterPreset {
+  id: string;
+  name: string;
+  description?: string;
+  filter_config: RepoFilterDTO;
+  is_public: boolean;
+  created_by: string;
+}
+
+export interface ForecastResult {
+  repo_id: string;
+  current_stars: number;
+  forecast_30d: number;
+  forecast_90d: number;
+  breakout_probability: number;
+  growth_label: string;
+}
+
+export interface RecommendedRepo {
+  repo_id: string;
+  similarity_score: number;
+  reasons: string[];
+  repo?: RepoDetail;
+}
+
+export interface AlertRule {
+  id: string;
+  name: string;
+  condition: string;
+  frequency: string;
+  webhook_url: string | null;
+  channels: string[];
+  is_active: boolean;
+}
+
+export interface Collection {
+  id: string;
+  title: string;
+  description: string | null;
+  repo_count: number;
+  votes: number;
+  is_public: boolean;
+  created_by: string;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+
 export const api = {
   // Repos
   listRepos: (params?: { category?: string; sort_by?: string; page?: number; per_page?: number }) => {
@@ -768,6 +831,57 @@ export const api = {
     apiFetch<RepoDetail>(`/repos/${owner}/${name}/delta-run`, { method: "POST" }),
   getDeepSummary: (owner: string, name: string) =>
     apiFetch<DeepSummary>(`/repos/${owner}/${name}/deep-summary`),
+
+  // ── Platform Phase 1 & 2 ───────────────────────────────────────────────────
+
+  // Filtering
+  filterRepos: (filter: RepoFilterDTO, page = 1, perPage = 20) =>
+    apiFetch<PaginatedResponse<RepoSummary>>(`/filters/repos?page=${page}&per_page=${perPage}`, {
+      method: "POST",
+      body: JSON.stringify(filter),
+    }),
+  getSavedFilters: () =>
+    apiFetch<SavedFilterPreset[]>("/filters/presets"),
+  createSavedFilter: (preset: Omit<SavedFilterPreset, "id" | "created_by">) =>
+    apiFetch<SavedFilterPreset>("/filters/presets", { method: "POST", body: JSON.stringify(preset) }),
+  deleteSavedFilter: (id: string) =>
+    apiFetch<void>(`/filters/presets/${id}`, { method: "DELETE" }),
+
+  // Forecasting — GET /forecast/{owner}/{name}
+  getForecast: (owner: string, name: string, days = 90) =>
+    apiFetch<ForecastResult>(`/forecast/${owner}/${name}?days=${days}`),
+  getBulkForecasts: (repoIds: string[]) =>
+    apiFetch<ForecastResult[]>(`/forecast/bulk/batch?ids=${encodeURIComponent(repoIds.join(','))}`),
+
+  // Export
+  exportReposCsv: (filter?: RepoFilterDTO) =>
+    apiFetch<Blob>("/export/repos/csv", { method: "POST", body: JSON.stringify(filter || {}) }),
+  exportReposJson: (filter?: RepoFilterDTO) =>
+    apiFetch<RepoSummary[]>("/export/repos/json", { method: "POST", body: JSON.stringify(filter || {}) }),
+
+  // Recommendations — GET /recommendations?user_id=xxx and GET /recommendations/similar/{owner}/{name}
+  getRecommendations: (userId: string, limit = 10) =>
+    apiFetch<RecommendedRepo[]>(`/recommendations?user_id=${encodeURIComponent(userId)}&limit=${limit}`),
+  getSimilarRepos: (owner: string, name: string, limit = 5) =>
+    apiFetch<RecommendedRepo[]>(`/recommendations/similar/${owner}/${name}?limit=${limit}`),
+
+  // Alert Rules — /alerts/rules with X-User-Id header
+  getAlertRules: (userId: string) =>
+    apiFetch<AlertRule[]>("/alerts/rules", { headers: { "Content-Type": "application/json", "X-User-Id": userId } }),
+  createAlertRule: (userId: string, rule: Omit<AlertRule, "id" | "is_active">) =>
+    apiFetch<AlertRule>("/alerts/rules", { method: "POST", body: JSON.stringify(rule), headers: { "Content-Type": "application/json", "X-User-Id": userId } }),
+  deleteAlertRule: (userId: string, id: string) =>
+    apiFetch<void>(`/alerts/rules/${id}`, { method: "DELETE", headers: { "Content-Type": "application/json", "X-User-Id": userId } }),
+
+  // Collections — /collections with X-User-Id header
+  getTrendingCollections: () =>
+    apiFetch<Collection[]>("/collections/trending"),
+  createCollection: (userId: string, collection: { title: string; description?: string; repo_ids: string[]; is_public: boolean }) =>
+    apiFetch<Collection>("/collections", { method: "POST", body: JSON.stringify(collection), headers: { "Content-Type": "application/json", "X-User-Id": userId } }),
+  voteCollection: (userId: string, id: string, direction: 1 | -1) =>
+    apiFetch<{ votes: number }>(`/collections/${id}/vote`, { method: "POST", body: JSON.stringify({ direction }), headers: { "Content-Type": "application/json", "X-User-Id": userId } }),
+
+  // ───────────────────────────────────────────────────────────────────────────
 
   // Metrics
   getDailyMetrics: (id: string, days = 30) =>
