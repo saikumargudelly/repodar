@@ -49,12 +49,7 @@ RATE_LIMITS: dict[str, dict[str, int]] = {
 }
 
 # ─── Off-topic fast-reject patterns (Stage 1) ─────────────────────────────────
-_OFF_TOPIC = re.compile(
-    r"\b(recipe|cook(ing)?|food|sport|cricket|movie|song|poem|lyrics|"
-    r"stock\s+price|forex|crypto\s+price|weather|homework|assignment|"
-    r"essay|president|capital\s+of|currency|joke|riddle|horoscope)\b",
-    re.IGNORECASE,
-)
+# Replaced by LLM `out_of_scope` intent to avoid false positives (e.g. blocking "stock trading repo")
 
 _REPO_NAME_RE = re.compile(r"(?:^|[\s(,])([a-zA-Z0-9][\w.-]{0,38})/([a-zA-Z0-9][\w.-]{0,99})(?:\s|$|[),])")
 
@@ -97,7 +92,7 @@ class AgentMessage:
 # ─── Stage 1: Deterministic fast router ───────────────────────────────────────
 
 def fast_route(message: str) -> FastRouteResult:
-    """No LLM. < 1ms. Handles obvious reject/clarify/repo-lookup cases."""
+    """No LLM. < 1ms. Handles obvious empty/clarify/repo-lookup cases."""
     stripped = message.strip()
 
     # Empty / too short
@@ -105,16 +100,6 @@ def fast_route(message: str) -> FastRouteResult:
         return FastRouteResult(
             action="clarify",
             reason="Please describe what you'd like to research (e.g. 'trending Python AI tools')."
-        )
-
-    # Off-topic
-    if _OFF_TOPIC.search(stripped):
-        return FastRouteResult(
-            action="reject",
-            reason=(
-                "I only research GitHub repositories and open-source ecosystems. "
-                "Try: 'show me trending Rust tools' or 'compare vllm vs llama.cpp'."
-            )
         )
 
     # Exact owner/repo mention → fast-path
@@ -196,10 +181,13 @@ async def parse_intent(message: str, context_turns: list[dict]) -> ParsedIntent:
         return _keyword_fallback_intent(message)
 
     # Build context string (last 3 turns = 6 messages max)
-    ctx = "\n".join(
-        f"{t['role'].upper()}: {t['content'][:300]}"
-        for t in context_turns[-6:]
-    )
+    ctx_lines = []
+    for t in context_turns[-6:]:
+        if isinstance(t, dict) and "role" in t and "content" in t:
+            ctx_lines.append(f"{t['role'].upper()}: {t['content'][:300]}")
+        elif isinstance(t, str):
+            ctx_lines.append(f"USER: {t[:300]}")
+    ctx = "\n".join(ctx_lines)
 
     current_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     prompt = _INTENT_SYSTEM.format(
@@ -626,10 +614,14 @@ async def _synthesize(
             lines.append(f"- **{r['full_name']}** — {stars_k} ⭐ · {r['trend_label']} · {desc}")
         return "\n".join(lines)
 
-    ctx = "\n".join(
-        f"{t['role'].upper()}: {t['content'][:200]}"
-        for t in context_turns[-6:]
-    )
+    # Context for pronoun resolution
+    ctx_lines = []
+    for t in context_turns[-6:]:
+        if isinstance(t, dict) and "role" in t and "content" in t:
+            ctx_lines.append(f"{t['role'].upper()}: {t['content'][:200]}")
+        elif isinstance(t, str):
+            ctx_lines.append(f"USER: {t[:200]}")
+    ctx = "\n".join(ctx_lines)
 
     # Guardrail 2: only send real repo data
     safe_repos = [

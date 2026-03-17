@@ -5,45 +5,65 @@
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+async function apiFetch<T>(path: string, options?: RequestInit, retries = 3): Promise<T> {
   const headers = {
     "Content-Type": "application/json",
     ...(options?.headers as Record<string, string> | undefined),
   };
   
-  const res = await fetch(`${BASE}${path}`, {
-    ...options,
-    headers,
-  });
-  if (!res.ok) {
-    // Try to extract the real error message from the FastAPI response body
-    // before falling back to the generic status string.
-    let detail = `API ${res.status}: ${path}`;
+  let attempt = 0;
+  while (attempt < retries) {
     try {
-      const body = await res.json();
-      if (typeof body?.detail === "string") {
-        detail = body.detail;
-      } else if (Array.isArray(body?.detail)) {
-        // Pydantic validation errors come back as an array of {msg, loc}
-        detail = body.detail.map((d: { msg?: string }) => d.msg ?? JSON.stringify(d)).join("; ");
-      } else if (typeof body?.message === "string") {
-        detail = body.message;
-      } else if (typeof body?.error === "string") {
-        detail = body.error;
+      const res = await fetch(`${BASE}${path}`, {
+        ...options,
+        headers,
+      });
+      
+      if (!res.ok) {
+        // Retry on 5XX errors if we haven't maxed out attempts
+        if (res.status >= 500 && attempt < retries - 1) {
+          attempt++;
+          await new Promise(r => setTimeout(r, 1000 * attempt));
+          continue;
+        }
+
+        let detail = `API ${res.status}: ${path}`;
+        try {
+          const body = await res.json();
+          if (typeof body?.detail === "string") {
+            detail = body.detail;
+          } else if (Array.isArray(body?.detail)) {
+            // Pydantic validation errors come back as an array of {msg, loc}
+            detail = body.detail.map((d: { msg?: string }) => d.msg ?? JSON.stringify(d)).join("; ");
+          } else if (typeof body?.message === "string") {
+            detail = body.message;
+          } else if (typeof body?.error === "string") {
+            detail = body.error;
+          }
+        } catch {
+          // response body is not JSON — keep the generic message
+        }
+        throw new Error(detail);
       }
-    } catch {
-      // response body is not JSON — keep the generic message
+      
+      if (res.status === 204) {
+        return {} as T;
+      }
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) {
+        return {} as T;
+      }
+      return await res.json() as T;
+    } catch (error) {
+      if (attempt < retries - 1 && !(error instanceof Error && error.message.startsWith("API "))) {
+        attempt++;
+        await new Promise(r => setTimeout(r, 1000 * attempt));
+        continue;
+      }
+      throw error;
     }
-    throw new Error(detail);
   }
-  if (res.status === 204) {
-    return {} as T;
-  }
-  const contentType = res.headers.get("content-type") ?? "";
-  if (!contentType.includes("application/json")) {
-    return {} as T;
-  }
-  return res.json() as Promise<T>;
+  throw new Error("Max retries exceeded");
 }
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -725,15 +745,23 @@ export interface SnapshotDetail {
   }>;
 }
 
-// ─── API functions ───────────────────────────────────────────────────────────
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+}
 
 export const api = {
   // Repos
-  listRepos: (params?: { category?: string; sort_by?: string }) => {
+  listRepos: (params?: { category?: string; sort_by?: string; page?: number; per_page?: number }) => {
     const qs = new URLSearchParams();
     if (params?.category) qs.set("category", params.category);
     if (params?.sort_by) qs.set("sort_by", params.sort_by);
-    return apiFetch<RepoSummary[]>(`/repos?${qs}`);
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.per_page) qs.set("per_page", String(params.per_page));
+    return apiFetch<PaginatedResponse<RepoSummary>>(`/repos?${qs}`);
   },
   getRepo: (id: string) => apiFetch<RepoDetail>(`/repos/${id}`),
   getDeepSummary: (owner: string, name: string) =>

@@ -73,7 +73,7 @@ def _load_window_df(repo_id: str, days: int = 60) -> pd.DataFrame:
     try:
         conn = _get_duck_conn()
         cutoff = (_today() - timedelta(days=days)).isoformat()
-        df = conn.execute(f"""
+        df = conn.execute("""
             SELECT
                 DATE(captured_at) AS day,
                 stars,
@@ -89,10 +89,10 @@ def _load_window_df(repo_id: str, days: int = 60) -> pd.DataFrame:
                 COALESCE(commit_count, 0)       AS commit_count,
                 COALESCE(daily_commit_delta, 0) AS daily_commit_delta
             FROM repodar.daily_metrics
-            WHERE repo_id = '{repo_id}'
-              AND DATE(captured_at) >= '{cutoff}'
+            WHERE repo_id = ?
+              AND DATE(captured_at) >= ?
             ORDER BY day ASC
-        """).fetchdf()
+        """, [repo_id, cutoff]).fetchdf()
         conn.close()
         return df
     except Exception as e:
@@ -432,7 +432,7 @@ def compute_category_growth(days: int = 7) -> list[dict]:
     try:
         conn = _get_duck_conn()
         cutoff = (_today() - timedelta(days=fetch_days)).isoformat()
-        df = conn.execute(f"""
+        df = conn.execute("""
             SELECT
                 r.category,
                 r.id AS repo_id,
@@ -447,8 +447,8 @@ def compute_category_growth(days: int = 7) -> list[dict]:
                 COALESCE(dm.daily_pr_delta, 0) AS daily_pr_delta
             FROM repodar.repositories r
             JOIN repodar.daily_metrics dm ON dm.repo_id = r.id
-            WHERE DATE(dm.captured_at) >= '{cutoff}'
-        """).fetchdf()
+            WHERE DATE(dm.captured_at) >= ?
+        """, [cutoff]).fetchdf()
         conn.close()
     except Exception as e:
         logger.warning(f"DuckDB category growth failed: {e}. Falling back to SQLAlchemy.")

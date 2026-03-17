@@ -5,10 +5,19 @@ const API_URL  = process.env.NEXT_PUBLIC_API_URL  ?? "http://localhost:8000";
 
 async function fetchRepoIds(): Promise<string[]> {
   try {
-    const res = await fetch(`${API_URL}/repos?limit=200`, { next: { revalidate: 3600 } });
+    const res = await fetch(`${API_URL}/repos?per_page=200`, { next: { revalidate: 3600 } });
     if (!res.ok) return [];
-    const data: Array<{ repo_id: string }> = await res.json();
-    return data.map((r) => r.repo_id);
+    
+    // Check if it's the new paginated structure
+    const data = await res.json();
+    if (data && data.items && Array.isArray(data.items)) {
+      return data.items.map((r: any) => r.id);
+    }
+    // Fallback just in case
+    if (Array.isArray(data)) {
+      return data.map((r: any) => r.id);
+    }
+    return [];
   } catch {
     return [];
   }

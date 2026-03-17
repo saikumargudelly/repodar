@@ -257,6 +257,20 @@ async def lifespan(app: FastAPI):
     # Start in-process 4-hour scheduler
     scheduler = _schedule_pipeline()
 
+    # Initialize Redis caching
+    try:
+        import os
+        from redis import asyncio as aioredis
+        from fastapi_cache import FastAPICache
+        from fastapi_cache.backends.redis import RedisBackend
+
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+        redis = aioredis.from_url(redis_url, encoding="utf8", decode_responses=False)
+        FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
+        logger.info("FastAPI-Cache initialized with Redis.")
+    except Exception as e:
+        logger.warning(f"Failed to initialize Redis cache: {e}")
+
     logger.info("Repodar ready. Pipeline scheduled every 4 h via APScheduler.")
     yield
 
@@ -278,19 +292,30 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+import os
+
 # CORS — allow frontend dev server and production domain
+origins_env = os.getenv("ALLOWED_ORIGINS")
+if origins_env:
+    allowed_origins = [o.strip() for o in origins_env.split(",") if o.strip()]
+else:
+    allowed_origins = [
+        "http://localhost:3000",
+        "https://repodar.vercel.app",
+        "https://repodar.up.railway.app",  
+        "https://repodar.io",
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-allow_origins=[
-    "http://localhost:3000",
-    "https://repodar.vercel.app",
-    "https://repodar.up.railway.app",  
-    "https://repodar.io",
-],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+from app.middleware import LoggingMiddleware
+app.add_middleware(LoggingMiddleware)
 
 # API Key middleware — validates X-API-Key for /api/v1/* routes
 app.add_middleware(APIKeyMiddleware)
@@ -327,9 +352,32 @@ app.include_router(public_api_router)
 
 # ─── Health ──────────────────────────────────────────────────────────────────
 
+from fastapi import Depends
+from sqlalchemy.orm import Session
+from app.database import get_db
+
 @app.get("/health", tags=["Health"])
-def health():
-    return {"status": "ok", "service": "Repodar v1.0"}
+def health(db: Session = Depends(get_db)):
+    from sqlalchemy import text
+    status = {"status": "ok", "service": "Repodar v1.0", "db": "ok", "redis": "ok"}
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception as e:
+        status["db"] = f"error: {str(e)}"
+        status["status"] = "error"
+        
+    try:
+        from fastapi_cache import FastAPICache
+        if not FastAPICache.get_backend():
+            status["redis"] = "Not initialized"
+    except Exception as e:
+        status["redis"] = f"error: {str(e)}"
+        
+    from fastapi.responses import JSONResponse
+    if status["status"] == "error":
+        return JSONResponse(content=status, status_code=503)
+        
+    return status
 
 
 @app.get("/", tags=["Health"])

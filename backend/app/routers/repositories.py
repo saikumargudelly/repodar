@@ -53,30 +53,71 @@ class RepoDetail(RepoSummary):
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
-@router.get("", response_model=List[RepoSummary])
+from typing import TypeVar, Generic
+
+T = TypeVar("T")
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    items: List[T]
+    total: int
+    page: int
+    per_page: int
+    total_pages: int
+
+from fastapi_cache.decorator import cache
+
+@router.get("", response_model=PaginatedResponse[RepoSummary])
+@cache(expire=300)
 def list_repos(
     category: Optional[str] = Query(None, description="Filter by ecosystem category"),
     sort_by: str = Query("trend_score", description="trend_score | sustainability_score | stars"),
-    limit: int = Query(100, le=200),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(50, le=200),
     db: Session = Depends(get_db),
 ):
     """List all repos with their latest computed scores."""
     from datetime import date
     today = date.today()
 
-    query = db.query(Repository)
+    from sqlalchemy import func, and_
+
+    count_query = db.query(Repository)
+    if category:
+        count_query = count_query.filter(Repository.category == category)
+    total_count = count_query.count()
+
+    latest_cm_subq = (
+        db.query(
+            Repository.id.label('repo_id'),
+            func.max(ComputedMetric.date).label('max_date')
+        )
+        .outerjoin(ComputedMetric, Repository.id == ComputedMetric.repo_id)
+        .group_by(Repository.id)
+        .subquery()
+    )
+
+    query = (
+        db.query(Repository, ComputedMetric)
+        .outerjoin(latest_cm_subq, Repository.id == latest_cm_subq.c.repo_id)
+        .outerjoin(ComputedMetric, and_(
+            Repository.id == ComputedMetric.repo_id,
+            ComputedMetric.date == latest_cm_subq.c.max_date
+        ))
+    )
+
     if category:
         query = query.filter(Repository.category == category)
-    repos = query.all()
+
+    if sort_by == "trend_score":
+        query = query.order_by(ComputedMetric.trend_score.desc().nullslast())
+    elif sort_by == "sustainability_score":
+        query = query.order_by(ComputedMetric.sustainability_score.desc().nullslast())
+
+    offset = (page - 1) * per_page
+    db_results = query.offset(offset).limit(per_page).all()
 
     results = []
-    for repo in repos:
-        latest_cm = (
-            db.query(ComputedMetric)
-            .filter_by(repo_id=repo.id)
-            .order_by(ComputedMetric.date.desc())
-            .first()
-        )
+    for repo, latest_cm in db_results:
         summary = RepoSummary(
             id=repo.id,
             owner=repo.owner,
@@ -94,14 +135,14 @@ def list_repos(
         )
         results.append(summary)
 
-    # Sort
-    reverse = True
-    if sort_by == "trend_score":
-        results.sort(key=lambda x: x.trend_score or 0, reverse=reverse)
-    elif sort_by == "sustainability_score":
-        results.sort(key=lambda x: x.sustainability_score or 0, reverse=reverse)
-
-    return results[:limit]
+    total_pages = (total_count + per_page - 1) // per_page
+    return PaginatedResponse(
+        items=results,
+        total=total_count,
+        page=page,
+        per_page=per_page,
+        total_pages=total_pages
+    )
 
 
 # ─── Comparison ──────────────────────────────────────────────────────────────
@@ -323,8 +364,14 @@ class DeepSummaryResponse(BaseModel):
     generated_at: str
 
 
+from fastapi import Path
+
 @router.get("/{owner}/{name}/deep-summary", response_model=DeepSummaryResponse)
-async def get_deep_summary(owner: str, name: str, db: Session = Depends(get_db)):
+async def get_deep_summary(
+    owner: str = Path(..., pattern=r"^[A-Za-z0-9_.-]+$"),
+    name: str = Path(..., pattern=r"^[A-Za-z0-9_.-]+$"),
+    db: Session = Depends(get_db)
+):
     """
     Returns a rich structured analysis of a repo: what/why/how, tech stack,
     use cases, top contributors, and language breakdown. Fetches live from

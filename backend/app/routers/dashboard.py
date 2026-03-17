@@ -108,7 +108,10 @@ class RadarRepo(BaseModel):
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
+from fastapi_cache.decorator import cache
+
 @router.get("/overview", response_model=OverviewResponse)
+@cache(expire=300)
 def get_overview(db: Session = Depends(get_db)):
     """
     Ecosystem overview: category heatmap data, top-10 breakout repos,
@@ -354,6 +357,7 @@ def get_early_radar(
 
 
 @router.get("/categories", response_model=List[CategoryMetrics])
+@cache(expire=900)
 def get_category_metrics(
     period: str = Query("7d", description="1d | 7d | 30d | 90d | 365d | 3y | 5y"),
     db: Session = Depends(get_db),

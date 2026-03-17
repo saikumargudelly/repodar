@@ -3,6 +3,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { AppShell } from "@/components/AppShell";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://repodar.vercel.app";
 const rssFeedUrl = (process.env.NEXT_PUBLIC_API_URL ?? "") + "/feed.xml";
@@ -58,7 +59,9 @@ export default function RootLayout({
       <body>
         <ClerkProvider>
           <Providers>
-            <AppShell>{children}</AppShell>
+            <ErrorBoundary>
+              <AppShell>{children}</AppShell>
+            </ErrorBoundary>
           </Providers>
         </ClerkProvider>
       </body>

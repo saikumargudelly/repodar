@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import String, Integer, DateTime, ForeignKey
+from sqlalchemy import String, Integer, DateTime, ForeignKey, Index
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from app.database import Base
@@ -14,6 +14,10 @@ def _utcnow():
 
 class DailyMetric(Base):
     __tablename__ = "daily_metrics"
+
+    __table_args__ = (
+        Index('ix_daily_metrics_repo_date', 'repo_id', 'captured_at'),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     repo_id: Mapped[str] = mapped_column(String(36), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False, index=True)

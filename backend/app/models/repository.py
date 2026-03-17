@@ -15,6 +15,11 @@ def _utcnow():
 class Repository(Base):
     __tablename__ = "repositories"
 
+    __table_args__ = (
+        Index('ix_repositories_owner_name', 'owner', 'name', unique=True),
+        Index('ix_repositories_source_active', 'source', 'is_active'),
+    )
+
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     owner: Mapped[str] = mapped_column(String(255), nullable=False)

@@ -8,6 +8,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
+import time
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
@@ -19,6 +20,15 @@ from app.models.api_key import ApiKey
 logger = logging.getLogger(__name__)
 
 _PUBLIC_V1_PREFIX = "/api/v1"
+
+
+class LoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next) -> Response:
+        start_time = time.time()
+        response = await call_next(request)
+        process_time = time.time() - start_time
+        logger.info(f"HTTP {request.method} {request.url.path} - {response.status_code} - {process_time:.4f}s")
+        return response
 
 
 def _utcnow():

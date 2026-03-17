@@ -393,6 +393,40 @@ def _start_date(period: str) -> str:
     return (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
 
 
+import json
+import groq
+
+async def _dynamic_topics(category: str, limit: int = 15) -> list[str]:
+    """Dynamically generate GitHub topics for a given vertical or category using an LLM."""
+    if not category or category.lower() == "all":
+        category = "artificial intelligence and machine learning"
+    
+    prompt = f"""
+    You are an expert GitHub researcher. The user wants to discover trending GitHub repositories related to: "{category}"
+    
+    List the top {limit} most exact, high-volume GitHub topic tags (the ones you see in github.com/topics) for this category.
+    Only return authentic GitHub topics.
+    
+    Format: Return a JSON object with a single key "topics" containing a list of strings.
+    Topic strings must be exact GitHub tag format (e.g. "machine-learning" not "Machine Learning", lowercase, hyphens).
+    Do NOT include the "topic:" prefix in your JSON array, just the raw tag name.
+    """
+    
+    try:
+        client = groq.AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
+        completion = await client.chat.completions.create(
+            messages=[{"role": "user", "content": prompt}],
+            model="llama-3.3-70b-versatile",
+            response_format={"type": "json_object"},
+            temperature=0.2,
+        )
+        data = json.loads(completion.choices[0].message.content)
+        tags = data.get("topics", [])
+        return [f"topic:{t}" for t in tags[:limit]]
+    except Exception as e:
+        logger.error(f"Failed to dynamically generate topics for {category}: {e}")
+        return [f"topic:{category.lower().replace(' ', '-')}"]
+
 # ─── Public entry point ───────────────────────────────────────────────────────
 
 async def search_top_repos(
@@ -412,7 +446,8 @@ async def search_top_repos(
       All periods → GitHub Search API with vertical-specific topic queries.
       GitHub Trending is a general feed; topic-filtered Search is more relevant.
     """
-    topics = VERTICAL_TOPIC_QUERIES.get(vertical, AI_TOPIC_QUERIES)
+    target_topic = category_filter if category_filter else vertical
+    topics = await _dynamic_topics(target_topic, limit=20)
 
     # Only use GitHub Trending for the AI/ML vertical on short periods
     if period in TRENDING_SINCE and vertical == "ai_ml":
@@ -420,9 +455,16 @@ async def search_top_repos(
     else:
         results = await _fetch_search(period, limit=limit, topics=topics)
 
-    if category_filter:
-        needed = _category_to_topics(category_filter)
-        results = [r for r in results if _repo_matches_category(r, needed)]
+    # If using Trending (which is broad), we filter results by the topics we generated
+    if period in TRENDING_SINCE and vertical == "ai_ml" and category_filter:
+        raw_tags = [t.replace("topic:", "") for t in topics]
+        filtered = []
+        for r in results:
+            r_topics = set(r.get("topics", []))
+            r_text = (r.get("name", "") + " " + (r.get("description") or "")).lower()
+            if bool(r_topics & set(raw_tags)) or any(tag.replace('-', ' ') in r_text for tag in raw_tags):
+                filtered.append(r)
+        results = filtered
 
     return results[:limit]
 
@@ -620,208 +662,6 @@ async def _search_api(
         logger.error(f"GitHub Search error: {e}")
         return []
 
-
-def _category_to_topics(category: str) -> list[str]:
-    """Map internal category names → GitHub topic keywords used for filtering."""
-    mapping: dict[str, list[str]] = {
-        # ── AI/ML sub-categories (most granular) ────────────────────────────
-        "LLM Models": [
-            "llm", "large-language-model", "language-model", "generative-ai",
-            "gpt", "llama", "mistral", "gemini", "claude", "foundation-model",
-            "causal-lm", "ollama", "local-llm", "pretrained-model",
-            "openai", "deepseek", "qwen", "phi", "falcon",
-        ],
-        "Agent Frameworks": [
-            "ai-agent", "ai-agents", "autonomous-agents", "langchain", "autogpt",
-            "llm-agent", "agent-framework", "multi-agent", "crewai",
-            "llamaindex", "agentic", "browser-automation", "ui-automation",
-            "web-agent", "gui-agent", "computer-use", "a2a", "agent-to-agent",
-            "autogen", "metagpt", "desktop-automation", "screen-agent", "rpa",
-        ],
-        "MCP Tools": [
-            "mcp", "model-context-protocol", "mcp-server", "mcp-client",
-            "mcp-tool", "mcp-plugin",
-        ],
-        "Coding Assistants": [
-            "coding-assistant", "ai-coding", "copilot", "code-generation",
-            "ai-pair-programmer", "code-completion", "cursor", "codeium",
-            "tabby", "aider",
-        ],
-        "Inference Engines": [
-            "llm-inference", "inference", "llama-cpp", "vllm", "gguf",
-            "tensorrt", "onnxruntime", "triton-inference", "tgi", "tensorrt-llm",
-            "mlc-llm", "exllama", "inference-server", "llm-serving",
-        ],
-        "Vector Databases": [
-            "vector-database", "vector-search", "embeddings", "faiss",
-            "weaviate", "pinecone", "chroma", "chromadb", "hnswlib",
-            "milvus", "qdrant", "annoy", "lancedb", "pgvector", "usearch",
-        ],
-        "RAG Frameworks": [
-            "rag", "retrieval-augmented-generation", "graphrag", "document-qa",
-            "semantic-search", "knowledge-retrieval", "hybrid-search",
-            "reranking", "haystack", "long-context",
-        ],
-        "Model Serving / Runtimes": [
-            "model-serving", "mlops", "triton", "bentoml", "kubeflow",
-            "seldon", "kfserving", "mlflow", "model-registry",
-            "torchserve", "ray-serve", "cog",
-        ],
-        "Distributed Compute / Infra": [
-            "distributed-training", "mlops", "ray", "deepspeed",
-            "horovod", "megatron", "pytorch-lightning", "accelerate", "colossalai",
-        ],
-        "Evaluation Frameworks": [
-            "llm-evaluation", "benchmarks", "evals", "evaluation",
-            "llm-benchmark", "lm-eval", "helm", "mmlu", "humaneval",
-            "bigbench", "ragas",
-        ],
-        "Fine-tuning Toolkits": [
-            "fine-tuning", "lora", "rlhf", "instruction-tuning",
-            "peft", "sft", "dpo", "qlora", "adapter", "rlvr",
-            "rlaif", "reward-model", "unsloth", "axolotl", "trl",
-        ],
-        "Speech & Audio": [
-            "text-to-speech", "tts", "speech-recognition", "asr",
-            "voice-cloning", "audio-processing", "speech-synthesis",
-            "voice-ai", "whisper", "speaker-diarization", "real-time-voice",
-            "voice-assistant", "voice-agent", "audio-generation",
-            "music-generation", "bark",
-        ],
-        "Image Generation": [
-            "text-to-image", "stable-diffusion", "diffusion-model",
-            "image-generation", "sdxl", "comfyui", "controlnet",
-            "lora-training", "image-editing", "inpainting", "flux",
-        ],
-        "Video Generation": [
-            "text-to-video", "video-generation", "video-diffusion",
-            "video-synthesis", "animate-diff", "cogvideo",
-        ],
-        "Multimodal Models": [
-            "multimodal", "vision-language-model", "vlm",
-            "visual-question-answering", "image-captioning",
-            "ocr", "document-understanding", "llava", "qwen-vl",
-        ],
-        "Reasoning Models": [
-            "reasoning", "chain-of-thought", "tree-of-thought",
-            "self-consistency", "o1", "mathematical-reasoning",
-        ],
-        "AI Safety & Alignment": [
-            "ai-safety", "alignment", "red-teaming", "interpretability",
-            "mechanistic-interpretability", "adversarial", "robustness",
-            "watermarking", "constitutional-ai",
-        ],
-        "Prompt Engineering": [
-            "prompt-engineering", "prompt-optimization", "dspy",
-            "langfuse", "prompt-tuning", "few-shot", "zero-shot",
-        ],
-        "Synthetic Data": [
-            "synthetic-data", "data-generation", "data-labeling",
-            "data-annotation", "dataset", "rlvr",
-        ],
-        # ── Other verticals ───────────────────────────────────────────────────
-        "DevTools": [
-            "developer-tools", "cli", "terminal", "code-editor", "productivity",
-            "devtools", "linter", "formatter", "language-server",
-            "vscode-extension", "debugging", "profiler", "neovim",
-            "shell", "git", "intellij-plugin", "tmux", "dotfiles",
-            "headless-browser", "playwright", "puppeteer", "cdp",
-            "bun", "deno", "wasm", "webassembly", "supabase", "appwrite",
-            "tree-sitter", "ripgrep", "mise", "fnm",
-            "electron", "tauri", "wails", "window-manager",
-        ],
-        "Web & Mobile": [
-            "web-framework", "rest-api", "nodejs", "react", "vuejs", "svelte",
-            "fastapi", "nextjs", "django", "flask", "graphql", "grpc",
-            "microservices", "websocket", "typescript", "angular", "nuxt",
-            "spring-boot", "rails", "laravel", "phoenix",
-            "astro", "htmx", "hono", "elysia", "remix", "sveltekit",
-            "solid-js", "bun", "deno", "edge-runtime", "actix", "axum",
-            "gin", "echo", "fiber",
-            "ios", "android", "react-native", "flutter", "swift",
-            "kotlin", "swiftui", "jetpack-compose", "expo", "mobile",
-            "http", "http3", "quic", "webrtc", "mqtt", "proxy", "dns",
-        ],
-        "Security": [
-            "security", "cybersecurity", "vulnerability-scanner",
-            "penetration-testing", "devsecops", "cryptography",
-            "authentication", "zero-trust", "fuzzing", "reverse-engineering",
-            "malware-analysis", "osint", "network-security",
-            "supply-chain-security", "red-team", "exploit", "cve",
-            "sbom", "sast", "dast", "api-security", "container-security",
-            "cloud-security", "secrets-management", "sca",
-            "vulnerability-management", "sigstore", "slsa",
-            "passkey", "webauthn", "identity",
-        ],
-        "Data & Infrastructure": [
-            "data-engineering", "etl", "data-pipeline", "workflow-orchestration",
-            "apache-airflow", "streaming", "kafka", "spark", "data-lake",
-            "dbt", "data-warehouse", "flink", "delta-lake", "trino",
-            "apache-iceberg", "iceberg", "dagster", "data-quality",
-            "polars", "duckdb", "data-lakehouse", "cdc", "debezium",
-            "data-catalog", "parquet", "arrow", "datafusion", "airbyte",
-            "database", "sql", "nosql", "postgresql", "mysql", "mongodb",
-            "redis", "elasticsearch", "clickhouse", "vector-database",
-            "time-series-database", "graph-database", "neo4j",
-            "cockroachdb", "surrealdb", "pgvector", "lancedb", "chroma",
-            "aws", "gcp", "azure", "cloud-native", "kubernetes", "terraform",
-            "serverless", "service-mesh", "istio", "ebpf", "argocd",
-            "observability", "monitoring", "opentelemetry", "prometheus",
-            "grafana", "sentry", "apm",
-        ],
-        "Blockchain": [
-            "blockchain", "ethereum", "smart-contracts", "web3", "defi",
-            "solidity", "nft", "layer2", "zero-knowledge", "dao",
-            "bitcoin", "solana", "cosmos", "cross-chain", "evm",
-            "account-abstraction", "restaking", "rollup",
-            "modular-blockchain", "ton", "sui", "move-language",
-            "zk-rollup", "zk-snark", "depin", "rwa",
-        ],
-        "Fintech": [
-            "fintech", "payments", "banking", "open-banking",
-            "trading", "algorithmic-trading", "quantitative-finance",
-            "risk-management", "portfolio-management", "backtesting",
-        ],
-        "OSS Tools": [
-            "build-tool", "bundler", "package-manager", "testing",
-            "infrastructure", "ci-cd", "automation",
-            "orm", "api-client", "linting", "code-generation",
-            "documentation", "monorepo", "containerization",
-            "kubernetes", "terraform", "ansible", "opentelemetry",
-            "prometheus", "grafana", "helm", "wasm", "wasi",
-            "serverless", "edge-computing", "nix", "bazel",
-            "vitest", "playwright", "pnpm", "turborepo",
-            "docker", "podman", "github-actions", "argocd",
-        ],
-        "Science & Research": [
-            "bioinformatics", "genomics", "proteomics", "drug-discovery",
-            "protein-structure", "alphafold", "single-cell", "medical-imaging",
-            "ehr", "fhir", "neuroscience",
-            "education", "e-learning", "jupyter", "scientific-computing",
-            "robotics", "ros", "ros2", "autonomous-driving", "drone",
-            "slam", "embodied-ai", "robot-learning", "mujoco", "humanoid",
-            "embedded", "rtos", "arduino", "esp32", "raspberry-pi",
-            "fpga", "risc-v", "iot", "home-automation",
-        ],
-        "Creative & Gaming": [
-            "game-development", "game-engine", "unity", "godot",
-            "bevy", "opengl", "vulkan", "webgpu", "graphics", "rendering",
-            "shader", "glsl", "physics-engine", "threejs", "webgl",
-            "creative-coding", "generative-art", "p5js", "processing",
-            "music-generation", "midi", "audio-visualization",
-        ],
-    }
-    return mapping.get(category, [])
-
-
-def _repo_matches_category(repo: dict, topics: list[str]) -> bool:
-    """Return True if repo has any of the given topics."""
-    if not topics:
-        return True
-    repo_topics = set(repo.get("topics", []))
-    return bool(repo_topics & set(topics))
-
-
 # ─── Normaliser ───────────────────────────────────────────────────────────────
 
 def normalize_search_result(repo: dict, rank: int, period: str) -> dict:
@@ -873,296 +713,7 @@ def normalize_search_result(repo: dict, rank: int, period: str) -> dict:
     }
 
 
-# ─── Star-threshold broad discovery ─────────────────────────────────────────
-# These queries catch popular repos that may never appear on GitHub Trending
-# (older, stable libraries) but are widely used in the ecosystem.
 
-STAR_THRESHOLD_TOPICS: dict[str, list[tuple[str, int]]] = {
-    # (topic_query, min_stars).  Floors are intentionally modest so well-established
-    # but niche tools aren't excluded.
-    "ai_ml": [
-        ("topic:machine-learning",       300),
-        ("topic:deep-learning",          300),
-        ("topic:llm",                    200),
-        ("topic:generative-ai",          200),
-        ("topic:transformers",           300),
-        ("topic:diffusion-model",        200),
-        ("topic:computer-vision",        300),
-        ("topic:nlp",                    300),
-        ("topic:rag",                    100),
-        ("topic:embeddings",             200),
-        ("topic:ai-agent",               100),
-        ("topic:ai-agents",              100),
-        ("topic:browser-automation",     100),
-        ("topic:ui-automation",          100),
-        ("topic:web-agent",              100),
-        ("topic:gui-agent",              100),
-        ("topic:computer-use",           100),
-        ("topic:huggingface",            200),
-        ("topic:mcp",                    100),
-        ("topic:model-context-protocol", 100),
-        ("topic:coding-assistant",       100),
-        ("topic:ai-coding",              100),
-        ("topic:ollama",                 200),
-        ("topic:local-llm",              100),
-        ("topic:text-to-speech",         200),
-        ("topic:tts",                    200),
-        ("topic:speech-recognition",     200),
-        ("topic:text-to-image",          200),
-        ("topic:stable-diffusion",       200),
-        ("topic:vision-language-model",  100),
-        ("topic:synthetic-data",         100),
-        ("topic:chatbot",                200),
-        ("topic:function-calling",       100),
-        ("topic:prompt-engineering",     100),
-        ("topic:fine-tuning",            200),
-        ("topic:lora",                   200),
-        ("topic:rlhf",                   100),
-        ("topic:peft",                   100),
-        ("topic:llm-inference",          100),
-        ("topic:vllm",                   100),
-        ("topic:text-to-video",          100),
-        ("topic:video-generation",       100),
-        ("topic:multimodal",             200),
-        ("topic:vlm",                    100),
-        ("topic:reasoning",              100),
-        ("topic:ai-safety",              100),
-        ("topic:interpretability",       100),
-        ("topic:dspy",                   100),
-        ("topic:voice-agent",            100),
-        ("topic:voice-assistant",        100),
-        ("topic:real-time-voice",        100),
-    ],
-    "devtools": [
-        ("topic:developer-tools",   300),
-        ("topic:cli",               300),
-        ("topic:code-editor",       200),
-        ("topic:devtools",          200),
-        ("topic:linter",            200),
-        ("topic:formatter",         200),
-        ("topic:language-server",   100),
-        ("topic:vscode-extension",  100),
-        ("topic:debugging",         200),
-        ("topic:neovim",            100),
-        ("topic:shell",             200),
-        ("topic:headless-browser",  100),
-        ("topic:playwright",        200),
-        ("topic:puppeteer",         200),
-        ("topic:cdp",               100),
-        ("topic:bun",               200),
-        ("topic:deno",              200),
-        ("topic:wasm",              200),
-        ("topic:supabase",          200),
-        ("topic:tree-sitter",       100),
-        ("topic:ripgrep",           100),
-        ("topic:mise",               50),
-        ("topic:fnm",                50),
-        ("topic:electron",          200),
-        ("topic:tauri",             100),
-        ("topic:window-manager",     50),
-    ],
-    "web_mobile": [
-        ("topic:web-framework",   300),
-        ("topic:rest-api",        300),
-        ("topic:graphql",         200),
-        ("topic:grpc",            200),
-        ("topic:typescript",      300),
-        ("topic:microservices",   200),
-        ("topic:websocket",       200),
-        ("topic:astro",           200),
-        ("topic:htmx",            100),
-        ("topic:hono",            100),
-        ("topic:elysia",          100),
-        ("topic:remix",           200),
-        ("topic:sveltekit",       100),
-        ("topic:solid-js",        100),
-        ("topic:edge-runtime",    100),
-        ("topic:actix",           100),
-        ("topic:axum",            100),
-        ("topic:gin",             200),
-        ("topic:fiber",           100),
-        ("topic:flutter",         300),
-        ("topic:react-native",    300),
-        ("topic:ios",             200),
-        ("topic:android",         200),
-        ("topic:swiftui",         200),
-        ("topic:jetpack-compose", 100),
-        ("topic:expo",            200),
-    ],
-    "data_infra": [
-        ("topic:data-engineering",   200),
-        ("topic:etl",                200),
-        ("topic:data-pipeline",      200),
-        ("topic:kafka",              300),
-        ("topic:spark",              300),
-        ("topic:dbt",                200),
-        ("topic:data-warehouse",     200),
-        ("topic:flink",              300),
-        ("topic:trino",              200),
-        ("topic:apache-iceberg",     200),
-        ("topic:dagster",            200),
-        ("topic:polars",             200),
-        ("topic:duckdb",             200),
-        ("topic:data-quality",       100),
-        ("topic:data-lakehouse",     100),
-        ("topic:cdc",                100),
-        ("topic:parquet",            200),
-        ("topic:arrow",              200),
-        ("topic:airbyte",            100),
-        ("topic:postgresql",         300),
-        ("topic:redis",              300),
-        ("topic:mongodb",            200),
-        ("topic:elasticsearch",      300),
-        ("topic:clickhouse",         200),
-        ("topic:vector-database",    100),
-        ("topic:graph-database",     100),
-        ("topic:cockroachdb",        200),
-        ("topic:surrealdb",          100),
-        ("topic:pgvector",           100),
-        ("topic:qdrant",             100),
-        ("topic:weaviate",           100),
-        ("topic:milvus",             100),
-        ("topic:chroma",             100),
-        ("topic:kubernetes",         300),
-        ("topic:terraform",          200),
-        ("topic:aws",                200),
-        ("topic:cloud-native",       200),
-        ("topic:service-mesh",       100),
-        ("topic:istio",              200),
-        ("topic:ebpf",               100),
-        ("topic:opentelemetry",      100),
-        ("topic:prometheus",         300),
-        ("topic:grafana",            300),
-        ("topic:argocd",             200),
-        ("topic:sentry",             200),
-        ("topic:pyroscope",          100),
-    ],
-    "security": [
-        ("topic:security",                200),
-        ("topic:penetration-testing",     200),
-        ("topic:vulnerability-scanner",   100),
-        ("topic:cryptography",            200),
-        ("topic:fuzzing",                 100),
-        ("topic:osint",                   100),
-        ("topic:malware-analysis",        100),
-        ("topic:network-security",        200),
-        ("topic:sbom",                    100),
-        ("topic:sast",                    100),
-        ("topic:dast",                    100),
-        ("topic:container-security",      100),
-        ("topic:cloud-security",          100),
-        ("topic:api-security",            100),
-        ("topic:secrets-management",      100),
-        ("topic:sigstore",                100),
-        ("topic:slsa",                    100),
-        ("topic:passkey",                  50),
-        ("topic:webauthn",                100),
-    ],
-    "oss_tools": [
-        ("topic:build-tool",         200),
-        ("topic:bundler",            200),
-        ("topic:package-manager",    200),
-        ("topic:testing",            300),
-        ("topic:ci-cd",              200),
-        ("topic:infrastructure",     300),
-        ("topic:automation",         200),
-        ("topic:orm",                200),
-        ("topic:api-client",         100),
-        ("topic:monorepo",           100),
-        ("topic:kubernetes",         300),
-        ("topic:terraform",          200),
-        ("topic:opentelemetry",      100),
-        ("topic:wasm",               200),
-        ("topic:wasi",               100),
-        ("topic:serverless",         200),
-        ("topic:edge-computing",     100),
-        ("topic:docker",             300),
-        ("topic:github-actions",     200),
-        ("topic:nix",                100),
-        ("topic:bazel",              200),
-        ("topic:vitest",             100),
-        ("topic:playwright",         200),
-        ("topic:turborepo",          100),
-        ("topic:argocd",             100),
-        ("topic:temporal",           100),
-        ("topic:dapr",               100),
-    ],
-    "blockchain": [
-        ("topic:blockchain",           200),
-        ("topic:ethereum",             200),
-        ("topic:smart-contracts",      200),
-        ("topic:web3",                 200),
-        ("topic:defi",                 200),
-        ("topic:solidity",             100),
-        ("topic:layer2",               100),
-        ("topic:zero-knowledge",       100),
-        ("topic:dao",                  100),
-        ("topic:solana",               200),
-        ("topic:account-abstraction",  100),
-        ("topic:restaking",            100),
-        ("topic:rollup",               100),
-        ("topic:zk-rollup",            100),
-        ("topic:ton",                  100),
-        ("topic:sui",                  100),
-        ("topic:depin",                100),
-        ("topic:rwa",                   50),
-        ("topic:starknet",              50),
-        ("topic:zksync",                50),
-        ("topic:fintech",              100),
-        ("topic:payments",             100),
-        ("topic:trading",              100),
-        ("topic:algorithmic-trading",  100),
-    ],
-    "science": [
-        ("topic:robotics",             200),
-        ("topic:ros",                  200),
-        ("topic:ros2",                 200),
-        ("topic:autonomous-driving",   100),
-        ("topic:drone",                100),
-        ("topic:slam",                 100),
-        ("topic:embodied-ai",           50),
-        ("topic:robot-learning",        50),
-        ("topic:simulation",           100),
-        ("topic:mujoco",               100),
-        ("topic:humanoid",              50),
-        ("topic:iot",                  200),
-        ("topic:arduino",              200),
-        ("topic:raspberry-pi",         200),
-        ("topic:esp32",                100),
-        ("topic:home-automation",      100),
-        ("topic:homeassistant",        200),
-        ("topic:risc-v",               100),
-        ("topic:bioinformatics",       200),
-        ("topic:genomics",             100),
-        ("topic:drug-discovery",        50),
-        ("topic:alphafold",            100),
-        ("topic:jupyter",              300),
-        ("topic:scientific-computing", 100),
-        ("topic:scipy",                100),
-    ],
-    "creative": [
-        ("topic:game-engine",           200),
-        ("topic:godot",                 200),
-        ("topic:bevy",                  100),
-        ("topic:webgpu",                100),
-        ("topic:wgpu",                  100),
-        ("topic:vulkan",                200),
-        ("topic:opengl",                200),
-        ("topic:shader",                100),
-        ("topic:glsl",                  100),
-        ("topic:physics-engine",        100),
-        ("topic:multiplayer",           100),
-        ("topic:ecs",                   100),
-        ("topic:threejs",               300),
-        ("topic:webgl",                 200),
-        ("topic:creative-coding",       100),
-        ("topic:generative-art",        100),
-        ("topic:p5js",                  100),
-        ("topic:processing",            200),
-        ("topic:music-generation",      100),
-        ("topic:midi",                  100),
-    ],
-}
 
 
 async def search_by_star_threshold(
@@ -1177,12 +728,12 @@ async def search_by_star_threshold(
     Returns a list of raw repo dicts compatible with the shape expected by
     auto_discover_and_sync (has `full_name`, `name`, `html_url`, etc.).
     """
-    queries = STAR_THRESHOLD_TOPICS.get(vertical, STAR_THRESHOLD_TOPICS["ai_ml"])
+    topics = await _dynamic_topics(vertical, limit=15)
 
     async with aiohttp.ClientSession() as session:
         batches = await asyncio.gather(*[
-            _search_api(session, f"{topic} stars:>={min_stars}")
-            for topic, min_stars in queries
+            _search_api(session, f"{topic} stars:>=100")
+            for topic in topics
         ], return_exceptions=True)
 
     seen: dict[str, dict] = {}
@@ -1212,9 +763,8 @@ def _age_days(created_at: str) -> int:
 
 def _infer_category(repo: dict) -> str:
     """
-    Best-effort category inference from topics, language, name, and description.
-    Ordered from most-specific (well-known topic signal) to least-specific
-    (keyword fallback). Language is used as a tie-breaker / secondary signal.
+    Categories are now dynamically constructed upstream. This is a basic fallback for UI grouping
+    in the web dashboard if the repo doesn't strictly state a category.
     """
     topics = set(repo.get("topics", []))
     name   = (repo.get("name")        or "").lower()
@@ -1222,359 +772,14 @@ def _infer_category(repo: dict) -> str:
     lang   = (repo.get("language")    or "").lower()
     text   = name + " " + desc
 
-    # ── MCP Tools ─────────────────────────────────────────────────────────────
-    if topics & {"mcp", "model-context-protocol", "mcp-server", "mcp-client",
-                 "mcp-tool", "mcp-plugin"}:
-        return "MCP Tools"
-    if any(w in text for w in ["model context protocol", "mcp server", "mcp client",
-                                "mcp plugin", "mcp tool"]):
-        return "MCP Tools"
-
-    # ── Speech & Audio ────────────────────────────────────────────────────────
-    if topics & {"text-to-speech", "tts", "speech-recognition", "asr",
-                 "voice-cloning", "audio-processing", "speech-synthesis",
-                 "voice-ai", "whisper", "speaker-diarization", "real-time-voice",
-                 "voice-assistant", "voice-agent", "audio-generation"}:
-        return "Speech & Audio"
-    if any(w in text for w in ["text to speech", "speech to text", "voice cloning",
-                                "audio generation", "voice assistant", "voice agent",
-                                "real-time voice", "speaker diarization"]):
-        return "Speech & Audio"
-
-    # ── Vector Databases ──────────────────────────────────────────────────────
-    if topics & {"vector-database", "vector-search", "faiss", "weaviate", "pinecone",
-                 "chroma", "chromadb", "hnswlib", "milvus", "qdrant", "annoy",
-                 "lancedb", "pgvector", "usearch"}:
-        return "Vector Databases"
-    if any(w in text for w in ["vector database", "vector store", "vector search",
-                                "embedding store", "similarity search"]):
-        return "Vector Databases"
-
-    # ── RAG Frameworks ────────────────────────────────────────────────────────
-    if topics & {"rag", "retrieval-augmented-generation", "graphrag", "document-qa",
-                 "knowledge-retrieval", "hybrid-search", "reranking", "haystack"}:
-        return "RAG Frameworks"
-    if any(w in text for w in ["retrieval augmented", "rag pipeline", "rag framework",
-                                "document qa", "knowledge retrieval", "graphrag"]):
-        return "RAG Frameworks"
-
-    # ── Agent Frameworks ──────────────────────────────────────────────────────
-    if topics & {"ai-agent", "ai-agents", "autonomous-agents", "autogpt", "langchain",
-                 "llm-agent", "agent-framework", "multi-agent", "crewai", "llamaindex",
-                 "agentic", "browser-automation", "ui-automation", "web-agent",
-                 "gui-agent", "computer-use", "a2a", "agent-to-agent",
-                 "autogen", "metagpt", "desktop-automation", "screen-agent"}:
-        return "Agent Frameworks"
-    if any(w in text for w in ["agent framework", "autonomous agent", "multi-agent",
-                                "llm agent", "ai agent", "browser agent", "gui agent",
-                                "web agent", "browser automation", "ui automation",
-                                "computer use", "page agent", "screen agent",
-                                "desktop automation"]):
-        return "Agent Frameworks"
-
-    # ── Coding Assistants ─────────────────────────────────────────────────────
-    if topics & {"coding-assistant", "ai-coding", "copilot", "code-generation",
-                 "ai-pair-programmer", "code-completion", "cursor", "codeium",
-                 "tabby", "aider"}:
-        return "Coding Assistants"
-    if any(w in text for w in ["coding assistant", "ai coding", "code completion",
-                                "ai pair programmer", "code autocomplete"]):
-        return "Coding Assistants"
-
-    # ── Video Generation ──────────────────────────────────────────────────────
-    if topics & {"text-to-video", "video-generation", "video-diffusion",
-                 "video-synthesis", "animate-diff", "cogvideo"}:
-        return "Video Generation"
-    if any(w in text for w in ["text to video", "video generation", "video diffusion",
-                                "video synthesis"]):
-        return "Video Generation"
-
-    # ── Image Generation ──────────────────────────────────────────────────────
-    if topics & {"text-to-image", "stable-diffusion", "diffusion-model",
-                 "image-generation", "sdxl", "comfyui", "controlnet",
-                 "lora-training", "flux"}:
-        return "Image Generation"
-    if any(w in text for w in ["text to image", "image generation", "stable diffusion",
-                                "diffusion model", "comfyui workflow"]):
-        return "Image Generation"
-
-    # ── Multimodal Models ─────────────────────────────────────────────────────
-    if topics & {"multimodal", "vision-language-model", "vlm",
-                 "visual-question-answering", "image-captioning",
-                 "ocr", "document-understanding", "llava", "qwen-vl"}:
-        return "Multimodal Models"
-    if any(w in text for w in ["vision language model", "multimodal model", "vlm",
-                                "visual question answering", "document understanding"]):
-        return "Multimodal Models"
-
-    # ── Reasoning Models ──────────────────────────────────────────────────────
-    if topics & {"reasoning", "chain-of-thought", "tree-of-thought",
-                 "self-consistency", "o1", "mathematical-reasoning"}:
-        return "Reasoning Models"
-    if any(w in text for w in ["chain of thought", "tree of thought", "reasoning model",
-                                "mathematical reasoning", "step-by-step reasoning"]):
-        return "Reasoning Models"
-
-    # ── Inference Engines ─────────────────────────────────────────────────────
-    if topics & {"llm-inference", "vllm", "llama-cpp", "gguf", "tensorrt",
-                 "onnxruntime", "triton-inference", "tgi", "tensorrt-llm",
-                 "mlc-llm", "exllama", "llm-serving"}:
-        return "Inference Engines"
-    if any(w in text for w in ["llm inference", "llm serving", "model inference",
-                                "inference server", "inference engine", "gguf"]):
-        return "Inference Engines"
-
-    # ── Fine-tuning Toolkits ──────────────────────────────────────────────────
-    if topics & {"fine-tuning", "lora", "rlhf", "instruction-tuning", "peft",
-                 "sft", "dpo", "qlora", "adapter", "rlvr", "rlaif", "reward-model",
-                 "unsloth", "axolotl", "trl"}:
-        return "Fine-tuning Toolkits"
-    if any(w in text for w in ["fine-tun", "finetun", "lora ", "rlhf",
-                                "instruction tun", "parameter-efficient", "dpo training",
-                                "reward model", "rlvr"]):
-        return "Fine-tuning Toolkits"
-
-    # ── AI Safety & Alignment ─────────────────────────────────────────────────
-    if topics & {"ai-safety", "alignment", "red-teaming", "interpretability",
-                 "mechanistic-interpretability", "adversarial", "robustness",
-                 "watermarking", "constitutional-ai"}:
-        return "AI Safety & Alignment"
-    if any(w in text for w in ["ai safety", "ai alignment", "mechanistic interpretability",
-                                "adversarial robustness", "red teaming", "watermark"]):
-        return "AI Safety & Alignment"
-
-    # ── Prompt Engineering ────────────────────────────────────────────────────
-    if topics & {"prompt-engineering", "prompt-optimization", "dspy",
-                 "langfuse", "prompt-tuning"}:
-        return "Prompt Engineering"
-    if any(w in text for w in ["prompt engineering", "prompt optimization",
-                                "prompt template", "meta-prompt", "few-shot prompting"]):
-        return "Prompt Engineering"
-
-    # ── Evaluation Frameworks ─────────────────────────────────────────────────
-    if topics & {"llm-evaluation", "benchmarks", "evals", "evaluation",
-                 "llm-benchmark", "lm-eval", "helm", "mmlu", "humaneval",
-                 "bigbench", "ragas"}:
-        return "Evaluation Frameworks"
-    if any(w in text for w in ["llm evaluation", "model evaluation", "benchmark suite",
-                                "eval framework", "evals platform"]):
-        return "Evaluation Frameworks"
-
-    # ── Model Serving / Runtimes ──────────────────────────────────────────────
-    if topics & {"model-serving", "mlops", "kubeflow", "bentoml", "seldon",
-                 "kfserving", "mlflow", "model-registry", "torchserve",
-                 "ray-serve", "cog"}:
-        return "Model Serving / Runtimes"
-    if any(w in text for w in ["model serving", "model deployment", "ml pipeline",
-                                "mlops platform"]):
-        return "Model Serving / Runtimes"
-
-    # ── Distributed Compute / Infra ───────────────────────────────────────────
-    if topics & {"distributed-training", "horovod", "deepspeed", "megatron",
-                 "ray-train", "pytorch-lightning", "accelerate", "colossalai"}:
-        return "Distributed Compute / Infra"
-    if any(w in text for w in ["distributed training", "model parallelism",
-                                "tensor parallelism", "data parallel"]):
-        return "Distributed Compute / Infra"
-
-    # ── Synthetic Data ────────────────────────────────────────────────────────
-    if topics & {"synthetic-data", "data-generation", "data-labeling", "data-annotation",
-                 "rlvr"}:
-        return "Synthetic Data"
-    if any(w in text for w in ["synthetic data", "data generation", "data labeling",
-                                "data annotation", "rlvr"]):
-        return "Synthetic Data"
-
-    # ── LLM Models (catch-all for general LLM repos) ─────────────────────────
-    if topics & {"llm", "large-language-model", "language-model", "gpt", "llama",
-                 "generative-ai", "foundation-model", "causal-lm",
-                 "mistral", "gemini", "claude", "ollama", "local-llm",
-                 "deepseek", "qwen", "chatbot", "openai-api", "anthropic"}:
-        return "LLM Models"
-
-    # ── Creative & Gaming ─────────────────────────────────────────────────────
-    if topics & {"game-development", "game-engine", "unity", "godot", "unreal-engine",
-                 "pygame", "bevy", "opengl", "vulkan", "webgpu", "wgpu",
-                 "graphics", "rendering", "ray-tracing", "shader", "glsl",
-                 "physics-engine", "ecs", "threejs", "webgl",
-                 "creative-coding", "generative-art", "procedural-art",
-                 "p5js", "processing", "shader-art", "fractals", "live-coding",
-                 "music-generation", "midi", "audio-visualization"}:
-        return "Creative & Gaming"
-    if lang in ("hlsl", "glsl", "wgsl") or any(
-        w in text for w in ["game engine", "game development", "shader",
-                             "rendering engine", "creative coding", "generative art",
-                             "procedural art", "game jam"]):
-        return "Creative & Gaming"
-
-    # ── Blockchain / Web3 ─────────────────────────────────────────────────────
-    if topics & {"blockchain", "ethereum", "smart-contracts", "web3", "defi",
-                 "solidity", "nft", "layer2", "zero-knowledge", "dao",
-                 "bitcoin", "solana", "cosmos", "cross-chain", "evm", "substrate",
-                 "account-abstraction", "restaking", "rollup", "modular-blockchain",
-                 "ton", "sui", "move-language", "zk-rollup", "zk-snark", "depin",
-                 "rwa", "starknet", "zksync", "optimism", "arbitrum"}:
-        return "Blockchain"
-    if lang in ("solidity", "vyper", "move"):
-        return "Blockchain"
-    if any(w in text for w in ["blockchain", "ethereum", "smart contract", "solidity",
-                                "bitcoin", "defi protocol", "web3", "nft minting",
-                                "zero-knowledge proof", "layer 2", " l2 "]):
-        return "Blockchain"
-
-    # ── Fintech ───────────────────────────────────────────────────────────────
-    if topics & {"fintech", "payments", "banking", "open-banking",
-                 "trading", "algorithmic-trading", "quantitative-finance",
-                 "risk-management", "portfolio-management", "backtesting"}:
-        return "Fintech"
-    if any(w in text for w in ["trading strategy", "algorithmic trading", "quant finance",
-                                "portfolio management", "risk model", "backtesting",
-                                "payments api", "open banking"]):
-        return "Fintech"
-
-    # ── Security ──────────────────────────────────────────────────────────────
-    if topics & {"security", "cybersecurity", "vulnerability-scanner",
-                 "penetration-testing", "devsecops", "cryptography",
-                 "authentication", "zero-trust", "fuzzing", "reverse-engineering",
-                 "malware-analysis", "osint", "network-security",
-                 "supply-chain-security", "red-team", "exploit", "cve",
-                 "sbom", "sast", "dast", "api-security", "container-security",
-                 "cloud-security", "secrets-management", "sca",
-                 "vulnerability-management", "sigstore", "slsa",
-                 "passkey", "webauthn", "identity"}:
+    if topics & {"react", "vue", "nextjs", "ios", "android", "frontend", "mobile"}:
+        return "Web & Mobile"
+    if topics & {"database", "infra", "kubernetes", "docker", "cloud", "aws", "gcp"}:
+        return "Data & Infra"
+    if topics & {"security", "crypto", "auth", "osint"}:
         return "Security"
-    if any(w in text for w in ["security scanner", "vulnerability scan", "pentest",
-                                "exploit", " cve ", "malware", "osint tool",
-                                "intrusion detection", "threat intel", "sbom", "dast",
-                                "sast", "security audit", "reverse engineer", "fuzzer",
-                                "passkey", "webauthn", "sigstore"]):
-        return "Security"
-
-    # ── Observability / Monitoring (Data & Infra sub-domain) ──────────────────
-    if topics & {"observability", "monitoring", "logging", "tracing", "metrics",
-                 "opentelemetry", "prometheus", "grafana", "jaeger", "zipkin",
-                 "tempo", "loki", "sentry", "apm", "pyroscope", "signoz"}:
-        return "Data & Infrastructure"
-    if any(w in text for w in ["observability platform", "distributed tracing",
-                                "metrics collection", "log aggregation"]):
-        return "Data & Infrastructure"
-
-    # ── Data & Infrastructure (databases + cloud + data eng) ──────────────────
-    if topics & {"data-engineering", "etl", "data-pipeline", "workflow-orchestration",
-                 "apache-airflow", "streaming", "kafka", "spark", "data-lake",
-                 "dbt", "data-warehouse", "flink", "delta-lake", "trino",
-                 "apache-iceberg", "dagster", "polars", "duckdb", "data-lakehouse",
-                 "cdc", "debezium", "parquet", "arrow", "airbyte",
-                 "database", "sql", "nosql", "postgresql", "mysql", "mongodb",
-                 "redis", "elasticsearch", "clickhouse", "vector-database",
-                 "time-series-database", "graph-database", "neo4j",
-                 "cockroachdb", "surrealdb", "pgvector", "lancedb", "milvus",
-                 "aws", "gcp", "azure", "cloud-native", "kubernetes", "terraform",
-                 "serverless", "service-mesh", "istio", "ebpf", "argocd",
-                 "gitops", "platform-engineering", "backstage", "crossplane"}:
-        return "Data & Infrastructure"
-    if any(w in text for w in ["data pipeline", "etl pipeline", "data lakehouse",
-                                "stream processing", "workflow orchestration",
-                                "time series", "graph database", "kubernetes cluster",
-                                "cloud infrastructure", "infrastructure as code",
-                                "data warehouse", "data engineering"]):
-        return "Data & Infrastructure"
-
-    # ── Science & Research ────────────────────────────────────────────────────
-    if topics & {"bioinformatics", "genomics", "proteomics", "drug-discovery",
-                 "protein-structure", "alphafold", "single-cell", "medical-imaging",
-                 "ehr", "fhir", "neuroscience", "bci",
-                 "education", "e-learning", "jupyter", "scientific-computing",
-                 "robotics", "ros", "ros2", "autonomous-driving", "drone", "uav",
-                 "slam", "embodied-ai", "robot-learning", "simulation",
-                 "mujoco", "gazebo", "humanoid", "legged-robots",
-                 "embedded", "rtos", "arduino", "esp32", "esp-idf", "zephyr",
-                 "freertos", "micropython", "raspberry-pi", "fpga", "verilog",
-                 "risc-v", "stm32", "firmware", "ble", "iot", "matter",
-                 "zigbee", "home-automation", "homeassistant"}:
-        return "Science & Research"
-    if lang in ("verilog", "vhdl", "systemverilog"):
-        return "Science & Research"
-    if any(w in text for w in ["bioinformatics", "genomics", "drug discovery",
-                                "protein structure", "medical imaging", "healthcare",
-                                "robotics framework", "ros2", "autonomous robot",
-                                "embedded system", "microcontroller", "rtos",
-                                "home automation", "iot platform", "fpga design"]):
-        return "Science & Research"
-
-    # ── Web & Mobile ──────────────────────────────────────────────────────────
-    if topics & {"ios", "android", "react-native", "flutter", "swift", "kotlin",
-                 "swiftui", "jetpack-compose", "expo", "capacitor", "ionic", "mobile",
-                 "cross-platform", "maui"}:
-        return "Web & Mobile"
-    if lang in ("swift", "kotlin", "dart"):
-        return "Web & Mobile"
-    if topics & {"web-framework", "rest-api", "nodejs", "react", "vuejs", "fastapi",
-                 "graphql", "grpc", "typescript", "svelte", "nextjs", "django",
-                 "flask", "microservices", "websocket", "astro", "htmx", "hono",
-                 "elysia", "remix", "sveltekit", "solid-js", "edge-runtime",
-                 "spring-boot", "rails", "laravel", "phoenix",
-                 "actix", "axum", "gin", "echo", "fiber"}:
-        return "Web & Mobile"
-    if any(w in text for w in ["mobile app", "ios app", "android app", "flutter app",
-                                "react native", "cross-platform app",
-                                "web framework", "rest api", "api server",
-                                "http server", "web server"]):
-        return "Web & Mobile"
-
-    # ── DevTools ──────────────────────────────────────────────────────────────
-    if topics & {"developer-tools", "cli", "terminal", "code-editor", "productivity",
-                 "devtools", "linter", "formatter", "language-server", "vscode-extension",
-                 "debugging", "profiler", "neovim", "vim", "shell", "git",
-                 "intellij-plugin", "tmux", "dotfiles", "zsh", "bash", "fish",
-                 "headless-browser", "playwright", "puppeteer", "cdp", "selenium",
-                 "bun", "deno", "wasm", "webassembly", "supabase", "appwrite",
-                 "tree-sitter", "ripgrep", "mise", "fnm", "nvm", "asdf",
-                 "electron", "tauri", "wails", "gtk", "qt", "window-manager",
-                 "compositor", "wayland"}:
-        return "DevTools"
-    if any(w in text for w in ["developer tool", "cli tool", "command line",
-                                "code editor", "language server", "vscode extension",
-                                "neovim plugin", "terminal emulator", "shell script",
-                                "git tool", "debugging tool", "profiler",
-                                "headless browser", "browser automation",
-                                "desktop app", "window manager"]):
-        return "DevTools"
-
-    # ── Creative & Gaming (secondary fallback) ────────────────────────────────
-    if any(w in text for w in ["game development", "game engine", "rendering",
-                                "pixel art", "generative art", "creative coding",
-                                "procedural generation"]):
+    if "game" in text or topics & {"godot", "unity", "graphics"}:
         return "Creative & Gaming"
-
-    # ── OSS Tools (build / ci / infra tooling) ────────────────────────────────
-    if topics & {"build-tool", "bundler", "package-manager", "testing", "ci-cd",
-                 "automation", "monorepo", "containerization", "helm", "pulumi",
-                 "ansible", "nix", "nixos", "bazel", "vitest", "pnpm",
-                 "turborepo", "docker", "podman", "github-actions",
-                 "openapi", "swagger", "protobuf", "zod"}:
-        return "OSS Tools"
-    if any(w in text for w in ["build system", "package manager", "ci pipeline",
-                                "test runner", "containerization", "infrastructure tool",
-                                "automation tool", "bundler", "monorepo tool"]):
-        return "OSS Tools"
-
-    # ── Broader AI / ML (catch-all) ───────────────────────────────────────────
-    if topics & {"machine-learning", "deep-learning", "pytorch", "tensorflow",
-                 "jax", "scikit-learn", "neural-network", "computer-vision",
-                 "nlp", "huggingface", "ai", "ml",
-                 "function-calling", "structured-output",
-                 "artificial-intelligence"}:
-        return "AI / ML"
-    if lang in ("python", "jupyter notebook") and any(
-        w in text for w in ["neural", "model training", "gradient",
-                             "transformer", "attention", "dataset", "train loop",
-                             "language model"]):
-        return "AI / ML"
-    if any(w in text for w in ["machine learning", "deep learning", "neural network",
-                                "computer vision", "natural language processing",
-                                "model training", "dataset", "synthetic data",
-                                "foundation model", "large language"]):
-        return "AI / ML"
-
+    
     return "AI / ML"
+

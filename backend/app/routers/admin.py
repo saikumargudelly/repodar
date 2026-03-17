@@ -4,11 +4,23 @@ These are not protected in v1 (no auth). Add API key middleware before exposing 
 """
 
 import asyncio
+import os
 import aiohttp
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Security
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/admin", tags=["Admin"])
+admin_api_key_header = APIKeyHeader(name="X-Admin-Key", auto_error=False)
+
+def require_admin_key(api_key: str = Security(admin_api_key_header)):
+    admin_secret = os.getenv("ADMIN_SECRET_KEY")
+    if not admin_secret:
+        # If no secret configured, reject to be safe
+        raise HTTPException(status_code=403, detail="Admin secret not configured on server")
+    if not api_key or api_key != admin_secret:
+        raise HTTPException(status_code=403, detail="Invalid admin API key")
+
+router = APIRouter(prefix="/admin", tags=["Admin"], dependencies=[Depends(require_admin_key)])
 
 
 class PipelineStatus(BaseModel):
@@ -100,33 +112,33 @@ async def trigger_ingestion(background_tasks: BackgroundTasks):
     Manually trigger a full ingestion run for all repos.
     Runs async in the background — returns immediately.
     """
-    from app.celery_worker import task_daily_ingestion
-    task = task_daily_ingestion.delay()
+    from app.services.ingestion import run_daily_ingestion
+    background_tasks.add_task(run_daily_ingestion)
     return PipelineStatus(
         status="queued",
-        detail=f"Ingestion task queued. Celery task ID: {task.id}",
+        detail="Ingestion task queued.",
     )
 
 
 @router.post("/score", response_model=PipelineStatus)
-def trigger_scoring():
+def trigger_scoring(background_tasks: BackgroundTasks):
     """Manually trigger daily scoring."""
-    from app.celery_worker import task_daily_scoring
-    task = task_daily_scoring.delay()
+    from app.services.scoring import run_daily_scoring
+    background_tasks.add_task(run_daily_scoring)
     return PipelineStatus(
         status="queued",
-        detail=f"Scoring task queued. Celery task ID: {task.id}",
+        detail="Scoring task queued.",
     )
 
 
 @router.post("/explain", response_model=PipelineStatus)
-def trigger_explanations():
+def trigger_explanations(background_tasks: BackgroundTasks):
     """Manually trigger LLM explanation generation for top repos."""
-    from app.celery_worker import task_daily_explanations
-    task = task_daily_explanations.delay()
+    from app.services.explanation import enrich_top_repos_with_explanations
+    background_tasks.add_task(enrich_top_repos_with_explanations, top_n=20)
     return PipelineStatus(
         status="queued",
-        detail=f"Explanation task queued. Celery task ID: {task.id}",
+        detail="Explanation task queued.",
     )
 
 
