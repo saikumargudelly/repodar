@@ -2,7 +2,8 @@
 
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AreaChart, Area, LineChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, ComposedChart, Bar, ReferenceLine,
@@ -473,6 +474,29 @@ export default function RepoDeepDive() {
     enabled: !!repoId,
   });
 
+  // ── Delta-run: auto-trigger when repo is untracked (not yet in DB) ──────────
+  const queryClient = useQueryClient();
+  const [deltaRunState, setDeltaRunState] = useState<"idle"|"running"|"done"|"error">("idle");
+
+  useEffect(() => {
+    if (!repo || repo.category !== "untracked" || deltaRunState !== "idle") return;
+    const parts = repoId.split("/");
+    if (parts.length < 2) return;
+    const [runOwner, ...rest] = parts;
+    const runName = rest.join("/");
+    setDeltaRunState("running");
+    api.deltaRun(runOwner, runName)
+      .then(() => {
+        setDeltaRunState("done");
+        // Invalidate all cached queries for this repo so everything re-fetches
+        queryClient.invalidateQueries({ queryKey: ["repo", repoId] });
+        queryClient.invalidateQueries({ queryKey: ["daily-metrics", repoId, 60] });
+        queryClient.invalidateQueries({ queryKey: ["computed-scores", repoId, 60] });
+        queryClient.invalidateQueries({ queryKey: ["deep-summary", repoId] });
+      })
+      .catch(() => setDeltaRunState("error"));
+  }, [repo, repoId, deltaRunState, queryClient]);
+
   if (repoLoading) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
@@ -738,10 +762,19 @@ export default function RepoDeepDive() {
         </>
       ) : (
         <div className="panel" style={{ padding: "40px", textAlign: "center" }}>
-          <p style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px",
-            letterSpacing: "0.06em" }}>
-            // NO METRIC HISTORY YET — run <span style={{ color: "var(--cyan)" }}>POST /admin/run-all</span>
-          </p>
+          {deltaRunState === "running" ? (
+            <p style={{ fontFamily: "var(--font-mono)", color: "var(--cyan)", fontSize: "11px", letterSpacing: "0.06em" }}>
+              ⚡ Fetching live metrics from GitHub<span className="terminal-cursor" />
+            </p>
+          ) : deltaRunState === "error" ? (
+            <p style={{ fontFamily: "var(--font-mono)", color: "var(--pink)", fontSize: "11px", letterSpacing: "0.06em" }}>
+              ✕ Could not fetch live metrics — try refreshing
+            </p>
+          ) : (
+            <p style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px", letterSpacing: "0.06em" }}>
+              // NO METRIC HISTORY YET — run <span style={{ color: "var(--cyan)" }}>POST /admin/run-all</span>
+            </p>
+          )}
         </div>
       )}
 

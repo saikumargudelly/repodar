@@ -764,6 +764,8 @@ export const api = {
     return apiFetch<PaginatedResponse<RepoSummary>>(`/repos?${qs}`);
   },
   getRepo: (id: string) => apiFetch<RepoDetail>(`/repos/${id}`),
+  deltaRun: (owner: string, name: string) =>
+    apiFetch<RepoDetail>(`/repos/${owner}/${name}/delta-run`, { method: "POST" }),
   getDeepSummary: (owner: string, name: string) =>
     apiFetch<DeepSummary>(`/repos/${owner}/${name}/deep-summary`),
 
