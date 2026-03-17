@@ -44,6 +44,7 @@ from app.services.research_agent import (
     process_message,
     stream_process_message,
     generate_report,
+    generate_social_post,
 )
 
 logger = logging.getLogger(__name__)
@@ -577,4 +578,45 @@ def get_shared_session(token: str, db: Session = Depends(get_db)):
             "repos_count": s.report.repos_count,
         } if s.report else None,
         "message_count": len(s.messages),
+    }
+
+
+# ─── Social Post / Blog ───────────────────────────────────────────────────────
+
+class GenerateBlogRequest(BaseModel):
+    user_id: str
+    platform: str = "reddit"   # reddit | twitter | linkedin
+    niche: str = ""            # optional context e.g. "AI agents"
+    repo: dict = Field(default_factory=dict)  # full repo data dict from research results
+
+
+@router.post("/sessions/{session_id}/blog")
+async def generate_blog_post(
+    session_id: str,
+    body: GenerateBlogRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Generate a platform-specific social post / blog draft for a pinned or searched repo.
+    Returns the generated markdown post copy.
+    """
+    _session_or_404(session_id, body.user_id, db)  # auth check only
+
+    valid_platforms = {"reddit", "twitter", "linkedin"}
+    if body.platform not in valid_platforms:
+        raise HTTPException(status_code=422, detail=f"platform must be one of {valid_platforms}")
+
+    if not body.repo:
+        raise HTTPException(status_code=422, detail="repo data is required")
+
+    post_content = await generate_social_post(
+        repo=body.repo,
+        platform=body.platform,
+        niche=body.niche,
+    )
+
+    return {
+        "platform": body.platform,
+        "content": post_content,
+        "repo_name": body.repo.get("full_name", "unknown"),
     }

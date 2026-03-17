@@ -1048,6 +1048,21 @@ export const api = {
 
     getShared: (token: string) =>
       apiFetch<ResearchSharedView>(`/research/share/${token}`),
+
+    generateBlog: (
+      sessionId: string,
+      userId: string,
+      platform: "reddit" | "twitter" | "linkedin",
+      repo: Record<string, unknown>,
+      niche?: string,
+    ) =>
+      apiFetch<{ platform: string; content: string; repo_name: string }>(
+        `/research/sessions/${sessionId}/blog`,
+        {
+          method: "POST",
+          body: JSON.stringify({ user_id: userId, platform, repo, niche: niche ?? "" }),
+        }
+      ),
   },
 };
 

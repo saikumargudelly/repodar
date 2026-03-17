@@ -1050,3 +1050,113 @@ async def stream_process_message(
     except Exception as exc:
         logger.error(f"stream_process_message error: {exc}", exc_info=True)
         yield _sse("error", f"An error occurred: {str(exc)[:120]}")
+
+
+# ─── Social Post / Blog Generator ────────────────────────────────────────────
+
+_SOCIAL_PROMPTS: dict[str, str] = {
+    "reddit": """\
+You are an expert OSS community writer. Write a Reddit post about this GitHub repository.
+
+RULES:
+- Pick the most relevant subreddit (e.g. r/programming, r/MachineLearning, r/artificial, r/opensource).
+- Format: Title + body (markdown). Body should be engaging, informative, NOT spammy.
+- Include: what it is, why it's interesting, 2-3 real metrics from the data, honest community value.
+- Max 450 words. End with a genuine question to spark discussion.
+- NEVER invent metrics not in REPO DATA.
+
+REPO DATA:
+{repo_json}
+
+Output format (strict):
+**Subreddit:** r/...
+**Title:** ...
+---
+[body markdown]
+""",
+    "twitter": """\
+You are a senior engineer writing a Twitter/X thread about a GitHub repository.
+
+RULES:
+- Tweet 1: hook with the single most impressive real metric from data (stars, growth, etc.)
+- Tweets 2-4: what it does, why it matters, who should care
+- Tweet 5: link + call-to-action
+- Each tweet ≤ 280 chars. Keep threads 4-5 tweets.
+- Use 1-2 emojis per tweet max. No marketing buzzwords.
+- NEVER invent metrics not in REPO DATA.
+
+REPO DATA:
+{repo_json}
+
+Output format:
+🧵 1/ [tweet]
+
+2/ [tweet]
+
+... etc
+""",
+    "linkedin": """\
+You are a senior software engineer writing a LinkedIn post about a GitHub project.
+
+RULES:
+- Professional, genuinely insightful. No buzzwords ("game-changer", "thrilled to share", "exciting journey").
+- Structure: brief hook → what it is → why engineers/teams should care → 2-3 real data points → your honest take → link
+- Max 300 words. Use line breaks (LinkedIn rewards readability).
+- NEVER invent metrics not in REPO DATA.
+
+REPO DATA:
+{repo_json}
+
+Output the post text directly (no metadata headers).
+""",
+}
+
+
+async def generate_social_post(
+    repo: dict,
+    platform: str,     # "reddit" | "twitter" | "linkedin"
+    niche: str = "",   # optional extra context e.g. "AI agents framework"
+) -> str:
+    """
+    Generate a platform-specific social/blog post for a repository.
+    Only uses real repo data — no hallucination.
+    """
+    if platform not in _SOCIAL_PROMPTS:
+        return f"Unsupported platform '{platform}'. Choose: reddit, twitter, linkedin."
+
+    if not GROQ_API_KEY:
+        starsK = f"{repo.get('stars', 0) / 1000:.1f}k" if repo.get("stars", 0) >= 1000 else str(repo.get("stars", 0))
+        return (
+            f"**{repo.get('full_name', 'Unknown')}** — {starsK} ⭐\n\n"
+            f"{repo.get('description', 'No description available.')}\n\n"
+            f"🔗 {repo.get('github_url', '')}"
+        )
+
+    safe_repo = {k: v for k, v in repo.items()
+                 if k in {"full_name", "owner", "name", "stars", "forks", "open_issues",
+                           "primary_language", "description", "topics", "license",
+                           "age_days", "pushed_at", "trend_label", "momentum", "github_url"}}
+    if niche:
+        safe_repo["niche_context"] = niche
+
+    prompt = _SOCIAL_PROMPTS[platform].format(repo_json=json.dumps(safe_repo, indent=2))
+
+    try:
+        async with aiohttp.ClientSession() as sess:
+            async with sess.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+                json={
+                    "model": GROQ_MODEL,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.55,
+                    "max_tokens": 700,
+                },
+                timeout=aiohttp.ClientTimeout(total=20),
+            ) as resp:
+                data = await resp.json()
+                return data["choices"][0]["message"]["content"].strip()
+    except Exception as exc:
+        logger.warning(f"Social post generation failed ({platform}): {exc}")
+        return f"Failed to generate {platform} post. Please try again."
+

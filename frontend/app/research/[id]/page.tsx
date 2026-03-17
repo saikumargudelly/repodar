@@ -36,13 +36,46 @@ function RepoCard({
   onPin,
   isPinned,
   onAddToReport,
+  sessionId,
+  userId,
 }: {
   repo: ResearchRepo;
   onPin: (r: ResearchRepo) => void;
   isPinned: boolean;
   onAddToReport?: (r: ResearchRepo) => void;
+  sessionId?: string;
+  userId?: string;
 }) {
+  const router = useRouter();
   const starsK = repo.stars >= 1000 ? `${(repo.stars / 1000).toFixed(1)}k` : String(repo.stars);
+  const [blogOpen, setBlogOpen] = useState(false);
+  const [blogPlatform, setBlogPlatform] = useState<"reddit"|"twitter"|"linkedin">("reddit");
+  const [blogContent, setBlogContent] = useState("");
+  const [generatingBlog, setGeneratingBlog] = useState(false);
+  const [blogCopied, setBlogCopied] = useState(false);
+
+  const handleGenerateBlog = async () => {
+    if (!sessionId || !userId) return;
+    setGeneratingBlog(true);
+    setBlogContent("");
+    try {
+      const result = await api.research.generateBlog(sessionId, userId, blogPlatform, repo as unknown as Record<string, unknown>);
+      setBlogContent(result.content);
+    } catch (e) { console.error(e); }
+    finally { setGeneratingBlog(false); }
+  };
+
+  const handleCopyBlog = () => {
+    navigator.clipboard.writeText(blogContent);
+    setBlogCopied(true);
+    setTimeout(() => setBlogCopied(false), 2000);
+  };
+
+  const PLATFORMS: { key: "reddit"|"twitter"|"linkedin"; icon: string; label: string }[] = [
+    { key: "reddit", icon: "🟠", label: "Reddit" },
+    { key: "twitter", icon: "𝕏", label: "Twitter/X" },
+    { key: "linkedin", icon: "💼", label: "LinkedIn" },
+  ];
 
   return (
     <div style={{
@@ -92,7 +125,7 @@ function RepoCard({
         ))}
       </div>
 
-      <div style={{ display: "flex", gap: "6px", marginTop: "2px" }}>
+      <div style={{ display: "flex", gap: "6px", marginTop: "2px", flexWrap: "wrap" }}>
         <button
           onClick={() => onPin(repo)}
           style={{
@@ -106,6 +139,36 @@ function RepoCard({
         >
           {isPinned ? "📌 Pinned" : "📌 Pin"}
         </button>
+
+        {/* Internal detail navigation */}
+        <button
+          onClick={() => router.push(`/repo/${repo.full_name}`)}
+          style={{
+            fontFamily: "var(--font-sans)", fontSize: "11px", fontWeight: 600,
+            padding: "4px 10px", borderRadius: "6px", border: "1px solid var(--border)",
+            cursor: "pointer", background: "var(--bg-surface)", color: "var(--text-muted)",
+            transition: "all 0.13s",
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--accent-blue)"; (e.currentTarget as HTMLElement).style.borderColor = "var(--accent-blue)"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--text-muted)"; (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"; }}
+        >
+          📊 Details
+        </button>
+
+        {/* Blog/Social post generator */}
+        <button
+          onClick={() => setBlogOpen(!blogOpen)}
+          style={{
+            fontFamily: "var(--font-sans)", fontSize: "11px", fontWeight: 600,
+            padding: "4px 10px", borderRadius: "6px", border: `1px solid ${blogOpen ? "var(--accent-blue)" : "var(--border)"}`,
+            cursor: "pointer", background: blogOpen ? "rgba(88,166,255,0.1)" : "var(--bg-surface)",
+            color: blogOpen ? "var(--accent-blue)" : "var(--text-muted)",
+            transition: "all 0.13s",
+          }}
+        >
+          ✍️ Blog
+        </button>
+
         {onAddToReport && (
           <button
             onClick={() => onAddToReport(repo)}
@@ -122,6 +185,72 @@ function RepoCard({
           </button>
         )}
       </div>
+
+      {/* Blog generator inline panel */}
+      {blogOpen && (
+        <div style={{
+          marginTop: "8px", padding: "12px", borderRadius: "8px",
+          background: "var(--bg-surface)", border: "1px solid var(--border)",
+          display: "flex", flexDirection: "column", gap: "8px",
+        }}>
+          <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)" }}>✍️ Generate social post for {repo.name}</div>
+          {/* Platform selector tabs */}
+          <div style={{ display: "flex", gap: "4px" }}>
+            {PLATFORMS.map(p => (
+              <button key={p.key} onClick={() => setBlogPlatform(p.key)} style={{
+                fontFamily: "var(--font-sans)", fontSize: "10px", fontWeight: 600,
+                padding: "3px 8px", borderRadius: "5px",
+                border: `1px solid ${blogPlatform === p.key ? "var(--accent-blue)" : "var(--border)"}`,
+                background: blogPlatform === p.key ? "rgba(88,166,255,0.15)" : "transparent",
+                color: blogPlatform === p.key ? "var(--accent-blue)" : "var(--text-muted)",
+                cursor: "pointer",
+              }}>{p.icon} {p.label}</button>
+            ))}
+          </div>
+          <button
+            onClick={handleGenerateBlog}
+            disabled={generatingBlog}
+            style={{
+              fontFamily: "var(--font-sans)", fontSize: "11px", fontWeight: 600,
+              padding: "5px 12px", borderRadius: "6px", border: "1px solid var(--accent-blue)",
+              cursor: generatingBlog ? "wait" : "pointer",
+              background: generatingBlog ? "rgba(88,166,255,0.1)" : "var(--accent-blue)",
+              color: generatingBlog ? "var(--accent-blue)" : "#fff",
+              opacity: generatingBlog ? 0.7 : 1, alignSelf: "flex-start",
+            }}
+          >
+            {generatingBlog ? "⏳ Generating…" : "⚡ Generate"}
+          </button>
+          {blogContent && (
+            <div style={{ position: "relative" }}>
+              <textarea
+                readOnly value={blogContent}
+                rows={8}
+                style={{
+                  width: "100%", resize: "vertical", fontFamily: "var(--font-sans)", fontSize: "11px",
+                  color: "var(--text-primary)", background: "var(--bg-elevated)",
+                  border: "1px solid var(--border)", borderRadius: "6px", padding: "8px 10px",
+                  lineHeight: 1.5,
+                }}
+              />
+              <button
+                onClick={handleCopyBlog}
+                style={{
+                  position: "absolute", top: "6px", right: "8px",
+                  fontFamily: "var(--font-sans)", fontSize: "10px", fontWeight: 600,
+                  padding: "3px 8px", borderRadius: "4px",
+                  border: "1px solid var(--border)",
+                  background: blogCopied ? "rgba(63,185,80,0.15)" : "var(--bg-surface)",
+                  color: blogCopied ? "var(--accent-green)" : "var(--text-muted)",
+                  cursor: "pointer",
+                }}
+              >
+                {blogCopied ? "✓ Copied!" : "Copy"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -131,12 +260,17 @@ function ChatBubble({
   msg,
   onPin,
   pinnedNames,
+  sessionId,
+  userId,
 }: {
   msg: ResearchMessage;
   onPin: (r: ResearchRepo) => void;
   pinnedNames: Set<string>;
+  sessionId: string;
+  userId: string | null | undefined;
 }) {
   const isUser = msg.role === "user";
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "6px", alignItems: isUser ? "flex-end" : "flex-start" }}>
       {/* Query explanation (agent only) */}
@@ -172,7 +306,7 @@ function ChatBubble({
       {!isUser && msg.repos && msg.repos.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%", paddingLeft: "4px" }}>
           {msg.repos.slice(0, 8).map((r) => (
-            <RepoCard key={r.full_name} repo={r} onPin={onPin} isPinned={pinnedNames.has(r.full_name)} />
+            <RepoCard key={r.full_name} repo={r} onPin={onPin} isPinned={pinnedNames.has(r.full_name)} sessionId={sessionId} userId={userId ?? undefined} />
           ))}
           {msg.repos.length > 8 && (
             <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)", padding: "4px 8px" }}>
@@ -707,7 +841,7 @@ export default function ResearchSessionPage() {
             )}
 
             {messages.map((msg) => (
-              <ChatBubble key={msg.id} msg={msg} onPin={handlePin} pinnedNames={pinnedNames} />
+              <ChatBubble key={msg.id} msg={msg} onPin={handlePin} pinnedNames={pinnedNames} sessionId={sessionId} userId={userId} />
             ))}
 
             {/* Streaming bubble */}
