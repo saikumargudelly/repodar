@@ -98,7 +98,7 @@ def upgrade() -> None:
                existing_type=sa.INTEGER(),
                nullable=False)
     op.create_index(op.f('ix_repositories_is_active'), 'repositories', ['is_active'], unique=False)
-    op.create_index('ix_repositories_owner_name', 'repositories', ['owner', 'name'], unique=True)
+    op.create_index('ix_repositories_owner_name', 'repositories', ['owner', 'name'], unique=False)
     op.create_index('ix_repositories_source_active', 'repositories', ['source', 'is_active'], unique=False)
     # ### end Alembic commands ###
 

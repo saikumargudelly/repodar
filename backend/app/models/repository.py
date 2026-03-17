@@ -16,7 +16,7 @@ class Repository(Base):
     __tablename__ = "repositories"
 
     __table_args__ = (
-        Index('ix_repositories_owner_name', 'owner', 'name', unique=True),
+        Index('ix_repositories_owner_name', 'owner', 'name', unique=False),
         Index('ix_repositories_source_active', 'source', 'is_active'),
     )
 
