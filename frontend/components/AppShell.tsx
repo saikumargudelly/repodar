@@ -20,8 +20,23 @@ const PUBLIC_PREFIXES = [
   "/settings",
 ];
 
+const NO_SHELL_PREFIXES = [
+  "/landing",
+  "/sign-in",
+  "/sign-up",
+  "/sso-callback",
+  "/post-auth",
+  "/onboarding",
+];
+
 function isPublicPath(pathname: string): boolean {
+  if (pathname === "/") return true;
   return PUBLIC_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+function isNoShellPath(pathname: string): boolean {
+  if (pathname === "/") return true;
+  return NO_SHELL_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -29,6 +44,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isLoaded, userId } = useAuth();
   const publicPath = isPublicPath(pathname);
+  const noShellPath = isNoShellPath(pathname);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -53,7 +69,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return null;
   }
 
-  if (publicPath) {
+  // Skip rendering sidebar shell if it's an auth/marketing route
+  if (noShellPath) {
     return <>{children}</>;
   }
 
