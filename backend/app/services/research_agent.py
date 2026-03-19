@@ -173,6 +173,13 @@ USER MESSAGE: {message}
 
 _QUERY_EXPLANATION_FALLBACK = "GitHub repositories matching your query"
 
+_TOPIC_STOPWORDS = {
+    "a", "an", "and", "best", "discover", "explore", "find", "for", "github",
+    "in", "latest", "me", "of", "on", "open", "opensource", "oss", "project",
+    "projects", "repo", "repos", "repositories", "repository", "search", "show",
+    "some", "the", "these", "this", "top", "trending", "with",
+}
+
 
 async def parse_intent(message: str, context_turns: list[dict]) -> ParsedIntent:
     """Call Groq to parse user intent. Returns ParsedIntent."""
@@ -260,10 +267,97 @@ def _keyword_fallback_intent(message: str) -> ParsedIntent:
 
     return ParsedIntent(
         intent=intent,
-        confidence=0.55,
+        # Keep fallback above clarify threshold so valid queries still execute.
+        confidence=0.72,
         entities={},
         github_queries=[gh_q] if gh_q else [],
         query_explanation=f"GitHub repositories related to: {gh_q}",
+    )
+
+
+def _best_effort_intent(message: str, parsed: ParsedIntent) -> ParsedIntent:
+    """
+    Convert over-eager clarify outcomes into actionable search intents when
+    enough signal exists in either parser output or a short topical prompt.
+    """
+    must_clarify = parsed.needs_clarification or parsed.confidence < 0.60
+    if not must_clarify:
+        return parsed
+
+    # If the parser already produced runnable queries for a search-like intent,
+    # execute them instead of forcing a clarification loop.
+    safe_queries = [q.strip() for q in parsed.github_queries if isinstance(q, str) and q.strip()]
+    if safe_queries and parsed.intent in {"search", "compare", "landscape", "temporal", "report"}:
+        return ParsedIntent(
+            intent=parsed.intent,
+            confidence=max(parsed.confidence, 0.62),
+            entities=parsed.entities or {},
+            github_queries=safe_queries,
+            query_explanation=parsed.query_explanation or _QUERY_EXPLANATION_FALLBACK,
+            needs_clarification=False,
+            clarification_prompt="",
+            rejection_reason=parsed.rejection_reason,
+        )
+
+    # Domain-focused rescue for concise topical prompts frequently used in chat.
+    msg = message.lower().strip()
+    ai_ml = (
+        ("ai" in msg or "artificial intelligence" in msg)
+        and ("ml" in msg or "machine learning" in msg)
+    )
+    if ai_ml:
+        return ParsedIntent(
+            intent="search",
+            confidence=max(parsed.confidence, 0.66),
+            entities={"topics": ["machine-learning", "llm", "artificial-intelligence"]},
+            github_queries=[
+                "topic:machine-learning OR topic:llm OR topic:artificial-intelligence",
+                "\"machine learning\" OR \"artificial intelligence\" open source",
+            ],
+            query_explanation="GitHub repositories related to AI and machine learning",
+            needs_clarification=False,
+            clarification_prompt="",
+            rejection_reason="",
+        )
+
+    if "home automation" in msg or "homeassistant" in msg or "smart home" in msg:
+        return ParsedIntent(
+            intent="search",
+            confidence=max(parsed.confidence, 0.66),
+            entities={"topics": ["home-automation", "homeassistant", "iot"]},
+            github_queries=[
+                "topic:home-automation OR topic:homeassistant OR topic:iot",
+                "\"home automation\" open source",
+            ],
+            query_explanation="GitHub repositories for home automation and smart-home tooling",
+            needs_clarification=False,
+            clarification_prompt="",
+            rejection_reason="",
+        )
+
+    # Generic rescue for short prompts like "rust web repos" or "vector db repos".
+    clean = re.sub(r"[^a-z0-9\s/+_-]", " ", msg)
+    tokens = [
+        t for t in clean.split()
+        if t and t not in _TOPIC_STOPWORDS and (len(t) > 2 or t in {"ai", "ml", "db", "ui", "ux", "go"})
+    ]
+    if not tokens:
+        return parsed
+
+    phrase = " ".join(tokens[:5])
+    generic_queries = [phrase]
+    if len(tokens) >= 2:
+        generic_queries.append(f'"{phrase}"')
+
+    return ParsedIntent(
+        intent="search",
+        confidence=max(parsed.confidence, 0.63),
+        entities=parsed.entities or {},
+        github_queries=generic_queries,
+        query_explanation=f"GitHub repositories related to: {phrase}",
+        needs_clarification=False,
+        clarification_prompt="",
+        rejection_reason="",
     )
 
 
@@ -888,6 +982,7 @@ async def process_message(
 
     # ── Stage 2: LLM parse ───────────────────────────────────────────────────
     parsed = await parse_intent(message, context_turns)
+    parsed = _best_effort_intent(message, parsed)
 
     # Guardrail 1 cont: low confidence → clarify
     if parsed.needs_clarification or parsed.confidence < 0.60:
@@ -939,7 +1034,7 @@ async def process_message(
         role="agent",
         content=narrative,
         intent=parsed.intent,
-        github_queries=parsed.github_queries,
+        github_query=parsed.github_queries[0] if parsed.github_queries else "",
         query_explanation=parsed.query_explanation,
         repos=repos,
         confidence=parsed.confidence,
@@ -980,6 +1075,7 @@ async def stream_process_message(
 
         # Stage 2
         parsed = await parse_intent(message, context_turns)
+        parsed = _best_effort_intent(message, parsed)
 
         if parsed.needs_clarification or parsed.confidence < 0.60:
             msg = parsed.clarification_prompt or "Could you rephrase or add more detail?"
