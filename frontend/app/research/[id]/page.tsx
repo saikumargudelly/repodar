@@ -1,19 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import ReactMarkdown from "react-markdown";
 import { api, ResearchMessage, ResearchPin, ResearchRepo } from "@/lib/api";
 
-// ─── Tiny markdown renderer stub if react-markdown isn't installed ─────────────
-// If ReactMarkdown isn't available, we'll inline render
 function MD({ children }: { children: string }) {
-  try {
-    return <ReactMarkdown>{children}</ReactMarkdown>;
-  } catch {
-    return <div style={{ whiteSpace: "pre-wrap" }}>{children}</div>;
-  }
+  return <ReactMarkdown>{children}</ReactMarkdown>;
 }
 
 const TREND_COLORS: Record<string, string> = {
@@ -28,6 +22,10 @@ const STAGE_LABELS: Record<string, string> = {
   track: "📈 Track",
   dismiss: "✕ Dismiss",
 };
+
+const VOICE_SILENCE_MS = 1300;
+const VOICE_MAX_RECORDING_MS = 25000;
+const VOICE_LEVEL_THRESHOLD = 0.014;
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -393,19 +391,59 @@ export default function ResearchSessionPage() {
   const [streamStatus, setStreamStatus] = useState("");
   const [streamQueryExp, setStreamQueryExp] = useState("");
   const [followUps, setFollowUps] = useState<string[]>([]);
+  const [sttSupported, setSttSupported] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [sttStatus, setSttStatus] = useState("");
 
   // Report / pins state
   const [pins, setPins] = useState<ResearchPin[]>([]);
   const [reportMd, setReportMd] = useState<string | null>(null);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [activePanel, setActivePanel] = useState<"report" | "pins">("report");
-  const [shareLink, setShareLink] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const esRef = useRef<EventSource | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const recordingTimerRef = useRef<number | null>(null);
+  const voiceRafRef = useRef<number | null>(null);
+  const silenceStartRef = useRef<number | null>(null);
+  const hasSpokenRef = useRef(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+
+  const stopRecordingTimer = useCallback(() => {
+    if (recordingTimerRef.current !== null) {
+      window.clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+  }, []);
+
+  const stopVoiceDetection = useCallback(() => {
+    if (voiceRafRef.current !== null) {
+      window.cancelAnimationFrame(voiceRafRef.current);
+      voiceRafRef.current = null;
+    }
+    silenceStartRef.current = null;
+    hasSpokenRef.current = false;
+
+    if (audioContextRef.current) {
+      void audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+  }, []);
+
+  const stopMediaTracks = useCallback(() => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
+  }, []);
 
   // Load session
   useEffect(() => {
@@ -434,7 +472,34 @@ export default function ResearchSessionPage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamText, streamStatus]);
 
-  const pinnedNames = new Set(pins.map((p) => p.repo_full_name));
+  useEffect(() => {
+    setSttSupported(
+      typeof window !== "undefined" &&
+      typeof MediaRecorder !== "undefined" &&
+      !!navigator.mediaDevices?.getUserMedia &&
+      typeof AudioContext !== "undefined",
+    );
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (esRef.current) {
+        esRef.current.close();
+      }
+
+      const activeRecorder = recorderRef.current;
+      if (activeRecorder && activeRecorder.state !== "inactive") {
+        activeRecorder.onstop = null;
+        activeRecorder.stop();
+      }
+
+      stopRecordingTimer();
+      stopVoiceDetection();
+      stopMediaTracks();
+    };
+  }, [stopMediaTracks, stopRecordingTimer, stopVoiceDetection]);
+
+  const pinnedNames = useMemo(() => new Set(pins.map((p) => p.repo_full_name)), [pins]);
 
   // ── Pin a repo ──────────────────────────────────────────────────────────────
   const handlePin = useCallback(async (repo: ResearchRepo) => {
@@ -555,6 +620,223 @@ export default function ResearchSessionPage() {
     };
   }, [input, userId, sending, sessionId, streamQueryExp]);
 
+  const transcribeAudioBlob = useCallback(async (audioBlob: Blob, mimeType: string) => {
+    if (!userId) return;
+
+    setIsTranscribing(true);
+    setSttStatus("Transcribing…");
+
+    try {
+      const ext = mimeType.includes("ogg")
+        ? "ogg"
+        : mimeType.includes("mp4") || mimeType.includes("m4a")
+          ? "m4a"
+          : mimeType.includes("wav")
+            ? "wav"
+            : "webm";
+
+      const transcript = await api.research.transcribeSpeech(
+        userId,
+        audioBlob,
+        `voice-${Date.now()}.${ext}`,
+      );
+
+      const text = transcript.text?.trim();
+      if (!text) {
+        setSttStatus("No speech detected. Please try again.");
+        return;
+      }
+
+      setSttStatus("Sending your request…");
+      handleSend(text);
+      window.setTimeout(() => setSttStatus(""), 900);
+    } catch (e: unknown) {
+      setSttStatus((e as Error)?.message ?? "Speech transcription failed.");
+    } finally {
+      setIsTranscribing(false);
+    }
+  }, [handleSend, userId]);
+
+  const startVoiceDetection = useCallback((stream: MediaStream, recorder: MediaRecorder) => {
+    if (typeof AudioContext === "undefined") {
+      return;
+    }
+
+    stopVoiceDetection();
+
+    const context = new AudioContext();
+    audioContextRef.current = context;
+
+    const source = context.createMediaStreamSource(stream);
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0.15;
+    source.connect(analyser);
+
+    const samples = new Float32Array(analyser.fftSize);
+    const startedAt = performance.now();
+    silenceStartRef.current = null;
+    hasSpokenRef.current = false;
+
+    void context.resume().catch(() => {
+      // Keep recording without silence auto-stop if resume fails.
+    });
+
+    const monitorLevel = () => {
+      if (recorder.state !== "recording") {
+        return;
+      }
+
+      analyser.getFloatTimeDomainData(samples);
+      let sumSquares = 0;
+      for (let i = 0; i < samples.length; i += 1) {
+        const value = samples[i];
+        sumSquares += value * value;
+      }
+      const rms = Math.sqrt(sumSquares / samples.length);
+      const now = performance.now();
+
+      if (rms >= VOICE_LEVEL_THRESHOLD) {
+        hasSpokenRef.current = true;
+        silenceStartRef.current = null;
+      } else if (hasSpokenRef.current) {
+        if (silenceStartRef.current === null) {
+          silenceStartRef.current = now;
+        }
+
+        const silentForMs = now - silenceStartRef.current;
+        if (silentForMs >= VOICE_SILENCE_MS && now - startedAt >= 800) {
+          setSttStatus("Silence detected. Finishing up…");
+          recorder.stop();
+          return;
+        }
+      }
+
+      if (now - startedAt >= VOICE_MAX_RECORDING_MS) {
+        setSttStatus("Max voice length reached. Finishing up…");
+        recorder.stop();
+        return;
+      }
+
+      voiceRafRef.current = window.requestAnimationFrame(monitorLevel);
+    };
+
+    voiceRafRef.current = window.requestAnimationFrame(monitorLevel);
+  }, [stopVoiceDetection]);
+
+  const handleToggleRecording = useCallback(async () => {
+    if (sending || isTranscribing) {
+      return;
+    }
+
+    if (!sttSupported) {
+      setSttStatus("Voice input is not supported in this browser.");
+      return;
+    }
+
+    if (isRecording) {
+      const activeRecorder = recorderRef.current;
+      if (activeRecorder && activeRecorder.state !== "inactive") {
+        setSttStatus("Processing your voice…");
+        activeRecorder.stop();
+      }
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+
+      const candidates = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/mp4",
+        "audio/ogg;codecs=opus",
+      ];
+      const chosenMime = candidates.find((candidate) => {
+        try {
+          return MediaRecorder.isTypeSupported(candidate);
+        } catch {
+          return false;
+        }
+      });
+
+      const recorder = chosenMime
+        ? new MediaRecorder(stream, { mimeType: chosenMime })
+        : new MediaRecorder(stream);
+
+      recordingChunksRef.current = [];
+
+      recorder.ondataavailable = (evt: BlobEvent) => {
+        if (evt.data.size > 0) {
+          recordingChunksRef.current.push(evt.data);
+        }
+      };
+
+      recorder.onerror = () => {
+        setSttStatus("Recording failed. Please retry.");
+        setIsRecording(false);
+        stopRecordingTimer();
+        stopVoiceDetection();
+        stopMediaTracks();
+      };
+
+      recorder.onstop = async () => {
+        const chunks = recordingChunksRef.current;
+        recordingChunksRef.current = [];
+        const recordedType = recorder.mimeType || "audio/webm";
+
+        setIsRecording(false);
+        stopRecordingTimer();
+        stopVoiceDetection();
+        stopMediaTracks();
+
+        if (!chunks.length) {
+          setSttStatus("No audio captured. Try again.");
+          return;
+        }
+
+        const audioBlob = new Blob(chunks, { type: recordedType });
+        if (audioBlob.size < 1024) {
+          setSttStatus("Recording was too short. Try again.");
+          return;
+        }
+
+        await transcribeAudioBlob(audioBlob, recordedType);
+      };
+
+      recorderRef.current = recorder;
+      recorder.start(250);
+
+      setRecordingSeconds(0);
+      setIsRecording(true);
+      setSttStatus("Listening… auto-sends when you stop talking");
+
+      stopRecordingTimer();
+      recordingTimerRef.current = window.setInterval(() => {
+        setRecordingSeconds((seconds) => seconds + 1);
+      }, 1000);
+
+      startVoiceDetection(stream, recorder);
+    } catch {
+      setSttStatus("Microphone permission denied or unavailable.");
+      setIsRecording(false);
+      stopRecordingTimer();
+      stopVoiceDetection();
+      stopMediaTracks();
+    }
+  }, [
+    isRecording,
+    isTranscribing,
+    sending,
+    startVoiceDetection,
+    stopMediaTracks,
+    stopRecordingTimer,
+    stopVoiceDetection,
+    sttSupported,
+    transcribeAudioBlob,
+  ]);
+
   // ── Generate report ─────────────────────────────────────────────────────────
   const handleGenReport = async () => {
     if (!userId) return;
@@ -577,7 +859,6 @@ export default function ResearchSessionPage() {
     try {
       const { token } = await api.research.createShare(sessionId, userId, 7);
       const link = `${window.location.origin}/research/share/${token}`;
-      setShareLink(link);
       await navigator.clipboard.writeText(link);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -835,7 +1116,7 @@ export default function ResearchSessionPage() {
                 <strong style={{ color: "var(--accent-blue)" }}>🤖 Research Agent</strong><br />
                 Hi! Ask me anything about GitHub repositories — from layman terms to precise technical filters. All data is fetched live from GitHub.
                 <div style={{ marginTop: "10px", fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)" }}>
-                  Try: <em>"what's trending in AI agents?"</em> or <em>"compare vllm vs llama.cpp"</em>
+                  Try: <em>&quot;what&apos;s trending in AI agents?&quot;</em> or <em>&quot;compare vllm vs llama.cpp&quot;</em>
                 </div>
               </div>
             )}
@@ -887,39 +1168,94 @@ export default function ResearchSessionPage() {
             borderTop: "1px solid var(--border)", padding: "12px 14px",
             display: "flex", gap: "8px", flexShrink: 0, background: "var(--bg-surface)",
           }}>
-            <textarea
-              ref={inputRef}
-              rows={2}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask anything… layman or technical (Enter to send, Shift+Enter for newline)"
-              disabled={sending}
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "6px" }}>
+              <textarea
+                ref={inputRef}
+                rows={2}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask anything… layman or technical (Enter to send, Shift+Enter for newline)"
+                disabled={sending || isTranscribing}
+                style={{
+                  flex: 1, resize: "none", fontFamily: "var(--font-sans)", fontSize: "13px",
+                  color: "var(--text-primary)", background: "var(--bg-elevated)",
+                  border: "1px solid var(--border)", borderRadius: "8px", padding: "10px 12px",
+                  outline: "none", lineHeight: 1.5, transition: "border-color 0.13s",
+                  opacity: sending || isTranscribing ? 0.7 : 1,
+                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = "var(--accent-blue)"; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+              />
+              {(sttStatus || isRecording) && (
+                <div style={{
+                  fontFamily: "var(--font-sans)",
+                  fontSize: "11px",
+                  color: isRecording ? "var(--accent-red, #f85149)" : "var(--text-muted)",
+                  minHeight: "16px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}>
+                  {isRecording && (
+                    <span style={{
+                      display: "inline-block",
+                      width: "8px",
+                      height: "8px",
+                      borderRadius: "999px",
+                      background: "var(--accent-red, #f85149)",
+                      animation: "pulse 1s ease infinite",
+                    }} />
+                  )}
+                  {sttStatus}
+                  {isRecording && <span style={{ color: "var(--text-muted)" }}>{recordingSeconds}s</span>}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={handleToggleRecording}
+              disabled={!sttSupported || sending || isTranscribing}
+              title={
+                !sttSupported
+                  ? "Voice input not supported in this browser"
+                  : isRecording
+                    ? "Stop recording"
+                    : "Start voice input"
+              }
               style={{
-                flex: 1, resize: "none", fontFamily: "var(--font-sans)", fontSize: "13px",
-                color: "var(--text-primary)", background: "var(--bg-elevated)",
-                border: "1px solid var(--border)", borderRadius: "8px", padding: "10px 12px",
-                outline: "none", lineHeight: 1.5, transition: "border-color 0.13s",
-                opacity: sending ? 0.7 : 1,
+                alignSelf: "flex-end",
+                background: isRecording ? "var(--accent-red, #f85149)" : "var(--bg-elevated)",
+                color: isRecording ? "#fff" : "var(--text-secondary)",
+                border: `1px solid ${isRecording ? "var(--accent-red, #f85149)" : "var(--border)"}`,
+                borderRadius: "8px",
+                width: "40px",
+                height: "40px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: !sttSupported || sending || isTranscribing ? "not-allowed" : "pointer",
+                opacity: !sttSupported || sending || isTranscribing ? 0.5 : 1,
+                fontSize: "16px",
+                flexShrink: 0,
               }}
-              onFocus={(e) => { e.currentTarget.style.borderColor = "var(--accent-blue)"; }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
-            />
+            >
+              {isTranscribing ? "…" : isRecording ? "■" : "🎙"}
+            </button>
             <button
               onClick={() => handleSend()}
-              disabled={sending || !input.trim()}
+              disabled={sending || isTranscribing || !input.trim()}
               style={{
                 alignSelf: "flex-end",
                 background: "var(--accent-blue)", color: "#fff",
                 border: "none", borderRadius: "8px",
                 width: "40px", height: "40px",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: sending || !input.trim() ? "not-allowed" : "pointer",
-                opacity: sending || !input.trim() ? 0.5 : 1,
+                cursor: sending || isTranscribing || !input.trim() ? "not-allowed" : "pointer",
+                opacity: sending || isTranscribing || !input.trim() ? 0.5 : 1,
                 fontSize: "18px", flexShrink: 0,
                 transition: "opacity 0.13s, transform 0.1s",
               }}
-              onMouseDown={(e) => { if (!sending && input.trim()) (e.currentTarget as HTMLElement).style.transform = "scale(0.9)"; }}
+              onMouseDown={(e) => { if (!sending && !isTranscribing && input.trim()) (e.currentTarget as HTMLElement).style.transform = "scale(0.9)"; }}
               onMouseUp={(e) => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; }}
             >
               ↑

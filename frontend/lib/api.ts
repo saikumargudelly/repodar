@@ -1131,6 +1131,32 @@ export const api = {
         `&user_tier=${tier ?? "free"}`
       );
     },
+    transcribeSpeech: async (userId: string, audioBlob: Blob, filename = "speech.webm", model = "whisper-large-v3-turbo") => {
+      const form = new FormData();
+      form.append("user_id", userId);
+      form.append("file", audioBlob, filename);
+      form.append("model", model);
+
+      const res = await fetch(`${BASE}/research/stt/transcribe`, {
+        method: "POST",
+        body: form,
+      });
+
+      if (!res.ok) {
+        let detail = "Speech transcription failed.";
+        try {
+          const body = await res.json();
+          if (typeof body?.detail === "string") {
+            detail = body.detail;
+          }
+        } catch {
+          // keep fallback detail
+        }
+        throw new Error(detail);
+      }
+
+      return await res.json() as ResearchSpeechToText;
+    },
 
     pinRepo: (sessionId: string, userId: string, repoFullName: string, repoData: Record<string, unknown>, note?: string, stage?: string) =>
       apiFetch<ResearchPin>(`/research/sessions/${sessionId}/pins`, {
@@ -1268,3 +1294,10 @@ export type ResearchSSEEvent =
   | { type: "token"; text: string }
   | { type: "done"; data: { follow_ups: string[]; intent: string; github_query: string; query_explanation: string; confidence: number } | string }
   | { type: "error"; text: string };
+
+export interface ResearchSpeechToText {
+  text: string;
+  model: string;
+  language: string | null;
+  duration_seconds: number | null;
+}

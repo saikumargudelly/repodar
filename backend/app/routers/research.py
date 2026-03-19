@@ -20,13 +20,19 @@ Endpoints:
 
   POST   /research/sessions/{id}/share         → generate share token
   GET    /research/share/{token}               → public read-only view
+
+    POST   /research/stt/transcribe              → speech-to-text (Groq Whisper)
 """
+import os
 import json
 import logging
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+import aiohttp
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import File, Form, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -49,6 +55,14 @@ from app.services.research_agent import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/research", tags=["Research"])
+
+STT_DEFAULT_MODEL = os.getenv("GROQ_STT_MODEL", "whisper-large-v3-turbo")
+STT_MAX_BYTES = int(os.getenv("GROQ_STT_MAX_BYTES", str(25 * 1024 * 1024)))  # 25 MB
+STT_ALLOWED_CONTENT_TYPES = {
+    "audio/mpeg", "audio/mp3", "audio/mp4", "audio/wav", "audio/x-wav",
+    "audio/x-m4a", "audio/aac", "audio/ogg", "audio/flac", "audio/webm",
+}
+STT_ALLOWED_EXTENSIONS = {".mp3", ".mp4", ".wav", ".m4a", ".ogg", ".flac", ".webm", ".aac"}
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -103,6 +117,12 @@ def _serialize_pin(p: ResearchPin) -> dict:
     }
 
 
+def _is_supported_audio_upload(filename: str, content_type: str) -> bool:
+    ext = Path(filename or "").suffix.lower()
+    ctype = (content_type or "").split(";")[0].strip().lower()
+    return ext in STT_ALLOWED_EXTENSIONS or ctype in STT_ALLOWED_CONTENT_TYPES
+
+
 # ─── Schemas ─────────────────────────────────────────────────────────────────
 
 class CreateSessionRequest(BaseModel):
@@ -145,6 +165,110 @@ class GenerateReportRequest(BaseModel):
 class CreateShareRequest(BaseModel):
     user_id: str
     ttl_days: Optional[int] = 7  # None = never expires
+
+
+# ─── Speech To Text ──────────────────────────────────────────────────────────
+
+@router.post("/stt/transcribe")
+async def transcribe_audio(
+    user_id: str = Form(..., min_length=1, max_length=200),
+    file: UploadFile = File(...),
+    model: str = Form(default=STT_DEFAULT_MODEL),
+    language: Optional[str] = Form(default=None),
+    prompt: Optional[str] = Form(default=None),
+):
+    """
+    Transcribe uploaded audio using Groq's OpenAI-compatible Whisper endpoint.
+    This endpoint is intended for short, user-recorded voice notes from the UI.
+    """
+    del user_id  # Reserved for analytics/rate-control hooks.
+
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Audio filename is required.")
+
+    if not _is_supported_audio_upload(file.filename, file.content_type or ""):
+        allowed = ", ".join(sorted(STT_ALLOWED_EXTENSIONS))
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported audio format. Allowed formats: {allowed}",
+        )
+
+    audio_bytes = await file.read()
+    await file.close()
+
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded audio file is empty.")
+
+    if len(audio_bytes) > STT_MAX_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Audio file is too large. Max allowed size is {STT_MAX_BYTES // (1024 * 1024)} MB.",
+        )
+
+    groq_key = os.getenv("GROQ_API_KEY", "").strip()
+    if not groq_key:
+        raise HTTPException(status_code=503, detail="Speech transcription is not configured.")
+
+    selected_model = (model or STT_DEFAULT_MODEL).strip() or STT_DEFAULT_MODEL
+    sanitized_language = (language or "").strip() or None
+    sanitized_prompt = (prompt or "").strip() or None
+    safe_content_type = (file.content_type or "audio/webm").split(";")[0].strip().lower()
+
+    form = aiohttp.FormData()
+    form.add_field(
+        "file",
+        audio_bytes,
+        filename=file.filename,
+        content_type=safe_content_type,
+    )
+    form.add_field("model", selected_model)
+    form.add_field("response_format", "verbose_json")
+    if sanitized_language:
+        form.add_field("language", sanitized_language)
+    if sanitized_prompt:
+        form.add_field("prompt", sanitized_prompt)
+
+    try:
+        async with aiohttp.ClientSession() as sess:
+            async with sess.post(
+                "https://api.groq.com/openai/v1/audio/transcriptions",
+                headers={"Authorization": f"Bearer {groq_key}"},
+                data=form,
+                timeout=aiohttp.ClientTimeout(total=60),
+            ) as resp:
+                if resp.status != 200:
+                    provider_msg = ""
+                    try:
+                        err_data = await resp.json()
+                        provider_msg = (err_data.get("error") or {}).get("message") or ""
+                    except Exception:
+                        provider_msg = (await resp.text())[:200]
+                    logger.warning(f"[research][stt] Groq transcription failed ({resp.status}): {provider_msg}")
+                    raise HTTPException(
+                        status_code=502,
+                        detail="Speech transcription provider failed. Please try again.",
+                    )
+                payload = await resp.json()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning(f"[research][stt] Transcription request error: {exc}")
+        raise HTTPException(status_code=502, detail="Speech transcription request failed.")
+
+    text = str(payload.get("text") or "").strip()
+    if not text:
+        raise HTTPException(
+            status_code=422,
+            detail="No speech was detected. Try speaking closer to the microphone.",
+        )
+
+    duration = payload.get("duration")
+    return {
+        "text": text,
+        "model": selected_model,
+        "language": payload.get("language"),
+        "duration_seconds": float(duration) if isinstance(duration, (int, float)) else None,
+    }
 
 
 # ─── Session CRUD ─────────────────────────────────────────────────────────────
