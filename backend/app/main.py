@@ -64,7 +64,7 @@ logger = logging.getLogger(__name__)
 async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
     """
     Full delta-sync: ingest (upsert) → score → optionally explain.
-    Called by APScheduler every 4 hours AND by the /admin/run-all-sync endpoint.
+    Called by APScheduler every 2 hours AND by the /admin/run-all-sync endpoint.
     """
     from app.services.ingestion import run_daily_ingestion
     from app.services.scoring import run_daily_scoring
@@ -134,7 +134,7 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
 
 def _schedule_pipeline():
     """
-    Set up APScheduler to run the full pipeline every 4 hours.
+    Set up APScheduler to run the full pipeline every 2 hours.
     APScheduler runs in-process — no Redis or separate worker needed.
     Perfect for Railway single-dyno deployments.
     """
@@ -147,12 +147,12 @@ def _schedule_pipeline():
         async def _job():
             # Include explanations only at the 00:00 UTC run (once per day)
             hour_utc = datetime.now(timezone.utc).hour
-            include_explain = (hour_utc < 4)   # true for the midnight slot
+            include_explain = (hour_utc == 0)
             result = await _run_pipeline_sync(include_explanations=include_explain)
             logger.info(f"[scheduler] Pipeline job finished: {result}")
 
-        # Every 4 hours: 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC
-        scheduler.add_job(_job, CronTrigger(hour="*/4", minute=0), id="pipeline_4h", replace_existing=True)
+        # Every 2 hours: 00:00, 02:00, 04:00, ..., 22:00 UTC
+        scheduler.add_job(_job, CronTrigger(hour="*/2", minute=0), id="pipeline_2h", replace_existing=True)
 
         async def _a2a_job():
             from app.services.a2a_ingestion import run_a2a_discovery_pipeline
@@ -219,7 +219,7 @@ def _schedule_pipeline():
         scheduler.add_job(_enrichment_job, CronTrigger(hour=3, minute=30), id="enrichment_daily", replace_existing=True)
 
         scheduler.start()
-        logger.info("APScheduler started — pipeline runs every 4 h (00/04/08/12/16/20 UTC)")
+        logger.info("APScheduler started — pipeline runs every 2 h (00/02/04/.../22 UTC)")
         return scheduler
     except Exception as e:
         logger.warning(f"APScheduler init failed (non-fatal — manual triggers still work): {e}")
@@ -260,7 +260,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"DuckDB extension pre-install failed (non-fatal): {e}")
 
-    # Start in-process 4-hour scheduler
+    # Start in-process 2-hour scheduler
     scheduler = _schedule_pipeline()
 
     # Initialize Redis caching
@@ -277,7 +277,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Failed to initialize Redis cache: {e}")
 
-    logger.info("Repodar ready. Pipeline scheduled every 4 h via APScheduler.")
+    logger.info("Repodar ready. Pipeline scheduled every 2 h via APScheduler.")
     yield
 
     # Graceful shutdown
