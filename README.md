@@ -19,138 +19,76 @@ Repodar tracks momentum. It wakes up every 4 hours, fetches fresh data on hundre
 
 ---
 
-## 📊 What's on the dashboard
+## 📊 What's in the product today
 
-Repodar v2.0 ships as a full authenticated app with a persistent sidebar, collapsible navigation, and 11 dedicated pages.
-
----
-
-### Overview (`/overview`) — the first thing you see
-
-Four quick stats at the top: total repos tracked, hottest category right now, today's #1 by your chosen time window, and how many projects are scoring "healthy" on the sustainability scale.
-
-Below that:
-
-**Category Trend Heatmap** — categories ranked by composite trend score. LLM Models, Agent Frameworks, Inference Engines, Vector Databases, and more — see at a glance which space is accelerating and which is cooling off. Pick any time window (Today → 5 Years) and the chart updates instantly.
-
-**Stars Distribution** — Donut chart showing how total GitHub star count splits across categories. Hover any slice to see the exact number and percentage.
-
-**PR Activity** — Which categories have the most active development? Merged PRs and open PRs side by side.
-
-**AI Ecosystem Map** — A scatter plot placing every tracked repository at its (Trend Score, Sustainability Score) coordinate. Quadrants tell the story: Rising Stars, Breakouts, Established pillars, and ones to Watch.
-
-**Leaderboard** — Pick any time window (today → 5 years) and any vertical, and see the top repos with real numbers: stars, star gain, forks, open issues, project age. Pin any repo to your watchlist. Select 2–5 for side-by-side comparison.
+Repodar has moved well beyond the earlier v2 dashboard snapshot. The current app includes authenticated workflows, public sharing paths, AI-assisted research flows, and 30+ routed frontend pages.
 
 ---
 
-### Insights (`/insights`)
+### Discovery + analysis
 
-Explore AI/ML repositories sliced two ways:
-
-- **Early Stage** — repos under 90 days old with high momentum and acceleration
-- **Established Breakouts** — mature projects with a strong upward trajectory
-
-Filter by category (LLM Models, Agent Frameworks, Vector Databases, Fine-tuning Toolkits, and more), toggle between views, and click any row to jump to the full repo deep-dive.
-
----
-
-### Leaderboard (`/leaderboard`)
-
-A dedicated, full-screen ranked table. Filter by time window and vertical to surface the top repos in any segment. Winners are highlighted, every signal is visible at a glance.
+- **Overview (`/overview`)** — ecosystem KPIs, category trend heatmap, stars distribution, PR activity, sustainability rankings, and an ecosystem map.
+- **Explore (`/explore`)** — paginated repository browser with quick filtering and sorting.
+- **Insights (`/insights`)** — early-stage and established breakout slices.
+- **Leaderboard (`/leaderboard`)** — period + vertical rankings from live GitHub search.
+- **Radar (`/radar`)** and **Early Radar (`/early-radar`)** — sortable repo radar plus newer-repo breakout scanning.
+- **Topics (`/topics`)** — topic momentum plus drill-down repo lists.
+- **Network (`/network`)** — cross-repo contributor network view.
+- **Compare (`/compare`)** — side-by-side repo scorecards and history overlays.
+- **Org Health (`/orgs`)** — portfolio health for any GitHub organization.
+- **NL Search (`/search`)** — natural-language query parsing + blended tracked/live results.
 
 ---
 
-### Breakout Radar (`/radar`)
+### Personalization + workflow
 
-Every tracked repo in one sortable table. Sort by trend score, acceleration, star velocity, sustainability, or age. Filter by category or toggle "new only" to surface repos under 180 days old that are already making noise.
-
-Below the main table: the **Language Radar** — which programming languages are gaining the most traction in AI/ML right now, ranked by combined weekly star velocity.
-
----
-
-### Topics (`/topics`)
-
-Browse AI/ML repositories by GitHub topic tags. Drill into any topic to see which repos are gaining traction within that tag. Useful for narrowing from category-level trends down to specific technique or framework clusters.
+- **Watchlist (`/watchlist`)** — pin repos and configure notification preferences per item.
+- **Alerts (`/alerts`)** — momentum alerts with unread tracking.
+- **Collections (`/collections`)** — community-curated repo sets with voting.
+- **Onboarding (`/onboarding`)** — guided setup for interests, watchlist, and digest preferences.
+- **Profile (`/profile`)** and **Settings (`/settings`)** — account-level preferences and digest controls.
+- **Weekly Snapshots (`/weekly`, `/weekly/{weekId}`)** — historical weekly top-repo archives.
 
 ---
 
-### Network (`/network`)
+### Repo intelligence
 
-An interactive graph view of the AI/ML ecosystem. Nodes are repositories; edges capture forks, contributor overlap, and dependency relationships. Spot the hubs, see which repos cluster together, and discover projects you'd never find from a flat list.
+**Repo Deep-Dive (`/repo/{owner}/{name}`)** now includes:
 
----
-
-### Compare (`/compare`)
-
-Drop in any 2–5 GitHub repos as `owner/name` and get:
-
-- **Star history chart** — overlaid growth curves so you can see who's accelerating
-- **Score radar** — spider chart normalising 7 metrics across all selected repos
-- **Metrics breakdown table** — every signal side by side, with each winner highlighted
-- **Shareable URL** — the URL encodes the full selection, send it to your team
-
-Works with any GitHub repo, tracked or not.
+- Star history and daily delta trends
+- Velocity vs acceleration and trend timeline
+- Commit activity heatmap
+- Recent release timeline
+- Social mentions (HN/Reddit)
+- Signal explainer + AI deep summary
 
 ---
 
-### Org Portfolio Health (`/orgs`)
+### AI research workspace
 
-Type any GitHub organisation name and get an instant health snapshot: total public repos, combined star count, top language, how many are tracked by Repodar, and the average sustainability score. Includes a full sortable repo table with Repodar scores where available.
-
----
-
-### Alerts (`/alerts`)
-
-Momentum spike notifications for any tracked repository. Mark as read, filter to unread only, and set thresholds for when you want to be notified. Every alert links directly to the repo deep-dive.
+- **Research (`/research`, `/research/{id}`)** — multi-session assistant workflow.
+- Streaming agent responses (SSE), pinboards, and structured repo shortlisting.
+- Session-level report generation and share links (`/research/share/{token}`).
+- Speech-to-text input via Groq Whisper (`/research/stt/transcribe`).
+- Blog/social draft generation from research context.
 
 ---
 
-### NL Search (`/search`)
+### Developer + integration surfaces
 
-Plain-English natural language search across all tracked repos — and live GitHub. Type a query like:
-
-> *"Fast inference engines with high momentum this week"*
-
-The AI backend parses your intent, extracts structured filters (vertical, language, time window, min stars, max age), runs the search, and returns results with parsed filter chips so you can see exactly what was understood. Results are tagged **TRACKED** (in our database) or **LIVE** (fetched live from GitHub).
-
----
-
-### Watchlist (`/watchlist`)
-
-Pin any repo from anywhere in the dashboard and it lands here. Your personal shortlist of repos you're monitoring. Add and remove in one click from any table or leaderboard row.
-
----
-
-### Weekly Snapshots (`/weekly`)
-
-Archived weekly digests of the top-25 AI/ML repos. Published every Monday at 06:00 UTC. Each snapshot is a permalink — share a specific week's rankings with your team or come back to compare against the current state.
-
----
-
-### Repo Deep-Dive (`/repo/{owner}/{name}`)
-
-Click any repo anywhere and land here. You get the full picture:
-
-- Star history as an area chart with release event markers
-- Daily star delta as a bar chart (easy to spot traffic spikes)
-- Contributor growth line over time
-- Velocity vs acceleration overlay — is momentum building or fading?
-- Trend score timeline — the score's own history over 60 days
-- **Signal Explainer** — plain-English breakdown of exactly *why* this repo scored what it did, with week-over-week changes for each signal
-
----
-
-### Dev API (`/dev`)
-
-Interactive API explorer for developers who want to query Repodar programmatically. Documents all available endpoints, lets you test them in the browser, and shows example responses.
+- **Dev API (`/dev`)** — per-user API key management and usage status.
+- **A2A Service Catalog (`/services`, `/services/{id}`)** — register/search service capabilities.
+- **Widgets** — embeddable JSON/SVG repo badges (`/widget/...`).
+- **Public API v1 (`/api/v1/*`)** — key-protected public endpoints.
+- **RSS + subscriptions** — `/feed.xml`, `/feed/{vertical}.xml`, and `/subscribe`.
 
 ---
 
 ## 🔐 Authentication
 
-Repodar uses **Clerk** for user authentication. Sign up, sign in, and manage your profile from the top-right user menu. Your watchlist, preferences, and theme are all tied to your account.
+Repodar uses **Clerk** for authentication. Sign up, sign in, and manage profile/digest preferences from the in-app user menu.
 
-Routes that require a logged-in user redirect to `/sign-in` automatically. The landing page (`/landing`) is always public.
+Public paths include the landing/auth flow and repo pages (`/repo/*`). Main product routes require login and redirect to `/sign-in` when unauthenticated.
 
 ---
 
@@ -205,8 +143,10 @@ Repodar doesn't work from a fixed list. Every pipeline run it:
 5. Scores everything fresh
 6. Generates trend alerts for repos with sudden momentum spikes
 7. Retires repos that haven't trended in 60 days (history is always preserved)
+8. Runs daily enrichment jobs for social mentions, releases, and commit activity
+9. Triggers digest delivery jobs (daily/weekly/monthly)
 
-The pipeline runs **every 4 hours** via APScheduler, embedded directly in the FastAPI process. No separate worker, no Redis, no Celery — it just runs as part of the app.
+The core pipeline runs **every 4 hours** via APScheduler, embedded directly in the FastAPI process. No separate queue worker is required. Redis is optional and used for HTTP response caching when available.
 
 ---
 
@@ -230,10 +170,11 @@ When someone opens your README they'll see a live TrendScore, current star count
 ### What you'll need
 
 - Python 3.11+
-- Node.js 18+
+- Node.js 20+
 - A [GitHub Personal Access Token](https://github.com/settings/tokens) (5,000 API calls/hour instead of 60)
-- A [Groq API key](https://console.groq.com) (free tier covers NL Search + weekly reports)
+- A [Groq API key](https://console.groq.com) (used by NL Search, research assistant, summaries, and STT)
 - A [Clerk](https://clerk.com) account (free tier — for authentication)
+- Optional: Redis (for response cache) and Resend (for email digests/notifications)
 
 ### 1. Clone the repo
 
@@ -255,7 +196,11 @@ GITHUB_TOKEN=github_pat_YOUR_TOKEN_HERE
 GROQ_API_KEY=gsk_YOUR_KEY_HERE
 GROQ_MODEL=llama-3.3-70b-versatile
 DATABASE_URL=sqlite:///./repodar.db
-APP_ENV=development
+REDIS_URL=redis://localhost:6379
+ALLOWED_ORIGINS=http://localhost:3000
+FRONTEND_URL=http://localhost:3000
+RESEND_API_KEY=re_xxx_optional
+RESEND_FROM_EMAIL=noreply@example.com
 ```
 
 **For production:** Replace `DATABASE_URL` with a PostgreSQL connection string.
@@ -286,6 +231,7 @@ Create `frontend/.env.local`:
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_YOUR_CLERK_KEY
 CLERK_SECRET_KEY=sk_test_YOUR_CLERK_SECRET
 NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
@@ -314,12 +260,13 @@ Go to **[http://localhost:3000](http://localhost:3000)**. Sign up for an account
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | Next.js 15 (App Router) · React 19 · Recharts · TanStack Query v5 · Tailwind CSS v4 |
+| Frontend | Next.js 16 (App Router) · React 19.2 · Recharts · TanStack Query v5 · Tailwind CSS v4 |
 | Auth | Clerk (sign-up, sign-in, user profiles, session management) |
-| Backend | FastAPI 0.135 · SQLAlchemy 2.0 · Alembic · Pydantic v2 |
+| Backend | FastAPI 0.135.1 · SQLAlchemy 2.0 · Alembic · Pydantic v2 |
 | Database | PostgreSQL (production) / SQLite (local dev) · DuckDB for time-series analytics |
-| Scheduling | APScheduler 3.10 — in-process every 4 hours, **no Redis or Celery needed** |
-| AI insights & Search | Groq LLaMA 3.3 70B via the `groq` Python SDK |
+| Scheduling | APScheduler 3.10 — in-process jobs (4h pipeline + daily/weekly/monthly jobs) |
+| Caching | `fastapi-cache2` with Redis backend (optional, auto-initialized when `REDIS_URL` is available) |
+| AI insights & Search | Groq (query parsing, reports, deep summaries, research assistant, STT) |
 | Deployment | Vercel (frontend) · Railway (backend) |
 
 ---
@@ -329,8 +276,10 @@ Go to **[http://localhost:3000](http://localhost:3000)**. Sign up for an account
 Full interactive docs are at `/docs` once the backend is running.
 
 ```bash
-# Dashboard overview
+# Core dashboard
 GET /dashboard/overview
+GET /dashboard/categories?period=7d
+GET /dashboard/languages?min_repos=2
 
 # Leaderboard — period: 1d | 7d | 30d | 90d | 365d | 3y | 5y
 GET /dashboard/leaderboard?period=7d&limit=30&vertical=ai_ml
@@ -342,34 +291,87 @@ GET /dashboard/radar?new_only=false
 GET /dashboard/early-radar?max_age_days=90&max_stars=1000&limit=50
 
 # Natural-language search
-GET /search/nl?q=fast+inference+engines+with+high+momentum&limit=30
+GET /search?query=fast+inference+engines+with+high+momentum&limit=30
+POST /search/parse?query=fast+inference+engines+with+high+momentum
 
-# Single repo + history
+# Repositories + history
+GET /repos?page=1&per_page=50
 GET /repos/{owner}/{name}
-GET /repos/{owner}/{name}/daily-metrics?days=60
-GET /repos/{owner}/{name}/computed-scores?days=60
+GET /repos/{owner}/{name}/deep-summary
+POST /repos/{owner}/{name}/delta-run
+GET /repos/{repo_id:path}/metrics?days=60
+GET /repos/{repo_id:path}/scores?days=60
+GET /repos/{repo_id:path}/releases?limit=10
+GET /repos/{repo_id:path}/mentions?limit=20
+GET /repos/{repo_id:path}/commit-activity
 
 # Side-by-side comparison
 GET /repos/compare?ids=owner1/name1,owner2/name2
+GET /repos/compare/history?ids=owner1/name1,owner2/name2&days=60
 
 # Org health
-GET /orgs/{org}/health
+GET /orgs/{org}/oss-health
 
-# Trend alerts
+# Alerts + watchlist (auth headers required)
 GET /dashboard/alerts?unread_only=false&limit=20
+PATCH /dashboard/alerts/{alert_id}/read
+GET  /watchlist
+POST /watchlist
+PATCH /watchlist/{item_id}
+DELETE /watchlist/{item_id}
 
-# Topics
-GET /topics
+# Topic/contributor/fork intelligence
+GET /topics/momentum
 GET /topics/{topic}/repos
+GET /contributors/network
+GET /forks/leaderboard
+
+# Filtering, forecasting, export, recommendations
+POST /filters/repos
+GET  /filters/repos
+GET  /filters/presets
+POST /filters/presets
+GET /forecast/{owner}/{name}
+GET /forecast/bulk/batch?ids=owner1/name1,owner2/name2
+GET /export/repos?format=csv
+GET /export/metrics/{owner}/{name}?format=json&days=90
+GET /recommendations?user_id=clerk_user_id
+GET /recommendations/similar/{owner}/{name}
+
+# Collections, alert rules, services
+GET  /collections/trending
+POST /collections
+PATCH /collections/{collection_id}
+POST /collections/{collection_id}/vote
+GET  /alerts/rules
+POST /alerts/rules
+GET  /services
+POST /services/register
+GET  /services/search?capability=streaming
+
+# Research workspace
+POST /research/sessions
+POST /research/sessions/{session_id}/message
+GET  /research/sessions/{session_id}/stream
+POST /research/sessions/{session_id}/report
+POST /research/sessions/{session_id}/share
+POST /research/stt/transcribe
 
 # Weekly snapshots
 GET /snapshots
 GET /snapshots/{week_id}
+GET /reports/weekly
+GET /reports/monthly
+GET /reports/history
 
-# Watchlist (auth required)
-GET  /watchlist
-POST /watchlist
-DELETE /watchlist/{repo_id}
+# Dev + public API + feeds
+POST /dev/keys
+GET  /dev/keys
+GET  /api/v1/repos
+GET  /api/v1/scores
+GET /feed.xml
+GET /feed/{vertical}.xml
+POST /subscribe
 
 # Manual sync — waits for completion, returns full stats
 POST /admin/run-all-sync
@@ -406,13 +408,16 @@ After setting `DATABASE_URL`, run:
 alembic upgrade head
 ```
 
-### Scheduling: No Redis Required ✅
+### Scheduling and Cache
 
-Repodar uses **APScheduler embedded in the FastAPI process**. Every 4 hours it wakes up, discovers new repos, scores them, and updates the database — all without needing Redis, Celery, or any external queue.
+Repodar uses **APScheduler embedded in the FastAPI process**.
 
-Local development: No Redis needed.  
-Production on Railway: No Redis needed.  
-Just keep the backend process running.
+- Every 4 hours: ingest + score pipeline
+- Daily: A2A service discovery, social/release/commit enrichment, digest dispatch
+- Weekly: snapshots and weekly digest
+- Monthly: monthly digest
+
+No separate queue worker is required. Redis is optional; when `REDIS_URL` is set, the API enables response caching automatically.
 
 ---
 
@@ -424,16 +429,27 @@ Just keep the backend process running.
 |----------|----------|-------------|
 | `GITHUB_TOKEN` | ✅ | GitHub PAT with `repo` + `read:user` scopes |
 | `DATABASE_URL` | ✅ | SQLite path for local dev, PostgreSQL URL for production |
-| `GROQ_API_KEY` | Recommended | Enables NL Search + weekly AI-generated insights |
+| `GROQ_API_KEY` | Recommended | Enables NL Search, research mode, summaries, and report generation |
 | `GROQ_MODEL` | No | Defaults to `llama-3.3-70b-versatile` |
-| `APP_ENV` | No | Set to `production` on Railway |
+| `GROQ_STT_MODEL` | No | Default speech-to-text model for `/research/stt/transcribe` |
+| `GROQ_STT_MAX_BYTES` | No | Max audio upload size for STT (default 25 MB) |
+| `REDIS_URL` | No | Optional Redis URL for FastAPI response cache |
+| `ALLOWED_ORIGINS` | No | Comma-separated CORS allow-list |
+| `FRONTEND_URL` | Recommended | Base URL used in RSS/email links |
+| `RESEND_API_KEY` | No | Enables outbound email notifications/digests |
+| `RESEND_FROM_EMAIL` | No | Sender address for Resend emails |
+| `ADMIN_SECRET_KEY` | Recommended (prod) | Protects admin endpoints |
 | `DUCKDB_EXTENSION_DIRECTORY` | No | Override extension cache path (useful in write-restricted environments) |
+| `SPIKE_Z_THRESHOLD` | No | Alert spike detection tuning |
+| `SPIKE_SUSTAINED_Z_THRESHOLD` | No | Sustained spike tuning |
+| `SPIKE_MIN_HISTORY_DAYS` | No | Minimum history required for spike calculations |
 
 ### Frontend (`frontend/.env.local`)
 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `NEXT_PUBLIC_API_URL` | ✅ | Backend URL, e.g. `http://localhost:8000` |
+| `NEXT_PUBLIC_SITE_URL` | Recommended | Canonical frontend URL for metadata/share cards |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | ✅ | Clerk publishable key |
 | `CLERK_SECRET_KEY` | ✅ | Clerk secret key |
 | `NEXT_PUBLIC_CLERK_SIGN_IN_URL` | ✅ | `/sign-in` |
@@ -455,6 +471,8 @@ Just keep the backend process running.
 | Pipeline not running automatically | APScheduler is embedded in the app process — ensure the backend is running continuously |
 | Auth redirects to `/sign-in` unexpectedly | Ensure `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` are set in `frontend/.env.local` |
 | NL Search returns no results | `GROQ_API_KEY` must be set in the backend — NL Search uses the Groq API to parse queries |
+| `FastAPI-Cache initialized` warning appears | Set `REDIS_URL` if you want caching, or ignore the warning for local no-Redis runs |
+| Email subscription/digest doesn't send | Configure `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, and `FRONTEND_URL` |
 
 ---
 
@@ -466,8 +484,11 @@ The interesting parts:
 - [Discovery + delta ingestion](https://github.com/saikumargudelly/repodar/blob/main/backend/app/services/ingestion.py) — how repos are found and how re-runs avoid inflating numbers
 - [APScheduler setup](https://github.com/saikumargudelly/repodar/blob/main/backend/app/main.py) — the 4-hour scheduler wired into FastAPI's lifespan context
 - [NL Search router](https://github.com/saikumargudelly/repodar/blob/main/backend/app/routers/search.py) — how plain English is turned into structured filters via Groq
+- [Research router](https://github.com/saikumargudelly/repodar/blob/main/backend/app/routers/research.py) — sessions, streaming, reports, sharing, and speech-to-text
+- [Service catalog router](https://github.com/saikumargudelly/repodar/blob/main/backend/app/routers/services.py) — A2A service registration and capability discovery
 - [Dashboard page](https://github.com/saikumargudelly/repodar/blob/main/frontend/app/overview/page.tsx) — Recharts, responsive layout, leaderboard, and all the chart components
 - [Radar page](https://github.com/saikumargudelly/repodar/blob/main/frontend/app/radar/page.tsx) — sortable repo table and language rankings
+- [Research UI](https://github.com/saikumargudelly/repodar/blob/main/frontend/app/research/%5Bid%5D/page.tsx) — interactive research workspace and export/share flows
 - [Sidebar](https://github.com/saikumargudelly/repodar/blob/main/frontend/components/Sidebar.tsx) — collapsible desktop nav + mobile drawer
 
 ---
