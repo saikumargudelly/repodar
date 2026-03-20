@@ -82,6 +82,9 @@ export default function RadarPage() {
   const [earlySort, setEarlySort] = useState<EarlySortKey>("breakout_score");
   const [earlyStage, setEarlyStage] = useState<EarlyStage>("all");
   const [preViralOnly, setPreViralOnly] = useState(false);
+  const [requireConsistentGrowth, setRequireConsistentGrowth] = useState(false);
+  const [requireForkMomentum, setRequireForkMomentum] = useState(false);
+  const [requireSustainedVelocity, setRequireSustainedVelocity] = useState(false);
 
   const { data: radarData, isLoading: radarLoading } = useQuery({
     queryKey: ["radar", newOnly],
@@ -91,7 +94,7 @@ export default function RadarPage() {
   });
 
   const { data: earlyData, isLoading: earlyLoading } = useQuery({
-    queryKey: ["radar-early", maxAge, maxStars, minAccel, category, earlySort, earlyStage, preViralOnly],
+    queryKey: ["radar-early", maxAge, maxStars, minAccel, category, earlySort, earlyStage, preViralOnly, requireConsistentGrowth, requireForkMomentum, requireSustainedVelocity],
     queryFn: () =>
       api.getEarlyRadar({
         max_age_days: maxAge,
@@ -101,6 +104,9 @@ export default function RadarPage() {
         sort_by: earlySort,
         momentum_stage: earlyStage !== "all" ? earlyStage : undefined,
         require_pre_viral: preViralOnly,
+        require_consistent_growth: requireConsistentGrowth,
+        require_fork_momentum: requireForkMomentum,
+        require_sustained_velocity: requireSustainedVelocity,
         limit: 100,
       }),
     enabled: mode === "early",
@@ -347,6 +353,28 @@ export default function RadarPage() {
                 <option value="novelty_score">NOVELTY</option>
                 <option value="trend_score">TREND SCORE</option>
               </select>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", borderTop: "1px solid var(--border-color)", paddingTop: "8px" }}>
+              <label className="radar-checkbox-inline" style={{ display: "flex", alignItems: "center", gap: "6px", fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", cursor: "pointer", letterSpacing: "0.05em" }}>
+                <input type="checkbox" checked={preViralOnly} onChange={(e) => setPreViralOnly(e.target.checked)} style={{ accentColor: "var(--cyan)" }} />
+                PRE-VIRAL ONLY (14D TO 5K)
+              </label>
+
+              <label className="radar-checkbox-inline" style={{ display: "flex", alignItems: "center", gap: "6px", fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", cursor: "pointer", letterSpacing: "0.05em" }}>
+                <input type="checkbox" checked={requireConsistentGrowth} onChange={(e) => setRequireConsistentGrowth(e.target.checked)} style={{ accentColor: "var(--cyan)" }} />
+                CONSISTENT GROWTH (5+ OF 7D)
+              </label>
+
+              <label className="radar-checkbox-inline" style={{ display: "flex", alignItems: "center", gap: "6px", fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", cursor: "pointer", letterSpacing: "0.05em" }}>
+                <input type="checkbox" checked={requireForkMomentum} onChange={(e) => setRequireForkMomentum(e.target.checked)} style={{ accentColor: "var(--cyan)" }} />
+                FORK MOMENTUM
+              </label>
+
+              <label className="radar-checkbox-inline" style={{ display: "flex", alignItems: "center", gap: "6px", fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", cursor: "pointer", letterSpacing: "0.05em" }}>
+                <input type="checkbox" checked={requireSustainedVelocity} onChange={(e) => setRequireSustainedVelocity(e.target.checked)} style={{ accentColor: "var(--cyan)" }} />
+                SUSTAINED 30D VELOCITY
+              </label>
             </div>
 
             <label className="radar-checkbox-inline" style={{ display: "flex", alignItems: "center", gap: "6px", fontFamily: "var(--font-mono)",
