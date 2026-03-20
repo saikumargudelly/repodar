@@ -1,13 +1,14 @@
 import json
 import math
 from enum import Enum
-from typing import List, Optional
+from typing import Callable, List, Optional
 from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from pydantic import BaseModel, Field
+from fastapi_cache.decorator import cache
 
 from app.database import get_db
 from app.models import Repository, DailyMetric, ComputedMetric, TrendAlert, CategoryMetricDaily
@@ -20,6 +21,9 @@ def _latest_scored_date(db: Session) -> date:
     return result if result else date.today()
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
+
+# RepoDar targets Python 3.11+ (see README), so built-in generics like
+# list[str], dict[str, T], and tuple[...] are import-safe here.
 
 
 def _parse_topics(topics_raw: Optional[str]) -> list[str]:
@@ -149,6 +153,8 @@ class OverviewResponse(BaseModel):
     category_growth: List[CategoryMetrics]
 
 
+# Radar is a broad ecosystem ranking feed. It intentionally stays compact and
+# excludes early-only predictive diagnostics (e.g., breakout signals / ETA).
 class RadarRepo(BaseModel):
     repo_id: str
     owner: str
@@ -169,6 +175,7 @@ class RadarRepo(BaseModel):
 class BreakoutSignal(str, Enum):
     """Human-readable signals attached to each scored repo."""
     STAR_ACCELERATION = "star_acceleration"
+    CONSISTENT_GROWTH = "consistent_growth"
     VELOCITY_INFLECTION = "velocity_inflection"
     CONTRIBUTOR_SURGE = "contributor_surge"
     HIGH_NOVELTY = "high_novelty"
@@ -189,6 +196,8 @@ class MomentumStage(str, Enum):
     BREAKOUT = "breakout"
 
 
+# Early Radar is intentionally richer than RadarRepo because it powers
+# pre-viral detection and explainable breakout diagnostics.
 class EarlyRadarRepo(BaseModel):
     # Core identity
     repo_id: str
@@ -254,19 +263,70 @@ class EarlyRadarRepo(BaseModel):
 
 
 _VIRAL_STAR_THRESHOLD = 5000
+# Composite breakout weighting (must sum to 1.0)
+# - acceleration: 0.26
+# - velocity_7d: 0.21
+# - inflection: 0.15
+# - trend_score: 0.12
+# - novelty: 0.06
+# - headroom: 0.04
+# - contrib_growth: 0.04
+# - fork_proxy: 0.02
+# - sustained: 0.02
+# - consistency: 0.08
 _W = {
-    "acceleration": 0.28,
-    "velocity_7d": 0.22,
-    "inflection": 0.16,
+    "acceleration": 0.26,
+    "velocity_7d": 0.21,
+    "inflection": 0.15,
     "trend_score": 0.12,
-    "novelty": 0.08,
-    "headroom": 0.05,
-    "contrib_growth": 0.05,
-    "fork_proxy": 0.03,
-    "sustained": 0.01,
+    "novelty": 0.06,
+    "headroom": 0.04,
+    "contrib_growth": 0.04,
+    "fork_proxy": 0.02,
+    "sustained": 0.02,
+    "consistency": 0.08,
 }
 
 assert abs(sum(_W.values()) - 1.0) < 1e-9, "Weights must sum to 1.0"
+
+
+def _compute_velocity_consistency(repo_id: str, db: Session, days: int = 7) -> tuple[float, float, bool]:
+    """Measure whether stars are climbing steadily over the recent N-day window."""
+    window_days = max(int(days or 1), 1)
+
+    # Pull N+1 rows so we can compute N day-over-day gains.
+    rows = (
+        db.query(DailyMetric.captured_at, DailyMetric.stars)
+        .filter(DailyMetric.repo_id == repo_id)
+        .order_by(DailyMetric.captured_at.desc())
+        .limit(window_days + 1)
+        .all()
+    )
+
+    if len(rows) < 2:
+        return 0.0, 0.0, False
+
+    ordered = list(reversed(rows))
+    gains: list[int] = []
+    for (_, prev_stars), (_, curr_stars) in zip(ordered, ordered[1:]):
+        prev = max(int(prev_stars or 0), 0)
+        curr = max(int(curr_stars or 0), 0)
+        gains.append(curr - prev)
+
+    if not gains:
+        return 0.0, 0.0, False
+
+    positive_days = sum(1 for gain in gains if gain > 0)
+    consistency_score = positive_days / len(gains)
+    avg_daily_gain = sum(gains) / len(gains)
+
+    if window_days >= 7:
+        is_sustained = positive_days >= 5
+    else:
+        required_positive_days = max(1, math.ceil(window_days * 0.7))
+        is_sustained = positive_days >= required_positive_days
+
+    return consistency_score, avg_daily_gain, is_sustained
 
 
 def _compute_breakout(
@@ -279,13 +339,26 @@ def _compute_breakout(
     stars: int,
     max_age_days: int,
     max_stars: int,
+    consistency_score: float,
 ) -> tuple[float, float, float, float, Optional[int], List[BreakoutSignal], MomentumStage]:
     """Compute composite early-breakout signals and stage classification."""
+    # Guard against malformed or out-of-range numeric inputs from upstream data.
+    accel = float(accel or 0.0)
+    vel7 = float(vel7 or 0.0)
+    vel30 = float(vel30 or 0.0)
+    trend_score = float(trend_score or 0.0)
+    contrib_growth = float(contrib_growth or 0.0)
+    age_days = max(int(age_days or 0), 0)
+    stars = max(int(stars or 0), 0)
+    max_age_days = max(int(max_age_days or 1), 1)
+    max_stars = max(int(max_stars or 1), 1)
+    consistency_score = min(max(float(consistency_score or 0.0), 0.0), 1.0)
+
     velocity_ratio = vel7 / (abs(vel30) + 1.0)
     inflection = max(velocity_ratio - 1.0, 0.0)
-    novelty = 1.0 - min(max(age_days, 0) / max(max_age_days, 1), 1.0)
-    headroom = 1.0 - min(max(stars, 0) / max(max_stars, 1), 1.0)
-    fork_proxy = vel7 / (math.log1p(max(stars, 1)))
+    novelty = 1.0 - min(age_days / max_age_days, 1.0)
+    headroom = 1.0 - min(stars / max_stars, 1.0)
+    fork_proxy = vel7 / math.log1p(max(stars, 1))
     sustained = 1.0 if vel30 > 0 else 0.0
 
     breakout_score = (
@@ -298,6 +371,7 @@ def _compute_breakout(
         + min(max(contrib_growth, 0.0), 1.0) * _W["contrib_growth"]
         + math.log1p(max(fork_proxy, 0.0)) * _W["fork_proxy"]
         + sustained * _W["sustained"]
+        + consistency_score * _W["consistency"]
     )
 
     stars_needed = _VIRAL_STAR_THRESHOLD - stars
@@ -311,6 +385,8 @@ def _compute_breakout(
     signals: List[BreakoutSignal] = []
     if accel > 0.5:
         signals.append(BreakoutSignal.STAR_ACCELERATION)
+    if consistency_score > 0.7:
+        signals.append(BreakoutSignal.CONSISTENT_GROWTH)
     if inflection > 0.5:
         signals.append(BreakoutSignal.VELOCITY_INFLECTION)
     if contrib_growth > 0.3:
@@ -350,7 +426,38 @@ def _compute_breakout(
     )
 
 
-def _build_category_velocity_map(db: Session, scored_date: date) -> dict[str, float]:
+def _category_velocity_cache_key_builder(
+    func: Callable[..., object],
+    namespace: str = "",
+    *,
+    request: object = None,
+    response: object = None,
+    args: Optional[tuple] = None,
+    kwargs: Optional[dict] = None,
+) -> str:
+    """Cache key that ignores DB session identity and buckets by scored_date."""
+    del func, request, response
+    args = args or ()
+    kwargs = kwargs or {}
+
+    scored_date = kwargs.get("scored_date")
+    if scored_date is None and len(args) >= 2:
+        scored_date = args[1]
+
+    if isinstance(scored_date, date):
+        scored_date_key = scored_date.isoformat()
+    else:
+        scored_date_key = str(scored_date or date.today().isoformat())
+
+    return f"{namespace}:category-velocity:{scored_date_key}"
+
+
+@cache(expire=3600, namespace="dashboard", key_builder=_category_velocity_cache_key_builder)  # pyright: ignore[reportArgumentType]
+async def _build_category_velocity_map(db: Session, scored_date: date) -> dict[str, float]:
+    return _build_category_velocity_map_uncached(db, scored_date)
+
+
+def _build_category_velocity_map_uncached(db: Session, scored_date: date) -> dict[str, float]:
     """Build per-category average 7d velocity map for peer-relative scoring."""
     subq = _latest_metric_subquery(db, scored_date)
     rows = (
@@ -367,8 +474,6 @@ def _build_category_velocity_map(db: Session, scored_date: date) -> dict[str, fl
 
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────
-
-from fastapi_cache.decorator import cache
 
 @router.get("/overview", response_model=OverviewResponse)
 @cache(expire=300)  # pyright: ignore[reportArgumentType]
@@ -516,7 +621,7 @@ def get_breakout_radar(
     rows = query.all()
 
     # Dedupe by canonical owner/name to avoid duplicate rows from legacy data.
-    deduped: dict[str, tuple[RadarRepo, tuple[float, float, float, int]]] = {}
+    deduped: dict[str, dict] = {}
     for repo, ts, accel, vel, ss, sl in rows:
         candidate = RadarRepo(
             repo_id=repo.id,
@@ -535,18 +640,13 @@ def get_breakout_radar(
             primary_language=repo.primary_language,
         )
         key = _repo_key(repo.owner, repo.name)
-        rank_key = (
-            candidate.trend_score,
-            candidate.acceleration,
-            candidate.star_velocity_7d,
-            candidate.stars,
-        )
-        current = deduped.get(key)
-        if not current or rank_key > current[1]:
-            deduped[key] = (candidate, rank_key)
+        score = float(candidate.trend_score)
+        existing = deduped.get(key)
+        if not existing or score > existing["score"]:
+            deduped[key] = {"repo": candidate, "score": score}
 
     ranked = sorted(
-        (item[0] for item in deduped.values()),
+        (item["repo"] for item in deduped.values()),
         key=lambda x: (x.trend_score, x.acceleration, x.star_velocity_7d, x.stars),
         reverse=True,
     )
@@ -554,7 +654,7 @@ def get_breakout_radar(
 
 
 @router.get("/early-radar", response_model=List[EarlyRadarRepo])
-def get_early_radar(
+async def get_early_radar(
     max_age_days: int = Query(
         90,
         description="Max repo age in days. Keep low to surface truly early repos.",
@@ -603,6 +703,10 @@ def get_early_radar(
         False,
         description="Require positive 30-day velocity.",
     ),
+    require_consistent_growth: bool = Query(
+        False,
+        description="Require star growth on at least 5 of the last 7 days.",
+    ),
     category: Optional[str] = Query(None, description="Filter by category"),
     language: Optional[str] = Query(
         None,
@@ -630,7 +734,7 @@ def get_early_radar(
     """
     Enhanced Early Radar feed focused on newly trending repositories.
 
-    Uses a 9-signal composite breakout score with transparent active signals,
+    Uses a 10-signal composite breakout score with transparent active signals,
     stage classification, peer-category context, and robust deduplication.
     """
     # Direct in-process calls can pass FastAPI Query objects as defaults.
@@ -671,11 +775,18 @@ def get_early_radar(
         require_fork_momentum = False
     if not isinstance(require_sustained_velocity, bool):
         require_sustained_velocity = False
+    if not isinstance(require_consistent_growth, bool):
+        require_consistent_growth = False
     if not isinstance(require_pre_viral, bool):
         require_pre_viral = False
 
     latest_date = _latest_scored_date(db)
-    cat_velocity_map = _build_category_velocity_map(db, latest_date)
+    cat_velocity_map_raw = await _build_category_velocity_map(db, latest_date)
+    if isinstance(cat_velocity_map_raw, dict):
+        cat_velocity_map: dict[str, float] = cat_velocity_map_raw
+    else:
+        # Fallback when cache middleware returns a non-dict payload.
+        cat_velocity_map = _build_category_velocity_map_uncached(db, latest_date)
     subq = _latest_metric_subquery(db, latest_date)
 
     q = (
@@ -734,6 +845,10 @@ def get_early_radar(
         if vel7 <= 0 and accel <= 0:
             continue
 
+        consistency_score, _avg_daily_gain, is_sustained = _compute_velocity_consistency(repo.id, db, days=7)
+        if require_consistent_growth and not is_sustained:
+            continue
+
         repo_topics = _parse_topics(repo.topics)
         if topic_keywords:
             repo_topics_lc = [topic.lower() for topic in repo_topics]
@@ -758,6 +873,7 @@ def get_early_radar(
             stars=stars,
             max_age_days=max_age_days,
             max_stars=max_stars,
+            consistency_score=consistency_score,
         )
 
         if velocity_ratio < min_velocity_ratio:

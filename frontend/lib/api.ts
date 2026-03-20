@@ -963,6 +963,7 @@ export const api = {
     min_breakout_score?: number;
     min_sustainability_score?: number;
     require_contributor_growth?: boolean;
+    require_consistent_growth?: boolean;
     require_fork_momentum?: boolean;
     require_sustained_velocity?: boolean;
     category?: string;
@@ -984,6 +985,7 @@ export const api = {
     if (params?.min_breakout_score !== undefined) qs.set("min_breakout_score", String(params.min_breakout_score));
     if (params?.min_sustainability_score !== undefined) qs.set("min_sustainability_score", String(params.min_sustainability_score));
     if (params?.require_contributor_growth !== undefined) qs.set("require_contributor_growth", String(params.require_contributor_growth));
+    if (params?.require_consistent_growth !== undefined) qs.set("require_consistent_growth", String(params.require_consistent_growth));
     if (params?.require_fork_momentum !== undefined) qs.set("require_fork_momentum", String(params.require_fork_momentum));
     if (params?.require_sustained_velocity !== undefined) qs.set("require_sustained_velocity", String(params.require_sustained_velocity));
     if (params?.category) qs.set("category", params.category);

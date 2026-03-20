@@ -33,7 +33,7 @@ class AlertRule(Base):
     )
 
     id:          Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id:     Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    user_id:     Mapped[str] = mapped_column(String(255), nullable=False)
 
     # Optional: restrict to a specific repo (NULL = apply to all repos)
     repo_id:     Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
