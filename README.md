@@ -1,6 +1,6 @@
 # 📡 Repodar
 
-### Real-time GitHub AI/ML radar — discover what's actually gaining momentum before everyone else knows about it
+### Real-time GitHub radar — discover what's actually gaining momentum before everyone else knows about it
 
 > Tired of GitHub Trending showing you projects from last week? 
 > Repodar continuously tracks all different domain repositories every 4 hours, scores them on momentum and health, and surfaces what's actually gaining traction — while everyone else is still catching up.
