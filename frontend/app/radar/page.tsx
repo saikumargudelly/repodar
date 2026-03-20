@@ -66,9 +66,7 @@ function stageColor(stage: string | undefined): string {
 export default function RadarPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialMode: RadarMode = searchParams.get("stage") === "early" ? "early" : "established";
-
-  const [mode, setMode] = useState<RadarMode>(initialMode);
+  const mode: RadarMode = searchParams.get("stage") === "early" ? "early" : "established";
   const [category, setCategory] = useState("All");
 
   // Established Radar controls
@@ -191,7 +189,14 @@ export default function RadarPage() {
   }, [mode, earlyRows, establishedRows]);
 
   const switchMode = (next: RadarMode) => {
-    setMode(next);
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "early") {
+      params.set("stage", "early");
+    } else {
+      params.delete("stage");
+    }
+    const query = params.toString();
+    router.replace(query ? `/radar?${query}` : "/radar");
     setCategory("All");
   };
 
@@ -377,11 +382,6 @@ export default function RadarPage() {
               </label>
             </div>
 
-            <label className="radar-checkbox-inline" style={{ display: "flex", alignItems: "center", gap: "6px", fontFamily: "var(--font-mono)",
-              fontSize: "11px", color: "var(--text-muted)", cursor: "pointer", letterSpacing: "0.06em" }}>
-              <input type="checkbox" checked={preViralOnly} onChange={(e) => setPreViralOnly(e.target.checked)} style={{ accentColor: "var(--cyan)" }} />
-              PRE-VIRAL ONLY
-            </label>
           </>
         )}
 
