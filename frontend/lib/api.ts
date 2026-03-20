@@ -442,6 +442,20 @@ export interface EarlyRadarRepo {
   acceleration: number;
   star_velocity_7d: number;
   topics: string[] | null;
+
+  // Enhanced Early Radar fields (optional for backward compatibility)
+  star_velocity_30d?: number;
+  contributor_growth_rate?: number;
+  sustainability_score?: number;
+  breakout_score?: number;
+  novelty_score?: number;
+  velocity_ratio?: number;
+  fork_proxy_score?: number;
+  estimated_viral_eta_days?: number | null;
+  momentum_stage?: "dormant" | "emerging" | "accelerating" | "pre_viral" | "breakout";
+  active_signals?: string[];
+  category_velocity_avg?: number;
+  outpaces_category?: boolean;
 }
 
 // ─── Watchlist ────────────────────────────────────────────────────────────────
@@ -938,12 +952,46 @@ export const api = {
     apiFetch<{ dismissed: boolean }>(`/dashboard/alerts/read-all`, { method: "PATCH" }),
 
   // Early Radar
-  getEarlyRadar: (params?: { max_age_days?: number; max_stars?: number; min_acceleration?: number; category?: string; limit?: number }) => {
+  getEarlyRadar: (params?: {
+    max_age_days?: number;
+    min_age_days?: number;
+    max_stars?: number;
+    min_stars?: number;
+    min_acceleration?: number;
+    min_star_velocity_7d?: number;
+    min_velocity_ratio?: number;
+    min_breakout_score?: number;
+    min_sustainability_score?: number;
+    require_contributor_growth?: boolean;
+    require_fork_momentum?: boolean;
+    require_sustained_velocity?: boolean;
+    category?: string;
+    language?: string;
+    topics?: string;
+    momentum_stage?: "dormant" | "emerging" | "accelerating" | "pre_viral" | "breakout";
+    require_pre_viral?: boolean;
+    sort_by?: "breakout_score" | "acceleration" | "star_velocity_7d" | "velocity_ratio" | "novelty_score" | "trend_score";
+    limit?: number;
+  }) => {
     const qs = new URLSearchParams();
     if (params?.max_age_days !== undefined) qs.set("max_age_days", String(params.max_age_days));
+    if (params?.min_age_days !== undefined) qs.set("min_age_days", String(params.min_age_days));
     if (params?.max_stars !== undefined) qs.set("max_stars", String(params.max_stars));
+    if (params?.min_stars !== undefined) qs.set("min_stars", String(params.min_stars));
     if (params?.min_acceleration !== undefined) qs.set("min_acceleration", String(params.min_acceleration));
+    if (params?.min_star_velocity_7d !== undefined) qs.set("min_star_velocity_7d", String(params.min_star_velocity_7d));
+    if (params?.min_velocity_ratio !== undefined) qs.set("min_velocity_ratio", String(params.min_velocity_ratio));
+    if (params?.min_breakout_score !== undefined) qs.set("min_breakout_score", String(params.min_breakout_score));
+    if (params?.min_sustainability_score !== undefined) qs.set("min_sustainability_score", String(params.min_sustainability_score));
+    if (params?.require_contributor_growth !== undefined) qs.set("require_contributor_growth", String(params.require_contributor_growth));
+    if (params?.require_fork_momentum !== undefined) qs.set("require_fork_momentum", String(params.require_fork_momentum));
+    if (params?.require_sustained_velocity !== undefined) qs.set("require_sustained_velocity", String(params.require_sustained_velocity));
     if (params?.category) qs.set("category", params.category);
+    if (params?.language) qs.set("language", params.language);
+    if (params?.topics) qs.set("topics", params.topics);
+    if (params?.momentum_stage) qs.set("momentum_stage", params.momentum_stage);
+    if (params?.require_pre_viral !== undefined) qs.set("require_pre_viral", String(params.require_pre_viral));
+    if (params?.sort_by) qs.set("sort_by", params.sort_by);
     if (params?.limit !== undefined) qs.set("limit", String(params.limit));
     return apiFetch<EarlyRadarRepo[]>(`/dashboard/early-radar?${qs}`);
   },

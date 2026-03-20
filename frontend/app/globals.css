@@ -859,6 +859,97 @@ p, span, div, td, th, a, label, li {
   border-color: var(--accent-blue);
 }
 
+/* Radar page layout polish */
+.radar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.radar-header-copy {
+  max-width: 720px;
+}
+
+.radar-header-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.radar-mode-toggle {
+  display: inline-flex;
+  gap: 6px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+}
+
+.radar-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.radar-metric-card {
+  padding: 12px;
+}
+
+.radar-metric-label {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
+.radar-metric-value {
+  font-size: 18px;
+  margin-top: 4px;
+}
+
+.radar-controls-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+  padding: 14px;
+}
+
+.radar-control-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 170px;
+  flex: 1 1 170px;
+  max-width: 240px;
+}
+
+.radar-checkbox-inline {
+  min-height: 34px;
+}
+
+.radar-range {
+  width: 100%;
+}
+
+.radar-export-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.radar-export-btn {
+  font-size: 10px;
+  letter-spacing: 0.03em;
+}
+
+.radar-export-btn:hover {
+  border-color: var(--accent-blue) !important;
+  color: var(--accent-blue) !important;
+}
+
 /* ════════════════════════════════════════════════════════════
    RESPONSIVE v2 — App Shell, Nav, Landing, Global
    ════════════════════════════════════════════════════════════ */
@@ -907,6 +998,53 @@ p, span, div, td, th, a, label, li {
   .page-root {
     padding-top: 16px;
     gap: 16px;
+  }
+
+  .radar-header {
+    gap: 10px;
+  }
+
+  .radar-header-controls {
+    width: 100%;
+  }
+
+  .radar-mode-toggle {
+    width: 100%;
+  }
+
+  .radar-mode-toggle .filter-btn-cyber {
+    flex: 1 1 0;
+    text-align: center;
+  }
+
+  .radar-category-select {
+    flex: 1;
+    min-width: 160px;
+  }
+
+  .radar-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .radar-controls-panel {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .radar-control-block {
+    max-width: none;
+    min-width: 140px;
+    flex: 1 1 calc(50% - 10px);
+  }
+
+  .radar-export-actions {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .radar-export-btn {
+    flex: 1;
   }
 }
 
@@ -972,6 +1110,31 @@ p, span, div, td, th, a, label, li {
   .nav-theme-switcher { display: none !important; }
   .nav-weekly-text { display: none !important; }
   .nav-report-icon { display: inline !important; }
+
+  .radar-summary-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .radar-metric-value {
+    font-size: 16px;
+  }
+
+  .radar-controls-panel {
+    padding: 10px;
+  }
+
+  .radar-control-block {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .radar-checkbox-inline {
+    width: 100%;
+  }
+
+  .radar-subtitle {
+    font-size: 10px !important;
+  }
 }
 
 /* ════════════════════════════════════════════════════════════

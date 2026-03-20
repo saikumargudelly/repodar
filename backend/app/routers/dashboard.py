@@ -1,10 +1,13 @@
+import json
+import math
+from enum import Enum
 from typing import List, Optional
 from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.database import get_db
 from app.models import Repository, DailyMetric, ComputedMetric, TrendAlert, CategoryMetricDaily
@@ -17,6 +20,63 @@ def _latest_scored_date(db: Session) -> date:
     return result if result else date.today()
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
+
+
+def _parse_topics(topics_raw: Optional[str]) -> list[str]:
+    if not topics_raw:
+        return []
+    try:
+        parsed = json.loads(topics_raw)
+    except Exception:
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [str(topic) for topic in parsed if isinstance(topic, str) and topic.strip()]
+
+
+def _repo_key(owner: str, name: str) -> str:
+    return f"{owner.strip().lower()}/{name.strip().lower()}"
+
+
+def _latest_metric_subquery(db: Session, scored_date: date):
+    """
+    Returns one latest ComputedMetric row per repo for a given scored date.
+    This guards radar views against duplicate rows when multiple score records
+    exist for the same repo/date.
+    """
+    ranked = (
+        db.query(
+            ComputedMetric.repo_id.label("repo_id"),
+            ComputedMetric.trend_score.label("trend_score"),
+            ComputedMetric.acceleration.label("acceleration"),
+            ComputedMetric.star_velocity_7d.label("star_velocity_7d"),
+            ComputedMetric.star_velocity_30d.label("star_velocity_30d"),
+            ComputedMetric.contributor_growth_rate.label("contributor_growth_rate"),
+            ComputedMetric.sustainability_score.label("sustainability_score"),
+            ComputedMetric.sustainability_label.label("sustainability_label"),
+            func.row_number().over(
+                partition_by=ComputedMetric.repo_id,
+                order_by=ComputedMetric.computed_at.desc(),
+            ).label("rn"),
+        )
+        .filter(ComputedMetric.date == scored_date)
+        .subquery()
+    )
+
+    return (
+        db.query(
+            ranked.c.repo_id,
+            ranked.c.trend_score,
+            ranked.c.acceleration,
+            ranked.c.star_velocity_7d,
+            ranked.c.star_velocity_30d,
+            ranked.c.contributor_growth_rate,
+            ranked.c.sustainability_score,
+            ranked.c.sustainability_label,
+        )
+        .filter(ranked.c.rn == 1)
+        .subquery()
+    )
 
 
 # ─── Schemas ─────────────────────────────────────────────────────────────────
@@ -106,12 +166,212 @@ class RadarRepo(BaseModel):
     primary_language: Optional[str] = None
 
 
+class BreakoutSignal(str, Enum):
+    """Human-readable signals attached to each scored repo."""
+    STAR_ACCELERATION = "star_acceleration"
+    VELOCITY_INFLECTION = "velocity_inflection"
+    CONTRIBUTOR_SURGE = "contributor_surge"
+    HIGH_NOVELTY = "high_novelty"
+    LOW_HEADROOM = "low_headroom"
+    FORK_MOMENTUM = "fork_momentum"
+    SUSTAINED_VELOCITY = "sustained_velocity"
+    PRE_VIRAL = "pre_viral"
+    CATEGORY_OUTPACE = "category_outpace"
+    MOMENTUM_STALL = "momentum_stall"
+
+
+class MomentumStage(str, Enum):
+    """Lifecycle stage derived from velocity + acceleration signals."""
+    DORMANT = "dormant"
+    EMERGING = "emerging"
+    ACCELERATING = "accelerating"
+    PRE_VIRAL = "pre_viral"
+    BREAKOUT = "breakout"
+
+
+class EarlyRadarRepo(BaseModel):
+    # Core identity
+    repo_id: str
+    owner: str
+    name: str
+    category: str
+    github_url: str
+    primary_language: Optional[str]
+    topics: Optional[List[str]]
+    age_days: int
+    stars: int
+
+    # Raw metric signals
+    trend_score: float
+    acceleration: float
+    star_velocity_7d: float
+    star_velocity_30d: float
+    contributor_growth_rate: float
+    sustainability_score: float
+    sustainability_label: str
+
+    # Derived signals
+    breakout_score: float = Field(
+        description="Composite early-breakout score (0–infinity). Higher = more likely to trend soon."
+    )
+    novelty_score: float = Field(
+        description="0-1. How early you are: 1 = brand-new repo gaining stars, 0 = near max age/stars."
+    )
+    velocity_ratio: float = Field(
+        description="star_velocity_7d / (|star_velocity_30d| + 1). >1 means momentum is accelerating."
+    )
+    fork_proxy_score: float = Field(
+        description=(
+            "Proxy for fork momentum: high recent velocity + low star count "
+            "suggests developer adoption before mainstream awareness."
+        )
+    )
+    estimated_viral_eta_days: Optional[int] = Field(
+        default=None,
+        description=(
+            "Estimated days to reach 5,000 stars at current 7d velocity. "
+            "None if already past threshold or velocity <= 0."
+        )
+    )
+
+    # Classification
+    momentum_stage: MomentumStage = Field(
+        description="Lifecycle stage: dormant -> emerging -> accelerating -> pre_viral -> breakout"
+    )
+    active_signals: List[BreakoutSignal] = Field(
+        description="Ordered list of signals contributing to this repo's ranking."
+    )
+
+    # Category context
+    category_velocity_avg: float = Field(
+        default=0.0,
+        description="Average weekly star velocity for repos in this category."
+    )
+    outpaces_category: bool = Field(
+        default=False,
+        description="True if this repo's 7d velocity beats category average."
+    )
+
+
+_VIRAL_STAR_THRESHOLD = 5000
+_W = {
+    "acceleration": 0.28,
+    "velocity_7d": 0.22,
+    "inflection": 0.16,
+    "trend_score": 0.12,
+    "novelty": 0.08,
+    "headroom": 0.05,
+    "contrib_growth": 0.05,
+    "fork_proxy": 0.03,
+    "sustained": 0.01,
+}
+
+assert abs(sum(_W.values()) - 1.0) < 1e-9, "Weights must sum to 1.0"
+
+
+def _compute_breakout(
+    accel: float,
+    vel7: float,
+    vel30: float,
+    trend_score: float,
+    contrib_growth: float,
+    age_days: int,
+    stars: int,
+    max_age_days: int,
+    max_stars: int,
+) -> tuple[float, float, float, float, Optional[int], List[BreakoutSignal], MomentumStage]:
+    """Compute composite early-breakout signals and stage classification."""
+    velocity_ratio = vel7 / (abs(vel30) + 1.0)
+    inflection = max(velocity_ratio - 1.0, 0.0)
+    novelty = 1.0 - min(max(age_days, 0) / max(max_age_days, 1), 1.0)
+    headroom = 1.0 - min(max(stars, 0) / max(max_stars, 1), 1.0)
+    fork_proxy = vel7 / (math.log1p(max(stars, 1)))
+    sustained = 1.0 if vel30 > 0 else 0.0
+
+    breakout_score = (
+        math.log1p(max(accel, 0.0)) * _W["acceleration"]
+        + math.log1p(max(vel7, 0.0)) * _W["velocity_7d"]
+        + inflection * _W["inflection"]
+        + max(trend_score, 0.0) * _W["trend_score"]
+        + novelty * _W["novelty"]
+        + headroom * _W["headroom"]
+        + min(max(contrib_growth, 0.0), 1.0) * _W["contrib_growth"]
+        + math.log1p(max(fork_proxy, 0.0)) * _W["fork_proxy"]
+        + sustained * _W["sustained"]
+    )
+
+    stars_needed = _VIRAL_STAR_THRESHOLD - stars
+    if stars >= _VIRAL_STAR_THRESHOLD or vel7 <= 0:
+        eta: Optional[int] = None
+    else:
+        daily_rate = vel7 / 7.0
+        eta = int(math.ceil(stars_needed / daily_rate))
+        eta = min(eta, 9999)
+
+    signals: List[BreakoutSignal] = []
+    if accel > 0.5:
+        signals.append(BreakoutSignal.STAR_ACCELERATION)
+    if inflection > 0.5:
+        signals.append(BreakoutSignal.VELOCITY_INFLECTION)
+    if contrib_growth > 0.3:
+        signals.append(BreakoutSignal.CONTRIBUTOR_SURGE)
+    if novelty > 0.7:
+        signals.append(BreakoutSignal.HIGH_NOVELTY)
+    if fork_proxy > 1.0:
+        signals.append(BreakoutSignal.FORK_MOMENTUM)
+    if sustained:
+        signals.append(BreakoutSignal.SUSTAINED_VELOCITY)
+    if eta is not None and eta <= 14:
+        signals.append(BreakoutSignal.PRE_VIRAL)
+    if headroom < 0.2:
+        signals.append(BreakoutSignal.LOW_HEADROOM)
+    if vel7 > 0 and velocity_ratio < 0.5:
+        signals.append(BreakoutSignal.MOMENTUM_STALL)
+
+    if vel7 <= 0 and accel <= 0:
+        stage = MomentumStage.DORMANT
+    elif eta is not None and eta <= 14:
+        stage = MomentumStage.PRE_VIRAL
+    elif accel > 1.0 or inflection > 1.0:
+        stage = MomentumStage.BREAKOUT
+    elif accel > 0.3 or inflection > 0.3:
+        stage = MomentumStage.ACCELERATING
+    else:
+        stage = MomentumStage.EMERGING
+
+    return (
+        breakout_score,
+        novelty,
+        velocity_ratio,
+        fork_proxy,
+        eta,
+        signals,
+        stage,
+    )
+
+
+def _build_category_velocity_map(db: Session, scored_date: date) -> dict[str, float]:
+    """Build per-category average 7d velocity map for peer-relative scoring."""
+    subq = _latest_metric_subquery(db, scored_date)
+    rows = (
+        db.query(
+            Repository.category,
+            func.avg(subq.c.star_velocity_7d).label("avg_vel"),
+        )
+        .outerjoin(subq, Repository.id == subq.c.repo_id)
+        .filter(Repository.is_active == True)  # noqa: E712
+        .group_by(Repository.category)
+        .all()
+    )
+    return {category: float(avg_vel or 0.0) for category, avg_vel in rows}
+
+
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
 from fastapi_cache.decorator import cache
 
 @router.get("/overview", response_model=OverviewResponse)
-@cache(expire=300)
+@cache(expire=300)  # pyright: ignore[reportArgumentType]
 def get_overview(db: Session = Depends(get_db)):
     """
     Ecosystem overview: category heatmap data, top-10 breakout repos,
@@ -235,34 +495,30 @@ def get_breakout_radar(
     """
     latest_date = _latest_scored_date(db)
 
-    subq = (
-        db.query(
-            ComputedMetric.repo_id,
-            ComputedMetric.trend_score,
-            ComputedMetric.acceleration,
-            ComputedMetric.star_velocity_7d,
-            ComputedMetric.sustainability_score,
-            ComputedMetric.sustainability_label,
-        )
-        .filter(ComputedMetric.date == latest_date)
-        .subquery()
-    )
+    subq = _latest_metric_subquery(db, latest_date)
 
-    query = db.query(Repository, subq).outerjoin(subq, Repository.id == subq.c.repo_id)
+    query = (
+        db.query(
+            Repository,
+            subq.c.trend_score,
+            subq.c.acceleration,
+            subq.c.star_velocity_7d,
+            subq.c.sustainability_score,
+            subq.c.sustainability_label,
+        )
+        .outerjoin(subq, Repository.id == subq.c.repo_id)
+        .filter(Repository.is_active == True)  # noqa: E712
+    )
 
     if new_only:
         query = query.filter(Repository.age_days <= 180)
 
     rows = query.all()
 
-    results = []
-    for row in rows:
-        repo = row[0]
-        ts, accel, vel, ss, sl = row[2], row[3], row[4], row[5], row[6]
-        import json as _json
-        topics_raw = repo.topics
-        topics_list = _json.loads(topics_raw) if topics_raw else []
-        results.append(RadarRepo(
+    # Dedupe by canonical owner/name to avoid duplicate rows from legacy data.
+    deduped: dict[str, tuple[RadarRepo, tuple[float, float, float, int]]] = {}
+    for repo, ts, accel, vel, ss, sl in rows:
+        candidate = RadarRepo(
             repo_id=repo.id,
             owner=repo.owner,
             name=repo.name,
@@ -275,89 +531,304 @@ def get_breakout_radar(
             sustainability_score=ss or 0,
             age_days=repo.age_days,
             stars=repo.stars_snapshot or 0,
-            topics=topics_list,
+            topics=_parse_topics(repo.topics),
             primary_language=repo.primary_language,
-        ))
+        )
+        key = _repo_key(repo.owner, repo.name)
+        rank_key = (
+            candidate.trend_score,
+            candidate.acceleration,
+            candidate.star_velocity_7d,
+            candidate.stars,
+        )
+        current = deduped.get(key)
+        if not current or rank_key > current[1]:
+            deduped[key] = (candidate, rank_key)
 
-    results.sort(key=lambda x: x.trend_score, reverse=True)
-    return results[:limit]
+    ranked = sorted(
+        (item[0] for item in deduped.values()),
+        key=lambda x: (x.trend_score, x.acceleration, x.star_velocity_7d, x.stars),
+        reverse=True,
+    )
+    return ranked[:limit]
 
 
-@router.get("/early-radar", response_model=List[RadarRepo])
+@router.get("/early-radar", response_model=List[EarlyRadarRepo])
 def get_early_radar(
-    max_age_days: int = Query(90, description="Max repo age in days (default 90)"),
-    max_stars: int = Query(1000, description="Max star count — surface pre-viral repos"),
-    min_acceleration: float = Query(0.0, description="Min acceleration score"),
+    max_age_days: int = Query(
+        90,
+        description="Max repo age in days. Keep low to surface truly early repos.",
+    ),
+    min_age_days: int = Query(
+        3,
+        description="Min repo age in days to avoid one-day noise.",
+    ),
+    max_stars: int = Query(
+        1000,
+        description="Ceiling star count to surface pre-viral repos.",
+    ),
+    min_stars: int = Query(
+        10,
+        description="Floor star count to remove low-signal placeholders.",
+    ),
+    min_acceleration: float = Query(
+        0.0,
+        description="Minimum acceleration score.",
+    ),
+    min_star_velocity_7d: float = Query(
+        0.0,
+        description="Minimum 7-day star velocity.",
+    ),
+    min_velocity_ratio: float = Query(
+        0.0,
+        description="Minimum vel7d/(|vel30d|+1) ratio. >1 indicates upward inflection.",
+    ),
+    min_breakout_score: float = Query(
+        0.0,
+        description="Minimum composite breakout score.",
+    ),
+    min_sustainability_score: float = Query(
+        0.0,
+        description="Minimum sustainability score.",
+    ),
+    require_contributor_growth: bool = Query(
+        False,
+        description="Require contributor_growth_rate > 0.",
+    ),
+    require_fork_momentum: bool = Query(
+        False,
+        description="Require FORK_MOMENTUM signal.",
+    ),
+    require_sustained_velocity: bool = Query(
+        False,
+        description="Require positive 30-day velocity.",
+    ),
     category: Optional[str] = Query(None, description="Filter by category"),
+    language: Optional[str] = Query(
+        None,
+        description="Filter by primary language (case-insensitive exact match).",
+    ),
+    topics: Optional[str] = Query(
+        None,
+        description="Comma-separated topic keywords. Matches ANY keyword.",
+    ),
+    momentum_stage: Optional[MomentumStage] = Query(
+        None,
+        description="Filter stage: dormant | emerging | accelerating | pre_viral | breakout",
+    ),
+    require_pre_viral: bool = Query(
+        False,
+        description="Only return repos projected to hit 5,000 stars within 14 days.",
+    ),
+    sort_by: str = Query(
+        "breakout_score",
+        description="breakout_score | acceleration | star_velocity_7d | velocity_ratio | novelty_score | trend_score",
+    ),
     limit: int = Query(50, le=100),
     db: Session = Depends(get_db),
-):
+) -> List[EarlyRadarRepo]:
     """
-    Early Radar — 'Before It Trends' feed.
-    Surfaces repos < max_age_days old, under max_stars stars, with positive
-    acceleration — pre-viral breakouts before they hit GitHub Trending.
-    """
-    import json as _json
-    latest_date = _latest_scored_date(db)
+    Enhanced Early Radar feed focused on newly trending repositories.
 
-    subq = (
-        db.query(
-            ComputedMetric.repo_id,
-            ComputedMetric.trend_score,
-            ComputedMetric.acceleration,
-            ComputedMetric.star_velocity_7d,
-            ComputedMetric.sustainability_score,
-            ComputedMetric.sustainability_label,
-        )
-        .filter(ComputedMetric.date == latest_date)
-        .subquery()
-    )
+    Uses a 9-signal composite breakout score with transparent active signals,
+    stage classification, peer-category context, and robust deduplication.
+    """
+    # Direct in-process calls can pass FastAPI Query objects as defaults.
+    # Normalise to plain values so this function remains reusable in scripts/tests.
+    if not isinstance(category, str):
+        category = None
+    if not isinstance(language, str):
+        language = None
+    if not isinstance(topics, str):
+        topics = None
+    if not isinstance(sort_by, str):
+        sort_by = "breakout_score"
+    if not isinstance(momentum_stage, MomentumStage):
+        momentum_stage = None
+    if not isinstance(max_age_days, int):
+        max_age_days = 90
+    if not isinstance(min_age_days, int):
+        min_age_days = 3
+    if not isinstance(max_stars, int):
+        max_stars = 1000
+    if not isinstance(min_stars, int):
+        min_stars = 10
+    if not isinstance(limit, int):
+        limit = 50
+    if not isinstance(min_acceleration, (int, float)):
+        min_acceleration = 0.0
+    if not isinstance(min_star_velocity_7d, (int, float)):
+        min_star_velocity_7d = 0.0
+    if not isinstance(min_velocity_ratio, (int, float)):
+        min_velocity_ratio = 0.0
+    if not isinstance(min_breakout_score, (int, float)):
+        min_breakout_score = 0.0
+    if not isinstance(min_sustainability_score, (int, float)):
+        min_sustainability_score = 0.0
+    if not isinstance(require_contributor_growth, bool):
+        require_contributor_growth = False
+    if not isinstance(require_fork_momentum, bool):
+        require_fork_momentum = False
+    if not isinstance(require_sustained_velocity, bool):
+        require_sustained_velocity = False
+    if not isinstance(require_pre_viral, bool):
+        require_pre_viral = False
+
+    latest_date = _latest_scored_date(db)
+    cat_velocity_map = _build_category_velocity_map(db, latest_date)
+    subq = _latest_metric_subquery(db, latest_date)
 
     q = (
-        db.query(Repository, subq)
-        .filter(
-            Repository.is_active == True,  # noqa: E712
-            Repository.age_days <= max_age_days,
-            Repository.stars_snapshot <= max_stars,
+        db.query(
+            Repository,
+            subq.c.trend_score,
+            subq.c.acceleration,
+            subq.c.star_velocity_7d,
+            subq.c.star_velocity_30d,
+            subq.c.contributor_growth_rate,
+            subq.c.sustainability_score,
+            subq.c.sustainability_label,
         )
         .outerjoin(subq, Repository.id == subq.c.repo_id)
+        .filter(
+            Repository.is_active == True,  # noqa: E712
+            Repository.age_days >= min_age_days,
+            Repository.age_days <= max_age_days,
+            Repository.stars_snapshot >= min_stars,
+            Repository.stars_snapshot <= max_stars,
+        )
     )
+
     if category:
         q = q.filter(Repository.category == category)
+    if language:
+        q = q.filter(func.lower(Repository.primary_language) == language.strip().lower())
 
     rows = q.all()
-    results = []
-    for row in rows:
-        repo = row[0]
-        ts, accel, vel, ss, sl = row[2], row[3], row[4], row[5], row[6]
-        if (accel or 0) < min_acceleration:
+
+    topic_keywords: List[str] = []
+    if topics:
+        topic_keywords = [item.strip().lower() for item in topics.split(",") if item.strip()]
+
+    deduped: dict[str, dict] = {}
+
+    for repo, ts, accel, vel7, vel30, contrib_growth, ss, sl in rows:
+        ts = float(ts or 0.0)
+        accel = float(accel or 0.0)
+        vel7 = float(vel7 or 0.0)
+        vel30 = float(vel30 or 0.0)
+        contrib_growth = float(contrib_growth or 0.0)
+        ss = float(ss or 0.0)
+        stars = repo.stars_snapshot or 0
+
+        if accel < min_acceleration:
             continue
-        topics_raw = repo.topics
-        topics_list = _json.loads(topics_raw) if topics_raw else []
-        results.append(RadarRepo(
+        if vel7 < min_star_velocity_7d:
+            continue
+        if ss < min_sustainability_score:
+            continue
+        if require_contributor_growth and contrib_growth <= 0:
+            continue
+        if require_sustained_velocity and vel30 <= 0:
+            continue
+        if vel7 <= 0 and accel <= 0:
+            continue
+
+        repo_topics = _parse_topics(repo.topics)
+        if topic_keywords:
+            repo_topics_lc = [topic.lower() for topic in repo_topics]
+            if not any(any(keyword in topic for topic in repo_topics_lc) for keyword in topic_keywords):
+                continue
+
+        (
+            breakout_score,
+            novelty_score,
+            velocity_ratio,
+            fork_proxy,
+            eta,
+            signals,
+            stage,
+        ) = _compute_breakout(
+            accel=accel,
+            vel7=vel7,
+            vel30=vel30,
+            trend_score=ts,
+            contrib_growth=contrib_growth,
+            age_days=repo.age_days,
+            stars=stars,
+            max_age_days=max_age_days,
+            max_stars=max_stars,
+        )
+
+        if velocity_ratio < min_velocity_ratio:
+            continue
+        if breakout_score < min_breakout_score:
+            continue
+        if require_fork_momentum and BreakoutSignal.FORK_MOMENTUM not in signals:
+            continue
+        if require_pre_viral and stage != MomentumStage.PRE_VIRAL:
+            continue
+        if momentum_stage and stage != momentum_stage:
+            continue
+
+        category_velocity_avg = cat_velocity_map.get(repo.category, 0.0)
+        outpaces_category = vel7 > category_velocity_avg and category_velocity_avg > 0
+        if outpaces_category and BreakoutSignal.CATEGORY_OUTPACE not in signals:
+            signals.append(BreakoutSignal.CATEGORY_OUTPACE)
+
+        candidate = EarlyRadarRepo(
             repo_id=repo.id,
             owner=repo.owner,
             name=repo.name,
             category=repo.category,
             github_url=repo.github_url,
-            trend_score=ts or 0,
-            acceleration=accel or 0,
-            star_velocity_7d=vel or 0,
-            sustainability_label=sl or "YELLOW",
-            sustainability_score=ss or 0,
-            age_days=repo.age_days,
-            stars=repo.stars_snapshot or 0,
-            topics=topics_list,
             primary_language=repo.primary_language,
-        ))
+            topics=repo_topics,
+            age_days=repo.age_days,
+            stars=stars,
+            trend_score=ts,
+            acceleration=accel,
+            star_velocity_7d=vel7,
+            star_velocity_30d=vel30,
+            contributor_growth_rate=contrib_growth,
+            sustainability_score=ss,
+            sustainability_label=sl or "YELLOW",
+            breakout_score=round(breakout_score, 6),
+            novelty_score=round(novelty_score, 4),
+            velocity_ratio=round(velocity_ratio, 4),
+            fork_proxy_score=round(fork_proxy, 4),
+            estimated_viral_eta_days=eta,
+            momentum_stage=stage,
+            active_signals=signals,
+            category_velocity_avg=round(category_velocity_avg, 4),
+            outpaces_category=outpaces_category,
+        )
 
-    # Sort by acceleration desc, break ties by trend_score
-    results.sort(key=lambda x: (x.acceleration, x.trend_score), reverse=True)
-    return results[:limit]
+        key = _repo_key(repo.owner, repo.name)
+        existing = deduped.get(key)
+        if not existing or breakout_score > existing["score"]:
+            deduped[key] = {"repo": candidate, "score": breakout_score}
+
+    sort_key_map = {
+        "breakout_score": lambda repo: repo.breakout_score,
+        "acceleration": lambda repo: repo.acceleration,
+        "star_velocity_7d": lambda repo: repo.star_velocity_7d,
+        "velocity_ratio": lambda repo: repo.velocity_ratio,
+        "novelty_score": lambda repo: repo.novelty_score,
+        "trend_score": lambda repo: repo.trend_score,
+    }
+    sort_fn = sort_key_map.get(sort_by, sort_key_map["breakout_score"])
+
+    ranked = sorted(
+        (item["repo"] for item in deduped.values()),
+        key=sort_fn,
+        reverse=True,
+    )
+    return ranked[:limit]
 
 
 @router.get("/categories", response_model=List[CategoryMetrics])
-@cache(expire=900)
+@cache(expire=900)  # pyright: ignore[reportArgumentType]
 def get_category_metrics(
     period: str = Query("7d", description="1d | 7d | 30d | 90d | 365d | 3y | 5y"),
     db: Session = Depends(get_db),

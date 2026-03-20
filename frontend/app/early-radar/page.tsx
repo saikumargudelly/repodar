@@ -26,15 +26,23 @@ export default function EarlyRadarPage() {
   const [maxStars, setMaxStars] = useState(1000);
   const [minAccel, setMinAccel] = useState(0);
   const [category, setCategory] = useState("All");
+  const [sortBy, setSortBy] = useState<
+    "breakout_score" | "acceleration" | "star_velocity_7d" | "velocity_ratio" | "novelty_score" | "trend_score"
+  >("breakout_score");
+  const [momentumStage, setMomentumStage] = useState<"all" | "dormant" | "emerging" | "accelerating" | "pre_viral" | "breakout">("all");
+  const [preViralOnly, setPreViralOnly] = useState(false);
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["early-radar", maxAge, maxStars, minAccel, category],
+    queryKey: ["early-radar", maxAge, maxStars, minAccel, category, sortBy, momentumStage, preViralOnly],
     queryFn: () =>
       api.getEarlyRadar({
         max_age_days: maxAge,
         max_stars: maxStars,
         min_acceleration: minAccel,
         category: category !== "All" ? category : undefined,
+        sort_by: sortBy,
+        momentum_stage: momentumStage !== "all" ? momentumStage : undefined,
+        require_pre_viral: preViralOnly,
         limit: 60,
       }),
     staleTime: 5 * 60 * 1000,
@@ -52,7 +60,7 @@ export default function EarlyRadarPage() {
           letterSpacing: "0.1em" }}>EARLY RADAR</span>
       </div>
       <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)" }}>
-        // Young repos with strong momentum — catch the next breakout
+        {"// Young repos with strong momentum - catch the next breakout"}
       </div>
 
       {/* Filters */}
@@ -109,6 +117,39 @@ export default function EarlyRadarPage() {
           </select>
         </div>
 
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <label style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)",
+            textTransform: "uppercase", letterSpacing: "0.06em" }}>SORT BY</label>
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)} className="cyber-select">
+            <option value="breakout_score">BREAKOUT SCORE</option>
+            <option value="acceleration">ACCELERATION</option>
+            <option value="star_velocity_7d">7D VELOCITY</option>
+            <option value="velocity_ratio">VELOCITY RATIO</option>
+            <option value="novelty_score">NOVELTY</option>
+            <option value="trend_score">TREND SCORE</option>
+          </select>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <label style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)",
+            textTransform: "uppercase", letterSpacing: "0.06em" }}>STAGE</label>
+          <select value={momentumStage} onChange={(e) => setMomentumStage(e.target.value as typeof momentumStage)} className="cyber-select">
+            <option value="all">ALL STAGES</option>
+            <option value="dormant">DORMANT</option>
+            <option value="emerging">EMERGING</option>
+            <option value="accelerating">ACCELERATING</option>
+            <option value="pre_viral">PRE-VIRAL</option>
+            <option value="breakout">BREAKOUT</option>
+          </select>
+        </div>
+
+        <label style={{ display: "flex", gap: "8px", alignItems: "center", fontFamily: "var(--font-mono)",
+          fontSize: "10px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          <input type="checkbox" checked={preViralOnly} onChange={(e) => setPreViralOnly(e.target.checked)}
+            style={{ accentColor: "var(--cyan)", cursor: "pointer" }} />
+          PRE-VIRAL ONLY
+        </label>
+
         <button onClick={() => refetch()} className="btn-cyber btn-cyber-cyan" style={{ padding: "8px 16px" }}>
           REFRESH
         </button>
@@ -117,14 +158,14 @@ export default function EarlyRadarPage() {
       {!isLoading && (
         <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)",
           letterSpacing: "0.06em" }}>
-          // {repos.length} REPOS MATCHED
+          {`// ${repos.length} REPOS MATCHED`}
         </div>
       )}
 
       {isLoading && (
         <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", padding: "60px 0",
           textAlign: "center", fontSize: "12px", letterSpacing: "0.06em" }}>
-          // SCANNING FOR EARLY BREAKOUTS<span className="terminal-cursor" />
+          {"// SCANNING FOR EARLY BREAKOUTS"}<span className="terminal-cursor" />
         </div>
       )}
 
@@ -141,6 +182,19 @@ export default function EarlyRadarPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "16px" }}>
           {repos.map((repo) => {
             const isHot = repo.acceleration > 3;
+            const stage = repo.momentum_stage ?? "emerging";
+            const stageColor = stage === "breakout"
+              ? "var(--pink)"
+              : stage === "pre_viral"
+                ? "var(--amber)"
+                : stage === "accelerating"
+                  ? "var(--cyan)"
+                  : "var(--text-muted)";
+            const breakoutScore = repo.breakout_score ?? repo.trend_score;
+            const velocityRatio = repo.velocity_ratio ?? 0;
+            const noveltyScore = repo.novelty_score ?? 0;
+            const activeSignals = repo.active_signals ?? [];
+
             return (
               <div key={repo.repo_id}
                 style={{ background: "var(--bg-surface)",
@@ -168,6 +222,17 @@ export default function EarlyRadarPage() {
                 </div>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "12px" }}>
                   <span className="cyber-tag">{repo.category.replace(/_/g, " ")}</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", fontWeight: 700,
+                    color: stageColor, border: `1px solid ${stageColor}`, padding: "2px 6px",
+                    letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                    {stage.replace(/_/g, " ")}
+                  </span>
+                  {repo.outpaces_category && (
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--green)",
+                      border: "1px solid var(--green)", padding: "2px 6px", letterSpacing: "0.05em" }}>
+                      OUTPACING CATEGORY
+                    </span>
+                  )}
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px",
                     color: "var(--text-muted)" }}>{repo.age_days}d old</span>
                 </div>
@@ -177,6 +242,32 @@ export default function EarlyRadarPage() {
                   <Stat label="VEL/D" value={`+${repo.star_velocity_7d.toFixed(1)}`} highlight />
                   <Stat label="ACCEL" value={repo.acceleration.toFixed(2)} highlight={isHot} />
                 </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", marginBottom: "12px" }}>
+                  <Stat label="BREAKOUT" value={breakoutScore.toFixed(3)} highlight />
+                  <Stat label="VEL RATIO" value={velocityRatio.toFixed(2)} />
+                  <Stat label="NOVELTY" value={noveltyScore.toFixed(2)} />
+                </div>
+
+                {repo.estimated_viral_eta_days !== undefined && repo.estimated_viral_eta_days !== null && (
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--amber)",
+                    letterSpacing: "0.05em", marginBottom: "10px" }}>
+                    ETA TO 5K STARS: ~{repo.estimated_viral_eta_days}d
+                  </div>
+                )}
+
+                {activeSignals.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "10px" }}>
+                    {activeSignals.slice(0, 4).map((signal) => (
+                      <span key={signal} style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--amber)",
+                        border: "1px solid var(--amber)", padding: "2px 5px", letterSpacing: "0.04em",
+                        textTransform: "uppercase" }}>
+                        {signal.replace(/_/g, " ")}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 {repo.topics && repo.topics.length > 0 && (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "10px" }}>
                     {repo.topics.slice(0, 5).map((t) => (
@@ -186,7 +277,7 @@ export default function EarlyRadarPage() {
                 )}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px",
-                    color: "var(--text-muted)" }}>score: {repo.trend_score.toFixed(4)}</span>
+                    color: "var(--text-muted)" }}>trend: {repo.trend_score.toFixed(4)}</span>
                   <SustainBadge label={repo.sustainability_label} />
                 </div>
               </div>
@@ -198,7 +289,7 @@ export default function EarlyRadarPage() {
       {!isLoading && !error && repos.length === 0 && (
         <div className="panel" style={{ textAlign: "center", padding: "60px 20px" }}>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--text-muted)",
-            letterSpacing: "0.08em" }}>// NO REPOS MATCHED — TRY LOOSENING FILTERS</div>
+            letterSpacing: "0.08em" }}>{"// NO REPOS MATCHED - TRY LOOSENING FILTERS"}</div>
         </div>
       )}
     </div>
