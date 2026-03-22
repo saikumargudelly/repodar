@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from pydantic import BaseModel, Field
 from fastapi_cache.decorator import cache
 
@@ -656,7 +656,7 @@ def get_breakout_radar(
 @router.get("/early-radar", response_model=List[EarlyRadarRepo])
 async def get_early_radar(
     max_age_days: int = Query(
-        90,
+        180,
         description="Max repo age in days. Keep low to surface truly early repos.",
     ),
     min_age_days: int = Query(
@@ -664,7 +664,7 @@ async def get_early_radar(
         description="Min repo age in days to avoid one-day noise.",
     ),
     max_stars: int = Query(
-        1000,
+        50000,
         description="Ceiling star count to surface pre-viral repos.",
     ),
     min_stars: int = Query(
@@ -750,11 +750,11 @@ async def get_early_radar(
     if not isinstance(momentum_stage, MomentumStage):
         momentum_stage = None
     if not isinstance(max_age_days, int):
-        max_age_days = 90
+        max_age_days = 180
     if not isinstance(min_age_days, int):
         min_age_days = 3
     if not isinstance(max_stars, int):
-        max_stars = 1000
+        max_stars = 50000
     if not isinstance(min_stars, int):
         min_stars = 10
     if not isinstance(limit, int):
@@ -803,10 +803,12 @@ async def get_early_radar(
         .outerjoin(subq, Repository.id == subq.c.repo_id)
         .filter(
             Repository.is_active == True,  # noqa: E712
-            Repository.age_days >= min_age_days,
-            Repository.age_days <= max_age_days,
-            Repository.stars_snapshot >= min_stars,
-            Repository.stars_snapshot <= max_stars,
+            # age_days == 0 means "not yet ingested" — treat as unknown, don't exclude
+            or_(Repository.age_days == 0, Repository.age_days >= min_age_days),
+            or_(Repository.age_days == 0, Repository.age_days <= max_age_days),
+            # stars_snapshot == 0 means "not yet ingested" — treat as unknown, don't exclude
+            or_(Repository.stars_snapshot == 0, Repository.stars_snapshot >= min_stars),
+            or_(Repository.stars_snapshot == 0, Repository.stars_snapshot <= max_stars),
         )
     )
 

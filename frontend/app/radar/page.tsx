@@ -74,8 +74,8 @@ export default function RadarPage() {
   const [establishedSort, setEstablishedSort] = useState<EstablishedSortKey>("trend_score");
 
   // Early Insights controls
-  const [maxAge, setMaxAge] = useState(90);
-  const [maxStars, setMaxStars] = useState(1000);
+  const [maxAge, setMaxAge] = useState(180);
+  const [maxStars, setMaxStars] = useState(50000);
   const [minAccel, setMinAccel] = useState(0);
   const [earlySort, setEarlySort] = useState<EarlySortKey>("breakout_score");
   const [earlyStage, setEarlyStage] = useState<EarlyStage>("all");
@@ -292,7 +292,7 @@ export default function RadarPage() {
                 className="radar-range"
                 type="range"
                 min={7}
-                max={180}
+                max={365}
                 step={7}
                 value={maxAge}
                 onChange={(e) => setMaxAge(Number(e.target.value))}
@@ -308,8 +308,8 @@ export default function RadarPage() {
                 className="radar-range"
                 type="range"
                 min={100}
-                max={10000}
-                step={100}
+                max={100000}
+                step={500}
                 value={maxStars}
                 onChange={(e) => setMaxStars(Number(e.target.value))}
                 style={{ cursor: "pointer", accentColor: "var(--cyan)" }}

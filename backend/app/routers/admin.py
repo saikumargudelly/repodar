@@ -120,6 +120,70 @@ async def trigger_ingestion(background_tasks: BackgroundTasks):
     )
 
 
+@router.post("/backfill", response_model=PipelineStatus)
+async def trigger_backfill(background_tasks: BackgroundTasks):
+    """
+    Lightweight backfill: fetches live GitHub metadata (stars, age, topics, language)
+    for all active repos and writes it into Repository.age_days, stars_snapshot, etc.
+    Does NOT create DailyMetric rows. Much faster than /ingest.
+
+    Use this to unblock the Early Insights radar when the pipeline has never run.
+    After this, call /admin/score to generate ComputedMetric rows.
+    """
+    async def _run_backfill():
+        import json
+        import logging
+        from datetime import datetime, timezone
+
+        from app.database import SessionLocal
+        from app.models import Repository
+        from app.services.github_client import fetch_repo_metrics
+        from app.services.ingestion import _calc_age_days
+
+        log = logging.getLogger("app.admin.backfill")
+        db = SessionLocal()
+        try:
+            repos = db.query(Repository).filter(Repository.is_active == True).all()  # noqa: E712
+            log.info(f"Backfill: fetching GitHub metadata for {len(repos)} repos")
+
+            all_pending = [{"id": r.id, "owner": r.owner, "name": r.name} for r in repos]
+            metrics_list = await fetch_repo_metrics(all_pending, since_map={})
+
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            repo_map = {r.id: r for r in repos}
+            updated = 0
+
+            for m in metrics_list:
+                repo_id = m.get("repo_id")
+                if repo_id not in repo_map:
+                    continue
+                repo = repo_map[repo_id]
+                repo.age_days = _calc_age_days(m.get("repo_created_at", ""))
+                repo.stars_snapshot = m.get("stars", 0)
+                if m.get("primary_language"):
+                    repo.primary_language = m["primary_language"]
+                raw_topics = m.get("topics")
+                if raw_topics is not None:
+                    repo.topics = json.dumps(raw_topics)
+                repo.last_fetched_at = now
+                updated += 1
+
+            db.commit()
+            log.info(f"Backfill complete: updated {updated}/{len(repos)} repos")
+        except Exception as e:
+            db.rollback()
+            log.error(f"Backfill error: {e}", exc_info=True)
+        finally:
+            db.close()
+
+    background_tasks.add_task(_run_backfill)
+    return PipelineStatus(
+        status="queued",
+        detail="Backfill task queued. This fetches GitHub metadata (stars, age, topics) for all repos. Check /admin/status for progress.",
+    )
+
+
+
 @router.post("/score", response_model=PipelineStatus)
 def trigger_scoring(background_tasks: BackgroundTasks):
     """Manually trigger daily scoring."""
