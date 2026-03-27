@@ -42,11 +42,14 @@ def _repo_key(owner: str, name: str) -> str:
     return f"{owner.strip().lower()}/{name.strip().lower()}"
 
 
-def _latest_metric_subquery(db: Session, scored_date: date):
+def _latest_metric_subquery(db: Session, scored_date: date):  # noqa: ARG001
     """
-    Returns one latest ComputedMetric row per repo for a given scored date.
-    This guards radar views against duplicate rows when multiple score records
-    exist for the same repo/date.
+    Returns the single most-recent ComputedMetric row per repo, regardless of
+    which date it was scored on.  Using a per-repo window function (row_number
+    partitioned by repo_id, ordered by computed_at DESC) instead of a global
+    date filter means repos remain visible in radar views even when the scoring
+    pipeline has been down for several days and some repos' latest scores are
+    older than the global latest date.
     """
     ranked = (
         db.query(
@@ -63,7 +66,7 @@ def _latest_metric_subquery(db: Session, scored_date: date):
                 order_by=ComputedMetric.computed_at.desc(),
             ).label("rn"),
         )
-        .filter(ComputedMetric.date == scored_date)
+        # No date filter — always use each repo's own latest scored row.
         .subquery()
     )
 
