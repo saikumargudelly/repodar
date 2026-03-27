@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.models import Repository, ComputedMetric
 from app.models.repo_contributor import RepoContributor
+from app.utils.db import get_latest_metric_subquery
 
 router = APIRouter(prefix="/contributors", tags=["Contributor Network"])
 
@@ -62,52 +63,76 @@ def get_contributor_network(
     """
     from sqlalchemy import func
 
-    latest_date = db.query(func.max(ComputedMetric.date)).scalar()
-    score_map: dict[str, float] = {}
-    if latest_date:
-        for cm in db.query(ComputedMetric).filter_by(date=latest_date).all():
-            score_map[cm.repo_id] = cm.trend_score or 0
+    cm_subq = get_latest_metric_subquery(db)
 
-    # Bucket: login → [{repo_id, owner, name, contributions}]
-    contributor_repos: dict[str, list] = defaultdict(list)
-    contributor_avatars: dict[str, str] = {}
+    # 1. Identify high-value contributors directly in SQL
+    # Group by login, count distinct active repos they've contributed to.
+    top_logins_q = (
+        db.query(
+            RepoContributor.login,
+            func.max(RepoContributor.avatar_url).label("avatar_url"),
+            func.count(func.distinct(RepoContributor.repo_id)).label("repo_count"),
+            func.sum(RepoContributor.contributions).label("total_contributions"),
+        )
+        .join(Repository, RepoContributor.repo_id == Repository.id)
+        .filter(Repository.is_active == True)  # noqa: E712
+        .group_by(RepoContributor.login)
+        .having(func.count(func.distinct(RepoContributor.repo_id)) >= min_repos)
+        .order_by(
+            func.count(func.distinct(RepoContributor.repo_id)).desc(),
+            func.sum(RepoContributor.contributions).desc()
+        )
+        .limit(limit)
+    )
 
-    all_contributors = db.query(RepoContributor).all()
-    repo_map = {r.id: r for r in db.query(Repository).filter(Repository.is_active == True).all()}  # noqa: E712
+    top_contributors = top_logins_q.all()
+    if not top_contributors:
+        return []
 
-    for rc in all_contributors:
-        repo = repo_map.get(rc.repo_id)
-        if not repo:
-            continue
-        contributor_repos[rc.login].append({
-            "repo_id": rc.repo_id,
-            "owner": repo.owner,
-            "name": repo.name,
-            "contributions": rc.contributions,
-            "trend_score": round(score_map.get(rc.repo_id, 0), 2),
+    # 2. Fetch the repo details *only* for the identified top contributors
+    logins = [c.login for c in top_contributors]
+
+    repo_details_q = (
+        db.query(
+            RepoContributor.login,
+            RepoContributor.contributions,
+            Repository.owner,
+            Repository.name,
+            cm_subq.c.trend_score,
+        )
+        .join(Repository, RepoContributor.repo_id == Repository.id)
+        .outerjoin(cm_subq, Repository.id == cm_subq.c.repo_id)
+        .filter(
+            RepoContributor.login.in_(logins),
+            Repository.is_active == True  # noqa: E712
+        )
+    )
+
+    repo_details = repo_details_q.all()
+
+    # Bucket them into the final response shape
+    repos_by_login = defaultdict(list)
+    for row in repo_details:
+        repos_by_login[row.login].append({
+            "owner": row.owner,
+            "name": row.name,
+            "contributions": row.contributions,
+            "trend_score": float(row.trend_score) if row.trend_score is not None else 0.0,
         })
-        if rc.avatar_url and rc.login not in contributor_avatars:
-            contributor_avatars[rc.login] = rc.avatar_url
 
     results = []
-    for login, repos in contributor_repos.items():
-        if len(repos) < min_repos:
-            continue
-        repos_sorted = sorted(repos, key=lambda x: x["trend_score"], reverse=True)
+    for c in top_contributors:
+        repos = repos_by_login[c.login]
+        repos.sort(key=lambda x: x["trend_score"], reverse=True)
         results.append(CrossRepoContributor(
-            login=login,
-            avatar_url=contributor_avatars.get(login),
-            repo_count=len(repos),
-            repos=[
-                {"owner": r["owner"], "name": r["name"],
-                 "contributions": r["contributions"], "trend_score": r["trend_score"]}
-                for r in repos_sorted
-            ],
-            total_contributions=sum(r["contributions"] for r in repos),
+            login=c.login,
+            avatar_url=c.avatar_url,
+            repo_count=c.repo_count,
+            repos=repos,
+            total_contributions=c.total_contributions,
         ))
 
-    results.sort(key=lambda x: (x.repo_count, x.total_contributions), reverse=True)
-    return results[:limit]
+    return results
 
 
 @router.get("/repos-by-contributor/{login}", response_model=List[ContributorRepo])
@@ -116,31 +141,36 @@ def get_repos_by_contributor(
     db: Session = Depends(get_db),
 ):
     """Return all tracked repos a given contributor is active in, sorted by TrendScore."""
-    from sqlalchemy import func
-
-    latest_date = db.query(func.max(ComputedMetric.date)).scalar()
-    score_map: dict[str, float] = {}
-    if latest_date:
-        for cm in db.query(ComputedMetric).filter_by(date=latest_date).all():
-            score_map[cm.repo_id] = cm.trend_score or 0
+    cm_subq = get_latest_metric_subquery(db)
 
     rows = (
-        db.query(RepoContributor, Repository)
+        db.query(
+            RepoContributor.contributions,
+            Repository.owner,
+            Repository.name,
+            Repository.category,
+            Repository.github_url,
+            cm_subq.c.trend_score,
+        )
         .join(Repository, RepoContributor.repo_id == Repository.id)
-        .filter(RepoContributor.login == login)
+        .outerjoin(cm_subq, Repository.id == cm_subq.c.repo_id)
+        .filter(
+            RepoContributor.login == login,
+            Repository.is_active == True  # noqa: E712
+        )
         .all()
     )
 
     results = [
         ContributorRepo(
-            owner=repo.owner,
-            name=repo.name,
-            category=repo.category,
-            github_url=repo.github_url,
-            trend_score=round(score_map.get(rc.repo_id, 0), 2),
-            contributions=rc.contributions,
+            owner=row.owner,
+            name=row.name,
+            category=row.category,
+            github_url=row.github_url,
+            trend_score=round(float(row.trend_score), 2) if row.trend_score is not None else 0.0,
+            contributions=row.contributions,
         )
-        for rc, repo in rows
+        for row in rows
     ]
     results.sort(key=lambda x: x.trend_score, reverse=True)
     return results
@@ -157,42 +187,57 @@ def get_repos_with_top_contributors(
     """
     from sqlalchemy import func
 
-    latest_date = db.query(func.max(ComputedMetric.date)).scalar()
-    score_map: dict[str, float] = {}
-    if latest_date:
-        for cm in db.query(ComputedMetric).filter_by(date=latest_date).all():
-            score_map[cm.repo_id] = cm.trend_score or 0
+    cm_subq = get_latest_metric_subquery(db)
 
-    # Get repos that have contributor data
-    repos_with_data = (
-        db.query(Repository)
+    # 1. Fetch top active repos ranked directly via the subquery
+    top_repos_q = (
+        db.query(
+            Repository.id,
+            Repository.owner,
+            Repository.name,
+            Repository.category,
+            cm_subq.c.trend_score
+        )
+        .outerjoin(cm_subq, Repository.id == cm_subq.c.repo_id)
         .filter(Repository.is_active == True)  # noqa: E712
+        .order_by(cm_subq.c.trend_score.desc().nullslast())
+        .limit(limit)
+    )
+
+    top_repos = top_repos_q.all()
+    if not top_repos:
+        return []
+
+    repo_ids = [r.id for r in top_repos]
+
+    # 2. Fetch the top 10 contributors using a window function partitioned by repo id
+    # (or simply fetch all contributors for these few repos and slice in Python)
+    repo_contributors = (
+        db.query(RepoContributor)
+        .filter(RepoContributor.repo_id.in_(repo_ids))
         .all()
     )
 
+    contribs_by_repo = defaultdict(list)
+    for c in repo_contributors:
+        contribs_by_repo[c.repo_id].append(c)
+
     results = []
-    for repo in repos_with_data:
-        contributors = (
-            db.query(RepoContributor)
-            .filter_by(repo_id=repo.id)
-            .order_by(RepoContributor.contributions.desc())
-            .limit(10)
-            .all()
-        )
-        if not contributors:
-            continue
+    for r in top_repos:
+        # Sort and take top 10 for this repo
+        repo_contribs = sorted(contribs_by_repo[r.id], key=lambda x: x.contributions, reverse=True)[:10]
+
         results.append(RepoWithContributors(
-            repo_id=repo.id,
-            owner=repo.owner,
-            name=repo.name,
-            category=repo.category,
-            trend_score=round(score_map.get(repo.id, 0), 2),
-            contributor_count=len(contributors),
+            repo_id=r.id,
+            owner=r.owner,
+            name=r.name,
+            category=r.category,
+            trend_score=round(float(r.trend_score), 2) if r.trend_score is not None else 0.0,
+            contributor_count=len(contribs_by_repo[r.id]),  # Total un-sliced count
             top_contributors=[
                 {"login": c.login, "contributions": c.contributions, "avatar_url": c.avatar_url}
-                for c in contributors
+                for c in repo_contribs
             ],
         ))
 
-    results.sort(key=lambda x: x.trend_score, reverse=True)
-    return results[:limit]
+    return results

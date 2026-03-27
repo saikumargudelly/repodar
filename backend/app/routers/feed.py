@@ -110,25 +110,33 @@ def rss_feed_vertical(vertical: str, limit: int = 50, db: Session = Depends(get_
     """RSS 2.0 feed filtered by ecosystem vertical/category."""
     # Map common vertical slugs to category strings stored in the DB
     vertical_lower = vertical.lower().replace("-", "_").replace(" ", "_")
-    repos_in_vertical = (
-        db.query(Repository)
+    
+    # 1. Subquery to find matching repository IDs purely in SQL
+    repo_subq = (
+        db.query(Repository.id)
         .filter(Repository.category.ilike(f"%{vertical_lower.replace('_', '%')}%"))
-        .all()
     )
-    repo_ids = {r.id for r in repos_in_vertical}
-    if not repo_ids:
-        # fallback: category exact match
-        repos_in_vertical = db.query(Repository).filter(Repository.category == vertical).all()
-        repo_ids = {r.id for r in repos_in_vertical}
+    
+    # Check if subquery yields anything, else try exact match
+    if not db.query(repo_subq.exists()).scalar():
+        repo_subq = db.query(Repository.id).filter(Repository.category == vertical)
 
-    alerts = (
-        db.query(TrendAlert)
-        .filter(TrendAlert.repo_id.in_(repo_ids))
+    # 2. Fetch Alerts AND their matching Repository in one efficient JOIN
+    results = (
+        db.query(TrendAlert, Repository)
+        .join(Repository, TrendAlert.repo_id == Repository.id)
+        .filter(TrendAlert.repo_id.in_(repo_subq))
         .order_by(TrendAlert.triggered_at.desc())
         .limit(limit)
         .all()
     )
-    repos = {r.id: r for r in repos_in_vertical}
+
+    alerts = []
+    repos = {}
+    for alert, repo in results:
+        alerts.append(alert)
+        repos[repo.id] = repo
+
     items = _build_items(alerts, repos)
     xml = _build_rss(items,
                      title=f"Repodar — {vertical} Breakout Alerts",

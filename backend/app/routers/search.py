@@ -19,6 +19,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.utils.db import get_latest_metric_subquery, get_latest_daily_metric_subquery
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/search", tags=["Search"])
@@ -579,7 +580,26 @@ async def natural_language_search(
 
     db_results: List[dict] = []
     try:
-        repo_q = db.query(Repository).filter(Repository.is_active == True)  # noqa: E712
+        from app.models import Repository
+
+        cm_subq = get_latest_metric_subquery(db)
+        dm_subq = get_latest_daily_metric_subquery(db)
+
+        # Build the base query returning joined rows
+        repo_q = (
+            db.query(
+                Repository,
+                cm_subq.c.trend_score,
+                cm_subq.c.acceleration,
+                cm_subq.c.star_velocity_7d,
+                cm_subq.c.sustainability_score,
+                cm_subq.c.sustainability_label,
+                dm_subq.c.stars,
+            )
+            .outerjoin(cm_subq, Repository.id == cm_subq.c.repo_id)
+            .outerjoin(dm_subq, Repository.id == dm_subq.c.repo_id)
+            .filter(Repository.is_active == True)  # noqa: E712
+        )
 
         # ── Vertical filter via category substrings ───────────────────────────
         if filters.vertical and filters.vertical in VERTICAL_CATEGORY_MAP:
@@ -593,65 +613,31 @@ async def natural_language_search(
 
         # ── Age filter ─────────────────────────────────────────────────────────
         if filters.max_age_days:
-            repo_q = repo_q.filter(Repository.age_days <= filters.max_age_days)
+            repo_q = repo_q.filter(
+                or_(Repository.age_days == 0, Repository.age_days <= filters.max_age_days)
+            )
 
-        # ── Fetch repos (keyword text search + optional vertical filter) ─────────
-        if filters.keywords and not filters.vertical:
-            # Keywords-only: filter by occurrence in name or description
-            kw_conds: list = []
+        # ── Text search (keywords) ─────────────────────────────────────────────
+        if filters.keywords:
+            kw_conds = []
+            # We only use the top 5 keywords to avoid bloated SQL statements
             for kw in filters.keywords[:5]:
                 kw_conds.append(Repository.name.ilike(f"%{kw}%"))
                 kw_conds.append(Repository.description.ilike(f"%{kw}%"))
-            repos = repo_q.filter(or_(*kw_conds)).all()
-        elif filters.keywords and filters.vertical:
-            # Both set: union of (vertical-filtered) + (keyword-matched) repos
-            kw_conds_boost: list = []
-            for kw in filters.keywords[:4]:
-                kw_conds_boost.append(Repository.name.ilike(f"%{kw}%"))
-                kw_conds_boost.append(Repository.description.ilike(f"%{kw}%"))
-            kw_extra_q = (
-                db.query(Repository)
-                .filter(Repository.is_active == True)  # noqa: E712
-                .filter(or_(*kw_conds_boost))
-            )
-            if filters.language:
-                kw_extra_q = kw_extra_q.filter(
-                    Repository.primary_language.ilike(filters.language)
-                )
-            if filters.max_age_days:
-                kw_extra_q = kw_extra_q.filter(
-                    Repository.age_days <= filters.max_age_days
-                )
-            combined = repo_q.all() + kw_extra_q.all()
-            seen_ids: set = set()
-            repos = []
-            for r in combined:
-                if r.id not in seen_ids:
-                    seen_ids.add(r.id)
-                    repos.append(r)
-        else:
-            repos = repo_q.all()
+            repo_q = repo_q.filter(or_(*kw_conds))
 
-        for repo in repos:
-            cm = (
-                db.query(ComputedMetric)
-                .filter_by(repo_id=repo.id)
-                .order_by(ComputedMetric.date.desc())
-                .first()
-            )
-            dm = (
-                db.query(DailyMetric)
-                .filter_by(repo_id=repo.id)
-                .order_by(DailyMetric.date.desc())
-                .first()
-            )
-            stars = dm.stars if dm else 0
+        # Execute single optimized query
+        rows = repo_q.all()
 
-            if cm:
-                if filters.min_trend_score and (cm.trend_score or 0) < filters.min_trend_score:
-                    continue
-                if filters.min_sustainability and (cm.sustainability_score or 0) < filters.min_sustainability:
-                    continue
+        for repo, ts, accel, vel7, sust_score, sust_label, dm_stars in rows:
+            stars = dm_stars or 0
+            ts = float(ts or 0.0)
+
+            # Apply hard filters on the metrics
+            if filters.min_trend_score and ts < filters.min_trend_score:
+                continue
+            if filters.min_sustainability and (sust_score or 0) < filters.min_sustainability:
+                continue
             if filters.min_stars and stars < filters.min_stars:
                 continue
 
@@ -664,11 +650,11 @@ async def natural_language_search(
                 "primary_language":     repo.primary_language,
                 "age_days":             repo.age_days,
                 "stars":                stars,
-                "trend_score":          cm.trend_score      if cm else None,
-                "sustainability_score": cm.sustainability_score if cm else None,
-                "sustainability_label": cm.sustainability_label if cm else None,
-                "star_velocity_7d":     cm.star_velocity_7d if cm else None,
-                "acceleration":         cm.acceleration     if cm else None,
+                "trend_score":          ts if ts else None,
+                "sustainability_score": sust_score,
+                "sustainability_label": sust_label,
+                "star_velocity_7d":     float(vel7) if vel7 is not None else None,
+                "acceleration":         float(accel) if accel is not None else None,
                 "description":          repo.description or "",
                 "topics":               [],
                 "source":               "internal",
