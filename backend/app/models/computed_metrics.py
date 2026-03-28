@@ -17,6 +17,8 @@ class ComputedMetric(Base):
 
     __table_args__ = (
         Index('ix_computed_metrics_repo_date', 'repo_id', 'date'),
+        Index('ix_computed_metrics_date_trend', 'date', 'trend_score'),
+        Index('ix_computed_metrics_date_sust', 'date', 'sustainability_score'),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))

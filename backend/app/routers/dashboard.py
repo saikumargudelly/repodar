@@ -487,64 +487,57 @@ def get_overview(db: Session = Depends(get_db)):
     """
     latest_date = _latest_scored_date(db)
 
-    # Latest score per repo (join)
-    subq = (
-        db.query(
-            ComputedMetric.repo_id,
-            ComputedMetric.trend_score,
-            ComputedMetric.acceleration,
-            ComputedMetric.star_velocity_7d,
-            ComputedMetric.sustainability_score,
-            ComputedMetric.sustainability_label,
-        )
-        .filter(ComputedMetric.date == latest_date)
-        .subquery()
-    )
-
-    rows = (
-        db.query(Repository, subq)
+    # Top 10 breakout repos (trend_score > 0)
+    breakout_rows = (
+        db.query(Repository, ComputedMetric)
+        .join(ComputedMetric, Repository.id == ComputedMetric.repo_id)
         .filter(Repository.is_active == True)  # noqa: E712
-        .outerjoin(subq, Repository.id == subq.c.repo_id)
+        .filter(ComputedMetric.date == latest_date)
+        .filter(ComputedMetric.trend_score > 0)
+        .order_by(ComputedMetric.trend_score.desc())
+        .limit(10)
         .all()
     )
 
-    breakout = []
-    sustain_list = []
-
-    for repo, ts, accel, vel, ss, sl in [
-        (r, row[1], row[2], row[3], row[4], row[5]) for r, *row in rows
-    ]:
-        entry = BreakoutRepo(
+    breakout_detected = []
+    for repo, metric in breakout_rows:
+        breakout_detected.append(BreakoutRepo(
             repo_id=repo.id,
             owner=repo.owner,
             name=repo.name,
             category=repo.category,
             github_url=repo.github_url,
-            trend_score=ts or 0,
-            acceleration=accel or 0,
-            star_velocity_7d=vel or 0,
-            sustainability_label=sl or "YELLOW",
+            trend_score=metric.trend_score or 0,
+            acceleration=metric.acceleration or 0,
+            star_velocity_7d=metric.star_velocity_7d or 0,
+            sustainability_label=metric.sustainability_label or "YELLOW",
             age_days=repo.age_days,
             primary_language=repo.primary_language,
-        )
-        breakout.append(entry)
+        ))
 
-        sustain_list.append(SustainabilityEntry(
+    # Top 20 sustainability repos (sustainability_score > 0)
+    sustain_rows = (
+        db.query(Repository, ComputedMetric)
+        .join(ComputedMetric, Repository.id == ComputedMetric.repo_id)
+        .filter(Repository.is_active == True)  # noqa: E712
+        .filter(ComputedMetric.date == latest_date)
+        .filter(ComputedMetric.sustainability_score > 0)
+        .order_by(ComputedMetric.sustainability_score.desc())
+        .limit(20)
+        .all()
+    )
+
+    sustain_scored = []
+    for repo, metric in sustain_rows:
+        sustain_scored.append(SustainabilityEntry(
             repo_id=repo.id,
             owner=repo.owner,
             name=repo.name,
             category=repo.category,
-            sustainability_score=ss or 0,
-            sustainability_label=sl or "YELLOW",
-            trend_score=ts or 0,
+            sustainability_score=metric.sustainability_score or 0,
+            sustainability_label=metric.sustainability_label or "YELLOW",
+            trend_score=metric.trend_score or 0,
         ))
-
-    breakout.sort(key=lambda x: x.trend_score, reverse=True)
-    # Only surface repos with real non-zero trend scores as "breakouts"
-    breakout_detected = [r for r in breakout if r.trend_score > 0]
-    sustain_list.sort(key=lambda x: x.sustainability_score, reverse=True)
-    # Only include repos that have actual scored data
-    sustain_scored = [r for r in sustain_list if r.sustainability_score > 0]
 
     # Category growth: use today's pre-aggregated cache first (fast), fall back to live compute
     today = date.today()
@@ -621,7 +614,15 @@ def get_breakout_radar(
     if new_only:
         query = query.filter(Repository.age_days <= 180)
 
-    rows = query.all()
+    query = query.order_by(
+        subq.c.trend_score.desc().nulls_last(),
+        subq.c.acceleration.desc().nulls_last(),
+        subq.c.star_velocity_7d.desc().nulls_last(),
+        Repository.stars_snapshot.desc().nulls_last(),
+    )
+
+    # Fetch a slightly larger batch to allow for safe python-side deduplication
+    rows = query.limit(limit * 2).all()
 
     # Dedupe by canonical owner/name to avoid duplicate rows from legacy data.
     deduped: dict[str, dict] = {}
