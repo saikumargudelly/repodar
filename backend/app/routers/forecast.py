@@ -29,7 +29,11 @@ def _load_and_forecast(owner: str, name: str, db: Session, days: int = 90) -> Fo
         raise HTTPException(status_code=404, detail=f"Repository {owner}/{name} not found")
 
     from datetime import datetime, timezone, timedelta
-    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
+    from sqlalchemy import func
+    latest_dt = db.query(func.max(DailyMetric.captured_at)).filter(DailyMetric.repo_id == repo.id).scalar()
+    if not latest_dt:
+        latest_dt = datetime.now(timezone.utc).replace(tzinfo=None)
+    cutoff = latest_dt - timedelta(days=days)
 
     rows = (
         db.query(DailyMetric)

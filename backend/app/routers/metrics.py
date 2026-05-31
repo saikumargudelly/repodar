@@ -67,7 +67,11 @@ def get_daily_metrics(
     """Time-series of raw daily metrics for a repo."""
     repo = _resolve_repo(repo_id, db)
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    from sqlalchemy import func
+    latest_dt = db.query(func.max(DailyMetric.captured_at)).filter(DailyMetric.repo_id == repo.id).scalar()
+    if not latest_dt:
+        latest_dt = datetime.now(timezone.utc)
+    cutoff = latest_dt - timedelta(days=days)
     rows = (
         db.query(DailyMetric)
         .filter(
@@ -102,7 +106,11 @@ def get_computed_scores(
     """Time-series of computed trend and sustainability scores for a repo."""
     repo = _resolve_repo(repo_id, db)
 
-    cutoff = date.today() - timedelta(days=days)
+    from sqlalchemy import func
+    latest_date = db.query(func.max(ComputedMetric.date)).filter(ComputedMetric.repo_id == repo.id).scalar()
+    if not latest_date:
+        latest_date = date.today()
+    cutoff = latest_date - timedelta(days=days)
     rows = (
         db.query(ComputedMetric)
         .filter(

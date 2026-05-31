@@ -160,7 +160,11 @@ def export_repo_metrics(
     if not repo:
         raise HTTPException(status_code=404, detail=f"{owner}/{name} not found")
 
-    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
+    from sqlalchemy import func
+    latest_dt = db.query(func.max(DailyMetric.captured_at)).filter(DailyMetric.repo_id == repo.id).scalar()
+    if not latest_dt:
+        latest_dt = datetime.now(timezone.utc).replace(tzinfo=None)
+    cutoff = latest_dt - timedelta(days=days)
     rows = (
         db.query(DailyMetric)
         .filter(DailyMetric.repo_id == repo.id, DailyMetric.captured_at >= cutoff)

@@ -311,7 +311,11 @@ async def compare_history(
     if not repo_ids:
         raise HTTPException(status_code=422, detail="Provide at least one valid owner/name id")
 
-    since = datetime.now(timezone.utc).date() - timedelta(days=days)
+    from sqlalchemy import func
+    latest_dt = db.query(func.max(DM.captured_at)).scalar()
+    if not latest_dt:
+        latest_dt = datetime.now(timezone.utc)
+    since = latest_dt.date() - timedelta(days=days)
     results: list[RepoHistory] = []
 
     for idx, repo_id in enumerate(repo_ids):
