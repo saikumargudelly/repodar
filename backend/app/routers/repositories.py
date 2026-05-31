@@ -320,7 +320,14 @@ async def compare_history(
 
     for idx, repo_id in enumerate(repo_ids):
         owner, name = repo_id.split("/", 1)
-        repo = db.query(Repository).filter_by(owner=owner, name=name).first()
+        repo = (
+            db.query(Repository)
+            .filter(
+                func.lower(Repository.owner) == owner.lower(),
+                func.lower(Repository.name) == name.lower()
+            )
+            .first()
+        )
         if not repo:
             results.append(RepoHistory(repo_id=repo_id, owner=owner, name=name, color_index=idx, history=[]))
             continue
@@ -623,7 +630,14 @@ async def delta_run_repo(
     today_end   = datetime.combine(today, datetime.max.time())
 
     # ── 1. Upsert repo record ─────────────────────────────────────────────────
-    repo = db.query(Repository).filter_by(owner=owner, name=name).first()
+    repo = (
+        db.query(Repository)
+        .filter(
+            func.lower(Repository.owner) == owner.lower(),
+            func.lower(Repository.name) == name.lower()
+        )
+        .first()
+    )
 
     # Fetch basic repo info from GitHub to fill metadata
     try:

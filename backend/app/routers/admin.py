@@ -237,6 +237,15 @@ async def run_full_pipeline(background_tasks: BackgroundTasks):
 
     async def _run():
         try:
+            from app.database import SessionLocal
+            db_heal = SessionLocal()
+            try:
+                deduplicate_repositories_logic(db_heal)
+            except Exception as e:
+                logger.warning("Auto-deduplication failed: %s", e)
+            finally:
+                db_heal.close()
+
             ingest_result = await run_daily_ingestion()
             score_result = run_daily_scoring()
             explain_count = enrich_top_repos_with_explanations(top_n=20)
@@ -267,6 +276,17 @@ async def trigger_discovery():
     from app.services.ingestion import auto_discover_and_sync, deactivate_stale_repos
 
     try:
+        from app.database import SessionLocal
+        db_heal = SessionLocal()
+        try:
+            deduplicate_repositories_logic(db_heal)
+        except Exception as e:
+            import logging
+            _log = logging.getLogger("app.admin")
+            _log.warning("Auto-deduplication failed: %s", e)
+        finally:
+            db_heal.close()
+
         discovery = await auto_discover_and_sync()
         deactivated = deactivate_stale_repos()
         return PipelineStatus(
@@ -280,6 +300,113 @@ async def trigger_discovery():
         )
     except Exception as e:
         return PipelineStatus(status="error", detail=str(e))
+
+
+def deduplicate_repositories_logic(db: Session) -> dict:
+    from sqlalchemy import func
+    from datetime import datetime, timezone
+    import uuid
+    from app.models import Repository, DailyMetric, ComputedMetric, RepoContributor, ForkSnapshot, TrendAlert
+    from app.models.watchlist import WatchlistItem
+    from app.models.repo_release import RepoRelease
+    from app.models.social_mention import SocialMention
+    from app.models.alert_rule import AlertRule
+    
+    # 1. Deduplicate Repository table (case-insensitive)
+    dup_slugs = (
+        db.query(func.lower(Repository.owner).label('low_owner'), func.lower(Repository.name).label('low_name'))
+        .group_by(func.lower(Repository.owner), func.lower(Repository.name))
+        .having(func.count(Repository.id) > 1)
+        .all()
+    )
+    
+    repos_merged = 0
+    metrics_deleted = 0
+    
+    for low_owner, low_name in dup_slugs:
+        repos = (
+            db.query(Repository)
+            .filter(func.lower(Repository.owner) == low_owner, func.lower(Repository.name) == low_name)
+            .all()
+        )
+        
+        # Keep the most active or oldest repository
+        repos.sort(key=lambda r: (not r.is_active, r.last_fetched_at is None, r.discovered_at or datetime.min))
+        keep_repo = repos[0]
+        duplicate_repos = repos[1:]
+        
+        for dup in duplicate_repos:
+            dup_id = dup.id
+            keep_id = keep_repo.id
+            
+            # Re-point foreign keys
+            db.query(DailyMetric).filter(DailyMetric.repo_id == dup_id).update({DailyMetric.repo_id: keep_id})
+            db.query(ComputedMetric).filter(ComputedMetric.repo_id == dup_id).update({ComputedMetric.repo_id: keep_id})
+            db.query(RepoContributor).filter(RepoContributor.repo_id == dup_id).update({RepoContributor.repo_id: keep_id})
+            db.query(ForkSnapshot).filter(ForkSnapshot.parent_repo_id == dup_id).update({ForkSnapshot.parent_repo_id: keep_id})
+            db.query(WatchlistItem).filter(WatchlistItem.repo_id == dup_id).update({WatchlistItem.repo_id: keep_id})
+            db.query(TrendAlert).filter(TrendAlert.repo_id == dup_id).update({TrendAlert.repo_id: keep_id})
+            db.query(RepoRelease).filter(RepoRelease.repo_id == dup_id).update({RepoRelease.repo_id: keep_id})
+            db.query(SocialMention).filter(SocialMention.repo_id == dup_id).update({SocialMention.repo_id: keep_id})
+            db.query(AlertRule).filter(AlertRule.repo_id == dup_id).update({AlertRule.repo_id: keep_id})
+            
+            db.delete(dup)
+            repos_merged += 1
+
+    db.flush()
+
+    # 2. Deduplicate DailyMetric per (repo_id, date part of captured_at)
+    dup_dms = (
+        db.query(DailyMetric.repo_id, func.date(DailyMetric.captured_at).label('d_date'))
+        .group_by(DailyMetric.repo_id, func.date(DailyMetric.captured_at))
+        .having(func.count(DailyMetric.id) > 1)
+        .all()
+    )
+    for repo_id, d_date in dup_dms:
+        rows = (
+            db.query(DailyMetric)
+            .filter(DailyMetric.repo_id == repo_id, func.date(DailyMetric.captured_at) == d_date)
+            .order_by(DailyMetric.captured_at.desc())
+            .all()
+        )
+        for row in rows[1:]:
+            db.delete(row)
+            metrics_deleted += 1
+
+    # 3. Deduplicate ComputedMetric per (repo_id, date)
+    dup_cms = (
+        db.query(ComputedMetric.repo_id, ComputedMetric.date)
+        .group_by(ComputedMetric.repo_id, ComputedMetric.date)
+        .having(func.count(ComputedMetric.id) > 1)
+        .all()
+    )
+    for repo_id, d in dup_cms:
+        rows = (
+            db.query(ComputedMetric)
+            .filter_by(repo_id=repo_id, date=d)
+            .order_by(ComputedMetric.computed_at.desc())
+            .all()
+        )
+        for row in rows[1:]:
+            db.delete(row)
+            metrics_deleted += 1
+            
+    db.commit()
+    return {"repos_merged": repos_merged, "metrics_deleted": metrics_deleted}
+
+
+@router.post("/deduplicate")
+def trigger_deduplicate(db: Session = Depends(get_db)):
+    """Find and heal duplicate repositories and metric entries in the database."""
+    try:
+        res = deduplicate_repositories_logic(db)
+        return {
+            "status": "success",
+            "detail": f"Database healed! Merged {res['repos_merged']} duplicate repositories, deleted {res['metrics_deleted']} duplicate metrics."
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Deduplication failed: {str(e)}")
 
 
 @router.get("/status")
@@ -331,6 +458,15 @@ async def run_full_pipeline_sync():
     _logger = logging.getLogger("app.admin")
 
     try:
+        from app.database import SessionLocal
+        db_heal = SessionLocal()
+        try:
+            deduplicate_repositories_logic(db_heal)
+        except Exception as e:
+            _logger.warning("Auto-deduplication failed: %s", e)
+        finally:
+            db_heal.close()
+
         _logger.info("run-all-sync: starting ingestion")
         ingest_result = await run_daily_ingestion()
         _logger.info(f"run-all-sync: ingestion done → {ingest_result}")

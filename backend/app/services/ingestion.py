@@ -158,9 +158,13 @@ async def auto_discover_and_sync() -> dict:
                 if not owner or not name:
                     continue
 
+                from sqlalchemy import func
                 existing = (
                     db.query(Repository)
-                    .filter_by(owner=owner, name=name)
+                    .filter(
+                        func.lower(Repository.owner) == owner.lower(),
+                        func.lower(Repository.name) == name.lower()
+                    )
                     .first()
                 )
 
