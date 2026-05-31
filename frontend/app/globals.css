@@ -350,6 +350,7 @@ p, span, div, td, th, a, label, li {
   animation: cursor-blink 1s step-end infinite;
 }
 @keyframes cursor-blink { 0%,100% { opacity:0.7; } 50% { opacity:0; } }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── Status bar (bottom fixed) ──────────────────────────────── */
 .status-bar-cyber {
