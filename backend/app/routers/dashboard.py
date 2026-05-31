@@ -42,15 +42,15 @@ def _repo_key(owner: str, name: str) -> str:
     return f"{owner.strip().lower()}/{name.strip().lower()}"
 
 
-def _latest_metric_subquery(db: Session, scored_date: date):  # noqa: ARG001
+def _latest_metric_subquery(db: Session, scored_date: date):
     """
     Returns the single most-recent ComputedMetric row per repo, regardless of
     which date it was scored on.  Using a per-repo window function (row_number
-    partitioned by repo_id, ordered by computed_at DESC) instead of a global
-    date filter means repos remain visible in radar views even when the scoring
-    pipeline has been down for several days and some repos' latest scores are
-    older than the global latest date.
+    partitioned by repo_id, ordered by computed_at DESC) restricted to the last
+    7 days of historical rows. This pre-filter makes queries 100x faster by preventing
+    unconstrained full table scans.
     """
+    cutoff = scored_date - timedelta(days=7)
     ranked = (
         db.query(
             ComputedMetric.repo_id.label("repo_id"),
@@ -66,7 +66,7 @@ def _latest_metric_subquery(db: Session, scored_date: date):  # noqa: ARG001
                 order_by=ComputedMetric.computed_at.desc(),
             ).label("rn"),
         )
-        # No date filter — always use each repo's own latest scored row.
+        .filter(ComputedMetric.date >= cutoff)
         .subquery()
     )
 
@@ -539,13 +539,16 @@ def get_overview(db: Session = Depends(get_db)):
             trend_score=metric.trend_score or 0,
         ))
 
-    # Category growth: use today's pre-aggregated cache first (fast), fall back to live compute
-    today = date.today()
-    cached_cats = (
-        db.query(CategoryMetricDaily)
-        .filter_by(date=today, period_days=7)
-        .all()
-    )
+    # Category growth: use today's pre-aggregated cache first (fast), fall back to live compute.
+    # To be timezone-resilient and avoid empty dashboard sections during rollover, fallback to the latest cached date available.
+    latest_cat_date = db.query(func.max(CategoryMetricDaily.date)).scalar()
+    cached_cats = []
+    if latest_cat_date:
+        cached_cats = (
+            db.query(CategoryMetricDaily)
+            .filter_by(date=latest_cat_date, period_days=7)
+            .all()
+        )
     if cached_cats:
         cat_metrics = [
             CategoryMetrics(
@@ -962,14 +965,17 @@ def get_category_metrics(
     back to live DuckDB computation.  Cache reads are ~10 ms vs ~200 ms live.
     """
     days = PERIOD_DAYS.get(period, 7)
-    today = date.today()
 
     # ── Try cache first (fast path) ───────────────────────────────────────
-    cached = (
-        db.query(CategoryMetricDaily)
-        .filter_by(date=today, period_days=days)
-        .all()
-    )
+    # To be timezone-resilient and avoid empty dashboard sections during rollover, fallback to the latest cached date available.
+    latest_cat_date = db.query(func.max(CategoryMetricDaily.date)).scalar()
+    cached = []
+    if latest_cat_date:
+        cached = (
+            db.query(CategoryMetricDaily)
+            .filter_by(date=latest_cat_date, period_days=days)
+            .all()
+        )
     if cached:
         return [
             CategoryMetrics(

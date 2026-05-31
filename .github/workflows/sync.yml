@@ -25,9 +25,9 @@ jobs:
           echo "Waking up Render backend and triggering pipeline at: $BACKEND_URL"
           
           # Trigger the delta sync endpoint via POST request.
-          # Passes the administration API Key as X-API-Key header.
+          # Passes the administration API Key as X-Admin-Key header.
           response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST \
-            -H "X-API-Key: $API_KEY" \
+            -H "X-Admin-Key: $API_KEY" \
             -H "Content-Type: application/json" \
             "$BACKEND_URL/admin/run-all-sync")
           
