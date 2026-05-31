@@ -24,10 +24,6 @@ apscheduler>=3.10.4
 fastapi-cache2[redis]>=0.2.1
 redis>=4.2.0
 
-# Analytics
-pandas==3.0.1
-duckdb==1.4.4
-numpy==2.4.2
 
 # LLM
 groq==1.0.0

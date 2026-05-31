@@ -1,0 +1,46 @@
+name: Scheduled Ingestion & Scoring Pipeline
+
+on:
+  schedule:
+    # Run every 2 hours (00:00, 02:00, 04:00, ... UTC)
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
+    # Allow manual triggers from the GitHub Actions dashboard
+
+jobs:
+  run-pipeline:
+    name: Trigger Ingestion and Scoring Pipeline
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Repodar API Pipeline
+        env:
+          # The administrative endpoint URL.
+          # Recommended repository secrets:
+          #   - RENDER_BACKEND_URL: e.g. https://repodar-api.onrender.com
+          #   - REPODAR_ADMIN_API_KEY: your X-API-Key value
+          BACKEND_URL: ${{ secrets.RENDER_BACKEND_URL || 'https://repodar.up.railway.app' }}
+          API_KEY: ${{ secrets.REPODAR_ADMIN_API_KEY }}
+        run: |
+          echo "Waking up Render backend and triggering pipeline at: $BACKEND_URL"
+          
+          # Trigger the delta sync endpoint via POST request.
+          # Passes the administration API Key as X-API-Key header.
+          response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST \
+            -H "X-API-Key: $API_KEY" \
+            -H "Content-Type: application/json" \
+            "$BACKEND_URL/admin/run-all-sync")
+          
+          body=$(echo "$response" | sed '$d')
+          status=$(echo "$response" | tail -n1 | cut -d':' -f2)
+          
+          echo "Pipeline Response Body:"
+          echo "$body"
+          echo "HTTP Status Code: $status"
+          
+          if [ "$status" -ne 200 ]; then
+            echo "Error: Pipeline sync failed with status code $status"
+            exit 1
+          fi
+          
+          echo "Pipeline delta sync completed successfully!"

@@ -12,7 +12,6 @@ import math
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
-import pandas as pd
 import pytest
 
 # ── import the module under test ──────────────────────────────────────────────
@@ -40,14 +39,8 @@ from tests.conftest import build_df
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-def empty_df() -> pd.DataFrame:
-    cols = [
-        "day", "stars", "forks", "watchers", "contributors",
-        "open_issues", "open_prs", "merged_prs", "releases",
-        "commit_count", "daily_star_delta", "daily_fork_delta",
-        "daily_pr_delta", "daily_commit_delta",
-    ]
-    return pd.DataFrame(columns=cols)
+def empty_df() -> list[dict]:
+    return []
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -72,7 +65,8 @@ class TestStarVelocity:
         """Window=3 should only average the last 3 rows."""
         df = build_df(num_days=10, daily_star_delta=10)
         # Override last 3 rows' delta to 100
-        df.loc[df.index[-3:], "daily_star_delta"] = 100
+        for row in df[-3:]:
+            row["daily_star_delta"] = 100
         vel = _star_velocity(df, 3)
         assert vel == pytest.approx(100.0)
 
@@ -106,8 +100,7 @@ class TestAcceleration:
                 "releases": 2, "commit_count": 100,
                 "daily_fork_delta": 1, "daily_pr_delta": 0, "daily_commit_delta": 3,
             })
-        df = pd.DataFrame(rows)
-        assert _acceleration(df) < 0
+        assert _acceleration(rows) < 0
 
     def test_too_few_rows_returns_zero(self):
         df = build_df(num_days=7)   # need >= 14
@@ -125,7 +118,7 @@ class TestContributorGrowthRate:
 
     def test_positive_growth(self):
         rows = build_df(num_days=14, contributors=100)
-        rows.loc[rows.index[-1], "contributors"] = 120  # last row bumped
+        rows[-1]["contributors"] = 120  # last row bumped
         assert _contributor_growth_rate(rows) > 0
 
     def test_zero_old_contributors_returns_zero(self):
@@ -144,7 +137,7 @@ class TestContributorGrowthRate:
 class TestReleaseBoost:
     def test_boost_when_releases_increased(self):
         df = build_df(num_days=10, releases=5)
-        df.loc[df.index[-1], "releases"] = 8
+        df[-1]["releases"] = 8
         assert _release_boost(df) == 1.0
 
     def test_no_boost_when_static(self):
@@ -185,13 +178,13 @@ class TestIssueMechanics:
 
     def test_positive_spike_when_issues_rise(self):
         df = build_df(num_days=14, open_issues=30)
-        df.loc[df.index[-1], "open_issues"] = 60
+        df[-1]["open_issues"] = 60
         spike = _issue_spike(df)
         assert spike > 0
 
     def test_close_rate_inverse_of_spike(self):
         df_rising = build_df(num_days=14, open_issues=30)
-        df_rising.loc[df_rising.index[-1], "open_issues"] = 90
+        df_rising[-1]["open_issues"] = 90
         cr = _issue_close_rate(df_rising)
         assert cr < 0.5
 
@@ -215,7 +208,8 @@ class TestForkAndCommitSignals:
 
     def test_commit_frequency_zero_with_no_delta(self):
         df = build_df(num_days=14)
-        df["daily_commit_delta"] = 0
+        for row in df:
+            row["daily_commit_delta"] = 0
         assert _commit_frequency_score(df) == 0.0
 
     def test_commit_frequency_caps_at_one(self):
@@ -297,7 +291,6 @@ class TestComputeSustainabilityScore:
             open_issues=30,
         )
         result = compute_sustainability_score(df, age_days=180)
-        # Might be YELLOW or GREEN depending on exact math — just check it's not "UNKNOWN"
         assert result["sustainability_label"] in ("GREEN", "YELLOW", "RED")
 
     def test_red_label_when_very_low_activity(self):

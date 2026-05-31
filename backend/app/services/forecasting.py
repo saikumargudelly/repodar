@@ -8,7 +8,6 @@ Contract:
   Input:  list of DailyMetricPoint (date, stars, daily_star_delta)
   Output: ForecastResult
 """
-
 from __future__ import annotations
 
 import math
@@ -16,7 +15,6 @@ import logging
 from datetime import date, timedelta
 from typing import Optional
 
-import numpy as np
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -33,7 +31,7 @@ class ForecastResult(BaseModel):
     breakout_probability: float   # 0–1, probability of rapid growth
     growth_label:         str     # "explosive" | "accelerating" | "steady" | "flat" | "declining"
     slope_7d:             float   # avg stars/day over last 7 days
-    slope_30d:            float   # avg stars/day over last 30 days
+    slope_30d:             float   # avg stars/day over last 30 days
     r_squared:            float   # goodness-of-fit for the 30d regression
     confidence:           float   # model confidence 0–1 (based on data density)
     data_points:          int
@@ -42,7 +40,7 @@ class ForecastResult(BaseModel):
 
 # ─── Core math functions (pure, no DB) ────────────────────────────────────────
 
-def _linear_fit(y: np.ndarray) -> tuple[float, float, float]:
+def _linear_fit(y: list[float]) -> tuple[float, float, float]:
     """
     Fit y = slope * x + intercept over the given series.
     Returns (slope, intercept, r_squared).
@@ -50,13 +48,18 @@ def _linear_fit(y: np.ndarray) -> tuple[float, float, float]:
     n = len(y)
     if n < 2:
         return 0.0, float(y[0]) if n == 1 else 0.0, 0.0
-    x = np.arange(n, dtype=float)
-    coeffs = np.polyfit(x, y, 1)
-    slope, intercept = float(coeffs[0]), float(coeffs[1])
-    y_pred = slope * x + intercept
-    ss_res = float(np.sum((y - y_pred) ** 2))
-    ss_tot = float(np.sum((y - np.mean(y)) ** 2))
-    r_sq = 1.0 - ss_res / ss_tot if ss_tot > 0 else 0.0
+    x = list(range(n))
+    mean_x = sum(x) / n
+    mean_y = sum(y) / n
+    num = sum((x[i] - mean_x) * (y[i] - mean_y) for i in range(n))
+    den = sum((x[i] - mean_x) ** 2 for i in range(n))
+    slope = num / den if den != 0.0 else 0.0
+    intercept = mean_y - slope * mean_x
+    
+    y_pred = [slope * xi + intercept for xi in x]
+    ss_res = sum((y[i] - y_pred[i]) ** 2 for i in range(n))
+    ss_tot = sum((y[i] - mean_y) ** 2 for i in range(n))
+    r_sq = 1.0 - ss_res / ss_tot if ss_tot > 0.0 else 0.0
     return slope, intercept, max(0.0, min(1.0, r_sq))
 
 
@@ -149,16 +152,13 @@ def compute_forecast(
             notice="insufficient_data",
         )
 
-    arr = np.array(daily_stars, dtype=float)
-    delta_arr = np.array(daily_deltas, dtype=float)
-
     # 7-day slope
-    tail7 = arr[-min(7, n):]
-    slope_7d, _, _ = _linear_fit(tail7)
+    tail7 = daily_stars[-min(7, n):]
+    slope_7d, _, _ = _linear_fit([float(val) for val in tail7])
 
     # 30-day slope + R²
-    tail30 = arr[-min(30, n):]
-    slope_30d, intercept_30d, r_sq = _linear_fit(tail30)
+    tail30 = daily_stars[-min(30, n):]
+    slope_30d, intercept_30d, r_sq = _linear_fit([float(val) for val in tail30])
 
     # Predictions: project slope_30d for longer horizons
     predicted_7d  = max(0, int(current_stars + slope_7d * 7))
@@ -186,3 +186,4 @@ def compute_forecast(
         confidence=confidence,
         data_points=n,
     )
+

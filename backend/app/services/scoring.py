@@ -1,6 +1,6 @@
 """
 Scoring engine — computes TrendScore, SustainabilityScore, and category growth.
-Uses DuckDB for efficient columnar aggregations over the SQLite daily_metrics data.
+Uses native SQLAlchemy queries and pure Python for maximum lightweight performance.
 Writes results to computed_metrics table.
 """
 
@@ -8,9 +8,7 @@ import math
 import logging
 import os
 from datetime import date, datetime, timezone, timedelta
-
-import duckdb
-import pandas as pd
+from collections import defaultdict
 
 from app.database import SessionLocal, engine
 from app.models import Repository, DailyMetric, ComputedMetric, TrendAlert, CategoryMetricDaily
@@ -28,82 +26,10 @@ def _today() -> date:
     return datetime.now(timezone.utc).date()
 
 
-# ─── DuckDB connection over SQLite or PostgreSQL ──────────────────────────────
-
-def _get_duck_conn():
-    """Open a DuckDB connection with SQLite/PostgreSQL attached (read-only)."""
-    import os
-    from dotenv import load_dotenv
-    load_dotenv()
-    db_url = os.getenv("DATABASE_URL", "sqlite:///./repodar.db")
-
-    # Normalise legacy postgres:// scheme
-    if db_url.startswith("postgres://"):
-        db_url = db_url.replace("postgres://", "postgresql://", 1)
-
-    # Use the same extension directory that was pre-installed at startup
-    ext_dir = os.getenv("DUCKDB_EXTENSION_DIRECTORY", "/tmp/.duckdb/extensions")
-    os.makedirs(ext_dir, exist_ok=True)
-
-    conn = duckdb.connect()
-    conn.execute(f"SET extension_directory='{ext_dir}';")
-
-    if db_url.startswith("postgresql://"):
-        # Production: PostgreSQL on Railway
-        # Install and load PostgreSQL extension for DuckDB
-        try:
-            conn.execute("INSTALL postgres; LOAD postgres;")
-            conn.execute(f"ATTACH '{db_url}' AS repodar (TYPE postgres)")
-        except Exception as e:
-            # If PostgreSQL extension fails, DuckDB fallback will trigger when _load_window_df_pandas is called
-            logger.warning(f"DuckDB PostgreSQL extension failed: {e}. Will use Pandas fallback.")
-            conn.close()
-            raise
-    else:
-        # Local development: SQLite
-        sqlite_path = db_url.replace("sqlite:///", "")
-        conn.execute("INSTALL sqlite; LOAD sqlite;")
-        conn.execute(f"ATTACH '{sqlite_path}' AS repodar (TYPE sqlite)")
-
-    return conn
-
-
 # ─── Window data loader ──────────────────────────────────────────────────────
 
-def _load_window_df(repo_id: str, days: int = 60) -> pd.DataFrame:
-    """Load the last N days of daily_metrics for a repo via DuckDB."""
-    try:
-        conn = _get_duck_conn()
-        cutoff = (_today() - timedelta(days=days)).isoformat()
-        df = conn.execute("""
-            SELECT
-                DATE(captured_at) AS day,
-                stars,
-                forks,
-                contributors,
-                open_issues,
-                open_prs,
-                merged_prs,
-                releases,
-                daily_star_delta,
-                daily_fork_delta,
-                daily_pr_delta,
-                COALESCE(commit_count, 0)       AS commit_count,
-                COALESCE(daily_commit_delta, 0) AS daily_commit_delta
-            FROM repodar.daily_metrics
-            WHERE repo_id = ?
-              AND DATE(captured_at) >= ?
-            ORDER BY day ASC
-        """, [repo_id, cutoff]).fetchdf()
-        conn.close()
-        return df
-    except Exception as e:
-        logger.warning(f"DuckDB load failed for {repo_id}, falling back to Pandas: {e}")
-        return _load_window_df_pandas(repo_id, days)
-
-
-def _load_window_df_pandas(repo_id: str, days: int = 60) -> pd.DataFrame:
-    """Pure SQLAlchemy fallback for when DuckDB can't attach."""
+def _load_window_df(repo_id: str, days: int = 60) -> list[dict]:
+    """Load the last N days of daily_metrics for a repo via SQLAlchemy."""
     db = SessionLocal()
     try:
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
@@ -113,9 +39,7 @@ def _load_window_df_pandas(repo_id: str, days: int = 60) -> pd.DataFrame:
             .order_by(DailyMetric.captured_at.asc())
             .all()
         )
-        if not rows:
-            return pd.DataFrame()
-        data = [{
+        return [{
             "day": r.captured_at.date(),
             "stars": r.stars,
             "forks": r.forks,
@@ -124,13 +48,15 @@ def _load_window_df_pandas(repo_id: str, days: int = 60) -> pd.DataFrame:
             "open_prs": getattr(r, 'open_prs', 0) or 0,
             "merged_prs": r.merged_prs,
             "releases": r.releases,
-            "daily_star_delta": r.daily_star_delta,
+            "daily_star_delta": r.daily_star_delta or 0,
             "daily_fork_delta": getattr(r, 'daily_fork_delta', 0) or 0,
             "daily_pr_delta": getattr(r, 'daily_pr_delta', 0) or 0,
             "commit_count": getattr(r, 'commit_count', 0) or 0,
             "daily_commit_delta": getattr(r, 'daily_commit_delta', 0) or 0,
         } for r in rows]
-        return pd.DataFrame(data)
+    except Exception as e:
+        logger.error(f"SQLAlchemy load failed for {repo_id}: {e}")
+        return []
     finally:
         db.close()
 
@@ -138,158 +64,141 @@ def _load_window_df_pandas(repo_id: str, days: int = 60) -> pd.DataFrame:
 # ─── Type conversion utility ────────────────────────────────────────────────────
 
 def _ensure_python_types(d: dict) -> dict:
-    """Recursively convert all numpy types to native Python types."""
-    result = {}
-    for k, v in d.items():
-        if isinstance(v, dict):
-            result[k] = _ensure_python_types(v)
-        elif hasattr(v, 'item'):  # numpy scalar
-            result[k] = v.item() if callable(v.item) else float(v)
-        elif isinstance(v, (float, int, bool, str, type(None))):
-            result[k] = v
-        else:
-            result[k] = float(v) if isinstance(v, (int, float)) else v
-    return result
+    """Pass-through legacy helper."""
+    return d
 
 
 # ─── Metric computations ─────────────────────────────────────────────────────
 
-def _star_velocity(df: pd.DataFrame, window: int) -> float:
+def _star_velocity(df: list[dict], window: int) -> float:
     """Mean daily star delta over last N days."""
-    if df.empty or len(df) < 2:
+    if not df or len(df) < 2:
         return 0.0
-    tail = df.tail(window)
-    return float(tail["daily_star_delta"].mean())
+    tail = df[-window:]
+    deltas = [r["daily_star_delta"] for r in tail if r["daily_star_delta"] is not None]
+    if not deltas:
+        return 0.0
+    return float(sum(deltas) / len(deltas))
 
 
-def _acceleration(df: pd.DataFrame) -> float:
+def _acceleration(df: list[dict]) -> float:
     """7d velocity minus prior 7d velocity."""
     if len(df) < 14:
         return 0.0
-    recent_vel = _star_velocity(df.tail(14).head(7), 7)  # prior 7d
-    current_vel = _star_velocity(df.tail(7), 7)          # current 7d
+    recent_vel = _star_velocity(df[-14:-7], 7)  # prior 7d
+    current_vel = _star_velocity(df[-7:], 7)          # current 7d
     return current_vel - recent_vel
 
 
-def _contributor_growth_rate(df: pd.DataFrame) -> float:
+def _contributor_growth_rate(df: list[dict]) -> float:
     if len(df) < 7:
         return 0.0
-    old_val = float(df.iloc[-7]["contributors"])
-    new_val = float(df.iloc[-1]["contributors"])
+    old_val = float(df[-7]["contributors"] or 0)
+    new_val = float(df[-1]["contributors"] or 0)
     if old_val == 0:
         return 0.0
     return float((new_val - old_val) / old_val)
 
 
-def _release_boost(df: pd.DataFrame) -> float:
+def _release_boost(df: list[dict]) -> float:
     """1.0 if releases increased in last 7 days, else 0.0."""
     if len(df) < 2:
         return 0.0
-    old = float(df.iloc[-min(7, len(df))]["releases"])
-    new = float(df.iloc[-1]["releases"])
+    old = float(df[-min(7, len(df))]["releases"] or 0)
+    new = float(df[-1]["releases"] or 0)
     return 1.0 if new > old else 0.0
 
 
-def _pr_activity_score(df: pd.DataFrame) -> float:
+def _pr_activity_score(df: list[dict]) -> float:
     """
     PR activity signal combining:
-    - Merged PR velocity over last 7 days (daily_pr_delta sum; or merged_prs diff)
+    - Merged PR velocity over last 7 days (daily_pr_delta sum)
     - Open PR count normalised (more open PRs = more active development)
     Returns a value in [0, 1] (capped).
     """
-    if df.empty:
+    if not df:
         return 0.0
-    # Merged PR velocity
-    if "daily_pr_delta" in df.columns and df["daily_pr_delta"].sum() > 0:
-        pr_velocity = float(df.tail(7)["daily_pr_delta"].sum())
-    elif "merged_prs" in df.columns and len(df) >= 2:
-        pr_velocity = float(df.iloc[-1]["merged_prs"] - df.iloc[0]["merged_prs"])
-    else:
-        pr_velocity = 0.0
+    
+    tail_7 = df[-7:]
+    pr_velocity = float(sum(r.get("daily_pr_delta", 0) or 0 for r in tail_7))
+    if pr_velocity == 0.0 and len(df) >= 2:
+        pr_velocity = float((df[-1].get("merged_prs", 0) or 0) - (df[0].get("merged_prs", 0) or 0))
 
-    # Open PR count: normalise so that 50 open PRs ≈ 1.0
-    open_pr_norm = 0.0
-    if "open_prs" in df.columns:
-        open_pr_norm = min(1.0, float(df.iloc[-1]["open_prs"]) / 50.0)
-
-    # Combine: velocity dominates; open count adds context
+    open_pr_norm = min(1.0, float(df[-1].get("open_prs", 0) or 0) / 50.0)
     combined = (min(1.0, pr_velocity / 20.0) * 0.7) + (open_pr_norm * 0.3)
     return round(min(1.0, combined), 4)
 
 
-def _issue_spike(df: pd.DataFrame) -> float:
+def _issue_spike(df: list[dict]) -> float:
     """Normalized open issue delta over 7 days."""
     if len(df) < 7:
         return 0.0
-    old = float(df.iloc[-7]["open_issues"])
-    new = float(df.iloc[-1]["open_issues"])
+    old = float(df[-7]["open_issues"] or 0)
+    new = float(df[-1]["open_issues"] or 0)
     baseline = max(old, 1.0)
     return float((new - old) / baseline)
 
 
-def _issue_close_rate(df: pd.DataFrame) -> float:
+def _issue_close_rate(df: list[dict]) -> float:
     """Approximated: stability in open issues (lower growth = higher close rate)."""
-    if df.empty:
+    if not df:
         return 0.5
     spike = _issue_spike(df)
-    # Invert: negative spike (issues decreasing) = high close rate
     return float(max(0.0, min(1.0, 0.5 - spike)))
 
 
-def _release_frequency(df: pd.DataFrame, age_weeks: float) -> float:
+def _release_frequency(df: list[dict], age_weeks: float) -> float:
     """Releases per week based on total release count."""
-    if df.empty or age_weeks == 0:
+    if not df or age_weeks == 0:
         return 0.0
-    total_releases = float(df.iloc[-1]["releases"])
-    return float(total_releases / max(age_weeks, 1))
+    total_releases = float(df[-1]["releases"] or 0)
+    return float(total_releases / max(age_weeks, 1.0))
 
 
-def _fork_to_star_ratio(df: pd.DataFrame) -> float:
-    if df.empty:
+def _fork_to_star_ratio(df: list[dict]) -> float:
+    if not df:
         return 0.0
-    stars = float(df.iloc[-1]["stars"])
-    forks = float(df.iloc[-1]["forks"])
+    stars = float(df[-1]["stars"] or 0)
+    forks = float(df[-1]["forks"] or 0)
     if stars == 0:
         return 0.0
     return float(forks / stars)
 
 
-def _fork_growth_score(df: pd.DataFrame) -> float:
+def _fork_growth_score(df: list[dict]) -> float:
     """
     Fork growth signal: % increase in forks over the last 7 days.
     Normalised so that 5 % fork growth/week ≈ 1.0.
-    Uses daily_fork_delta when available, falls back to absolute diff.
     """
     if len(df) < 2:
         return 0.0
-    if "daily_fork_delta" in df.columns and df["daily_fork_delta"].sum() > 0:
-        delta = float(df.tail(7)["daily_fork_delta"].sum())
-    else:
-        old_forks = float(df.iloc[-min(7, len(df))]["forks"])
-        delta = float(float(df.iloc[-1]["forks"]) - old_forks)
-    baseline = max(float(df.iloc[-min(7, len(df))]["forks"]), 1.0)
-    pct = float(delta / baseline)
+    tail_7 = df[-7:]
+    delta = float(sum(r.get("daily_fork_delta", 0) or 0 for r in tail_7))
+    if delta == 0.0:
+        old_forks = float(df[-min(7, len(df))]["forks"] or 0)
+        delta = float((df[-1]["forks"] or 0) - old_forks)
+    
+    idx = -min(7, len(df))
+    baseline = max(float(df[idx]["forks"] or 0), 1.0)
+    pct = delta / baseline
     return float(round(min(1.0, pct / 0.05), 4))   # 5 % / week → 1.0
 
 
-def _commit_frequency_score(df: pd.DataFrame) -> float:
+def _commit_frequency_score(df: list[dict]) -> float:
     """
     Commit frequency signal: average new commits per day over the last 7 days.
     Normalised so that 10 commits/day ≈ 1.0.
-    Uses daily_commit_delta when populated, falls back to 0 gracefully.
     """
-    if df.empty:
+    if not df:
         return 0.0
-    if "daily_commit_delta" in df.columns:
-        avg = float(df.tail(7)["daily_commit_delta"].mean())
-    else:
-        avg = 0.0
+    tail_7 = df[-7:]
+    avg = float(sum(r.get("daily_commit_delta", 0) or 0 for r in tail_7) / len(tail_7)) if tail_7 else 0.0
     return float(round(min(1.0, avg / 10.0), 4))   # 10 commits/day → 1.0
 
 
 # ─── Composite scores ────────────────────────────────────────────────────────
 
-def compute_trend_score(df: pd.DataFrame, age_days: int) -> dict:
+def compute_trend_score(df: list[dict], age_days: int) -> dict:
     """
     TrendScore (0–100 normalised) — momentum signal across 7 signals:
 
@@ -297,10 +206,10 @@ def compute_trend_score(df: pd.DataFrame, age_days: int) -> dict:
       ─────────────────── ────── ───────────────────────────────────────────
       star_velocity_7d     0.30   Primary demand signal
       acceleration         0.20   Is demand accelerating?
-      commit_frequency     0.15   Developer activity (new: commit delta)
+      commit_frequency     0.15   Developer activity
       contributor_growth   0.10   Community growth
       pr_activity          0.10   Contribution health
-      fork_growth          0.10   Downstream usage signal (new)
+      fork_growth          0.10   Downstream usage signal
       release_boost        0.03   Shipping cadence
       issue_spike          0.02   Issue interest (minor)
 
@@ -340,7 +249,7 @@ def compute_trend_score(df: pd.DataFrame, age_days: int) -> dict:
     }
 
 
-def compute_sustainability_score(df: pd.DataFrame, age_days: int) -> dict:
+def compute_sustainability_score(df: list[dict], age_days: int) -> dict:
     """
     SustainabilityScore = (active_contrib×0.3 + issue_close×0.3 + rel_freq×0.2 + fork_star×0.2)
     Label: GREEN>0.6, YELLOW 0.3–0.6, RED<0.3
@@ -373,13 +282,16 @@ def compute_sustainability_score(df: pd.DataFrame, age_days: int) -> dict:
 
 # ─── Category growth model ───────────────────────────────────────────────────
 
-def _category_growth_df_sqlalchemy(fetch_days: int) -> "pd.DataFrame":
+def compute_category_growth(days: int = 7) -> list[dict]:
     """
-    SQLAlchemy/Pandas fallback that returns a DataFrame identical to the
-    DuckDB query used in compute_category_growth().  Used on PostgreSQL when
-    the DuckDB postgres extension is unavailable (e.g. cold Railway deploy).
+    Per-category aggregated metrics + composite TrendScore using:
+      Star velocity 40% | Acceleration 20% | Contributor growth 20%
+      Release boost 10% | Issue activity 10%
+    All signals are min-max normalised across categories before weighting.
     """
+    fetch_days = max(days + 7, 35)
     cutoff = datetime.now(timezone.utc) - timedelta(days=fetch_days)
+    
     db = SessionLocal()
     try:
         rows = (
@@ -400,150 +312,138 @@ def _category_growth_df_sqlalchemy(fetch_days: int) -> "pd.DataFrame":
             .filter(DailyMetric.captured_at >= cutoff.replace(tzinfo=None))
             .all()
         )
-        if not rows:
-            return pd.DataFrame()
-        data = [
-            {
-                "category": r.category,
-                "repo_id": r.repo_id,
-                "day": pd.Timestamp(r.captured_at.date()),
-                "stars": r.stars or 0,
-                "daily_star_delta": r.daily_star_delta or 0,
-                "contributors": r.contributors or 0,
-                "open_issues": r.open_issues or 0,
-                "releases": r.releases or 0,
-                "merged_prs": r.merged_prs or 0,
-                "open_prs": r.open_prs or 0,
-                "daily_pr_delta": r.daily_pr_delta or 0,
-            }
-            for r in rows
-        ]
-        return pd.DataFrame(data)
+    except Exception as e:
+        logger.error(f"SQLAlchemy category growth failed: {e}")
+        return []
     finally:
         db.close()
 
-
-def compute_category_growth(days: int = 7) -> list[dict]:
-    """
-    Per-category aggregated metrics + composite TrendScore using:
-      Star velocity 40% | Acceleration 20% | Contributor growth 20%
-      Release boost 10% | Issue activity 10%
-    All signals are min-max normalised across categories before weighting.
-    """
-    fetch_days = max(days + 7, 35)
-    try:
-        conn = _get_duck_conn()
-        cutoff = (_today() - timedelta(days=fetch_days)).isoformat()
-        df = conn.execute("""
-            SELECT
-                r.category,
-                r.id AS repo_id,
-                DATE(dm.captured_at) AS day,
-                dm.stars,
-                dm.daily_star_delta,
-                dm.contributors,
-                dm.open_issues,
-                dm.releases,
-                dm.merged_prs,
-                COALESCE(dm.open_prs, 0)       AS open_prs,
-                COALESCE(dm.daily_pr_delta, 0) AS daily_pr_delta
-            FROM repodar.repositories r
-            JOIN repodar.daily_metrics dm ON dm.repo_id = r.id
-            WHERE DATE(dm.captured_at) >= ?
-        """, [cutoff]).fetchdf()
-        conn.close()
-    except Exception as e:
-        logger.warning(f"DuckDB category growth failed: {e}. Falling back to SQLAlchemy.")
-        try:
-            df = _category_growth_df_sqlalchemy(fetch_days)
-        except Exception as e2:
-            logger.error(f"SQLAlchemy category growth fallback also failed: {e2}")
-            return []
-
-    if df.empty:
+    if not rows:
         return []
 
-    raw_results = []
-    for category, grp in df.groupby("category"):
-        grp     = grp.sort_values("day")
-        latest  = grp.groupby("repo_id").last().reset_index()
-        earliest = grp.groupby("repo_id").first().reset_index()
+    # Group metrics by category, and inside by repo_id
+    category_data = defaultdict(lambda: defaultdict(list))
+    for r in rows:
+        metric = {
+            "day": r.captured_at.date(),
+            "stars": r.stars or 0,
+            "daily_star_delta": r.daily_star_delta or 0,
+            "contributors": r.contributors or 0,
+            "open_issues": r.open_issues or 0,
+            "releases": r.releases or 0,
+            "merged_prs": r.merged_prs or 0,
+            "open_prs": r.open_prs or 0,
+            "daily_pr_delta": r.daily_pr_delta or 0,
+        }
+        category_data[r.category][r.repo_id].append(metric)
 
-        total_stars         = int(latest["stars"].sum())
-        total_contributors  = int(latest["contributors"].sum())
-        total_merged_prs    = int(latest["merged_prs"].sum())
+    raw_results = []
+    
+    today_ref = _today()
+    period_cutoff_date = today_ref - timedelta(days=days)
+    last_7_date = today_ref - timedelta(days=7)
+    prior_7_start_date = today_ref - timedelta(days=14)
+    prior_all_start_date = today_ref - timedelta(days=35)
+
+    for category, repos_dict in category_data.items():
+        latest_metrics = {}
+        earliest_metrics = {}
+        
+        period_metrics = defaultdict(list)
+        last7_metrics = defaultdict(list)
+        prior7_metrics = defaultdict(list)
+        prior_all_metrics = defaultdict(list)
+
+        for repo_id, m_list in repos_dict.items():
+            m_list.sort(key=lambda x: x["day"])
+            latest_metrics[repo_id] = m_list[-1]
+            earliest_metrics[repo_id] = m_list[0]
+
+            for m in m_list:
+                day = m["day"]
+                if day > period_cutoff_date:
+                    period_metrics[repo_id].append(m)
+                if day >= last_7_date:
+                    last7_metrics[repo_id].append(m)
+                if prior_7_start_date <= day < last_7_date:
+                    prior7_metrics[repo_id].append(m)
+                if prior_all_start_date <= day < last_7_date:
+                    prior_all_metrics[repo_id].append(m)
+
+        total_stars = sum(m["stars"] for m in latest_metrics.values())
+        total_contributors = sum(m["contributors"] for m in latest_metrics.values())
+        total_merged_prs = sum(m["merged_prs"] for m in latest_metrics.values())
+        repo_count = len(latest_metrics)
 
         # Period star gain
-        period_cutoff = grp["day"].max() - pd.Timedelta(days=days)
-        period_data   = grp[grp["day"] > period_cutoff].sort_values("day")
+        period_star_gain = 0
+        for repo_id, p_list in period_metrics.items():
+            delta_sum = sum(m["daily_star_delta"] for m in p_list)
+            if delta_sum != 0:
+                period_star_gain += delta_sum
+            else:
+                p_list.sort(key=lambda x: x["day"])
+                period_star_gain += (p_list[-1]["stars"] - p_list[0]["stars"])
 
-        if period_data["daily_star_delta"].sum() != 0:
-            period_star_gain = int(period_data["daily_star_delta"].sum())
-        else:
-            p_lat = period_data.groupby("repo_id")["stars"].last()
-            p_ear = period_data.groupby("repo_id")["stars"].first()
-            period_star_gain = int((p_lat - p_ear).sum())
-            if period_star_gain == 0:
-                period_star_gain = int((latest["stars"] - earliest["stars"]).sum())
+        if period_star_gain == 0:
+            period_star_gain = sum(latest_metrics[rid]["stars"] - earliest_metrics[rid]["stars"] for rid in latest_metrics)
 
         # Star velocity (40 %)
-        last7 = grp[grp["day"] >= (grp["day"].max() - pd.Timedelta(days=7))]
-        star_velocity = float(last7["daily_star_delta"].sum())
-        if star_velocity == 0:
-            l7l = last7.groupby("repo_id")["stars"].last()
-            l7e = last7.groupby("repo_id")["stars"].first()
-            star_velocity = float((l7l - l7e).sum())
+        star_velocity = 0.0
+        for repo_id, l7_list in last7_metrics.items():
+            delta_sum = sum(m["daily_star_delta"] for m in l7_list)
+            if delta_sum != 0:
+                star_velocity += delta_sum
+            else:
+                l7_list.sort(key=lambda x: x["day"])
+                star_velocity += (l7_list[-1]["stars"] - l7_list[0]["stars"])
 
         # Acceleration (20 %)
-        prior7 = grp[
-            (grp["day"] < (grp["day"].max() - pd.Timedelta(days=7))) &
-            (grp["day"] >= (grp["day"].max() - pd.Timedelta(days=14)))
-        ]
-        prior_velocity = float(prior7["daily_star_delta"].sum())
-        if prior_velocity == 0 and len(prior7) >= 2:
-            prl = prior7.groupby("repo_id")["stars"].last()
-            pre = prior7.groupby("repo_id")["stars"].first()
-            prior_velocity = float((prl - pre).sum())
+        prior_velocity = 0.0
+        for repo_id, pr7_list in prior7_metrics.items():
+            delta_sum = sum(m["daily_star_delta"] for m in pr7_list)
+            if delta_sum != 0:
+                prior_velocity += delta_sum
+            elif len(pr7_list) >= 2:
+                pr7_list.sort(key=lambda x: x["day"])
+                prior_velocity += (pr7_list[-1]["stars"] - pr7_list[0]["stars"])
         acceleration = star_velocity - prior_velocity
 
         # Contributor growth (20 %)
-        contributor_growth = float(latest["contributors"].sum()) - float(earliest["contributors"].sum())
+        contributor_growth = sum(latest_metrics[rid]["contributors"] - earliest_metrics[rid]["contributors"] for rid in latest_metrics)
 
         # Release boost (10 %)
-        rl  = latest.set_index("repo_id")["releases"]
-        re_ = earliest.set_index("repo_id")["releases"]
-        common = rl.index.intersection(re_.index)
-        release_boost = float((rl[common] > re_[common]).sum()) / max(len(common), 1)
+        release_boost_count = 0
+        for rid in latest_metrics:
+            if latest_metrics[rid]["releases"] > earliest_metrics[rid]["releases"]:
+                release_boost_count += 1
+        release_boost = release_boost_count / max(repo_count, 1)
 
         # Issue activity (10 %)
-        il = latest.set_index("repo_id")["open_issues"]
-        ie = earliest.set_index("repo_id")["open_issues"]
-        ci = il.index.intersection(ie.index)
-        issue_activity = float((il[ci] - ie[ci]).abs().sum()) if len(ci) > 0 else 0.0
+        issue_activity = sum(abs(latest_metrics[rid]["open_issues"] - earliest_metrics[rid]["open_issues"]) for rid in latest_metrics)
 
         # MoM
-        prior_all = grp[
-            (grp["day"] < (grp["day"].max() - pd.Timedelta(days=7))) &
-            (grp["day"] >= (grp["day"].max() - pd.Timedelta(days=35)))
-        ]
-        prior_gain = float(prior_all["daily_star_delta"].sum())
-        if prior_gain == 0 and len(prior_all) >= 2:
-            prl2 = prior_all.groupby("repo_id")["stars"].last()
-            pre2 = prior_all.groupby("repo_id")["stars"].first()
-            prior_gain = float((prl2 - pre2).sum())
+        prior_gain = 0.0
+        for repo_id, pa_list in prior_all_metrics.items():
+            delta_sum = sum(m["daily_star_delta"] for m in pa_list)
+            if delta_sum != 0:
+                prior_gain += delta_sum
+            elif len(pa_list) >= 2:
+                pa_list.sort(key=lambda x: x["day"])
+                prior_gain += (pa_list[-1]["stars"] - pa_list[0]["stars"])
         mom_growth = ((star_velocity - prior_gain) / max(abs(prior_gain), 1)) * 100
 
         # Period PR gain
-        if "daily_pr_delta" in period_data.columns and period_data["daily_pr_delta"].sum() > 0:
-            period_pr_gain = int(period_data["daily_pr_delta"].sum())
-        elif "merged_prs" in period_data.columns and len(period_data) >= 2:
-            ppl = period_data.groupby("repo_id")["merged_prs"].last()
-            ppe = period_data.groupby("repo_id")["merged_prs"].first()
-            period_pr_gain = int((ppl - ppe).sum())
-        else:
-            period_pr_gain = 0
+        period_pr_gain = 0
+        for repo_id, p_list in period_metrics.items():
+            delta_sum = sum(m["daily_pr_delta"] for m in p_list)
+            if delta_sum > 0:
+                period_pr_gain += delta_sum
+            elif len(p_list) >= 2:
+                p_list.sort(key=lambda x: x["day"])
+                period_pr_gain += (p_list[-1]["merged_prs"] - p_list[0]["merged_prs"])
 
-        avg_open_prs = round(float(latest["open_prs"].mean()) if "open_prs" in latest.columns else 0.0, 1)
+        avg_open_prs = sum(m["open_prs"] for m in latest_metrics.values()) / max(repo_count, 1)
 
         raw_results.append({
             "category":           category,
@@ -552,10 +452,10 @@ def compute_category_growth(days: int = 7) -> list[dict]:
             "total_merged_prs":   total_merged_prs,
             "weekly_velocity":    round(star_velocity, 1),
             "mom_growth_pct":     round(mom_growth, 2),
-            "repo_count":         int(latest["repo_id"].nunique()),
+            "repo_count":         repo_count,
             "period_star_gain":   period_star_gain,
             "period_pr_gain":     period_pr_gain,
-            "avg_open_prs":       avg_open_prs,
+            "avg_open_prs":       round(avg_open_prs, 1),
             "_vel":   star_velocity,
             "_accel": acceleration,
             "_cont":  contributor_growth,
@@ -566,8 +466,7 @@ def compute_category_growth(days: int = 7) -> list[dict]:
     if not raw_results:
         return []
 
-    # If all velocity/contrib/issue delta signals are zero (single-snapshot data),
-    # fall back to absolute totals so categories still rank meaningfully.
+    # If all velocity/contrib/issue delta signals are zero, fall back to absolute totals
     all_delta_zero = (
         all(r["_vel"] == 0 for r in raw_results) and
         all(r["_cont"] == 0 for r in raw_results) and
@@ -576,13 +475,11 @@ def compute_category_growth(days: int = 7) -> list[dict]:
     if all_delta_zero:
         for r in raw_results:
             rc = max(r["repo_count"], 1)
-            r["_vel"]  = r["total_stars"] / rc        # avg stars per repo
-            r["_accel"] = r["total_merged_prs"] / rc  # avg merged PRs (proxy for momentum)
-            r["_cont"] = r["total_contributors"] / rc  # avg contributors per repo
-            # _rel and _iss come from the loop above; if still 0 use issue count from latest snapshot
-            # (already set per-category; keep if nonzero, else proxy)
+            r["_vel"]  = r["total_stars"] / rc
+            r["_accel"] = r["total_merged_prs"] / rc
+            r["_cont"] = r["total_contributors"] / rc
 
-    # Min-max normalise each signal across categories, then compute composite
+    # Min-max normalise each signal
     def _minmax(vals):
         mn, mx = min(vals), max(vals)
         return [0.5] * len(vals) if mx == mn else [(v - mn) / (mx - mn) for v in vals]
@@ -603,12 +500,12 @@ def compute_category_growth(days: int = 7) -> list[dict]:
 
     return sorted(raw_results, key=lambda x: x["trend_composite"], reverse=True)
 
+
 # ─── Alert thresholds ────────────────────────────────────────────────────────
-# Thresholds are conservative to avoid noise.  Adjust via config later.
 _ALERT_THRESHOLDS: dict[str, dict] = {
     "star_spike_24h": {"window_days": 1, "min_daily_stars": 300},
     "star_spike_48h": {"window_days": 2, "min_daily_stars": 200},
-    "momentum_surge": {"min_trend_score_jump": 0.5},   # trend_score increase in 1 day
+    "momentum_surge": {"min_trend_score_jump": 0.5},
 }
 
 
@@ -633,16 +530,21 @@ def _momentum_direction(values: list[float]) -> str:
     return "stable"
 
 
-def _statistical_spike_context(df: pd.DataFrame, column: str) -> dict | None:
-    if column not in df.columns or len(df) < SPIKE_MIN_HISTORY_DAYS + 1:
+def _statistical_spike_context(df: list[dict], column: str) -> dict | None:
+    if not df or len(df) < SPIKE_MIN_HISTORY_DAYS + 1:
         return None
 
-    series = pd.to_numeric(df[column], errors="coerce").dropna().astype(float)
+    series = []
+    for r in df:
+        val = r.get(column)
+        if val is not None:
+            series.append(float(val))
+
     if len(series) < SPIKE_MIN_HISTORY_DAYS + 1:
         return None
 
-    history = series.iloc[:-1].tail(max(SPIKE_MIN_HISTORY_DAYS, 14)).tolist()
-    current = float(series.iloc[-1])
+    history = series[:-1][-max(SPIKE_MIN_HISTORY_DAYS, 14):]
+    current = float(series[-1])
     if len(history) < SPIKE_MIN_HISTORY_DAYS:
         return None
 
@@ -658,7 +560,7 @@ def _statistical_spike_context(df: pd.DataFrame, column: str) -> dict | None:
     if z_score < SPIKE_Z_THRESHOLD:
         return None
 
-    recent_window = series.iloc[-2:].tolist()
+    recent_window = series[-2:]
     sustained = all(((value - mean) / stddev) >= SPIKE_SUSTAINED_Z_THRESHOLD for value in recent_window)
     percentile = round(_normal_cdf(z_score) * 100, 2)
 
@@ -669,7 +571,7 @@ def _statistical_spike_context(df: pd.DataFrame, column: str) -> dict | None:
         "z_score": round(z_score, 4),
         "percentile": percentile,
         "is_sustained": sustained,
-        "momentum_direction": _momentum_direction(series.tail(6).tolist()),
+        "momentum_direction": _momentum_direction(series[-6:]),
     }
 
 
@@ -721,17 +623,14 @@ def _create_new_breakout_alerts(db, today: date) -> int:
 def detect_and_write_alerts(
     db,
     repo: "Repository",
-    df: pd.DataFrame,
+    df: list[dict],
     today_trend_score: float,
     yesterday_trend_score: float,
 ) -> int:
     """
     Checks a single repo against hard and adaptive thresholds and writes TrendAlert rows.
-    Idempotent: skips if an identical (repo_id, alert_type, same calendar day)
-    alert already exists.
-    Returns the count of new alerts written.
     """
-    if df.empty:
+    if not df:
         return 0
 
     today = _today()
@@ -782,10 +681,10 @@ def detect_and_write_alerts(
         alerts_written += 1
         logger.info(f"ALERT [{alert_type}] {repo.owner}/{repo.name}: {headline}")
 
-    # ── Star spike 24 h ──────────────────────────────────────────────────────
+    # Star spike 24 h
     thresh_24h = _ALERT_THRESHOLDS["star_spike_24h"]
     if len(df) >= 1:
-        daily_stars = int(df.iloc[-1]["daily_star_delta"])
+        daily_stars = int(df[-1]["daily_star_delta"])
         if daily_stars >= thresh_24h["min_daily_stars"]:
             _write(
                 "star_spike_24h",
@@ -795,10 +694,10 @@ def detect_and_write_alerts(
                 window_days=1,
             )
 
-    # ── Star spike 48 h ──────────────────────────────────────────────────────
+    # Star spike 48 h
     thresh_48h = _ALERT_THRESHOLDS["star_spike_48h"]
     if len(df) >= 2:
-        stars_48h = int(df.tail(2)["daily_star_delta"].sum())
+        stars_48h = int(sum(r["daily_star_delta"] for r in df[-2:]))
         if stars_48h >= thresh_48h["min_daily_stars"] * 2:
             _write(
                 "star_spike_48h",
@@ -819,7 +718,7 @@ def detect_and_write_alerts(
             extra=star_spike,
         )
 
-    # ── Momentum surge (trend score jump) ────────────────────────────────────
+    # Momentum surge
     thresh_surge = _ALERT_THRESHOLDS["momentum_surge"]
     score_jump = today_trend_score - yesterday_trend_score
     if score_jump >= thresh_surge["min_trend_score_jump"]:
@@ -850,9 +749,7 @@ def detect_and_write_alerts(
 def _write_category_metrics_cache(db, days: int = 7) -> int:
     """
     Computes category growth metrics for `days` and upserts rows into
-    `category_metrics_daily`.  Called from run_daily_scoring so dashboards
-    read from the pre-aggregated cache instead of recomputing on each request.
-    Returns the number of categories written.
+    `category_metrics_daily`.
     """
     today = _today()
     rows = compute_category_growth(days=days)
@@ -898,9 +795,6 @@ def run_daily_scoring() -> dict:
     """
     Computes trend and sustainability scores for all repos that have today's
     daily_metrics row.  Upserts into computed_metrics.
-    Also:
-    - Detects momentum / star-spike alerts and writes to trend_alerts
-    - Pre-aggregates category metrics into category_metrics_daily cache
     """
     db = SessionLocal()
     today = _today()
@@ -922,7 +816,7 @@ def run_daily_scoring() -> dict:
                 )
 
                 df = _load_window_df(repo.id, days=60)
-                if df.empty:
+                if not df:
                     continue
 
                 trend_metrics   = _ensure_python_types(compute_trend_score(df, max(repo.age_days, 1)))
@@ -941,7 +835,7 @@ def run_daily_scoring() -> dict:
                     )
                     db.add(cm)
 
-                # ── Alert detection ──────────────────────────────────────────
+                # Alert detection
                 previous_metric = (
                     db.query(ComputedMetric)
                     .filter(ComputedMetric.repo_id == repo.id, ComputedMetric.date < today)
@@ -955,7 +849,7 @@ def run_daily_scoring() -> dict:
                     yesterday_trend_score=yesterday_score,
                 )
 
-                # ── Evaluate Real-time User Alert Rules ──
+                # Evaluate Real-time User Alert Rules
                 try:
                     import asyncio
                     loop = asyncio.get_event_loop()
@@ -972,7 +866,6 @@ def run_daily_scoring() -> dict:
                 logger.error(f"Scoring failed for {repo.owner}/{repo.name}: {e}")
                 failed += 1
 
-        # ── Pre-aggregate category metrics into cache ────────────────────────
         try:
             alert_count += _create_new_breakout_alerts(db, today)
         except Exception as e:

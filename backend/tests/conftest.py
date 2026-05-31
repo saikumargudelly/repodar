@@ -8,7 +8,7 @@ side-effects on the real `repodar.db`.
 import uuid
 from datetime import datetime, timedelta, timezone
 
-import pandas as pd
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -155,13 +155,12 @@ def build_df(
     daily_fork_delta: int = 2,
     daily_commit_delta: int = 8,
     daily_pr_delta: int = 1,
-) -> pd.DataFrame:
-    """Build a pandas DataFrame matching the shape produced by _load_window_df."""
-    from datetime import date
+) -> list[dict]:
+    """Build a list of dicts matching the shape produced by _load_window_df."""
     rows = []
     for i in range(num_days):
         rows.append({
-            "day": (datetime.now(timezone.utc).date() - timedelta(days=num_days - 1 - i)).isoformat(),
+            "day": datetime.now(timezone.utc).date() - timedelta(days=num_days - 1 - i),
             "stars": base_stars + i * daily_star_delta,
             "forks": forks + i * daily_fork_delta,
             "watchers": base_stars // 10,
@@ -176,4 +175,4 @@ def build_df(
             "daily_pr_delta": daily_pr_delta,
             "daily_commit_delta": daily_commit_delta,
         })
-    return pd.DataFrame(rows)
+    return rows
