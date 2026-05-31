@@ -147,6 +147,10 @@ async def auto_discover_and_sync() -> dict:
 
         logger.info(f"Auto-discovery: {len(seen_slugs)} unique repos found across all searches")
 
+        # Bulk load all existing repositories to prevent N+1 queries
+        all_repos = db.query(Repository).all()
+        existing_map = {f"{r.owner.lower()}/{r.name.lower()}": r for r in all_repos}
+
         for slug, repo_data in seen_slugs.items():
             try:
                 if "full_name" in repo_data:
@@ -158,15 +162,7 @@ async def auto_discover_and_sync() -> dict:
                 if not owner or not name:
                     continue
 
-                from sqlalchemy import func
-                existing = (
-                    db.query(Repository)
-                    .filter(
-                        func.lower(Repository.owner) == owner.lower(),
-                        func.lower(Repository.name) == name.lower()
-                    )
-                    .first()
-                )
+                existing = existing_map.get(f"{owner.lower()}/{name.lower()}")
 
                 if existing:
                     # Always refresh last_seen_trending
@@ -317,20 +313,40 @@ async def run_daily_ingestion() -> dict:
         failed   = 0
         repo_map = {r.id: r for r in repos}
 
+        # Bulk query previous metrics to prevent N+1 queries
+        from sqlalchemy import and_, func as _func
+        
+        # Subquery to get the latest captured_at before today for each repo
+        latest_prev_subq = (
+            db.query(
+                DailyMetric.repo_id.label("repo_id"),
+                _func.max(DailyMetric.captured_at).label("max_captured_at")
+            )
+            .filter(DailyMetric.captured_at < today_start)
+            .group_by(DailyMetric.repo_id)
+            .subquery()
+        )
+        
+        # Query all those previous DailyMetric rows in one go
+        prev_metrics_list = (
+            db.query(DailyMetric)
+            .join(
+                latest_prev_subq,
+                and_(
+                    DailyMetric.repo_id == latest_prev_subq.c.repo_id,
+                    DailyMetric.captured_at == latest_prev_subq.c.max_captured_at
+                )
+            )
+            .all()
+        )
+        prev_metrics_map = {row.repo_id: row for row in prev_metrics_list}
+
         for m in metrics_list:
             repo_id = m["repo_id"]
             try:
                 # Always compute deltas vs the most recent PREVIOUS-DAY snapshot
-                # (not today's existing row) so re-runs don't inflate them.
-                prev = (
-                    db.query(DailyMetric)
-                    .filter(
-                        DailyMetric.repo_id == repo_id,
-                        DailyMetric.captured_at < today_start,
-                    )
-                    .order_by(DailyMetric.captured_at.desc())
-                    .first()
-                )
+                # Get from pre-loaded map to prevent N+1 sequential queries
+                prev = prev_metrics_map.get(repo_id)
 
                 daily_star_delta = max(m["stars"] - (prev.stars if prev else m["stars"]), 0)
                 daily_fork_delta = max(m["forks"] - (prev.forks if prev else m["forks"]), 0)
@@ -454,96 +470,129 @@ async def _enrich_contributors_and_forks(repos: list, today) -> None:
     """
     For the given repos, fetch top contributors and notable forks from GitHub
     and upsert them into repo_contributors / fork_snapshots.
-    Runs in parallel where possible.
+    Fetches GitHub REST data concurrently in parallel batches,
+    then writes sequentially on a single DB session to prevent concurrency errors.
     """
     from app.models import RepoContributor, ForkSnapshot
 
-    db = SessionLocal()
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
-    async def _enrich_one(repo):
+    # 1. Asynchronous fetch helper (does not touch DB session)
+    async def _fetch_one_repo_data(repo):
+        contribs = []
+        forks = []
         try:
-            # ── Contributors ──────────────────────────────────────────────
-            contributors = await get_top_contributors(repo.owner, repo.name, limit=25)
+            contribs = await get_top_contributors(repo.owner, repo.name, limit=25)
+        except Exception as e:
+            logger.warning(f"Failed to fetch contributors for {repo.owner}/{repo.name}: {e}")
+            
+        try:
+            if (repo.stars_snapshot or 0) > 1000:
+                forks = await get_notable_forks(repo.owner, repo.name, min_stars=20, limit=20)
+        except Exception as e:
+            logger.warning(f"Failed to fetch forks for {repo.owner}/{repo.name}: {e}")
+            
+        return repo.id, contribs, forks
+
+    # 2. Fetch everything concurrently in pacing batches
+    fetched_data = []
+    batch_size = 10
+    for start in range(0, len(repos), batch_size):
+        batch = repos[start:start + batch_size]
+        batch_results = await asyncio.gather(*[_fetch_one_repo_data(r) for r in batch], return_exceptions=True)
+        for res in batch_results:
+            if isinstance(res, Exception) or not res:
+                continue
+            fetched_data.append(res)
+        if start + batch_size < len(repos):
+            await asyncio.sleep(2)  # gentle pacing
+
+    # 3. Sequential database updates using a single DB session
+    db = SessionLocal()
+    try:
+        repo_ids = [r.id for r in repos]
+        
+        # Bulk query existing RepoContributors
+        all_existing_contribs = (
+            db.query(RepoContributor)
+            .filter(RepoContributor.repo_id.in_(repo_ids))
+            .all()
+        )
+        contrib_map = {(row.repo_id, row.login): row for row in all_existing_contribs}
+        
+        # Bulk query existing ForkSnapshots for today
+        all_existing_forks = (
+            db.query(ForkSnapshot)
+            .filter(
+                ForkSnapshot.parent_repo_id.in_(repo_ids),
+                ForkSnapshot.snapshot_date == today
+            )
+            .all()
+        )
+        fork_map = {(row.parent_repo_id, row.fork_full_name): row for row in all_existing_forks}
+
+        for repo_id, contributors, forks in fetched_data:
+            # Contributors
             for c in contributors:
                 if not c.get("login"):
                     continue
-                existing = (
-                    db.query(RepoContributor)
-                    .filter_by(repo_id=repo.id, login=c["login"])
-                    .first()
-                )
+                existing = contrib_map.get((repo_id, c["login"]))
                 if existing:
                     existing.contributions = c["contributions"]
                     existing.avatar_url = c.get("avatar_url", "")
                     existing.updated_at = now
                 else:
-                    db.add(RepoContributor(
-                        repo_id=repo.id,
+                    new_contrib = RepoContributor(
+                        repo_id=repo_id,
                         login=c["login"],
                         avatar_url=c.get("avatar_url", ""),
                         contributions=c["contributions"],
                         updated_at=now,
-                    ))
-
-            # ── Notable forks (only for repos with > 1_000 stars to limit API use) ──
-            if (repo.stars_snapshot or 0) > 1000:
-                forks = await get_notable_forks(repo.owner, repo.name, min_stars=20, limit=20)
-                for f in forks:
-                    if not f.get("fork_full_name"):
-                        continue
-                    existing_fork = (
-                        db.query(ForkSnapshot)
-                        .filter_by(
-                            parent_repo_id=repo.id,
-                            fork_full_name=f["fork_full_name"],
-                            snapshot_date=today,
-                        )
-                        .first()
                     )
-                    push_dt = None
-                    if f.get("last_push_at"):
-                        try:
-                            push_dt = datetime.fromisoformat(
-                                f["last_push_at"].replace("Z", "+00:00")
-                            ).replace(tzinfo=None)
-                        except Exception:
-                            pass
+                    db.add(new_contrib)
+                    contrib_map[(repo_id, c["login"])] = new_contrib
 
-                    if existing_fork:
-                        existing_fork.stars = f["stars"]
-                        existing_fork.forks = f["forks"]
-                        existing_fork.last_push_at = push_dt
-                        existing_fork.captured_at = now
-                    else:
-                        db.add(ForkSnapshot(
-                            parent_repo_id=repo.id,
-                            fork_owner=f["fork_owner"],
-                            fork_name=f["fork_name"],
-                            fork_full_name=f["fork_full_name"],
-                            github_url=f["github_url"],
-                            stars=f["stars"],
-                            forks=f["forks"],
-                            open_issues=f["open_issues"],
-                            primary_language=f.get("primary_language"),
-                            last_push_at=push_dt,
-                            snapshot_date=today,
-                            captured_at=now,
-                        ))
-        except Exception as e:
-            logger.warning(f"Enrichment failed for {repo.owner}/{repo.name}: {e}")
+            # Forks
+            for f in forks:
+                if not f.get("fork_full_name"):
+                    continue
+                existing_fork = fork_map.get((repo_id, f["fork_full_name"]))
+                push_dt = None
+                if f.get("last_push_at"):
+                    try:
+                        push_dt = datetime.fromisoformat(
+                            f["last_push_at"].replace("Z", "+00:00")
+                        ).replace(tzinfo=None)
+                    except Exception:
+                        pass
 
-    try:
-        # Process in parallel batches of 10 to respect rate limits
-        batch_size = 10
-        for start in range(0, len(repos), batch_size):
-            batch = repos[start:start + batch_size]
-            await asyncio.gather(*[_enrich_one(r) for r in batch], return_exceptions=True)
-            db.commit()
-            if start + batch_size < len(repos):
-                await asyncio.sleep(2)  # gentle pacing
+                if existing_fork:
+                    existing_fork.stars = f["stars"]
+                    existing_fork.forks = f["forks"]
+                    existing_fork.last_push_at = push_dt
+                    existing_fork.captured_at = now
+                else:
+                    new_fork = ForkSnapshot(
+                        parent_repo_id=repo_id,
+                        fork_owner=f["fork_owner"],
+                        fork_name=f["fork_name"],
+                        fork_full_name=f["fork_full_name"],
+                        github_url=f["github_url"],
+                        stars=f["stars"],
+                        forks=f["forks"],
+                        open_issues=f["open_issues"],
+                        primary_language=f.get("primary_language"),
+                        last_push_at=push_dt,
+                        snapshot_date=today,
+                        captured_at=now,
+                    )
+                    db.add(new_fork)
+                    fork_map[(repo_id, f["fork_full_name"])] = new_fork
+
+        db.commit()
+        logger.info(f"Enrichment completed and saved successfully for {len(fetched_data)} repos")
     except Exception as e:
-        logger.error(f"Contributor/fork enrichment error: {e}")
         db.rollback()
+        logger.error(f"Failed to save enriched contributors/forks to DB: {e}")
     finally:
         db.close()

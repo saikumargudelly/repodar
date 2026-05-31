@@ -806,16 +806,71 @@ def run_daily_scoring() -> dict:
         repos = db.query(Repository).all()
         logger.info(f"Starting scoring for {len(repos)} repos")
 
+        from collections import defaultdict
+        from sqlalchemy import and_, func as _func
+
+        # 1. Pre-load all ComputedMetrics for today to prevent N+1 checks
+        existing_today_map = {
+            cm.repo_id: cm
+            for cm in db.query(ComputedMetric).filter(ComputedMetric.date == today).all()
+        }
+
+        # 2. Pre-load last 60 days of DailyMetrics for ALL active repos in 1 query
+        cutoff = datetime.now(timezone.utc) - timedelta(days=60)
+        all_daily_metrics = (
+            db.query(DailyMetric)
+            .filter(DailyMetric.captured_at >= cutoff.replace(tzinfo=None))
+            .order_by(DailyMetric.captured_at.asc())
+            .all()
+        )
+        metrics_by_repo = defaultdict(list)
+        for r in all_daily_metrics:
+            metrics_by_repo[r.repo_id].append({
+                "day": r.captured_at.date(),
+                "stars": r.stars,
+                "forks": r.forks,
+                "contributors": r.contributors,
+                "open_issues": r.open_issues,
+                "open_prs": getattr(r, 'open_prs', 0) or 0,
+                "merged_prs": r.merged_prs,
+                "releases": r.releases,
+                "daily_star_delta": r.daily_star_delta or 0,
+                "daily_fork_delta": getattr(r, 'daily_fork_delta', 0) or 0,
+                "daily_pr_delta": getattr(r, 'daily_pr_delta', 0) or 0,
+                "commit_count": getattr(r, 'commit_count', 0) or 0,
+                "daily_commit_delta": getattr(r, 'daily_commit_delta', 0) or 0,
+            })
+
+        # 3. Pre-load the latest ComputedMetric before today for all repos in 1 query
+        max_prev_cm_subq = (
+            db.query(
+                ComputedMetric.repo_id.label("repo_id"),
+                _func.max(ComputedMetric.date).label("max_date")
+            )
+            .filter(ComputedMetric.date < today)
+            .group_by(ComputedMetric.repo_id)
+            .subquery()
+        )
+        prev_cms = (
+            db.query(ComputedMetric)
+            .join(
+                max_prev_cm_subq,
+                and_(
+                    ComputedMetric.repo_id == max_prev_cm_subq.c.repo_id,
+                    ComputedMetric.date == max_prev_cm_subq.c.max_date
+                )
+            )
+            .all()
+        )
+        prev_cm_map = {row.repo_id: row for row in prev_cms}
+
         for repo in repos:
             try:
-                # Check if already scored today
-                existing = (
-                    db.query(ComputedMetric)
-                    .filter_by(repo_id=repo.id, date=today)
-                    .first()
-                )
+                # Check from map
+                existing = existing_today_map.get(repo.id)
 
-                df = _load_window_df(repo.id, days=60)
+                # Get from pre-loaded dictionary
+                df = metrics_by_repo.get(repo.id, [])
                 if not df:
                     continue
 
@@ -835,13 +890,8 @@ def run_daily_scoring() -> dict:
                     )
                     db.add(cm)
 
-                # Alert detection
-                previous_metric = (
-                    db.query(ComputedMetric)
-                    .filter(ComputedMetric.repo_id == repo.id, ComputedMetric.date < today)
-                    .order_by(ComputedMetric.date.desc())
-                    .first()
-                )
+                # Alert detection: get from map
+                previous_metric = prev_cm_map.get(repo.id)
                 yesterday_score = previous_metric.trend_score if previous_metric and previous_metric.trend_score else 0.0
                 alert_count += detect_and_write_alerts(
                     db, repo, df,
