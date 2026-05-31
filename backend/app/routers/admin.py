@@ -339,16 +339,33 @@ def deduplicate_repositories_logic(db: Session) -> dict:
             dup_id = dup.id
             keep_id = keep_repo.id
             
-            # Re-point foreign keys
+            # Re-point foreign keys safely (row-by-row for unique-constrained tables)
             db.query(DailyMetric).filter(DailyMetric.repo_id == dup_id).update({DailyMetric.repo_id: keep_id})
             db.query(ComputedMetric).filter(ComputedMetric.repo_id == dup_id).update({ComputedMetric.repo_id: keep_id})
-            db.query(RepoContributor).filter(RepoContributor.repo_id == dup_id).update({RepoContributor.repo_id: keep_id})
             db.query(ForkSnapshot).filter(ForkSnapshot.parent_repo_id == dup_id).update({ForkSnapshot.parent_repo_id: keep_id})
-            db.query(WatchlistItem).filter(WatchlistItem.repo_id == dup_id).update({WatchlistItem.repo_id: keep_id})
             db.query(TrendAlert).filter(TrendAlert.repo_id == dup_id).update({TrendAlert.repo_id: keep_id})
             db.query(RepoRelease).filter(RepoRelease.repo_id == dup_id).update({RepoRelease.repo_id: keep_id})
             db.query(SocialMention).filter(SocialMention.repo_id == dup_id).update({SocialMention.repo_id: keep_id})
             db.query(AlertRule).filter(AlertRule.repo_id == dup_id).update({AlertRule.repo_id: keep_id})
+
+            # RepoContributor: merge Top contributors
+            dup_contribs = db.query(RepoContributor).filter(RepoContributor.repo_id == dup_id).all()
+            for dc in dup_contribs:
+                exists = db.query(RepoContributor).filter_by(repo_id=keep_id, login=dc.login).first()
+                if exists:
+                    exists.contributions = max(exists.contributions, dc.contributions)
+                    db.delete(dc)
+                else:
+                    dc.repo_id = keep_id
+
+            # WatchlistItem: merge watchlist items
+            dup_watchlist = db.query(WatchlistItem).filter(WatchlistItem.repo_id == dup_id).all()
+            for dw in dup_watchlist:
+                exists = db.query(WatchlistItem).filter_by(user_id=dw.user_id, repo_id=keep_id).first()
+                if exists:
+                    db.delete(dw)
+                else:
+                    dw.repo_id = keep_id
             
             db.delete(dup)
             repos_merged += 1
