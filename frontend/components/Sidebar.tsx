@@ -233,10 +233,9 @@ export function Sidebar() {
     ? ALL_VERTICALS.filter((v) => userVerticals.includes(v.key))
     : ALL_VERTICALS;
 
-  const isVerticalActive = (key: string) =>
-    pathname === "/overview" || pathname === "/leaderboard"
-      ? false // those pages manage their own vertical state
-      : false;
+  // Whether a nav item is the active route (supports nested paths like /collections/xyz)
+  const isNavActive = (href: string) =>
+    pathname === href || (href !== "/" && pathname.startsWith(href + "/"));
 
   // ── Shared nav content ─────────────────────────────────────
   const navContent = (
@@ -290,7 +289,7 @@ export function Sidebar() {
       {/* ── Nav items ───────────────────────────────── */}
       <nav style={{ flex: 1, padding: "10px 8px", display: "flex", flexDirection: "column", gap: "2px", overflowY: "auto" }}>
         {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = isNavActive(item.href);
           return (
             <Link
               key={item.href}
@@ -380,6 +379,7 @@ export function Sidebar() {
             <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
               {displayedVerticals.map(({ key, label, icon }) => {
                 const isPreferred = userVerticals.includes(key);
+                const isActive = pathname.includes(`vertical=${key}`);
                 return (
                   <Link
                     key={key}
@@ -388,22 +388,22 @@ export function Sidebar() {
                       display: "flex",
                       alignItems: "center",
                       gap: "8px",
-                      padding: "7px 10px",
+                      padding: "6px 10px",
                       borderRadius: "6px",
                       textDecoration: "none",
                       transition: "background 0.13s",
-                      background: "transparent",
-                      borderLeft: isPreferred ? "2px solid var(--accent-blue)" : "2px solid transparent",
+                      background: isActive ? "rgba(88,166,255,0.07)" : "transparent",
+                      borderLeft: isActive ? "2px solid var(--accent-blue)" : "2px solid transparent",
                     }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(88,166,255,0.07)"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                    onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
                   >
                     <span style={{ fontSize: "13px", flexShrink: 0, lineHeight: 1 }}>{icon}</span>
                     <span style={{
                       fontFamily: "var(--font-sans)",
                       fontSize: "12px",
-                      color: isPreferred ? "var(--accent-blue)" : "var(--text-secondary)",
-                      fontWeight: isPreferred ? 600 : 400,
+                      color: isActive ? "var(--accent-blue)" : isPreferred ? "var(--accent-blue)" : "var(--text-secondary)",
+                      fontWeight: isActive || isPreferred ? 600 : 400,
                       flex: 1,
                       whiteSpace: "nowrap",
                       overflow: "hidden",
@@ -412,7 +412,7 @@ export function Sidebar() {
                       {label}
                     </span>
                     {isPreferred && (
-                      <span style={{ fontSize: "8px", color: "var(--accent-blue)", flexShrink: 0 }}>✦</span>
+                      <span style={{ fontSize: "8px", color: isActive ? "var(--accent-blue)" : "var(--text-muted)", flexShrink: 0 }}>✦</span>
                     )}
                   </Link>
                 );

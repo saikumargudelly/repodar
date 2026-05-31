@@ -13,6 +13,7 @@ export function TrendingCollections() {
   const { data: collections, isLoading } = useQuery<Collection[]>({
     queryKey: ["collections", "trending"],
     queryFn: () => api.getTrendingCollections(),
+    staleTime: 5 * 60 * 1000,
   });
 
   const voteMutation = useMutation({
@@ -21,80 +22,234 @@ export function TrendingCollections() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["collections", "trending"] }),
   });
 
-  if (isLoading)
-    return <div className="p-8 text-center text-gray-400 font-mono text-sm animate-pulse">Loading collections…</div>;
+  if (isLoading) {
+    return (
+      <div style={{
+        padding: "60px 0",
+        textAlign: "center",
+        fontFamily: "var(--font-sans)",
+        fontSize: "13px",
+        color: "var(--text-muted)",
+        letterSpacing: "0.04em",
+      }}>
+        Loading collections…
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <h2 className="text-2xl font-semibold text-gray-900 flex items-center gap-2 tracking-tight">
-            <svg className="w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          <div style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "28px",
+            fontWeight: 700,
+            color: "var(--text-primary)",
+            letterSpacing: "-0.02em",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+          }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
             Community Collections
-          </h2>
-          <p className="text-sm text-gray-500 mt-1">Curated lists of repositories created by the community</p>
+          </div>
+          <div style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "13px",
+            color: "var(--text-muted)",
+            marginTop: "6px",
+          }}>
+            Curated lists of repositories created by the community
+          </div>
         </div>
         {userId && (
           <button
             onClick={() => setShowCreate(!showCreate)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
+            className="btn-cyber btn-cyber-cyan"
+            style={{ padding: "8px 16px", fontSize: "13px" }}
           >
-            {showCreate ? "Cancel" : "Create Collection"}
+            {showCreate ? "Cancel" : "+ Create Collection"}
           </button>
         )}
       </div>
 
+      {/* Create form */}
       {showCreate && userId && (
         <CreateCollectionForm userId={userId} onSuccess={() => setShowCreate(false)} />
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      {/* Grid */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+        gap: "16px",
+      }}>
         {collections?.map((col) => (
           <div
             key={col.id}
-            className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col hover:border-gray-300 hover:shadow-sm transition-all"
+            className="panel"
+            style={{
+              padding: "20px",
+              display: "flex",
+              flexDirection: "column",
+              transition: "border-color 0.15s, background 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.borderColor = "var(--accent-blue)";
+              (e.currentTarget as HTMLElement).style.background = "var(--bg-elevated)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
+              (e.currentTarget as HTMLElement).style.background = "var(--bg-surface)";
+            }}
           >
-            <div className="flex justify-between items-start mb-3">
-              <h3 className="font-semibold text-gray-900 line-clamp-1 truncate pr-3">{col.title}</h3>
+            {/* Title row */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "10px" }}>
+              <h3 style={{
+                fontFamily: "var(--font-sans)",
+                fontWeight: 600,
+                fontSize: "15px",
+                color: "var(--text-primary)",
+                flex: 1,
+                paddingRight: "12px",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                margin: 0,
+              }}>{col.title}</h3>
               {userId && (
-                <div className="flex items-center bg-gray-50 border border-gray-200 rounded-md overflow-hidden shrink-0">
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  border: "1px solid var(--border)",
+                  borderRadius: "6px",
+                  overflow: "hidden",
+                  flexShrink: 0,
+                  background: "var(--bg-elevated)",
+                }}>
                   <button
                     onClick={() => voteMutation.mutate({ id: col.id, direction: 1 })}
                     disabled={voteMutation.isPending}
-                    className="px-2 py-1 hover:bg-gray-100 text-gray-400 hover:text-emerald-500 transition-colors text-xs"
+                    style={{
+                      padding: "4px 8px",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "var(--text-muted)",
+                      fontSize: "11px",
+                      transition: "color 0.13s",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent-green)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
                   >▲</button>
-                  <span className="text-xs font-mono font-semibold min-w-[24px] text-center text-gray-700">
+                  <span style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    minWidth: "24px",
+                    textAlign: "center",
+                    color: "var(--text-primary)",
+                  }}>
                     {col.votes}
                   </span>
                   <button
                     onClick={() => voteMutation.mutate({ id: col.id, direction: -1 })}
                     disabled={voteMutation.isPending}
-                    className="px-2 py-1 hover:bg-gray-100 text-gray-400 hover:text-rose-500 transition-colors text-xs"
+                    style={{
+                      padding: "4px 8px",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "var(--text-muted)",
+                      fontSize: "11px",
+                      transition: "color 0.13s",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent-red)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
                   >▼</button>
                 </div>
               )}
             </div>
 
-            <p className="text-sm text-gray-500 line-clamp-2 mb-4 flex-grow leading-relaxed">
+            {/* Description */}
+            <p style={{
+              fontFamily: "var(--font-sans)",
+              fontSize: "13px",
+              color: "var(--text-secondary)",
+              lineHeight: 1.6,
+              flex: 1,
+              marginBottom: "16px",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+              margin: "0 0 16px 0",
+            }}>
               {col.description || "No description provided."}
             </p>
 
-            <div className="flex items-center justify-between text-xs text-gray-500 font-medium mt-auto pt-4 border-t border-gray-100">
-              <div className="flex items-center gap-1.5 font-mono">
-                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
+            {/* Footer */}
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              paddingTop: "12px",
+              borderTop: "1px solid var(--border)",
+              marginTop: "auto",
+            }}>
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                fontFamily: "var(--font-mono)",
+                fontSize: "11px",
+                color: "var(--text-muted)",
+              }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
                 </svg>
                 {col.repo_count} repos
               </div>
-              <span className="uppercase text-gray-400">{col.created_by.substring(0, 10)}…</span>
+              <span style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "10px",
+                color: "var(--text-muted)",
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+              }}>
+                {col.created_by.substring(0, 10)}…
+              </span>
             </div>
           </div>
         ))}
+
+        {/* Empty state */}
         {(!collections || collections.length === 0) && (
-          <div className="col-span-full py-16 text-center border-2 border-dashed border-gray-200 rounded-xl text-gray-500 font-mono text-sm bg-gray-50">
-            No collections yet. Be the first to create one!
+          <div style={{
+            gridColumn: "1 / -1",
+            padding: "60px 20px",
+            textAlign: "center",
+            border: "2px dashed var(--border)",
+            borderRadius: "8px",
+            background: "var(--bg-surface)",
+          }}>
+            <div style={{ fontSize: "32px", marginBottom: "12px", opacity: 0.4 }}>📦</div>
+            <div style={{
+              fontFamily: "var(--font-sans)",
+              fontSize: "14px",
+              color: "var(--text-secondary)",
+              fontWeight: 500,
+            }}>No collections yet.</div>
+            <div style={{
+              fontFamily: "var(--font-sans)",
+              fontSize: "12px",
+              color: "var(--text-muted)",
+              marginTop: "4px",
+            }}>Be the first to create one!</div>
           </div>
         )}
       </div>
@@ -117,35 +272,69 @@ function CreateCollectionForm({ userId, onSuccess }: { userId: string; onSuccess
   });
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-      <h4 className="text-sm font-semibold text-gray-900 mb-4 tracking-tight">Create New Collection</h4>
-      <div className="space-y-4">
+    <div className="panel" style={{ padding: "20px" }}>
+      <h4 style={{
+        fontFamily: "var(--font-sans)",
+        fontSize: "14px",
+        fontWeight: 600,
+        color: "var(--text-primary)",
+        marginBottom: "16px",
+        margin: "0 0 16px 0",
+      }}>Create New Collection</h4>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1.5">Collection Title</label>
+          <label style={{
+            display: "block",
+            fontFamily: "var(--font-sans)",
+            fontSize: "11px",
+            fontWeight: 500,
+            color: "var(--text-secondary)",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+            marginBottom: "6px",
+          }}>Collection Title</label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 placeholder:text-gray-400 transition-colors"
+            className="cyber-input"
+            style={{ width: "100%" }}
             placeholder="e.g. Best UI Component Libraries"
           />
         </div>
+
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1.5">Brief Description</label>
+          <label style={{
+            display: "block",
+            fontFamily: "var(--font-sans)",
+            fontSize: "11px",
+            fontWeight: 500,
+            color: "var(--text-secondary)",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+            marginBottom: "6px",
+          }}>Brief Description</label>
           <textarea
             value={desc}
             onChange={(e) => setDesc(e.target.value)}
-            className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 h-20 resize-none placeholder:text-gray-400 transition-colors"
+            className="cyber-input"
+            style={{ width: "100%", height: "80px", resize: "none" }}
             placeholder="What is this collection about?"
           />
         </div>
-        <div className="flex justify-end pt-2">
+
+        <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: "4px" }}>
           <button
-            onClick={() =>
-              createMutation.mutate({ title, description: desc, is_public: true, repo_ids: [] })
-            }
+            onClick={() => createMutation.mutate({ title, description: desc, is_public: true, repo_ids: [] })}
             disabled={!title || createMutation.isPending}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:hover:bg-blue-600 shadow-sm"
+            className="btn-cyber btn-cyber-cyan"
+            style={{
+              padding: "8px 20px",
+              fontSize: "13px",
+              opacity: !title || createMutation.isPending ? 0.5 : 1,
+              cursor: !title || createMutation.isPending ? "not-allowed" : "pointer",
+            }}
           >
             {createMutation.isPending ? "Creating…" : "Save Collection"}
           </button>
