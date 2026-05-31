@@ -9,16 +9,33 @@ import aiohttp
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Security
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from app.database import get_db
 
 admin_api_key_header = APIKeyHeader(name="X-Admin-Key", auto_error=False)
 
-def require_admin_key(api_key: str = Security(admin_api_key_header)):
+def require_admin_key(
+    api_key: str = Security(admin_api_key_header),
+    db: Session = Depends(get_db),
+):
+    # 1. Check environment variable (primary check)
     admin_secret = os.getenv("ADMIN_SECRET_KEY")
-    if not admin_secret:
-        # If no secret configured, reject to be safe
-        raise HTTPException(status_code=403, detail="Admin secret not configured on server")
-    if not api_key or api_key != admin_secret:
-        raise HTTPException(status_code=403, detail="Invalid admin API key")
+    if admin_secret and api_key == admin_secret:
+        return
+
+    # 2. Check enterprise API Key fallback (allows user-seeded keys)
+    if api_key:
+        import hashlib
+        from app.models.api_key import ApiKey
+        key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+        db_key = db.query(ApiKey).filter_by(key_hash=key_hash, is_active=True).first()
+        if db_key and db_key.tier == "enterprise":
+            return
+
+    raise HTTPException(
+        status_code=403,
+        detail="Invalid admin API key or insufficient privileges to run admin endpoints."
+    )
 
 router = APIRouter(prefix="/admin", tags=["Admin"], dependencies=[Depends(require_admin_key)])
 
