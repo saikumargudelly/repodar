@@ -243,8 +243,6 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Seed failed (non-fatal): {e}")
 
-
-
     # Start in-process 2-hour scheduler
     scheduler = _schedule_pipeline()
 
