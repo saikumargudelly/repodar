@@ -101,6 +101,7 @@ def _make_retry():
 
 # ─── REST helpers ───────────────────────────────────────────────────────────
 
+@_make_retry()
 async def _get_contributor_count(session: aiohttp.ClientSession, owner: str, name: str) -> int:
     """
     Uses the contributors endpoint with per_page=1 and reads the last page
@@ -127,6 +128,7 @@ async def _get_contributor_count(session: aiohttp.ClientSession, owner: str, nam
         return 0
 
 
+@_make_retry()
 async def _get_merged_pr_count(session: aiohttp.ClientSession, owner: str, name: str) -> int:
     """Gets total closed (merged) PRs via search API."""
     url = f"{REST_BASE}/search/issues?q=repo:{owner}/{name}+type:pr+is:merged&per_page=1"
@@ -141,6 +143,7 @@ async def _get_merged_pr_count(session: aiohttp.ClientSession, owner: str, name:
         return 0
 
 
+@_make_retry()
 async def _get_commit_count_since(
     session: aiohttp.ClientSession,
     owner: str,
@@ -185,6 +188,7 @@ async def _get_commit_count_since(
         return 0
 
 
+@_make_retry()
 async def _get_repo_rest_fallback(session: aiohttp.ClientSession, owner: str, name: str) -> Optional[dict]:
     """REST fallback for when GraphQL fails for a specific repo."""
     url = f"{REST_BASE}/repos/{owner}/{name}"
@@ -312,37 +316,43 @@ async def fetch_repo_metrics(
             if chunk_start + chunk_size < len(repos):
                 await asyncio.sleep(1)
 
-        # ── Contributor counts (parallel, REST) ──
-        async def enrich_contributors(repo_id: str, owner: str, name: str):
-            count = await _get_contributor_count(session, owner, name)
-            if repo_id in results:
-                results[repo_id]["contributors"] = count
+        # Throttle REST concurrency to protect socket limits and prevent GitHub secondary rate limits
+        sem = asyncio.Semaphore(15)
 
-        await asyncio.gather(*[
-            enrich_contributors(r["id"], r["owner"], r["name"]) for r in repos
-        ])
-
-        # ── Merged PR counts (parallel, REST) ──
-        async def enrich_merged_prs(repo_id: str, owner: str, name: str):
-            count = await _get_merged_pr_count(session, owner, name)
-            if repo_id in results:
-                results[repo_id]["merged_prs"] = count
-
-        await asyncio.gather(*[
-            enrich_merged_prs(r["id"], r["owner"], r["name"]) for r in repos
-        ])
-
-        # ── Commit counts (parallel, REST; incremental when since_map provided) ──
-        async def enrich_commits(repo_id: str, owner: str, name: str):
+        async def enrich_repo_rest_data(repo):
+            repo_id = repo["id"]
+            owner = repo["owner"]
+            name = repo["name"]
             since = since_map.get(repo_id)
-            count = await _get_commit_count_since(session, owner, name, since=since)
+
+            async def throttled_contrib():
+                async with sem:
+                    return await _get_contributor_count(session, owner, name)
+
+            async def throttled_prs():
+                async with sem:
+                    return await _get_merged_pr_count(session, owner, name)
+
+            async def throttled_commits():
+                async with sem:
+                    return await _get_commit_count_since(session, owner, name, since=since)
+
+            # Fetch contributors, merged PRs, and commits concurrently for this specific repo
+            c_count, pr_count, commit_count = await asyncio.gather(
+                throttled_contrib(),
+                throttled_prs(),
+                throttled_commits()
+            )
+
             if repo_id in results:
-                results[repo_id]["commit_count"] = count
-                # Flag whether this is an incremental delta or a total
+                results[repo_id]["contributors"] = c_count
+                results[repo_id]["merged_prs"] = pr_count
+                results[repo_id]["commit_count"] = commit_count
                 results[repo_id]["commit_is_delta"] = since is not None
 
+        # Gather everything concurrently with rate-limit and timeout protection
         await asyncio.gather(*[
-            enrich_commits(r["id"], r["owner"], r["name"]) for r in repos
+            enrich_repo_rest_data(r) for r in repos
         ])
 
     return list(results.values())
@@ -350,45 +360,57 @@ async def fetch_repo_metrics(
 
 # ─── Top contributors list (REST) ────────────────────────────────────────────
 
+@_make_retry()
 async def get_top_contributors(
-    owner: str, name: str, limit: int = 25
+    owner: str, name: str, limit: int = 25, session: Optional[aiohttp.ClientSession] = None
 ) -> list[dict]:
     """
     Returns the top `limit` contributors for a repo as a list of
     {login, avatar_url, contributions} dicts.
+    Supports session injection to reuse existing TCP connection pools.
     """
     url = f"{REST_BASE}/repos/{owner}/{name}/contributors?per_page={limit}&anon=false"
+    
+    close_session = False
+    if not session:
+        session = aiohttp.ClientSession()
+        close_session = True
+        
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                url, headers=HEADERS, timeout=aiohttp.ClientTimeout(total=20)
-            ) as resp:
-                if resp.status != 200:
-                    logger.warning(f"Top contributors {owner}/{name}: HTTP {resp.status}")
-                    return []
-                data = await resp.json()
-                return [
-                    {
-                        "login": c.get("login", ""),
-                        "avatar_url": c.get("avatar_url", ""),
-                        "contributions": c.get("contributions", 0),
-                    }
-                    for c in data
-                    if c.get("type") == "User"
-                ]
+        async with session.get(
+            url, headers=HEADERS, timeout=aiohttp.ClientTimeout(total=20)
+        ) as resp:
+            if resp.status != 200:
+                logger.warning(f"Top contributors {owner}/{name}: HTTP {resp.status}")
+                return []
+            data = await resp.json()
+            return [
+                {
+                    "login": c.get("login", ""),
+                    "avatar_url": c.get("avatar_url", ""),
+                    "contributions": c.get("contributions", 0),
+                }
+                for c in data
+                if c.get("type") == "User"
+            ]
     except Exception as e:
         logger.warning(f"Top contributors fetch failed for {owner}/{name}: {e}")
         return []
+    finally:
+        if close_session:
+            await session.close()
 
 
 # ─── Notable forks (REST) ────────────────────────────────────────────────────
 
+@_make_retry()
 async def get_notable_forks(
-    owner: str, name: str, min_stars: int = 10, limit: int = 20
+    owner: str, name: str, min_stars: int = 10, limit: int = 20, session: Optional[aiohttp.ClientSession] = None
 ) -> list[dict]:
     """
     Returns forks of the repo that have >= min_stars stars,
     sorted by stargazers count descending.
+    Supports session injection to reuse existing TCP connection pools.
     """
     # GitHub API lets us sort forks by stargazers
     url = (
@@ -396,30 +418,38 @@ async def get_notable_forks(
         f"?sort=stargazers&per_page=100"
     )
     notable = []
+    
+    close_session = False
+    if not session:
+        session = aiohttp.ClientSession()
+        close_session = True
+        
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                url, headers=HEADERS, timeout=aiohttp.ClientTimeout(total=20)
-            ) as resp:
-                if resp.status != 200:
-                    logger.warning(f"Forks {owner}/{name}: HTTP {resp.status}")
-                    return []
-                data = await resp.json()
-                for fork in data:
-                    if fork.get("stargazers_count", 0) >= min_stars:
-                        notable.append({
-                            "fork_owner": (fork.get("owner") or {}).get("login", ""),
-                            "fork_name": fork.get("name", ""),
-                            "fork_full_name": fork.get("full_name", ""),
-                            "github_url": fork.get("html_url", ""),
-                            "stars": fork.get("stargazers_count", 0),
-                            "forks": fork.get("forks_count", 0),
-                            "open_issues": fork.get("open_issues_count", 0),
-                            "primary_language": fork.get("language"),
-                            "last_push_at": fork.get("pushed_at"),
-                        })
-                        if len(notable) >= limit:
-                            break
+        async with session.get(
+            url, headers=HEADERS, timeout=aiohttp.ClientTimeout(total=20)
+        ) as resp:
+            if resp.status != 200:
+                logger.warning(f"Forks {owner}/{name}: HTTP {resp.status}")
+                return []
+            data = await resp.json()
+            for fork in data:
+                if fork.get("stargazers_count", 0) >= min_stars:
+                    notable.append({
+                        "fork_owner": (fork.get("owner") or {}).get("login", ""),
+                        "fork_name": fork.get("name", ""),
+                        "fork_full_name": fork.get("full_name", ""),
+                        "github_url": fork.get("html_url", ""),
+                        "stars": fork.get("stargazers_count", 0),
+                        "forks": fork.get("forks_count", 0),
+                        "open_issues": fork.get("open_issues_count", 0),
+                        "primary_language": fork.get("language"),
+                        "last_push_at": fork.get("pushed_at"),
+                    })
+                    if len(notable) >= limit:
+                        break
     except Exception as e:
         logger.warning(f"Notable forks fetch failed for {owner}/{name}: {e}")
+    finally:
+        if close_session:
+            await session.close()
     return notable

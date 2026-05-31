@@ -477,33 +477,36 @@ async def _enrich_contributors_and_forks(repos: list, today) -> None:
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
+    import aiohttp
+
     # 1. Asynchronous fetch helper (does not touch DB session)
-    async def _fetch_one_repo_data(repo):
+    async def _fetch_one_repo_data(repo, session):
         contribs = []
         forks = []
         try:
-            contribs = await get_top_contributors(repo.owner, repo.name, limit=25)
+            contribs = await get_top_contributors(repo.owner, repo.name, limit=25, session=session)
         except Exception as e:
             logger.warning(f"Failed to fetch contributors for {repo.owner}/{repo.name}: {e}")
             
         try:
             if (repo.stars_snapshot or 0) > 1000:
-                forks = await get_notable_forks(repo.owner, repo.name, min_stars=20, limit=20)
+                forks = await get_notable_forks(repo.owner, repo.name, min_stars=20, limit=20, session=session)
         except Exception as e:
             logger.warning(f"Failed to fetch forks for {repo.owner}/{repo.name}: {e}")
             
         return repo.id, contribs, forks
 
-    # 2. Fetch everything concurrently in pacing batches
+    # 2. Fetch everything concurrently in pacing batches utilizing a shared ClientSession
     fetched_data = []
     batch_size = 10
-    for start in range(0, len(repos), batch_size):
-        batch = repos[start:start + batch_size]
-        batch_results = await asyncio.gather(*[_fetch_one_repo_data(r) for r in batch], return_exceptions=True)
-        for res in batch_results:
-            if isinstance(res, Exception) or not res:
-                continue
-            fetched_data.append(res)
+    async with aiohttp.ClientSession() as gh_session:
+        for start in range(0, len(repos), batch_size):
+            batch = repos[start:start + batch_size]
+            batch_results = await asyncio.gather(*[_fetch_one_repo_data(r, gh_session) for r in batch], return_exceptions=True)
+            for res in batch_results:
+                if isinstance(res, Exception) or not res:
+                    continue
+                fetched_data.append(res)
         if start + batch_size < len(repos):
             await asyncio.sleep(2)  # gentle pacing
 
