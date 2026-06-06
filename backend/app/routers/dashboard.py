@@ -1369,3 +1369,40 @@ def get_language_radar(
 
     return result
 
+
+@router.get("/debug-db")
+def debug_db(db: Session = Depends(get_db)):
+    from app.models import Repository, DailyMetric, ComputedMetric
+    from datetime import date
+    today = date.today()
+    
+    today_dm_count = db.query(DailyMetric).filter(func.date(DailyMetric.captured_at) == today).count()
+    today_cm_count = db.query(ComputedMetric).filter(ComputedMetric.date == today).count()
+    
+    total_repos = db.query(Repository).count()
+    active_repos = db.query(Repository).filter(Repository.is_active == True).count()
+    total_dms = db.query(DailyMetric).count()
+    total_cms = db.query(ComputedMetric).count()
+    
+    sample_cms = db.query(ComputedMetric).filter(ComputedMetric.date == today).limit(5).all()
+    sample_cm_list = []
+    for cm in sample_cms:
+        repo = db.query(Repository).filter(Repository.id == cm.repo_id).first()
+        sample_cm_list.append({
+            "repo": f"{repo.owner}/{repo.name}" if repo else cm.repo_id,
+            "trend_score": cm.trend_score,
+            "sustainability_score": cm.sustainability_score,
+            "sustainability_label": cm.sustainability_label,
+        })
+        
+    return {
+        "today": str(today),
+        "total_repos": total_repos,
+        "active_repos": active_repos,
+        "total_dms": total_dms,
+        "total_cms": total_cms,
+        "today_dm_count": today_dm_count,
+        "today_cm_count": today_cm_count,
+        "sample_cms_today": sample_cm_list,
+    }
+
