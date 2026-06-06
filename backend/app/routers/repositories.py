@@ -794,9 +794,9 @@ async def delta_run_repo(
         0.20 * age_norm + 0.15 * release_norm + 0.15 * contrib_norm
     )
     sustain_label = (
-        "HIGH" if sustain_score >= 0.60 else
-        "MEDIUM" if sustain_score >= 0.30 else
-        "LOW"
+        "GREEN" if sustain_score >= 0.60 else
+        "YELLOW" if sustain_score >= 0.30 else
+        "RED"
     )
     # Trend score: star velocity / age (normalised)
     vel_daily = max(stars / max(age_days, 1), 0.0)
