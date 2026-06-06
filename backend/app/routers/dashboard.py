@@ -50,10 +50,10 @@ def _latest_metric_subquery(db: Session, scored_date: date):
     Returns the single most-recent ComputedMetric row per repo, regardless of
     which date it was scored on.  Using a per-repo window function (row_number
     partitioned by repo_id, ordered by computed_at DESC) restricted to the last
-    7 days of historical rows. This pre-filter makes queries 100x faster by preventing
+    30 days of historical rows. This pre-filter makes queries 100x faster by preventing
     unconstrained full table scans.
     """
-    cutoff = scored_date - timedelta(days=7)
+    cutoff = scored_date - timedelta(days=30)
     ranked = (
         db.query(
             ComputedMetric.repo_id.label("repo_id"),
@@ -580,12 +580,12 @@ def get_overview(db: Session = Depends(get_db)):
         .filter(Repository.is_active == True, Repository.source == "auto_discovered")  # noqa: E712
         .count()
     )
+    subq = _latest_metric_subquery(db, latest_date)
     healthy_repos = (
         db.query(Repository)
-        .join(ComputedMetric, Repository.id == ComputedMetric.repo_id)
+        .join(subq, Repository.id == subq.c.repo_id)
         .filter(Repository.is_active == True)  # noqa: E712
-        .filter(ComputedMetric.date == latest_date)
-        .filter(ComputedMetric.sustainability_label == "GREEN")
+        .filter(subq.c.sustainability_label == "GREEN")
         .count()
     )
 
@@ -703,6 +703,41 @@ def get_breakout_radar(
         reverse=reverse_sort,
     )
     return ranked[:limit]
+
+
+def _map_to_early_category(db_cat: str) -> str:
+    if not db_cat:
+        return "model_training"
+    db_cat_lower = db_cat.lower()
+    if "llm model" in db_cat_lower:
+        return "model_training"
+    if "inference" in db_cat_lower or "serving" in db_cat_lower or "runtime" in db_cat_lower:
+        return "inference_serving"
+    if "data engineering" in db_cat_lower or "data & infra" in db_cat_lower or "data pipeline" in db_cat_lower or "data & infrastructure" in db_cat_lower:
+        return "data_pipeline"
+    if "vector database" in db_cat_lower:
+        return "vector_database"
+    if "evaluation" in db_cat_lower:
+        return "evaluation"
+    if "agent framework" in db_cat_lower:
+        return "agents_orchestration"
+    if "fine-tuning" in db_cat_lower or "fine_tuning" in db_cat_lower:
+        return "fine_tuning"
+    if "multimodal" in db_cat_lower:
+        return "multimodal"
+    if "rlhf" in db_cat_lower or "alignment" in db_cat_lower:
+        return "rlhf_alignment"
+    if "distributed compute" in db_cat_lower or "infrastructure" in db_cat_lower:
+        return "deployment_infra"
+    # Fallback checking for close matches
+    for ec in [
+        "model_training", "inference_serving", "data_pipeline", "vector_database",
+        "evaluation", "agents_orchestration", "fine_tuning", "multimodal",
+        "rlhf_alignment", "deployment_infra"
+    ]:
+        if ec == db_cat_lower or ec.replace("_", " ") == db_cat_lower:
+            return ec
+    return "model_training"
 
 
 @router.get("/early-radar", response_model=List[EarlyRadarRepo])
@@ -864,8 +899,24 @@ async def get_early_radar(
         )
     )
 
+    db_categories_map = {
+        "model_training": ["LLM Models", "Distributed Compute / Infra", "AI / ML", "model_training"],
+        "inference_serving": ["Inference Engines", "Model Serving / Runtimes", "inference_serving"],
+        "data_pipeline": ["Data Engineering", "Data & Infra", "Data & Infrastructure", "Data Pipeline", "data_pipeline"],
+        "vector_database": ["Vector Databases", "Vector Database", "vector_database"],
+        "evaluation": ["Evaluation Frameworks", "Evaluation Framework", "evaluation"],
+        "agents_orchestration": ["Agent Frameworks", "Agent Framework", "agents_orchestration"],
+        "fine_tuning": ["Fine-tuning Toolkits", "Fine-tuning", "fine_tuning"],
+        "multimodal": ["AI / ML", "multimodal"],
+        "rlhf_alignment": ["AI / ML", "rlhf_alignment"],
+        "deployment_infra": ["Distributed Compute / Infra", "Data & Infra", "Data & Infrastructure", "deployment_infra"],
+    }
+
     if category:
-        q = q.filter(Repository.category == category)
+        if category in db_categories_map:
+            q = q.filter(Repository.category.in_(db_categories_map[category]))
+        else:
+            q = q.filter(Repository.category == category)
     if language:
         q = q.filter(func.lower(Repository.primary_language) == language.strip().lower())
 
@@ -950,7 +1001,7 @@ async def get_early_radar(
             repo_id=repo.id,
             owner=repo.owner,
             name=repo.name,
-            category=repo.category,
+            category=_map_to_early_category(repo.category),
             github_url=repo.github_url,
             primary_language=repo.primary_language,
             topics=repo_topics,
