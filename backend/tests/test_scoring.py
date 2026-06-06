@@ -346,8 +346,8 @@ class TestDetectAndWriteAlerts:
     def test_no_alert_when_daily_stars_below_threshold(self):
         db = self._make_mock_db()
         repo = self._make_repo()
-        df = build_df(num_days=5, daily_star_delta=10)   # 10 < 300 threshold
-        count = detect_and_write_alerts(db, repo, df, 0.5, 0.1)
+        df = build_df(num_days=5, daily_star_delta=10)   # 10 < 100 threshold
+        count = detect_and_write_alerts(db, repo, df, 0.15, 0.10)
         assert count == 0
 
     def test_star_spike_24h_alert_fires_above_threshold(self):

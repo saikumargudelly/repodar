@@ -196,6 +196,7 @@ export interface OverviewResponse {
   as_of: string;
   total_repos: number;       // active repos only
   discovered_repos: number;  // auto-discovered subset
+  healthy_repos: number;     // active repos with sustainability_label == GREEN
   top_breakout: BreakoutRepo[];
   sustainability_ranking: SustainabilityEntry[];
   category_growth: CategoryMetrics[];
@@ -905,8 +906,15 @@ export const api = {
 
   // Dashboard
   getOverview: () => apiFetch<OverviewResponse>("/dashboard/overview"),
-  getRadar: (newOnly = false) =>
-    apiFetch<RadarRepo[]>(`/dashboard/radar?new_only=${newOnly}`),
+  getRadar: (newOnly = false, category?: string, vertical?: string, sortBy?: string, sortDir?: string, limit = 50) => {
+    const qs = new URLSearchParams({ new_only: String(newOnly) });
+    if (category && category.toLowerCase() !== "all") qs.set("category", category);
+    if (vertical) qs.set("vertical", vertical);
+    if (sortBy) qs.set("sort_by", sortBy);
+    if (sortDir) qs.set("sort_dir", sortDir);
+    qs.set("limit", String(limit));
+    return apiFetch<RadarRepo[]>(`/dashboard/radar?${qs}`);
+  },
   getCategories: (period: Period = "7d") => apiFetch<CategoryMetrics[]>(`/dashboard/categories?period=${period}`),  
   getLeaderboard: (period: Period, category?: string, limit = 20, vertical: Vertical = "ai_ml") => {
     const qs = new URLSearchParams({ period, limit: String(limit), vertical });

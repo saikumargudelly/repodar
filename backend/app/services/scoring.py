@@ -226,19 +226,25 @@ def compute_trend_score(df: list[dict], age_days: int) -> dict:
     fork_growth      = float(_fork_growth_score(df))
     commit_freq      = float(_commit_frequency_score(df))
 
+    vel_7d_norm = min(1.0, vel_7d / 100.0)
+    accel_norm = min(1.0, max(0.0, accel) / 50.0)
+    contrib_growth_norm = min(1.0, max(0.0, contrib_growth))
+    issue_s_norm = min(1.0, max(0.0, issue_s))
+
     raw = float(
-        vel_7d         * 0.30 +
-        accel          * 0.20 +
+        vel_7d_norm    * 0.30 +
+        accel_norm     * 0.20 +
         commit_freq    * 0.15 +
-        contrib_growth * 0.10 +
+        contrib_growth_norm * 0.10 +
         pr_activity    * 0.10 +
         fork_growth    * 0.10 +
         release_b      * 0.03 +
-        issue_s        * 0.02
+        issue_s_norm   * 0.02
     )
 
     age_log = math.log(max(age_days, 2))
     trend = float(raw / age_log) if age_log > 0 else 0.0
+    trend = min(1.0, trend)
 
     return {
         "star_velocity_7d": float(round(vel_7d, 4)),
@@ -503,9 +509,9 @@ def compute_category_growth(days: int = 7) -> list[dict]:
 
 # ─── Alert thresholds ────────────────────────────────────────────────────────
 _ALERT_THRESHOLDS: dict[str, dict] = {
-    "star_spike_24h": {"window_days": 1, "min_daily_stars": 300},
-    "star_spike_48h": {"window_days": 2, "min_daily_stars": 200},
-    "momentum_surge": {"min_trend_score_jump": 0.5},
+    "star_spike_24h": {"window_days": 1, "min_daily_stars": 100},
+    "star_spike_48h": {"window_days": 2, "min_daily_stars": 80},
+    "momentum_surge": {"min_trend_score_jump": 0.1},
 }
 
 
@@ -583,7 +589,7 @@ def _create_new_breakout_alerts(db, today: date) -> int:
         .filter(
             ComputedMetric.date == today,
             Repository.age_days <= 45,
-            ComputedMetric.trend_score >= 0.35,
+            ComputedMetric.trend_score >= 0.1,
         )
         .order_by(ComputedMetric.trend_score.desc())
         .limit(10)
@@ -610,7 +616,7 @@ def _create_new_breakout_alerts(db, today: date) -> int:
                 window_days=1,
                 headline=f"{repo.owner}/{repo.name} entered today's breakout cohort",
                 metric_value=round(cm.trend_score or 0.0, 4),
-                threshold=0.35,
+                threshold=0.1,
                 triggered_at=datetime.now(timezone.utc).replace(tzinfo=None),
                 is_read=False,
                 momentum_direction="accelerating",

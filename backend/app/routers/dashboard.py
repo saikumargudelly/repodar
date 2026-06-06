@@ -151,6 +151,7 @@ class OverviewResponse(BaseModel):
     as_of: str
     total_repos: int          # active repos only (is_active=True)
     discovered_repos: int     # subset that were auto-discovered (not from seed)
+    healthy_repos: int        # total active repos with sustainability_label == GREEN
     top_breakout: List[BreakoutRepo]
     sustainability_ranking: List[SustainabilityEntry]
     category_growth: List[CategoryMetrics]
@@ -576,11 +577,20 @@ def get_overview(db: Session = Depends(get_db)):
         .filter(Repository.is_active == True, Repository.source == "auto_discovered")  # noqa: E712
         .count()
     )
+    healthy_repos = (
+        db.query(Repository)
+        .join(ComputedMetric, Repository.id == ComputedMetric.repo_id)
+        .filter(Repository.is_active == True)  # noqa: E712
+        .filter(ComputedMetric.date == latest_date)
+        .filter(ComputedMetric.sustainability_label == "GREEN")
+        .count()
+    )
 
     return OverviewResponse(
         as_of=latest_date.isoformat(),
         total_repos=total_repos,
         discovered_repos=discovered_repos,
+        healthy_repos=healthy_repos,
         top_breakout=breakout_detected[:10],
         sustainability_ranking=sustain_scored[:20],
         category_growth=cat_metrics,
@@ -590,12 +600,15 @@ def get_overview(db: Session = Depends(get_db)):
 @router.get("/radar", response_model=List[RadarRepo])
 def get_breakout_radar(
     new_only: bool = Query(False, description="Only repos younger than 180 days"),
+    category: Optional[str] = Query(None, description="Filter by category"),
+    vertical: Optional[str] = Query(None, description="Filter by vertical"),
+    sort_by: str = Query("trend_score", description="Sort field"),
+    sort_dir: str = Query("desc", description="Sort direction"),
     limit: int = Query(50, le=200),
     db: Session = Depends(get_db),
 ):
     """
-    Breakout Radar — repos ranked by TrendScore descending.
-    Toggle new_only to filter repos under 180 days old.
+    Breakout Radar — repos ranked by selected sort field and filtered by vertical/category.
     """
     latest_date = _latest_scored_date(db)
 
@@ -617,11 +630,33 @@ def get_breakout_radar(
     if new_only:
         query = query.filter(Repository.age_days <= 180)
 
+    if category and category.lower() != "all":
+        query = query.filter(Repository.category == category)
+    elif vertical:
+        from app.routers.search import VERTICAL_CATEGORY_MAP
+        if vertical in VERTICAL_CATEGORY_MAP:
+            cats = VERTICAL_CATEGORY_MAP[vertical]
+            cat_conds = [Repository.category.ilike(f"%{c}%") for c in cats]
+            query = query.filter(or_(*cat_conds))
+
+    # Dynamic sorting
+    sort_col_map = {
+        "trend_score": subq.c.trend_score,
+        "acceleration": subq.c.acceleration,
+        "star_velocity_7d": subq.c.star_velocity_7d,
+        "sustainability_score": subq.c.sustainability_score,
+        "age_days": Repository.age_days,
+        "stars": Repository.stars_snapshot,
+    }
+    sort_col = sort_col_map.get(sort_by, subq.c.trend_score)
+    if sort_dir == "asc":
+        query = query.order_by(sort_col.asc().nulls_last())
+    else:
+        query = query.order_by(sort_col.desc().nulls_last())
+
+    # Fallback secondary ordering
     query = query.order_by(
-        subq.c.trend_score.desc().nulls_last(),
-        subq.c.acceleration.desc().nulls_last(),
-        subq.c.star_velocity_7d.desc().nulls_last(),
-        Repository.stars_snapshot.desc().nulls_last(),
+        Repository.stars_snapshot.desc().nulls_last()
     )
 
     # Fetch a slightly larger batch to allow for safe python-side deduplication
@@ -647,15 +682,22 @@ def get_breakout_radar(
             primary_language=repo.primary_language,
         )
         key = _repo_key(repo.owner, repo.name)
-        score = float(candidate.trend_score)
+        score_val = float(getattr(candidate, sort_by, candidate.trend_score) or 0.0)
         existing = deduped.get(key)
-        if not existing or score > existing["score"]:
-            deduped[key] = {"repo": candidate, "score": score}
+        if not existing or (sort_dir == "desc" and score_val > existing["score"]) or (sort_dir == "asc" and score_val < existing["score"]):
+            deduped[key] = {"repo": candidate, "score": score_val}
+
+    reverse_sort = sort_dir == "desc"
+    def get_sort_key(x):
+        val = getattr(x, sort_by, x.trend_score)
+        if val is None:
+            return 0.0
+        return float(val)
 
     ranked = sorted(
         (item["repo"] for item in deduped.values()),
-        key=lambda x: (x.trend_score, x.acceleration, x.star_velocity_7d, x.stars),
-        reverse=True,
+        key=get_sort_key,
+        reverse=reverse_sort,
     )
     return ranked[:limit]
 

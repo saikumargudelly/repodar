@@ -85,8 +85,8 @@ export default function RadarPage() {
   const [requireSustainedVelocity, setRequireSustainedVelocity] = useState(false);
 
   const { data: radarData, isLoading: radarLoading } = useQuery({
-    queryKey: ["radar", newOnly],
-    queryFn: () => api.getRadar(newOnly),
+    queryKey: ["radar", newOnly, category, establishedSort],
+    queryFn: () => api.getRadar(newOnly, category, undefined, establishedSort, "desc", 100),
     enabled: mode === "established",
     staleTime: 5 * 60 * 1000,
   });
@@ -119,13 +119,8 @@ export default function RadarPage() {
   });
 
   const establishedRows = useMemo(() => {
-    const rows = radarData ?? [];
-    const filtered = rows.filter((r) => category === "All" || r.category === category);
-    return [...filtered].sort((a, b) => {
-      if (establishedSort === "age_days") return a.age_days - b.age_days;
-      return (b[establishedSort] as number) - (a[establishedSort] as number);
-    });
-  }, [radarData, category, establishedSort]);
+    return radarData ?? [];
+  }, [radarData]);
 
   const earlyRows = useMemo(() => {
     const rows = earlyData ?? [];

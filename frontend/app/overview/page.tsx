@@ -842,8 +842,8 @@ export default function OverviewPage() {
 
   // Ecosystem map — full repo set with both scores
   const { data: radarRepos } = useQuery({
-    queryKey: ["radar"],
-    queryFn: () => api.getRadar(false),
+    queryKey: ["radar", vertical],
+    queryFn: () => api.getRadar(false, undefined, vertical, "trend_score", "desc", 100),
     staleTime: 5 * 60 * 1000,   // re-fetch at most every 5 min
   });
 
@@ -915,7 +915,7 @@ export default function OverviewPage() {
     );
   }
 
-  const greenCount = overview.sustainability_ranking.filter((r) => r.sustainability_label === "GREEN").length;
+  const greenCount = overview.healthy_repos;
   const topCat = overview.category_growth[0];
   const topLeaderEntry = leaderboard?.entries[0];
   const verticalLabel = VERTICALS.find((v) => v.key === vertical)?.label ?? "AI / ML";
