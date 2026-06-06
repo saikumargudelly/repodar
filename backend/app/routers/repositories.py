@@ -5,6 +5,7 @@ from typing import Optional, List
 
 import aiohttp
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from dotenv import load_dotenv
