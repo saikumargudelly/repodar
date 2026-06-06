@@ -1,5 +1,6 @@
 import json
 import math
+import logging
 from enum import Enum
 from typing import Callable, List, Optional
 from datetime import date, datetime, timedelta, timezone
@@ -13,6 +14,21 @@ from fastapi_cache.decorator import cache
 from app.database import get_db
 from app.models import Repository, DailyMetric, ComputedMetric, TrendAlert, CategoryMetricDaily
 from app.services.scoring import compute_category_growth
+
+class MemoryHandler(logging.Handler):
+    def __init__(self, capacity=500):
+        super().__init__()
+        self.capacity = capacity
+        self.records = []
+
+    def emit(self, record):
+        self.records.append(self.format(record))
+        if len(self.records) > self.capacity:
+            self.records.pop(0)
+
+memory_handler = MemoryHandler()
+memory_handler.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(name)s | %(message)s'))
+logging.getLogger().addHandler(memory_handler)
 
 
 def _latest_scored_date(db: Session) -> date:
@@ -1405,4 +1421,9 @@ def debug_db(db: Session = Depends(get_db)):
         "today_cm_count": today_cm_count,
         "sample_cms_today": sample_cm_list,
     }
+
+
+@router.get("/logs")
+def get_logs():
+    return {"logs": memory_handler.records}
 
