@@ -446,8 +446,12 @@ async def search_top_repos(
       All periods → GitHub Search API with vertical-specific topic queries.
       GitHub Trending is a general feed; topic-filtered Search is more relevant.
     """
-    target_topic = category_filter if category_filter else vertical
-    topics = await _dynamic_topics(target_topic, limit=20)
+    # For predefined verticals, use local curated topics list directly to avoid LLM overhead
+    if vertical in VERTICAL_TOPIC_QUERIES and not category_filter:
+        topics = VERTICAL_TOPIC_QUERIES[vertical][:4]
+    else:
+        target_topic = category_filter if category_filter else vertical
+        topics = await _dynamic_topics(target_topic, limit=4)
 
     # Only use GitHub Trending for the AI/ML vertical on short periods
     if period in TRENDING_SINCE and vertical == "ai_ml":
@@ -568,9 +572,38 @@ def _parse_gain_int(text: str) -> int:
 
 
 # ─── GitHub Search API fallback (all non-trending paths) ─────────────────────
-# Semaphore caps concurrent search requests at 8 to respect GitHub's 30 req/min
-# Search API rate limit without needing artificial sleep() delays.
+# Semaphore caps concurrent search requests at 8 to respect connection bounds.
 _SEARCH_SEMAPHORE = asyncio.Semaphore(8)
+
+import time
+
+class AsyncRateLimiter:
+    """Enforces a maximum rate of requests over a given period (Token Bucket)."""
+    def __init__(self, rate_limit: int, period: float):
+        self.rate_limit = rate_limit
+        self.period = period
+        self.tokens = float(rate_limit)
+        self.last_update = time.monotonic()
+        self.lock = asyncio.Lock()
+
+    async def acquire(self):
+        async with self.lock:
+            while True:
+                now = time.monotonic()
+                passed = now - self.last_update
+                self.tokens = min(self.rate_limit, self.tokens + passed * (self.rate_limit / self.period))
+                self.last_update = now
+                
+                if self.tokens >= 1.0:
+                    self.tokens -= 1.0
+                    return
+                
+                needed = 1.0 - self.tokens
+                wait_time = needed / (self.rate_limit / self.period)
+                await asyncio.sleep(wait_time)
+
+# Global rate limiter: max 8 Search API requests per 60 seconds (safe buffer under 10/min unauthenticated limit)
+_SEARCH_LIMITER = AsyncRateLimiter(8, 60.0)
 
 
 async def _fetch_search(
@@ -645,22 +678,47 @@ async def _search_api(
 ) -> list[dict]:
     url = f"{REST_BASE}/search/repositories"
     params = {"q": query, "sort": sort, "order": "desc", "per_page": per_page}
-    try:
-        async with _SEARCH_SEMAPHORE:
-            async with session.get(
-                url, headers=API_HEADERS, params=params,
-                timeout=aiohttp.ClientTimeout(total=15),
-            ) as resp:
-                if resp.status in (422, 403):
-                    logger.warning(f"GitHub Search {resp.status}: {query[:80]}")
-                    return []
-                if resp.status != 200:
-                    logger.warning(f"GitHub Search HTTP {resp.status}")
-                    return []
-                return (await resp.json()).get("items", [])
-    except Exception as e:
-        logger.error(f"GitHub Search error: {e}")
-        return []
+    
+    max_retries = 3
+    backoff = 2
+    
+    for attempt in range(max_retries):
+        try:
+            # Acquire rate limit token and semaphore
+            await _SEARCH_LIMITER.acquire()
+            async with _SEARCH_SEMAPHORE:
+                async with session.get(
+                    url, headers=API_HEADERS, params=params,
+                    timeout=aiohttp.ClientTimeout(total=15),
+                ) as resp:
+                    if resp.status == 403:
+                        # Check for Retry-After header (often set to 60s on secondary limits)
+                        retry_after = resp.headers.get("retry-after")
+                        # Default to 15s base backoff if header is absent to let the window reset
+                        wait_time = int(retry_after) if retry_after else (15 * (backoff ** attempt))
+                        logger.warning(
+                            f"GitHub Search rate limited (403) for query '{query[:60]}'. "
+                            f"Retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})...."
+                        )
+                        await asyncio.sleep(wait_time)
+                        continue
+                        
+                    if resp.status == 422:
+                        logger.warning(f"GitHub Search 422 (unprocessable entity): {query[:80]}")
+                        return []
+                        
+                    if resp.status != 200:
+                        logger.warning(f"GitHub Search HTTP {resp.status} for query '{query[:60]}'")
+                        return []
+                        
+                    return (await resp.json()).get("items", [])
+        except Exception as e:
+            logger.error(f"GitHub Search error on query '{query[:60]}': {e}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(backoff ** attempt)
+            else:
+                return []
+    return []
 
 # ─── Normaliser ───────────────────────────────────────────────────────────────
 
@@ -728,7 +786,11 @@ async def search_by_star_threshold(
     Returns a list of raw repo dicts compatible with the shape expected by
     auto_discover_and_sync (has `full_name`, `name`, `html_url`, etc.).
     """
-    topics = await _dynamic_topics(vertical, limit=15)
+    # For predefined verticals, use local curated topics list directly to avoid LLM overhead
+    if vertical in VERTICAL_TOPIC_QUERIES:
+        topics = VERTICAL_TOPIC_QUERIES[vertical][:4]
+    else:
+        topics = await _dynamic_topics(vertical, limit=4)
 
     async with aiohttp.ClientSession() as session:
         batches = await asyncio.gather(*[
