@@ -230,16 +230,17 @@ def _schedule_pipeline():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Register our memory logging handler to capture application logs
+    # Register a file log handler to capture logs to pipeline.log
     try:
-        from app.routers.dashboard import memory_handler
-        logging.getLogger().addHandler(memory_handler)
-        logging.getLogger("app.admin").addHandler(memory_handler)
-        logging.getLogger("app.services.ingestion").addHandler(memory_handler)
-        logging.getLogger("app.services.scoring").addHandler(memory_handler)
-        logger.info("Memory logging handler registered.")
+        file_handler = logging.FileHandler("./pipeline.log")
+        file_handler.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(name)s | %(message)s'))
+        logging.getLogger().addHandler(file_handler)
+        logging.getLogger("app.admin").addHandler(file_handler)
+        logging.getLogger("app.services.ingestion").addHandler(file_handler)
+        logging.getLogger("app.services.scoring").addHandler(file_handler)
+        logger.info("File logging handler registered to ./pipeline.log.")
     except Exception as e:
-        logger.warning(f"Failed to register memory logging handler: {e}")
+        logger.warning(f"Failed to register file logging handler: {e}")
 
     logger.info("Repodar starting up...")
 

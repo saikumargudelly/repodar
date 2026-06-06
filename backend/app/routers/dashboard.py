@@ -15,20 +15,7 @@ from app.database import get_db
 from app.models import Repository, DailyMetric, ComputedMetric, TrendAlert, CategoryMetricDaily
 from app.services.scoring import compute_category_growth
 
-class MemoryHandler(logging.Handler):
-    def __init__(self, capacity=500):
-        super().__init__()
-        self.capacity = capacity
-        self.records = []
 
-    def emit(self, record):
-        self.records.append(self.format(record))
-        if len(self.records) > self.capacity:
-            self.records.pop(0)
-
-memory_handler = MemoryHandler()
-memory_handler.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(name)s | %(message)s'))
-logging.getLogger().addHandler(memory_handler)
 
 
 def _latest_scored_date(db: Session) -> date:
@@ -1425,5 +1412,11 @@ def debug_db(db: Session = Depends(get_db)):
 
 @router.get("/logs")
 def get_logs():
-    return {"logs": memory_handler.records}
+    import os
+    log_path = "./pipeline.log"
+    if os.path.exists(log_path):
+        with open(log_path, "r") as f:
+            lines = f.readlines()
+        return {"logs": [line.strip() for line in lines[-200:]]}
+    return {"logs": ["Log file pipeline.log does not exist yet."]}
 
