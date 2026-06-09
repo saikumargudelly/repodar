@@ -16,6 +16,7 @@ import {
 import { SustainBadge } from "@/components/Nav";
 import { ModernCategoryCards } from "@/components/charts/ModernCategoryCards";
 import { ModernPRChart } from "@/components/charts/ModernPRChart";
+import { ModernCategoryTrendScore } from "@/components/charts/ModernCategoryTrendScore";
 
 const CATEGORY_COLORS: Record<string, string> = {
   "LLM Models": "#3b82f6",
@@ -189,66 +190,12 @@ function VerticalSelector({ selected, onChange, userVerticals = [] }: { selected
 }
 
 // ─── Trend score colour (high=green, mid=amber, low=slate) ─────────────────
+// ─── Chart 1: Category Trend Score (replaced with ModernCategoryTrendScore) ──
+
 function trendColor(score: number): string {
   if (score >= 0.65) return "#22c55e";
   if (score >= 0.40) return "#f59e0b";
   return "#6b7280";
-}
-
-// ─── Chart 1: Category Trend Heatmap ────────────────────────────────────────
-function CategoryTrendHeatmap({ data, period }: { data: CategoryMetrics[]; period: Period }) {
-  const periodLabel = PERIODS.find((p) => p.key === period)?.label ?? period;
-  const chartData = [...data].sort((a, b) => b.trend_composite - a.trend_composite);
-  return (
-    <div className="panel">
-      <div className="panel-header">
-        <div style={{ minWidth: 0 }}>
-          <div className="panel-title">
-            Category Trend Score ({periodLabel})
-          </div>
-          <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)", marginTop: "3px" }}>
-            Stars 40% · Acceleration 20% · Contributors 20% · Releases 10% · Issues 10%
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: "10px", fontSize: "11px", color: "var(--text-muted)", flexShrink: 0, fontFamily: "var(--font-sans)" }}>
-          {[["#3fb950", "HIGH"], ["#d29922", "MID"], ["#6e7681", "LOW"]].map(([c, l]) => (
-            <span key={l} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-              <span style={{ width: 8, height: 8, background: c, display: "inline-block", borderRadius: "2px" }} />{l}
-            </span>
-          ))}
-        </div>
-      </div>
-      <div style={{ padding: "20px 24px" }}>
-        <ResponsiveContainer width="100%" height={260}>
-        <BarChart data={chartData} layout="vertical" barSize={18} margin={{ left: 0, right: 20, top: 4, bottom: 4 }}>
-          <XAxis type="number" domain={[0, 1]} tick={{ fontSize: 10, fill: "var(--text-muted)" }}
-            tickFormatter={(v) => `${(v * 100).toFixed(0)}`} />
-          <YAxis type="category" dataKey="category" width={110} tick={{ fontSize: 10, fill: "var(--text-secondary)", width: 110 }} />
-          <Tooltip
-            content={({ payload, label }) => {
-              if (!payload?.length) return null;
-              const c = payload[0]?.payload as CategoryMetrics;
-              return (
-                <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "6px", padding: "8px 12px", fontSize: "12px" }}>
-                  <p style={{ margin: "0 0 6px", fontWeight: 600, color: "var(--text-primary)" }}>{label}</p>
-                  <p style={{ margin: "0 0 2px", color: "var(--text-muted)" }}>Trend Score: <strong style={{ color: trendColor(c.trend_composite) }}>{(c.trend_composite * 100).toFixed(0)}</strong></p>
-                  <p style={{ margin: "0 0 2px", color: "var(--text-muted)" }}>Stars gained: <strong>{c.period_star_gain.toLocaleString()}</strong></p>
-                  <p style={{ margin: "0 0 2px", color: "var(--text-muted)" }}>Contributors: <strong>{c.total_contributors.toLocaleString()}</strong></p>
-                  <p style={{ margin: 0, color: "var(--text-muted)" }}>{c.repo_count} repos</p>
-                </div>
-              );
-            }}
-          />
-          <Bar dataKey="trend_composite" radius={[0, 4, 4, 0]}>
-            {chartData.map((cat) => (
-              <Cell key={cat.category} fill={trendColor(cat.trend_composite)} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-      </div>
-    </div>
-  );
 }
 
 // ─── Chart 2: Stars Distribution (replaced with ModernCategoryCards) ────────
@@ -992,7 +939,7 @@ export default function OverviewPage() {
       </div>
 
       {/* Category Charts Row */}
-      <CategoryTrendHeatmap data={categoriesData ?? overview.category_growth} period={period} />
+      <ModernCategoryTrendScore data={categoriesData ?? overview.category_growth} period={period} />
       <div className="chart-row-2">
         <ModernCategoryCards data={categoriesData ?? overview.category_growth} />
         <ModernPRChart data={categoriesData ?? overview.category_growth} period={period} />
