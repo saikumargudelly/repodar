@@ -440,7 +440,7 @@ function ComparePageInner() {
                       tick={{ fontSize: 10, fill: "var(--text-muted)", fontFamily: "var(--font-mono)" }}
                       width={52}
                       stroke="var(--border)"
-                      tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+                      tickFormatter={(v: any) => typeof v === "number" ? (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)) : String(v)}
                     />
                     <Tooltip
                       contentStyle={{
@@ -448,8 +448,8 @@ function ComparePageInner() {
                         borderRadius: "8px", fontSize: "12px",
                         fontFamily: "var(--font-mono)", color: "var(--text-primary)",
                       }}
-                      formatter={(v: number | undefined, name: string | undefined) => [
-                        v != null ? v.toLocaleString() : "—", name ?? "",
+                      formatter={(v: any, name: any) => [
+                        typeof v === "number" && v != null ? v.toLocaleString() : v != null ? String(v) : "—", name ?? "",
                       ]}
                       labelStyle={{ color: "var(--text-muted)", marginBottom: "4px" }}
                     />

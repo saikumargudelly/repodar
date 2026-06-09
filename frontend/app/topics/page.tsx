@@ -223,7 +223,7 @@ export default function TopicsPage() {
                           fontFamily: "var(--font-sans)",
                           color: "var(--text-primary)",
                         }}
-                        formatter={(v: number | undefined) => [`+${v ?? 0}/day`, "Velocity"]}
+                        formatter={(v: any) => [`+${typeof v === "number" ? v : 0}/day`, "Velocity"]}
                       />
                       <Bar dataKey="velocity" radius={[3, 3, 0, 0]}>
                         {chartData.map((entry) => (

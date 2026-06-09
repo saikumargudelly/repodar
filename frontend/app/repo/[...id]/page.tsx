@@ -58,7 +58,7 @@ function StarHistoryChart({ data, releases, mentions }: {
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={(v) => v.slice(5)} />
           <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={42} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
-          <Tooltip {...tooltipStyle} formatter={(v: number | undefined) => [v != null ? v.toLocaleString() : "—", "Stars"]} />
+          <Tooltip {...tooltipStyle} formatter={(v: any) => [v != null ? v.toLocaleString() : "—", "Stars"]} />
           <Area type="monotone" dataKey="stars" stroke="var(--cyan)" fill="url(#starGrad)" strokeWidth={2} dot={false} />
           {/* Social mention markers */}
           {data.map((d) =>
@@ -147,7 +147,7 @@ function ScoreTimeline({ data }: { data: ComputedMetricPoint[] }) {
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={(v) => v.slice(5)} />
           <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={52} />
-          <Tooltip {...tooltipStyle} formatter={(v: number | undefined) => [v != null ? v.toFixed(6) : "—", "Trend Score"]} />
+          <Tooltip {...tooltipStyle} formatter={(v: any) => [typeof v === "number" && v != null ? v.toFixed(6) : "—", "Trend Score"]} />
           <Area type="monotone" dataKey="trend_score" stroke="var(--amber)" fill="url(#trendGrad)" strokeWidth={2} dot={false} />
         </AreaChart>
       </ResponsiveContainer>
