@@ -14,9 +14,9 @@ import {
   RadarRepo, AlertResponse,
 } from "@/lib/api";
 import { SustainBadge } from "@/components/Nav";
-import { ModernCategoryCards } from "@/components/charts/ModernCategoryCards";
-import { ModernPRChart } from "@/components/charts/ModernPRChart";
-import { ModernCategoryTrendScore } from "@/components/charts/ModernCategoryTrendScore";
+import { CompactCategoryCards } from "@/components/charts/CompactCategoryCards";
+import { CompactPRChart } from "@/components/charts/CompactPRChart";
+import { CompactCategoryTrendScore } from "@/components/charts/CompactCategoryTrendScore";
 
 const CATEGORY_COLORS: Record<string, string> = {
   "LLM Models": "#3b82f6",
@@ -938,11 +938,11 @@ export default function OverviewPage() {
         />
       </div>
 
-      {/* Category Charts Row */}
-      <ModernCategoryTrendScore data={categoriesData ?? overview.category_growth} period={period} />
-      <div className="chart-row-2">
-        <ModernCategoryCards data={categoriesData ?? overview.category_growth} />
-        <ModernPRChart data={categoriesData ?? overview.category_growth} period={period} />
+      {/* Category Charts Row — Optimized Compact Layout */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "16px", marginBottom: "16px" }}>
+        <CompactCategoryTrendScore data={categoriesData ?? overview.category_growth} period={period} />
+        <CompactCategoryCards data={categoriesData ?? overview.category_growth} />
+        <CompactPRChart data={categoriesData ?? overview.category_growth} period={period} />
       </div>
 
       {/* Ecosystem Map — trend vs sustainability per repo */}
