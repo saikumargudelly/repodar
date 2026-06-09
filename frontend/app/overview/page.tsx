@@ -14,6 +14,8 @@ import {
   RadarRepo, AlertResponse,
 } from "@/lib/api";
 import { SustainBadge } from "@/components/Nav";
+import { ModernCategoryCards } from "@/components/charts/ModernCategoryCards";
+import { ModernPRChart } from "@/components/charts/ModernPRChart";
 
 const CATEGORY_COLORS: Record<string, string> = {
   "LLM Models": "#3b82f6",
@@ -249,143 +251,9 @@ function CategoryTrendHeatmap({ data, period }: { data: CategoryMetrics[]; perio
   );
 }
 
-// ─── Chart 2: Stars Distribution (Donut) ────────────────────────────────────
-function CategoryStarsChart({ data }: { data: CategoryMetrics[] }) {
-  const chartData = [...data].sort((a, b) => b.total_stars - a.total_stars);
-  const total = chartData.reduce((s, c) => s + c.total_stars, 0);
-  return (
-    <div className="panel" style={{ display: "flex", flexDirection: "column" }}>
-      <div className="panel-header">
-        <div>
-          <div className="panel-title">Stars Distribution</div>
-          <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)", marginTop: "3px" }}>
-            {total.toLocaleString()} total stars across all categories
-          </div>
-        </div>
-      </div>
-      <div style={{ padding: "16px 24px", flex: 1 }}>
-        {/* Chart + legend side by side on desktop, stacked on mobile */}
-        <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
-          {/* Pie chart — takes up as much space as available */}
-          <div style={{ flex: "1 1 200px", minWidth: 0 }}>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart margin={{ top: 4, bottom: 4, left: 4, right: 4 }}>
-              <Pie
-                data={chartData}
-                dataKey="total_stars"
-                nameKey="category"
-                cx="50%"
-                cy="50%"
-                innerRadius="38%"
-                outerRadius="72%"
-                paddingAngle={2}
-                label={({ cx, cy, midAngle, innerRadius: ir, outerRadius: or, percent }) => {
-                  if (!percent || percent < 0.04 || midAngle == null) return null; // skip tiny slices
-                  const RADIAN = Math.PI / 180;
-                  const r = Number(ir) + (Number(or) - Number(ir)) * 1.35;
-                  const x = Number(cx) + r * Math.cos(-midAngle * RADIAN);
-                  const y = Number(cy) + r * Math.sin(-midAngle * RADIAN);
-                  return (
-                    <text x={x} y={y} fill="var(--text-muted)" textAnchor={x > Number(cx) ? "start" : "end"} dominantBaseline="central" fontSize={10}>
-                      {`${(percent * 100).toFixed(0)}%`}
-                    </text>
-                  );
-                }}
-                labelLine={{ stroke: "var(--border)", strokeWidth: 1 }}
-              >
-                {chartData.map((cat) => (
-                  <Cell key={cat.category} fill={CATEGORY_COLORS[cat.category] ?? "#6b7280"} />
-                ))}
-              </Pie>
-              <Tooltip
-                content={({ payload }) => {
-                  if (!payload?.length) return null;
-                  const c = payload[0]?.payload as CategoryMetrics;
-                  const pct = total > 0 ? ((c.total_stars / total) * 100).toFixed(1) : "0";
-                  return (
-                    <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "6px", padding: "8px 12px", fontSize: "12px" }}>
-                      <p style={{ margin: "0 0 4px", fontWeight: 600, color: "var(--text-primary)" }}>{c.category}</p>
-                      <p style={{ margin: "0 0 2px", color: "var(--text-muted)" }}>Stars: <strong>{c.total_stars.toLocaleString()}</strong></p>
-                      <p style={{ margin: 0, color: "var(--text-muted)" }}>Share: <strong>{pct}%</strong></p>
-                    </div>
-                  );
-                }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+// ─── Chart 2: Stars Distribution (replaced with ModernCategoryCards) ────────
 
-          {/* Legend — stacked vertically next to the pie */}
-          <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", gap: "8px", minWidth: 0 }}>
-            {chartData.map((cat) => {
-              const pct = total > 0 ? ((cat.total_stars / total) * 100).toFixed(1) : "0";
-              return (
-                <div key={cat.category} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span style={{
-                    width: 10, height: 10, flexShrink: 0,
-                    background: CATEGORY_COLORS[cat.category] ?? "#6b7280",
-                    display: "inline-block",
-                  }} />
-                  <span style={{ fontSize: "11px", color: "var(--text-secondary)", whiteSpace: "nowrap", fontFamily: "var(--font-mono)" }}>
-                    {cat.category}
-                  </span>
-                  <span style={{ fontSize: "10px", color: "var(--text-muted)", marginLeft: "auto", paddingLeft: "12px", fontFamily: "var(--font-mono)", fontWeight: 700 }}>
-                    {pct}%
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Chart 3: PR Activity ────────────────────────────────────────────────────
-function CategoryPRChart({ data, period }: { data: CategoryMetrics[]; period: Period }) {
-  const periodLabel = PERIODS.find((p) => p.key === period)?.label ?? period;
-  const chartData = [...data]
-    .sort((a, b) => (b.total_merged_prs + b.avg_open_prs) - (a.total_merged_prs + a.avg_open_prs))
-    .slice(0, 8);
-  return (
-    <div className="panel">
-      <div className="panel-header">
-        <div>
-          <div className="panel-title">PR Activity ({periodLabel})</div>
-          <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)", marginTop: "3px" }}>
-            Merged PRs (cumulative) · Open PRs (avg/repo)
-          </div>
-        </div>
-      </div>
-      <div style={{ padding: "16px 24px" }}>
-      <ResponsiveContainer width="100%" height={240}>
-        <BarChart data={chartData} layout="vertical" barSize={10} margin={{ left: 0, right: 20, top: 4, bottom: 4 }} barGap={2}>
-          <XAxis type="number" tick={{ fontSize: 10, fill: "var(--text-muted)" }}
-            tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
-          <YAxis type="category" dataKey="category" width={110} tick={{ fontSize: 10, fill: "var(--text-secondary)", width: 110 }} />
-          <Tooltip
-            content={({ payload, label }) => {
-              if (!payload?.length) return null;
-              const c = payload[0]?.payload as CategoryMetrics;
-              return (
-                <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "6px", padding: "8px 12px", fontSize: "12px" }}>
-                  <p style={{ margin: "0 0 6px", fontWeight: 600, color: "var(--text-primary)" }}>{label}</p>
-                  <p style={{ margin: "0 0 2px", color: "#a78bfa" }}>Merged PRs: <strong>{c.total_merged_prs.toLocaleString()}</strong></p>
-                  <p style={{ margin: "0 0 2px", color: "#67e8f9" }}>Open PRs: <strong>{c.avg_open_prs.toFixed(1)} avg/repo</strong></p>
-                  {c.period_pr_gain > 0 && <p style={{ margin: 0, color: "var(--text-muted)" }}>New ({periodLabel}): <strong>+{c.period_pr_gain}</strong></p>}
-                </div>
-              );
-            }}
-          />
-          <Bar dataKey="total_merged_prs" name="Merged PRs" fill="#a78bfa" radius={[0, 3, 3, 0]} />
-          <Bar dataKey="avg_open_prs" name="Avg open PRs" fill="#67e8f9" radius={[0, 3, 3, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
+// ─── Chart 3: PR Activity (replaced with ModernPRChart) ─────────────────────
 
 function LeaderboardTable({
   entries,
@@ -1126,8 +994,8 @@ export default function OverviewPage() {
       {/* Category Charts Row */}
       <CategoryTrendHeatmap data={categoriesData ?? overview.category_growth} period={period} />
       <div className="chart-row-2">
-        <CategoryStarsChart data={categoriesData ?? overview.category_growth} />
-        <CategoryPRChart data={categoriesData ?? overview.category_growth} period={period} />
+        <ModernCategoryCards data={categoriesData ?? overview.category_growth} />
+        <ModernPRChart data={categoriesData ?? overview.category_growth} period={period} />
       </div>
 
       {/* Ecosystem Map — trend vs sustainability per repo */}
