@@ -57,6 +57,7 @@ export function ModernCategoryTrendScore({
   period,
 }: ModernCategoryTrendScoreProps) {
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
+  const [showMore, setShowMore] = useState(false);
 
   const periodLabel = PERIODS.find((p) => p.key === period)?.label ?? period;
 
@@ -64,6 +65,10 @@ export function ModernCategoryTrendScore({
     () => [...data].sort((a, b) => b.trend_composite - a.trend_composite),
     [data]
   );
+
+  const topCategories = useMemo(() => chartData.slice(0, 8), [chartData]);
+  const restCategories = useMemo(() => chartData.slice(8), [chartData]);
+  const displayCategories = showMore ? chartData : topCategories;
 
   return (
     <div className="panel">
@@ -121,8 +126,8 @@ export function ModernCategoryTrendScore({
       </div>
 
       <div style={{ padding: "20px 24px" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-          {chartData.map((item, idx) => {
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          {displayCategories.map((item, idx) => {
             const isHovered = hoveredCategory === item.category;
             const color = trendColor(item.trend_composite);
             const label = getTrendLabel(item.trend_composite);
@@ -344,6 +349,68 @@ export function ModernCategoryTrendScore({
               </div>
             );
           })}
+
+          {/* Show more button */}
+          {restCategories.length > 0 && !showMore && (
+            <button
+              onClick={() => setShowMore(true)}
+              style={{
+                alignSelf: "center",
+                marginTop: "8px",
+                padding: "8px 16px",
+                background: "rgba(255, 255, 255, 0.05)",
+                border: "1px solid rgba(255, 255, 255, 0.1)",
+                borderRadius: "6px",
+                color: "var(--text-muted)",
+                fontSize: "12px",
+                cursor: "pointer",
+                fontFamily: "var(--font-sans)",
+                fontWeight: 500,
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
+                e.currentTarget.style.color = "var(--text-primary)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
+                e.currentTarget.style.color = "var(--text-muted)";
+              }}
+            >
+              Show {restCategories.length} more categories
+            </button>
+          )}
+
+          {/* Show less button */}
+          {showMore && (
+            <button
+              onClick={() => setShowMore(false)}
+              style={{
+                alignSelf: "center",
+                marginTop: "8px",
+                padding: "8px 16px",
+                background: "rgba(255, 255, 255, 0.05)",
+                border: "1px solid rgba(255, 255, 255, 0.1)",
+                borderRadius: "6px",
+                color: "var(--text-muted)",
+                fontSize: "12px",
+                cursor: "pointer",
+                fontFamily: "var(--font-sans)",
+                fontWeight: 500,
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
+                e.currentTarget.style.color = "var(--text-primary)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
+                e.currentTarget.style.color = "var(--text-muted)";
+              }}
+            >
+              Show less
+            </button>
+          )}
         </div>
       </div>
 

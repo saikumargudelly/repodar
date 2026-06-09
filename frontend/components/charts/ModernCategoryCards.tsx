@@ -80,14 +80,14 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
         </div>
       </div>
 
-      <div style={{ padding: "20px 24px", flex: 1 }}>
+      <div style={{ padding: "16px 20px", flex: 1 }}>
         {/* Top 6 categories as interactive cards */}
         <div
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-            gap: "14px",
-            marginBottom: "24px",
+            gap: "12px",
+            marginBottom: "20px",
           }}
         >
           {topCategories.map((cat) => {
@@ -102,7 +102,7 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
                 onMouseEnter={() => setHoveredCategory(cat.category)}
                 onMouseLeave={() => setHoveredCategory(null)}
                 style={{
-                  padding: "16px",
+                  padding: "14px",
                   borderRadius: "10px",
                   background: isHovered
                     ? `${color}12`
@@ -143,7 +143,7 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
                       display: "flex",
                       alignItems: "flex-start",
                       gap: "8px",
-                      marginBottom: "12px",
+                      marginBottom: "10px",
                     }}
                   >
                     <span style={{ fontSize: "20px", lineHeight: "1" }}>
@@ -155,7 +155,7 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
                           fontSize: "12px",
                           fontWeight: 600,
                           color: "var(--text-primary)",
-                          lineHeight: "1.4",
+                          lineHeight: "1.3",
                         }}
                       >
                         {cat.category}
@@ -166,10 +166,10 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
                   {/* Large percentage */}
                   <div
                     style={{
-                      fontSize: "24px",
+                      fontSize: "22px",
                       fontWeight: 700,
                       color: color,
-                      marginBottom: "4px",
+                      marginBottom: "2px",
                       fontFamily: "var(--font-mono)",
                     }}
                   >
@@ -179,11 +179,12 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
                   {/* Stars count and repos */}
                   <div
                     style={{
-                      fontSize: "11px",
+                      fontSize: "10px",
                       color: "var(--text-muted)",
                       display: "flex",
                       justifyContent: "space-between",
                       fontFamily: "var(--font-mono)",
+                      marginBottom: "8px",
                     }}
                   >
                     <span>{cat.total_stars.toLocaleString()} ⭐</span>
@@ -193,7 +194,6 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
                   {/* Progress bar */}
                   <div
                     style={{
-                      marginTop: "10px",
                       height: "4px",
                       background: "rgba(255, 255, 255, 0.06)",
                       borderRadius: "2px",
@@ -217,13 +217,13 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
 
         {/* Rest of categories as compact list */}
         {sortedData.length > 6 && (
-          <div style={{ borderTop: "1px solid var(--border)", paddingTop: "16px" }}>
+          <div style={{ borderTop: "1px solid var(--border)", paddingTop: "12px" }}>
             <div
               style={{
                 fontSize: "11px",
                 fontWeight: 600,
                 color: "var(--text-muted)",
-                marginBottom: "12px",
+                marginBottom: "10px",
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
               }}
@@ -247,7 +247,7 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
                       display: "flex",
                       alignItems: "center",
                       gap: "8px",
-                      padding: "8px",
+                      padding: "6px",
                       borderRadius: "6px",
                       background: "rgba(255, 255, 255, 0.02)",
                       border: "1px solid rgba(255, 255, 255, 0.04)",
