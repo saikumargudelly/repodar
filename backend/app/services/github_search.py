@@ -572,13 +572,14 @@ def _parse_gain_int(text: str) -> int:
 
 
 # ─── GitHub Search API fallback (all non-trending paths) ─────────────────────
-# Semaphore caps concurrent search requests at 8 to respect connection bounds.
-_SEARCH_SEMAPHORE = asyncio.Semaphore(8)
+# Semaphore caps concurrent search requests at 6 (was 8) for better controlled batching.
+_SEARCH_SEMAPHORE = asyncio.Semaphore(6)
 
 import time
+import random
 
 class AsyncRateLimiter:
-    """Enforces a maximum rate of requests over a given period (Token Bucket)."""
+    """Token bucket rate limiter with adaptive refill based on time elapsed."""
     def __init__(self, rate_limit: int, period: float):
         self.rate_limit = rate_limit
         self.period = period
@@ -586,24 +587,27 @@ class AsyncRateLimiter:
         self.last_update = time.monotonic()
         self.lock = asyncio.Lock()
 
-    async def acquire(self):
+    async def acquire(self, tokens: int = 1):
+        """Acquire tokens from the bucket, waiting if necessary."""
         async with self.lock:
             while True:
                 now = time.monotonic()
-                passed = now - self.last_update
-                self.tokens = min(self.rate_limit, self.tokens + passed * (self.rate_limit / self.period))
+                elapsed = now - self.last_update
+                # Refill tokens: (rate_limit / period) tokens per second
+                self.tokens = min(self.rate_limit, self.tokens + elapsed * (self.rate_limit / self.period))
                 self.last_update = now
                 
-                if self.tokens >= 1.0:
-                    self.tokens -= 1.0
+                if self.tokens >= tokens:
+                    self.tokens -= tokens
                     return
                 
-                needed = 1.0 - self.tokens
-                wait_time = needed / (self.rate_limit / self.period)
+                # Wait until enough tokens are available
+                deficit = tokens - self.tokens
+                wait_time = deficit / (self.rate_limit / self.period)
                 await asyncio.sleep(wait_time)
 
-# Global rate limiter: max 25 Search API requests per 60 seconds if authenticated, else 8 (safe buffer under 10/min unauthenticated limit)
-_SEARCH_LIMITER = AsyncRateLimiter(25 if os.getenv("GITHUB_TOKEN") else 8, 60.0)
+# Global rate limiter: 30 Search API requests per 60s if authenticated, else 10 (safe buffer)
+_SEARCH_LIMITER = AsyncRateLimiter(30 if os.getenv("GITHUB_TOKEN") else 10, 60.0)
 
 
 async def _fetch_search(
@@ -651,7 +655,7 @@ async def _fetch_search(
 
     async with aiohttp.ClientSession() as session:
         batches = await asyncio.gather(*[
-            _search_api(session, q, sort=sort_key, per_page=50)
+            _search_api(session, q, sort=sort_key, per_page=100)  # Increased from 50 to 100
             for q, sort_key in queries
         ], return_exceptions=True)
 
@@ -674,13 +678,14 @@ async def _search_api(
     session: aiohttp.ClientSession,
     query: str,
     sort: str = "stars",
-    per_page: int = 50,
+    per_page: int = 100,  # Increased from 50 to 100
 ) -> list[dict]:
+    """Search GitHub repos with smart retries and exponential backoff + jitter."""
     url = f"{REST_BASE}/search/repositories"
     params = {"q": query, "sort": sort, "order": "desc", "per_page": per_page}
     
     max_retries = 3
-    backoff = 2
+    base_backoff = 1.5  # seconds
     
     for attempt in range(max_retries):
         try:
@@ -692,19 +697,23 @@ async def _search_api(
                     timeout=aiohttp.ClientTimeout(total=15),
                 ) as resp:
                     if resp.status == 403:
-                        # Check for Retry-After header (often set to 60s on secondary limits)
+                        # Secondary rate limit — respect Retry-After or use adaptive backoff
                         retry_after = resp.headers.get("retry-after")
-                        # Default to 15s base backoff if header is absent to let the window reset
-                        wait_time = int(retry_after) if retry_after else (15 * (backoff ** attempt))
+                        if retry_after:
+                            wait_time = int(retry_after)
+                        else:
+                            # Exponential backoff with jitter: (1.5^attempt + random(0, 0.5))
+                            jitter = random.uniform(0, 0.5)
+                            wait_time = int(base_backoff ** attempt + jitter)
                         logger.warning(
-                            f"GitHub Search rate limited (403) for query '{query[:60]}'. "
-                            f"Retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})...."
+                            f"GitHub Search 403 (secondary rate limit) on '{query[:60]}'. "
+                            f"Retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})."
                         )
                         await asyncio.sleep(wait_time)
                         continue
                         
                     if resp.status == 422:
-                        logger.warning(f"GitHub Search 422 (unprocessable entity): {query[:80]}")
+                        logger.debug(f"GitHub Search 422 (invalid query): {query[:80]}")
                         return []
                         
                     if resp.status != 200:
@@ -712,12 +721,15 @@ async def _search_api(
                         return []
                         
                     return (await resp.json()).get("items", [])
+        except asyncio.TimeoutError:
+            logger.warning(f"GitHub Search timeout on query '{query[:60]}' (attempt {attempt + 1}/{max_retries})")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(base_backoff ** attempt)
         except Exception as e:
             logger.error(f"GitHub Search error on query '{query[:60]}': {e}")
             if attempt < max_retries - 1:
-                await asyncio.sleep(backoff ** attempt)
-            else:
-                return []
+                await asyncio.sleep(base_backoff ** attempt)
+    
     return []
 
 # ─── Normaliser ───────────────────────────────────────────────────────────────

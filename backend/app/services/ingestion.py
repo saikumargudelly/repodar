@@ -34,48 +34,58 @@ from app.services.github_search import (
 logger = logging.getLogger(__name__)
 
 # Auto-discovered repos inactive after this many days without re-appearing
-STALE_DAYS = 60
+# Reduced from 60 to 45 to recycle stale repos faster
+STALE_DAYS = 45
 
-# Discovery config: (period, vertical) pairs run on every ingestion cycle.
-# Keep short periods + all verticals so we catch genuinely trending repos fast.
+# Discovery config: (period, vertical, limit) tuples.
+# Now includes 1d for all verticals to catch breaking news fast.
+# Limits scaled strategically: 50 base, 100+ for high-signal searches.
 DISCOVERY_SEARCHES = [
     # ── AI / ML ───────────────────────────────────────────────────────
-    ("1d",  "ai_ml"),
-    ("7d",  "ai_ml"),
-    ("30d", "ai_ml"),
+    ("1d",  "ai_ml",     150),  # 150 daily AI/ML results due to high volume
+    ("7d",  "ai_ml",     100),
+    ("30d", "ai_ml",     100),
     # ── Dev Tools ────────────────────────────────────────────────────
-    ("7d",  "devtools"),
+    ("1d",  "devtools",   75),  # Now has 1d trending too
+    ("7d",  "devtools",   75),
     # ── Web + Mobile ─────────────────────────────────────────────────
-    ("7d",  "web_mobile"),
-    ("30d", "web_mobile"),
+    ("1d",  "web_mobile", 75),
+    ("7d",  "web_mobile", 75),
+    ("30d", "web_mobile", 75),
     # ── Data + Infrastructure ────────────────────────────────────────
-    ("7d",  "data_infra"),
-    ("30d", "data_infra"),
+    ("1d",  "data_infra", 75),
+    ("7d",  "data_infra", 75),
+    ("30d", "data_infra", 75),
     # ── Security ─────────────────────────────────────────────────────
-    ("7d",  "security"),
+    ("1d",  "security",   50),
+    ("7d",  "security",   50),
     # ── OSS Tools ────────────────────────────────────────────────────
-    ("7d",  "oss_tools"),
-    ("30d", "oss_tools"),
+    ("1d",  "oss_tools",  50),
+    ("7d",  "oss_tools",  50),
+    ("30d", "oss_tools",  50),
     # ── Blockchain ───────────────────────────────────────────────────
-    ("7d",  "blockchain"),
+    ("1d",  "blockchain", 50),
+    ("7d",  "blockchain", 50),
     # ── Science & Research ───────────────────────────────────────────
-    ("7d",  "science"),
+    ("1d",  "science",    50),
+    ("7d",  "science",    50),
     # ── Creative & Gaming ────────────────────────────────────────────
-    ("7d",  "creative"),
+    ("1d",  "creative",   50),
+    ("7d",  "creative",   50),
 ]
 
 # Broad star-threshold discovery: verticals to scan every cycle.
 # Surfaces established repos (stars >= floor) that don't appear in Trending.
 STAR_THRESHOLD_SEARCHES = [
-    "ai_ml",
-    "devtools",
-    "web_mobile",
-    "data_infra",
-    "security",
-    "oss_tools",
-    "blockchain",
-    "science",
-    "creative",
+    ("ai_ml",     100),  # Scaled limits for star-threshold too
+    ("devtools",   75),
+    ("web_mobile", 75),
+    ("data_infra", 75),
+    ("security",   50),
+    ("oss_tools",  50),
+    ("blockchain", 50),
+    ("science",    50),
+    ("creative",   50),
 ]
 
 
@@ -116,8 +126,10 @@ async def auto_discover_and_sync(force: bool = False) -> dict:
     refreshed = 0
 
     # Determine whether to run full search-based discovery
+    # Reduced from 20h to 4h throttle to discover more repos while respecting rate limits
     timestamp_file = os.path.join(os.path.dirname(__file__), "last_search_discovery.txt")
     run_full_search = force
+    FULL_SEARCH_INTERVAL = 4 * 3600  # 4 hours: balance between coverage and rate limits
     if not run_full_search:
         if not os.path.exists(timestamp_file):
             run_full_search = True
@@ -125,31 +137,40 @@ async def auto_discover_and_sync(force: bool = False) -> dict:
             try:
                 with open(timestamp_file, "r") as f:
                     last_run = float(f.read().strip())
-                if (time.time() - last_run) > 20 * 3600:
+                if (time.time() - last_run) > FULL_SEARCH_INTERVAL:
                     run_full_search = True
             except Exception:
                 run_full_search = True
 
     try:
-        # If running full search, run all discovery searches.
-        # Otherwise, only scrape trending AI/ML repos which doesn't hit Search API rate limits.
+        # If running full search, run all discovery searches with proper batching.
+        # Otherwise, run a lean set of high-signal searches to catch trends without API strain.
         if run_full_search:
-            logger.info("Running full search-based and trending auto-discovery.")
+            logger.info(f"Running full auto-discovery with {len(DISCOVERY_SEARCHES)} searches + {len(STAR_THRESHOLD_SEARCHES)} star-thresholds.")
             search_tasks = (
                 [
-                    search_top_repos(period=period, limit=50, vertical=vertical)
-                    for period, vertical in DISCOVERY_SEARCHES
+                    search_top_repos(period=period, limit=limit, vertical=vertical)
+                    for period, vertical, limit in DISCOVERY_SEARCHES
                 ] + [
-                    search_by_star_threshold(vertical=vertical, limit=50)
-                    for vertical in STAR_THRESHOLD_SEARCHES
+                    search_by_star_threshold(vertical=vertical, limit=limit)
+                    for vertical, limit in STAR_THRESHOLD_SEARCHES
                 ]
             )
         else:
-            logger.info("Bypassing Search API-based discovery (rate-limiting buffer); running trending HTML scrape only.")
-            search_tasks = [
-                search_top_repos(period=period, limit=50, vertical="ai_ml")
-                for period in ["1d", "7d", "30d"]
-            ]
+            # Lean mode: catch daily trends + key established repos without hitting Search API hard
+            logger.info("Running lean discovery (trending HTML scrape + top star repos).")
+            search_tasks = (
+                [
+                    search_top_repos(period=period, limit=100, vertical="ai_ml")
+                    for period in ["1d", "7d"]
+                ] + [
+                    search_top_repos(period="1d", limit=50, vertical=v)
+                    for v in ["devtools", "web_mobile", "data_infra"]
+                ] + [
+                    search_by_star_threshold(vertical="ai_ml", limit=75),
+                    search_by_star_threshold(vertical="web_mobile", limit=50),
+                ]
+            )
 
         all_results = await asyncio.gather(*search_tasks, return_exceptions=True)
 
