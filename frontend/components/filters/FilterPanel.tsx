@@ -105,9 +105,9 @@ export function FilterPanel({ initialFilter, onFilterChange, onClose }: FilterPa
             onChange={(e) => handleChange("sustainability_label", e.target.value || undefined)}
           >
             <option value="">Any</option>
-            <option value="HIGH">High (Scale-ready)</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="LOW">Low (Risk)</option>
+            <option value="GREEN">High (Green)</option>
+            <option value="YELLOW">Medium (Yellow)</option>
+            <option value="RED">Low (Red)</option>
           </select>
         </div>
 

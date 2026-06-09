@@ -17,9 +17,9 @@ from app.services.alert_engine import evaluate_alert_rules
 
 logger = logging.getLogger(__name__)
 
-SPIKE_Z_THRESHOLD = float(os.getenv("SPIKE_Z_THRESHOLD", "2.5"))
+SPIKE_Z_THRESHOLD = float(os.getenv("SPIKE_Z_THRESHOLD", "1.8"))
 SPIKE_MIN_HISTORY_DAYS = int(os.getenv("SPIKE_MIN_HISTORY_DAYS", "7"))
-SPIKE_SUSTAINED_Z_THRESHOLD = float(os.getenv("SPIKE_SUSTAINED_Z_THRESHOLD", "2.0"))
+SPIKE_SUSTAINED_Z_THRESHOLD = float(os.getenv("SPIKE_SUSTAINED_Z_THRESHOLD", "1.5"))
 
 
 def _today() -> date:
@@ -509,9 +509,9 @@ def compute_category_growth(days: int = 7) -> list[dict]:
 
 # ─── Alert thresholds ────────────────────────────────────────────────────────
 _ALERT_THRESHOLDS: dict[str, dict] = {
-    "star_spike_24h": {"window_days": 1, "min_daily_stars": 100},
-    "star_spike_48h": {"window_days": 2, "min_daily_stars": 80},
-    "momentum_surge": {"min_trend_score_jump": 0.1},
+    "star_spike_24h": {"window_days": 1, "min_daily_stars": 30},
+    "star_spike_48h": {"window_days": 2, "min_daily_stars": 25},
+    "momentum_surge": {"min_trend_score_jump": 0.05},
 }
 
 

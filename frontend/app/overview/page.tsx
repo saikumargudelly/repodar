@@ -24,13 +24,18 @@ const CATEGORY_COLORS: Record<string, string> = {
   "Distributed Compute / Infra": "#f97316",
   "Evaluation Frameworks": "#84cc16",
   "Fine-tuning Toolkits": "#ec4899",
+  "AI / ML": "#3b82f6",
   // Non-AI verticals
   "DevTools": "#38bdf8",
   "Web Frameworks": "#a78bfa",
+  "Web & Mobile": "#a78bfa",
   "Security": "#f87171",
   "Data Engineering": "#34d399",
+  "Data & Infra": "#34d399",
   "Blockchain": "#fbbf24",
   "OSS Tools": "#fb923c",
+  "Science & Research": "#84cc16",
+  "Creative & Gaming": "#ec4899",
 };
 
 const PERIODS: { key: Period; label: string }[] = [
@@ -582,7 +587,7 @@ function SustainabilityRanking({ repos }: { repos: SustainabilityEntry[] }) {
 }
 
 // ─── Ecosystem Map Chart (scatter: trend vs sustainability) ─────────────────
-function EcosystemMapChart({ repos }: { repos: RadarRepo[] }) {
+function EcosystemMapChart({ repos, title = "AI Ecosystem Map" }: { repos: RadarRepo[]; title?: string }) {
   // Group by category for multi-series scatter
   const byCategory = repos.reduce<Record<string, { x: number; y: number; name: string; owner: string; category: string }[]>>(
     (acc, r) => {
@@ -607,7 +612,7 @@ function EcosystemMapChart({ repos }: { repos: RadarRepo[] }) {
     <div className="panel">
       <div className="panel-header">
         <div>
-          <div className="panel-title">AI Ecosystem Map</div>
+          <div className="panel-title">{title}</div>
           <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)", marginTop: "3px" }}>
             X-axis: Trend Score · Y-axis: Sustainability Score · Each dot = one repo
           </div>
@@ -1114,7 +1119,7 @@ export default function OverviewPage() {
           index={3}
           label="Healthy Repos"
           value={greenCount}
-          sub={`of ${overview.sustainability_ranking.length} scored`}
+          sub={`of ${overview.total_repos} active`}
         />
       </div>
 
@@ -1127,7 +1132,7 @@ export default function OverviewPage() {
 
       {/* Ecosystem Map — trend vs sustainability per repo */}
       {radarRepos && radarRepos.length > 0 && (
-        <EcosystemMapChart repos={radarRepos} />
+        <EcosystemMapChart repos={radarRepos} title={`${verticalLabel} Ecosystem Map`} />
       )}
 
       {/* Period + Vertical Leaderboard */}

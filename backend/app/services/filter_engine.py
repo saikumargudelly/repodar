@@ -49,6 +49,7 @@ class RepoFilterDTO(BaseModel):
     max_trend_score:         Optional[float] = Field(None, ge=0, le=1)
     min_sustainability_score: Optional[float] = Field(None, ge=0, le=1)
     max_sustainability_score: Optional[float] = Field(None, ge=0, le=1)
+    sustainability_label:     Optional[str] = Field(None, description="Sustainability rating label (GREEN|YELLOW|RED)")
 
     # Velocity
     min_star_velocity_7d:  Optional[float] = Field(None)
@@ -182,6 +183,8 @@ class QueryBuilder:
             q = q.filter(ComputedMetric.sustainability_score >= dto.min_sustainability_score)
         if dto.max_sustainability_score is not None:
             q = q.filter(ComputedMetric.sustainability_score <= dto.max_sustainability_score)
+        if dto.sustainability_label:
+            q = q.filter(ComputedMetric.sustainability_label == dto.sustainability_label.upper())
         if dto.min_star_velocity_7d is not None:
             q = q.filter(ComputedMetric.star_velocity_7d >= dto.min_star_velocity_7d)
         if dto.max_star_velocity_7d is not None:

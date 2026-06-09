@@ -86,7 +86,7 @@ export default function RadarPage() {
 
   const { data: radarData, isLoading: radarLoading } = useQuery({
     queryKey: ["radar", newOnly, category, establishedSort],
-    queryFn: () => api.getRadar(newOnly, category, undefined, establishedSort, "desc", 100),
+    queryFn: () => api.getRadar(newOnly, category, undefined, establishedSort, establishedSort === "age_days" ? "asc" : "desc", 100),
     enabled: mode === "established",
     staleTime: 5 * 60 * 1000,
   });
