@@ -24,12 +24,14 @@ jobs:
         run: |
           echo "Waking up Render backend and triggering pipeline at: $BACKEND_URL"
           
-          # Trigger the delta sync endpoint via POST request.
+          # Use /admin/run-all-sync endpoint for synchronous execution (blocks until complete).
+          # This ensures the full discovery+scoring+explanation pipeline completes before action finishes.
           # Passes the administration API Key as X-Admin-Key header.
           response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST \
             -H "X-Admin-Key: $API_KEY" \
             -H "Content-Type: application/json" \
-            "$BACKEND_URL/admin/run-all")
+            --max-time 600 \
+            "$BACKEND_URL/admin/run-all-sync")
           
           body=$(echo "$response" | sed '$d')
           status=$(echo "$response" | tail -n1 | cut -d':' -f2)
@@ -43,4 +45,4 @@ jobs:
             exit 1
           fi
           
-          echo "Pipeline delta sync completed successfully!"
+          echo "Pipeline discovery and ingestion completed successfully!"
