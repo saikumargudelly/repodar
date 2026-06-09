@@ -53,6 +53,7 @@ interface ModernCategoryCardsProps {
 
 export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const total = useMemo(() => data.reduce((s, c) => s + c.total_stars, 0), [data]);
   const sortedData = useMemo(
@@ -80,14 +81,14 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
         </div>
       </div>
 
-      <div style={{ padding: "16px 20px", flex: 1 }}>
+      <div style={{ padding: "14px 16px", flex: 1 }}>
         {/* Top 6 categories as interactive cards */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-            gap: "12px",
-            marginBottom: "20px",
+            gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+            gap: "10px",
+            marginBottom: "16px",
           }}
         >
           {topCategories.map((cat) => {
@@ -95,6 +96,7 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
             const color = CATEGORY_COLORS[cat.category] ?? "#6b7280";
             const icon = CATEGORY_ICONS[cat.category] ?? "📌";
             const isHovered = hoveredCategory === cat.category;
+            const isSelected = selectedCategory === cat.category;
 
             return (
               <div
@@ -102,19 +104,22 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
                 onMouseEnter={() => setHoveredCategory(cat.category)}
                 onMouseLeave={() => setHoveredCategory(null)}
                 style={{
-                  padding: "14px",
-                  borderRadius: "10px",
-                  background: isHovered
-                    ? `${color}12`
+                  padding: "12px",
+                  borderRadius: "8px",
+                  background: isSelected
+                    ? `${color}18`
+                    : isHovered
+                    ? `${color}10`
                     : "rgba(255, 255, 255, 0.02)",
-                  border: `1.5px solid ${
-                    isHovered ? `${color}40` : "rgba(255, 255, 255, 0.06)"
+                  border: `1.2px solid ${
+                    isSelected ? `${color}50` : isHovered ? `${color}30` : "rgba(255, 255, 255, 0.06)"
                   }`,
                   cursor: "pointer",
-                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                  transform: isHovered ? "translateY(-2px)" : "translateY(0)",
+                  transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                  transform: isHovered ? "scale(1.04) translateY(-1px)" : "scale(1)",
                   position: "relative",
                   overflow: "hidden",
+                  boxShadow: isHovered ? `0 4px 12px ${color}12` : "none",
                 }}
               >
                 {/* Animated background gradient */}
@@ -142,23 +147,45 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
                     style={{
                       display: "flex",
                       alignItems: "flex-start",
-                      gap: "8px",
-                      marginBottom: "10px",
+                      gap: "7px",
+                      marginBottom: "8px",
+                      transition: "transform 0.2s ease",
+                      transform: isHovered ? "translateY(-1px)" : "translateY(0)",
                     }}
                   >
-                    <span style={{ fontSize: "20px", lineHeight: "1" }}>
+                    <span
+                      style={{
+                        fontSize: "18px",
+                        lineHeight: "1",
+                        display: "inline-block",
+                        transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                        transform: isHovered ? "scale(1.2) rotate(8deg)" : "scale(1) rotate(0deg)",
+                        transformOrigin: "center",
+                      }}
+                    >
                       {icon}
                     </span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div
                         style={{
-                          fontSize: "12px",
-                          fontWeight: 600,
+                          fontSize: "11px",
+                          fontWeight: 700,
                           color: "var(--text-primary)",
-                          lineHeight: "1.3",
+                          lineHeight: "1.2",
+                          letterSpacing: "0.01em",
                         }}
                       >
                         {cat.category}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "9px",
+                          color: "var(--text-muted)",
+                          marginTop: "1px",
+                          opacity: 0.7,
+                        }}
+                      >
+                        #{sortedData.indexOf(cat) + 1}
                       </div>
                     </div>
                   </div>
@@ -166,11 +193,12 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
                   {/* Large percentage */}
                   <div
                     style={{
-                      fontSize: "22px",
+                      fontSize: "20px",
                       fontWeight: 700,
                       color: color,
-                      marginBottom: "2px",
+                      marginBottom: "1px",
                       fontFamily: "var(--font-mono)",
+                      transition: "font-size 0.2s ease",
                     }}
                   >
                     {percentage.toFixed(1)}%
@@ -179,33 +207,37 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
                   {/* Stars count and repos */}
                   <div
                     style={{
-                      fontSize: "10px",
+                      fontSize: "9px",
                       color: "var(--text-muted)",
                       display: "flex",
                       justifyContent: "space-between",
                       fontFamily: "var(--font-mono)",
-                      marginBottom: "8px",
+                      marginBottom: "7px",
+                      gap: "4px",
                     }}
                   >
-                    <span>{cat.total_stars.toLocaleString()} ⭐</span>
-                    <span>{cat.repo_count} repos</span>
+                    <span>{cat.total_stars > 999 ? `${(cat.total_stars / 1000).toFixed(1)}k` : cat.total_stars}⭐</span>
+                    <span>{cat.repo_count}r</span>
                   </div>
 
                   {/* Progress bar */}
                   <div
                     style={{
-                      height: "4px",
-                      background: "rgba(255, 255, 255, 0.06)",
-                      borderRadius: "2px",
+                      height: "3px",
+                      background: "rgba(255, 255, 255, 0.08)",
+                      borderRadius: "1.5px",
                       overflow: "hidden",
+                      position: "relative",
                     }}
                   >
                     <div
                       style={{
                         height: "100%",
-                        background: color,
+                        background: `linear-gradient(90deg, ${color}40, ${color}80)`,
                         width: `${percentage}%`,
-                        transition: "width 0.4s ease-out",
+                        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                        borderRadius: "1.5px",
+                        boxShadow: isHovered ? `0 0 6px ${color}60` : "none",
                       }}
                     />
                   </div>

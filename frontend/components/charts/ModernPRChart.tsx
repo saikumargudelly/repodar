@@ -51,6 +51,7 @@ interface LollipopDataPoint {
 
 export function ModernPRChart({ data, period }: ModernPRChartProps) {
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
 
   const periodLabel = PERIODS.find((p) => p.key === period)?.label ?? period;
 
@@ -87,22 +88,23 @@ export function ModernPRChart({ data, period }: ModernPRChartProps) {
           <div
             style={{
               fontFamily: "var(--font-sans)",
-              fontSize: "11px",
+              fontSize: "10px",
               color: "var(--text-muted)",
-              marginTop: "3px",
+              marginTop: "2px",
+              opacity: 0.8,
             }}
           >
-            Merged PRs (cumulative) · Open PRs (avg/repo)
+            Merged · Open PRs (avg/repo)
           </div>
         </div>
       </div>
 
-      <div style={{ padding: "20px 24px" }}>
+      <div style={{ padding: "14px 18px" }}>
         <div
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: "16px",
+            gap: "12px",
           }}
         >
           {/* Lollipop chart items */}
@@ -119,11 +121,11 @@ export function ModernPRChart({ data, period }: ModernPRChartProps) {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "12px",
+                  gap: "10px",
                   cursor: "pointer",
-                  transition: "opacity 0.2s ease",
-                  opacity:
-                    hoveredCategory === null || isHovered ? 1 : 0.5,
+                  transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                  opacity: hoveredCategory === null || isHovered ? 1 : 0.35,
+                  transform: isHovered ? "translateX(1px)" : "translateX(0)",
                 }}
               >
                 {/* Category label with rank badge */}
@@ -133,35 +135,38 @@ export function ModernPRChart({ data, period }: ModernPRChartProps) {
                     flexShrink: 0,
                     display: "flex",
                     alignItems: "center",
-                    gap: "8px",
+                    gap: "6px",
                   }}
                 >
                   <div
                     style={{
-                      width: "24px",
-                      height: "24px",
+                      width: "22px",
+                      height: "22px",
                       borderRadius: "50%",
-                      background: `${item.color}20`,
-                      border: `1px solid ${item.color}40`,
+                      background: `${item.color}25`,
+                      border: `1.2px solid ${isHovered ? `${item.color}60` : `${item.color}35`}`,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontSize: "11px",
-                      fontWeight: 600,
+                      fontSize: "10px",
+                      fontWeight: 700,
                       color: item.color,
                       flexShrink: 0,
+                      transition: "all 0.2s ease",
+                      boxShadow: isHovered ? `0 0 8px ${item.color}40` : "none",
                     }}
                   >
                     #{idx + 1}
                   </div>
                   <div
                     style={{
-                      fontSize: "12px",
+                      fontSize: "11px",
                       fontWeight: 600,
                       color: "var(--text-primary)",
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
+                      letterSpacing: "0.01em",
                     }}
                   >
                     {item.category}

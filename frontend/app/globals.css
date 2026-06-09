@@ -198,7 +198,7 @@ p, span, div, td, th, a, label, li {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  padding: 14px 20px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -388,6 +388,37 @@ p, span, div, td, th, a, label, li {
 .animate-fade-up       { animation: fadeUp 0.4s ease both; }
 .animate-fade-up-delay { animation: fadeUp 0.4s 0.08s ease both; }
 
+/* ── Micro-interactions for dashboard charts ────────────────── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+
+@keyframes slideLeftIn {
+  from { opacity: 0; transform: translateX(8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideDownIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+.animate-pulse      { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+.animate-slide-in   { animation: slideLeftIn 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+.animate-slide-down { animation: slideDownIn 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+.animate-scale-in   { animation: scaleIn 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+
 /* Recharts overrides */
 .recharts-text { fill: var(--text-secondary) !important; }
 .recharts-cartesian-axis-line,
@@ -517,7 +548,7 @@ p, span, div, td, th, a, label, li {
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+  gap: 14px;
 }
 .stat-grid > * { min-width: 0; }
 

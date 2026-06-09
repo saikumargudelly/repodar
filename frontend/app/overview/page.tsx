@@ -14,9 +14,9 @@ import {
   RadarRepo, AlertResponse,
 } from "@/lib/api";
 import { SustainBadge } from "@/components/Nav";
-import { UltraCompactTrendScore } from "@/components/charts/UltraCompactTrendScore";
-import { UltraCompactCategoryCards } from "@/components/charts/UltraCompactCategoryCards";
-import { UltraCompactPRChart } from "@/components/charts/UltraCompactPRChart";
+import { ModernCategoryCards } from "@/components/charts/ModernCategoryCards";
+import { ModernPRChart } from "@/components/charts/ModernPRChart";
+import { ModernCategoryTrendScore } from "@/components/charts/ModernCategoryTrendScore";
 
 const CATEGORY_COLORS: Record<string, string> = {
   "LLM Models": "#3b82f6",
@@ -741,7 +741,7 @@ export default function OverviewPage() {
   const verticalLabel = VERTICALS.find((v) => v.key === vertical)?.label ?? "AI / ML";
 
   return (
-    <div style={{ paddingTop: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
+    <div style={{ paddingTop: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
       {/* Floating compare bar */}
       {compareSelection.length >= 2 && (
         <div style={{
@@ -938,11 +938,11 @@ export default function OverviewPage() {
         />
       </div>
 
-      {/* Ultra-Compact Category Charts Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "12px", marginBottom: "16px" }}>
-        <UltraCompactTrendScore data={categoriesData ?? overview.category_growth} />
-        <UltraCompactCategoryCards data={categoriesData ?? overview.category_growth} />
-        <UltraCompactPRChart data={categoriesData ?? overview.category_growth} period={period} />
+      {/* Category Charts Row */}
+      <ModernCategoryTrendScore data={categoriesData ?? overview.category_growth} period={period} />
+      <div className="chart-row-2">
+        <ModernCategoryCards data={categoriesData ?? overview.category_growth} />
+        <ModernPRChart data={categoriesData ?? overview.category_growth} period={period} />
       </div>
 
       {/* Ecosystem Map — trend vs sustainability per repo */}
