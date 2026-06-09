@@ -50,10 +50,10 @@ def _latest_metric_subquery(db: Session, scored_date: date):
     Returns the single most-recent ComputedMetric row per repo, regardless of
     which date it was scored on.  Using a per-repo window function (row_number
     partitioned by repo_id, ordered by computed_at DESC) restricted to the last
-    30 days of historical rows. This pre-filter makes queries 100x faster by preventing
+    90 days of historical rows. This pre-filter makes queries 100x faster by preventing
     unconstrained full table scans.
     """
-    cutoff = scored_date - timedelta(days=30)
+    cutoff = scored_date - timedelta(days=90)
     ranked = (
         db.query(
             ComputedMetric.repo_id.label("repo_id"),

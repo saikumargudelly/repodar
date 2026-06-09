@@ -96,7 +96,7 @@ def _calc_age_days(created_at_str: str) -> int:
 
 # ─── Auto-discovery ───────────────────────────────────────────────────────────
 
-async def auto_discover_and_sync() -> dict:
+async def auto_discover_and_sync(force: bool = False) -> dict:
     """
     Query GitHub Trending + Search for all DISCOVERY_SEARCHES, then:
       - Insert any new repo not yet in the DB (source="auto_discovered")
@@ -105,6 +105,8 @@ async def auto_discover_and_sync() -> dict:
 
     Returns: {"discovered": N, "reactivated": N, "refreshed": N}
     """
+    import os
+    import time
 
     db = SessionLocal()
     now = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -113,17 +115,42 @@ async def auto_discover_and_sync() -> dict:
     reactivated = 0
     refreshed = 0
 
+    # Determine whether to run full search-based discovery
+    timestamp_file = os.path.join(os.path.dirname(__file__), "last_search_discovery.txt")
+    run_full_search = force
+    if not run_full_search:
+        if not os.path.exists(timestamp_file):
+            run_full_search = True
+        else:
+            try:
+                with open(timestamp_file, "r") as f:
+                    last_run = float(f.read().strip())
+                if (time.time() - last_run) > 20 * 3600:
+                    run_full_search = True
+            except Exception:
+                run_full_search = True
+
     try:
-        # Run all searches in parallel: trending/period-based + broad star-threshold
-        search_tasks = (
-            [
-                search_top_repos(period=period, limit=50, vertical=vertical)
-                for period, vertical in DISCOVERY_SEARCHES
-            ] + [
-                search_by_star_threshold(vertical=vertical, limit=50)
-                for vertical in STAR_THRESHOLD_SEARCHES
+        # If running full search, run all discovery searches.
+        # Otherwise, only scrape trending AI/ML repos which doesn't hit Search API rate limits.
+        if run_full_search:
+            logger.info("Running full search-based and trending auto-discovery.")
+            search_tasks = (
+                [
+                    search_top_repos(period=period, limit=50, vertical=vertical)
+                    for period, vertical in DISCOVERY_SEARCHES
+                ] + [
+                    search_by_star_threshold(vertical=vertical, limit=50)
+                    for vertical in STAR_THRESHOLD_SEARCHES
+                ]
+            )
+        else:
+            logger.info("Bypassing Search API-based discovery (rate-limiting buffer); running trending HTML scrape only.")
+            search_tasks = [
+                search_top_repos(period=period, limit=50, vertical="ai_ml")
+                for period in ["1d", "7d", "30d"]
             ]
-        )
+
         all_results = await asyncio.gather(*search_tasks, return_exceptions=True)
 
         # Flatten and deduplicate by full_name
@@ -202,6 +229,15 @@ async def auto_discover_and_sync() -> dict:
                 continue
 
         db.commit()
+        
+        # Save timestamp if full search was run successfully
+        if run_full_search:
+            try:
+                with open(timestamp_file, "w") as f:
+                    f.write(str(time.time()))
+            except Exception as e:
+                logger.warning(f"Failed to save search discovery timestamp: {e}")
+
         summary = {"discovered": discovered, "reactivated": reactivated, "refreshed": refreshed}
         logger.info(f"Auto-discovery complete: {summary}")
         return summary
@@ -256,7 +292,7 @@ def deactivate_stale_repos() -> int:
         db.close()
 
 
-async def run_daily_ingestion() -> dict:
+async def run_daily_ingestion(force_discovery: bool = False) -> dict:
     """
     Main ingestion entry point — designed to run up to 6× per day (every 4 h).
 
@@ -274,7 +310,7 @@ async def run_daily_ingestion() -> dict:
     Returns summary dict.
     """
     # ── Step 1: Auto-discovery ────────────────────────────────────────────────
-    discovery_summary = await auto_discover_and_sync()
+    discovery_summary = await auto_discover_and_sync(force=force_discovery)
 
     # ── Step 2: Deactivate stale auto-discovered repos ────────────────────────
     deactivated = deactivate_stale_repos()

@@ -91,3 +91,6 @@ Thumbs.db
 
 # Code CLI
 .code-cli/
+
+# Local cache/state
+*last_search_discovery.txt

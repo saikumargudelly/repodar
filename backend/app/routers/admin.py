@@ -130,10 +130,10 @@ async def trigger_ingestion(background_tasks: BackgroundTasks):
     Runs async in the background — returns immediately.
     """
     from app.services.ingestion import run_daily_ingestion
-    background_tasks.add_task(run_daily_ingestion)
+    background_tasks.add_task(run_daily_ingestion, force_discovery=True)
     return PipelineStatus(
         status="queued",
-        detail="Ingestion task queued.",
+        detail="Ingestion task queued (with forced discovery).",
     )
 
 
@@ -246,7 +246,7 @@ async def run_full_pipeline(background_tasks: BackgroundTasks):
             finally:
                 db_heal.close()
 
-            ingest_result = await run_daily_ingestion()
+            ingest_result = await run_daily_ingestion(force_discovery=True)
             score_result = run_daily_scoring()
             explain_count = enrich_top_repos_with_explanations(top_n=20)
             logger.info(
@@ -287,7 +287,7 @@ async def trigger_discovery():
         finally:
             db_heal.close()
 
-        discovery = await auto_discover_and_sync()
+        discovery = await auto_discover_and_sync(force=True)
         deactivated = deactivate_stale_repos()
         return PipelineStatus(
             status="complete",
@@ -485,7 +485,7 @@ async def run_full_pipeline_sync():
             db_heal.close()
 
         _logger.info("run-all-sync: starting ingestion")
-        ingest_result = await run_daily_ingestion()
+        ingest_result = await run_daily_ingestion(force_discovery=True)
         _logger.info(f"run-all-sync: ingestion done → {ingest_result}")
 
         _logger.info("run-all-sync: starting scoring")

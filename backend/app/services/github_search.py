@@ -602,8 +602,8 @@ class AsyncRateLimiter:
                 wait_time = needed / (self.rate_limit / self.period)
                 await asyncio.sleep(wait_time)
 
-# Global rate limiter: max 8 Search API requests per 60 seconds (safe buffer under 10/min unauthenticated limit)
-_SEARCH_LIMITER = AsyncRateLimiter(8, 60.0)
+# Global rate limiter: max 25 Search API requests per 60 seconds if authenticated, else 8 (safe buffer under 10/min unauthenticated limit)
+_SEARCH_LIMITER = AsyncRateLimiter(25 if os.getenv("GITHUB_TOKEN") else 8, 60.0)
 
 
 async def _fetch_search(
