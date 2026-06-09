@@ -847,6 +847,22 @@ def run_daily_scoring() -> dict:
                 "daily_commit_delta": getattr(r, 'daily_commit_delta', 0) or 0,
             })
 
+        # Map latest DailyMetric object by repo_id
+        latest_dm_by_repo = {}
+        for r in all_daily_metrics:
+            latest_dm_by_repo[r.repo_id] = r
+
+        # Pre-load all active AlertRules
+        from app.models.alert_rule import AlertRule
+        active_rules = db.query(AlertRule).filter(AlertRule.is_active == True).all()
+        global_rules = []
+        rules_by_repo = defaultdict(list)
+        for rule in active_rules:
+            if rule.repo_id is None:
+                global_rules.append(rule)
+            else:
+                rules_by_repo[rule.repo_id].append(rule)
+
         # 3. Pre-load the latest ComputedMetric before today for all repos in 1 query
         max_prev_cm_subq = (
             db.query(
@@ -887,14 +903,15 @@ def run_daily_scoring() -> dict:
                     for k, v in {**trend_metrics, **sustain_metrics}.items():
                         setattr(existing, k, v)
                     existing.computed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                    cm_val = existing
                 else:
-                    cm = ComputedMetric(
+                    cm_val = ComputedMetric(
                         repo_id=repo.id,
                         date=today,
                         **trend_metrics,
                         **sustain_metrics,
                     )
-                    db.add(cm)
+                    db.add(cm_val)
 
                 # Alert detection: get from map
                 previous_metric = prev_cm_map.get(repo.id)
@@ -906,15 +923,48 @@ def run_daily_scoring() -> dict:
                 )
 
                 # Evaluate Real-time User Alert Rules
-                try:
-                    import asyncio
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
-                        loop.create_task(evaluate_alert_rules(repo.id, db))
-                    else:
-                        loop.run_until_complete(evaluate_alert_rules(repo.id, db))
-                except Exception as e:
-                    logger.warning(f"Failed to evaluate custom alert rules for {repo.id}: {e}")
+                repo_rules = global_rules + rules_by_repo.get(repo.id, [])
+                if repo_rules:
+                    try:
+                        from types import SimpleNamespace
+                        import asyncio
+                        
+                        # Prepare completely detached namespace arguments to prevent SQLAlchemy Session closed errors asynchronously
+                        repo_ns = SimpleNamespace(
+                            id=repo.id,
+                            owner=repo.owner,
+                            name=repo.name,
+                            github_url=repo.github_url
+                        )
+                        cm_ns = SimpleNamespace(
+                            trend_score=cm_val.trend_score,
+                            sustainability_score=cm_val.sustainability_score,
+                            star_velocity_7d=cm_val.star_velocity_7d,
+                            acceleration=cm_val.acceleration
+                        )
+                        
+                        dm_obj = latest_dm_by_repo.get(repo.id)
+                        dm_ns = SimpleNamespace(
+                            stars=dm_obj.stars if dm_obj else 0,
+                            daily_star_delta=dm_obj.daily_star_delta if dm_obj else 0
+                        ) if dm_obj else None
+                        
+                        rules_ns = [
+                            SimpleNamespace(
+                                id=rule.id,
+                                condition=rule.condition,
+                                webhook_url=rule.webhook_url
+                            )
+                            for rule in repo_rules
+                        ]
+                        
+                        loop = asyncio.get_event_loop()
+                        if loop.is_running():
+                            loop.create_task(evaluate_alert_rules(repo_ns, cm_ns, dm_ns, rules_ns))
+                        else:
+                            loop.run_until_complete(evaluate_alert_rules(repo_ns, cm_ns, dm_ns, rules_ns))
+                    except Exception as e:
+                        logger.warning(f"Failed to evaluate custom alert rules for {repo.id}: {e}")
 
                 scored += 1
 
