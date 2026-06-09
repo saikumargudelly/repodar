@@ -316,6 +316,22 @@ async def run_daily_ingestion(force_discovery: bool = False) -> dict:
     deactivated = deactivate_stale_repos()
 
     # ── Step 3: Delta-sync metrics for all active repos ───────────────────────
+    # Fetch active repos and since_map first in a short-lived DB session
+    db = SessionLocal()
+    try:
+        repos = db.query(Repository).filter(Repository.is_active == True).all()  # noqa: E712
+        since_map: dict[str, str] = {}
+        for r in repos:
+            if r.last_fetched_at:
+                since_map[r.id] = r.last_fetched_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+        all_pending = [{"id": r.id, "owner": r.owner, "name": r.name} for r in repos]
+    finally:
+        db.close()
+
+    # Fetch fresh data from GitHub for ALL active repos (long-running network IO, no DB connection held!)
+    metrics_list = await fetch_repo_metrics(all_pending, since_map=since_map)
+
+    # Re-open a fresh database session for calculation and persistence
     db = SessionLocal()
     try:
         repos = db.query(Repository).filter(Repository.is_active == True).all()  # noqa: E712
@@ -333,16 +349,6 @@ async def run_daily_ingestion(force_discovery: bool = False) -> dict:
                 DailyMetric.captured_at <  today_end,
             ).all()
         }
-
-        # Build incremental GitHub API cursors (since last fetch)
-        since_map: dict[str, str] = {}
-        for r in repos:
-            if r.last_fetched_at:
-                since_map[r.id] = r.last_fetched_at.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-        # Fetch fresh data from GitHub for ALL active repos
-        all_pending = [{"id": r.id, "owner": r.owner, "name": r.name} for r in repos]
-        metrics_list = await fetch_repo_metrics(all_pending, since_map=since_map)
 
         inserted = 0
         updated  = 0
