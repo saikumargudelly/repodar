@@ -1,6 +1,7 @@
 """
-Admin endpoints — development-only triggers for manual pipeline runs.
-These are not protected in v1 (no auth). Add API key middleware before exposing publicly.
+Admin endpoints — protected by X-Admin-Key header.
+Requires ADMIN_SECRET_KEY env var OR an enterprise-tier API key.
+Fail-secure: if ADMIN_SECRET_KEY is not configured, all admin routes return 503.
 """
 
 import asyncio
@@ -18,12 +19,19 @@ def require_admin_key(
     api_key: str = Security(admin_api_key_header),
     db: Session = Depends(get_db),
 ):
-    # 1. Check environment variable (primary check)
+    # Fail-secure: if ADMIN_SECRET_KEY is not configured, deny all access
     admin_secret = os.getenv("ADMIN_SECRET_KEY")
-    if admin_secret and api_key == admin_secret:
+    if not admin_secret:
+        raise HTTPException(
+            status_code=503,
+            detail="Admin endpoints are not available: ADMIN_SECRET_KEY is not configured on this server."
+        )
+
+    # 1. Check environment variable (primary check)
+    if api_key and api_key == admin_secret:
         return
 
-    # 2. Check enterprise API Key fallback (allows user-seeded keys)
+    # 2. Fallback: enterprise-tier API key
     if api_key:
         import hashlib
         from app.models.api_key import ApiKey
@@ -34,7 +42,7 @@ def require_admin_key(
 
     raise HTTPException(
         status_code=403,
-        detail="Invalid admin API key or insufficient privileges to run admin endpoints."
+        detail="Invalid admin API key or insufficient privileges."
     )
 
 router = APIRouter(prefix="/admin", tags=["Admin"], dependencies=[Depends(require_admin_key)])

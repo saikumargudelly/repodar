@@ -6,6 +6,9 @@ X-Clerk-User-Id header for now; swap for proper JWT middleware in production).
 
 from typing import List, Optional
 from datetime import datetime, timezone
+import ipaddress
+import socket
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
@@ -17,6 +20,41 @@ from app.models.watchlist import WatchlistItem
 from app.services.notification_service import send_watchlist_test_email
 
 router = APIRouter(prefix="/watchlist", tags=["Watchlist"])
+
+
+_PRIVATE_RANGES = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+]
+
+
+def _assert_safe_url(url: str | None) -> None:
+    """Raise 422 if the notify_webhook URL resolves to a private IP (SSRF prevention)."""
+    if not url:
+        return
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            raise HTTPException(status_code=422, detail="notify_webhook must use http or https")
+        hostname = parsed.hostname
+        if not hostname:
+            raise HTTPException(status_code=422, detail="notify_webhook has no valid hostname")
+        ip = ipaddress.ip_address(socket.gethostbyname(hostname))
+        for net in _PRIVATE_RANGES:
+            if ip in net:
+                raise HTTPException(
+                    status_code=422,
+                    detail="notify_webhook must not target a private or internal address"
+                )
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=422, detail="notify_webhook URL could not be resolved")
 
 
 def _utcnow():
@@ -128,6 +166,9 @@ def add_to_watchlist(
     """Pin a repo to the user's server-side watchlist."""
     from sqlalchemy import func
 
+    # SSRF guard: validate notify_webhook URL
+    _assert_safe_url(body.notify_webhook)
+
     # Validate repo exists
     repo = db.query(Repository).filter_by(id=body.repo_id).first()
     if not repo:
@@ -164,6 +205,9 @@ def update_watchlist_item(
     db: Session = Depends(get_db),
 ):
     """Update alert threshold or notification config for a watchlist item."""
+    # SSRF guard: validate updated notify_webhook URL
+    _assert_safe_url(body.notify_webhook)
+
     item = (
         db.query(WatchlistItem)
         .filter_by(id=item_id, user_id=user_id)

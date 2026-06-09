@@ -14,15 +14,49 @@ Email: stub (plug in any SMTP/SES/Resend adapter).
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
 import logging
+import socket
 from datetime import datetime, timezone
 from typing import Optional
+from urllib.parse import urlparse
 
 import aiohttp
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+
+# ─── SSRF guard — reused from a2a_ingestion pattern ——————————————————————
+
+_PRIVATE_RANGES = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),  # link-local / AWS metadata
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+]
+
+
+def _is_safe_webhook_url(url: str) -> bool:
+    """Return False if the URL resolves to a private/internal IP (SSRF prevention)."""
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return False
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+        ip = ipaddress.ip_address(socket.gethostbyname(hostname))
+        for net in _PRIVATE_RANGES:
+            if ip in net:
+                return False
+        return True
+    except Exception:
+        return False  # deny on any resolution failure
 
 
 # ─── Event schema ──────────────────────────────────────────────────────────────
@@ -96,6 +130,11 @@ def evaluate_condition(
 
 async def _deliver_webhook(url: str, event: AlertEvent, timeout: int = 8) -> bool:
     """POST event payload to webhook URL. Returns True on success."""
+    # SSRF guard: block delivery to private/internal addresses
+    if not _is_safe_webhook_url(url):
+        logger.warning(f"[alert_engine] Blocked SSRF webhook delivery to unsafe URL: {url}")
+        return False
+
     payload = event.model_dump()
     payload["repo"] = {
         "id":        event.repo_id,

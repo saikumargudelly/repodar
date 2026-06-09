@@ -5,7 +5,10 @@ CRUD for user alert rules.
 Delivery mechanism itself is inside alert_engine.py.
 """
 
+import ipaddress
 import logging
+import socket
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
@@ -17,6 +20,41 @@ from app.models.alert_rule import AlertRule
 
 router = APIRouter(prefix="/alerts", tags=["AlertRules"])
 logger = logging.getLogger(__name__)
+
+
+_PRIVATE_RANGES = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+]
+
+
+def _assert_safe_url(url: str | None) -> None:
+    """Raise 422 if the URL resolves to a private/internal address (SSRF prevention)."""
+    if not url:
+        return
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            raise HTTPException(status_code=422, detail="webhook_url must use http or https")
+        hostname = parsed.hostname
+        if not hostname:
+            raise HTTPException(status_code=422, detail="webhook_url has no valid hostname")
+        ip = ipaddress.ip_address(socket.gethostbyname(hostname))
+        for net in _PRIVATE_RANGES:
+            if ip in net:
+                raise HTTPException(
+                    status_code=422,
+                    detail="webhook_url must not target a private or internal address"
+                )
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=422, detail="webhook_url could not be resolved")
 
 
 class AlertRuleCreate(BaseModel):
@@ -61,6 +99,9 @@ def create_alert_rule(
     x_user_id: str = Header(..., alias="X-User-Id"),
     db: Session = Depends(get_db),
 ):
+    # SSRF guard: validate webhook URL before persisting
+    _assert_safe_url(body.webhook_url)
+
     import json
     rule = AlertRule(
         user_id=x_user_id,

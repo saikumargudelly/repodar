@@ -1,7 +1,9 @@
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from logging.handlers import RotatingFileHandler
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -230,15 +232,15 @@ def _schedule_pipeline():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Register a file log handler to capture logs to pipeline.log
+    # Register a rotating file log handler (max 10 MB × 3 backups)
     try:
-        file_handler = logging.FileHandler("./pipeline.log")
+        file_handler = RotatingFileHandler("./pipeline.log", maxBytes=10_000_000, backupCount=3)
         file_handler.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(name)s | %(message)s'))
         logging.getLogger().addHandler(file_handler)
         logging.getLogger("app.admin").addHandler(file_handler)
         logging.getLogger("app.services.ingestion").addHandler(file_handler)
         logging.getLogger("app.services.scoring").addHandler(file_handler)
-        logger.info("File logging handler registered to ./pipeline.log.")
+        logger.info("Rotating file logging handler registered to ./pipeline.log.")
     except Exception as e:
         logger.warning(f"Failed to register file logging handler: {e}")
 
@@ -284,16 +286,17 @@ async def lifespan(app: FastAPI):
 
 # ─── App ─────────────────────────────────────────────────────────────────────
 
+_is_dev = os.getenv("APP_ENV", "development") == "development"
+
 app = FastAPI(
     title="Repodar",
     description="Real-time GitHub AI/ML ecosystem radar — trending repos, star velocity, sustainability scores.",
     version="1.0.0",
     lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc",
+    # Disable interactive docs in production to prevent endpoint enumeration
+    docs_url="/docs" if _is_dev else None,
+    redoc_url="/redoc" if _is_dev else None,
 )
-
-import os
 
 # CORS — allow frontend dev server and production domain
 origins_env = os.getenv("ALLOWED_ORIGINS")
@@ -303,7 +306,7 @@ else:
     allowed_origins = [
         "http://localhost:3000",
         "https://repodar.vercel.app",
-        "https://repodar.up.railway.app",  
+        "https://repodar.up.railway.app",
         "https://repodar.io",
     ]
 
@@ -312,7 +315,15 @@ app.add_middleware(
     allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    # Explicit allowlist — never use ["*"] with allow_credentials=True
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+        "X-API-Key",
+        "X-Admin-Key",
+        "X-Clerk-User-Id",
+        "X-User-Id",
+    ],
 )
 
 from app.middleware import LoggingMiddleware

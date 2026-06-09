@@ -17,7 +17,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -26,6 +26,13 @@ from app.models import Repository, ComputedMetric, DailyMetric
 
 router = APIRouter(prefix="/export", tags=["Export"])
 logger = logging.getLogger(__name__)
+
+
+def _require_user(x_clerk_user_id: Optional[str] = Header(None)) -> str:
+    """Require a Clerk user ID header — prevents unauthenticated bulk exports."""
+    if not x_clerk_user_id:
+        raise HTTPException(status_code=401, detail="Authentication required. Pass X-Clerk-User-Id header.")
+    return x_clerk_user_id
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -61,6 +68,7 @@ def export_repos(
     min_stars: Optional[int] = Query(None, ge=0),
     active_only: bool = Query(True),
     db: Session = Depends(get_db),
+    _user: str = Depends(_require_user),   # ← auth guard
 ):
     """
     Export all tracked repositories with latest computed scores.
@@ -147,11 +155,12 @@ METRICS_CSV_HEADERS = [
 
 @router.get("/metrics/{owner}/{name}")
 def export_repo_metrics(
-    owner: str,
-    name: str,
+    owner: str = Path(..., pattern=r"^[A-Za-z0-9_.-]+$"),
+    name: str = Path(..., pattern=r"^[A-Za-z0-9_.-]+$"),
     format: str = Query("json", pattern=r"^(json|csv)$"),
     days: int = Query(90, ge=1, le=365),
     db: Session = Depends(get_db),
+    _user: str = Depends(_require_user),   # ← auth guard
 ):
     """
     Export daily metric history for a single repository.
