@@ -198,7 +198,7 @@ p, span, div, td, th, a, label, li {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 20px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -517,7 +517,7 @@ p, span, div, td, th, a, label, li {
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
+  gap: 10px;
 }
 .stat-grid > * { min-width: 0; }
 

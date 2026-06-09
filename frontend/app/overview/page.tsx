@@ -14,9 +14,9 @@ import {
   RadarRepo, AlertResponse,
 } from "@/lib/api";
 import { SustainBadge } from "@/components/Nav";
-import { CompactCategoryCards } from "@/components/charts/CompactCategoryCards";
-import { CompactPRChart } from "@/components/charts/CompactPRChart";
-import { CompactCategoryTrendScore } from "@/components/charts/CompactCategoryTrendScore";
+import { UltraCompactTrendScore } from "@/components/charts/UltraCompactTrendScore";
+import { UltraCompactCategoryCards } from "@/components/charts/UltraCompactCategoryCards";
+import { UltraCompactPRChart } from "@/components/charts/UltraCompactPRChart";
 
 const CATEGORY_COLORS: Record<string, string> = {
   "LLM Models": "#3b82f6",
@@ -741,7 +741,7 @@ export default function OverviewPage() {
   const verticalLabel = VERTICALS.find((v) => v.key === vertical)?.label ?? "AI / ML";
 
   return (
-    <div style={{ paddingTop: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
+    <div style={{ paddingTop: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
       {/* Floating compare bar */}
       {compareSelection.length >= 2 && (
         <div style={{
@@ -938,11 +938,11 @@ export default function OverviewPage() {
         />
       </div>
 
-      {/* Category Charts Row — Optimized Compact Layout */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "16px", marginBottom: "16px" }}>
-        <CompactCategoryTrendScore data={categoriesData ?? overview.category_growth} period={period} />
-        <CompactCategoryCards data={categoriesData ?? overview.category_growth} />
-        <CompactPRChart data={categoriesData ?? overview.category_growth} period={period} />
+      {/* Ultra-Compact Category Charts Grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "12px", marginBottom: "16px" }}>
+        <UltraCompactTrendScore data={categoriesData ?? overview.category_growth} />
+        <UltraCompactCategoryCards data={categoriesData ?? overview.category_growth} />
+        <UltraCompactPRChart data={categoriesData ?? overview.category_growth} period={period} />
       </div>
 
       {/* Ecosystem Map — trend vs sustainability per repo */}
