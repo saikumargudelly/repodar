@@ -101,18 +101,80 @@ function useWatchlist() {
 }
 
 function StatCard({ label, value, sub, index = 0 }: { label: string; value: string | number; sub?: string; index?: number }) {
+  const [isHovered, setIsHovered] = useState(false);
+  
+  const icons = ["📦", "🏆", "🚀", "✅"];
+  const colors = ["#58a6ff", "#d29922", "#f85149", "#3fb950"];
+  const color = colors[index];
+  const icon = icons[index];
+
   return (
-    <div className="kpi-card card-pad">
-      <div className="kpi-label">{label}</div>
-      <div className="kpi-value">{value}</div>
+    <div
+      className="kpi-card card-pad"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+        transform: isHovered ? "scale(1.02) translateY(-2px)" : "scale(1) translateY(0)",
+        borderColor: isHovered ? color : "var(--border)",
+        boxShadow: isHovered ? `0 8px 24px ${color}15` : "none",
+      }}
+    >
+      {/* Icon + Label */}
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+        <span style={{
+          fontSize: "18px",
+          transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          transform: isHovered ? "scale(1.2)" : "scale(1)",
+          display: "inline-block",
+        }}>
+          {icon}
+        </span>
+        <div className="kpi-label">{label}</div>
+      </div>
+
+      {/* Value */}
+      <div className="kpi-value" style={{
+        color: color,
+        transition: "all 0.2s ease",
+        opacity: isHovered ? 1 : 0.9,
+      }}>
+        {value}
+      </div>
+
+      {/* Sub text */}
       {sub && (
-        <div className="kpi-sub">
+        <div className="kpi-sub" style={{
+          transition: "color 0.2s ease",
+          color: isHovered ? "var(--text-secondary)" : "var(--text-muted)",
+        }}>
           {/^[+]/.test(String(sub))
             ? <><em>{String(sub).split(' ')[0]}</em>{' '}{String(sub).split(' ').slice(1).join(' ')}</>
             : sub}
         </div>
       )}
-      <div className="kpi-corner">{String(index + 1).padStart(2, '0')}</div>
+
+      {/* Accent bar */}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          bottom: 0,
+          height: "2px",
+          background: color,
+          transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          width: isHovered ? "100%" : "0%",
+          borderRadius: "0 0 8px 8px",
+        }}
+      />
+
+      {/* Corner number */}
+      <div className="kpi-corner" style={{
+        opacity: isHovered ? 0.12 : 0.05,
+        transition: "opacity 0.2s ease",
+      }}>
+        {String(index + 1).padStart(2, '0')}
+      </div>
     </div>
   );
 }

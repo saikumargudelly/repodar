@@ -118,69 +118,67 @@ p, span, div, td, th, a, label, li {
 
 /* ── KPI / Stat Cards ─────────────────────────────────────────── */
 .kpi-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 20px 22px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.01) 100%);
+  border: 1.2px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 16px 18px;
   position: relative;
   overflow: hidden;
-  transition: border-color 0.15s, background 0.15s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(8px);
 }
-.kpi-card:hover { background: var(--bg-elevated); border-color: #484f58; }
-.kpi-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  border-radius: 8px 8px 0 0;
+.kpi-card:hover {
+  background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%);
+  border-color: rgba(255, 255, 255, 0.15);
 }
-.kpi-card:nth-child(1)::before { background: var(--accent-blue); }
-.kpi-card:nth-child(2)::before { background: var(--accent-yellow); }
-.kpi-card:nth-child(3)::before { background: var(--accent-red); }
-.kpi-card:nth-child(4)::before { background: var(--accent-green); }
 
 .kpi-label {
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.05em;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-secondary);
-  margin-bottom: 10px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
   font-family: var(--font-sans);
+  transition: color 0.2s ease;
 }
 
 .kpi-value {
   font-family: var(--font-mono);
-  font-size: 30px;
+  font-size: 28px;
   font-weight: 700;
-  line-height: 1;
-  margin-bottom: 8px;
+  line-height: 1.1;
+  margin-bottom: 6px;
   word-break: break-word;
+  transition: all 0.2s ease;
 }
-.kpi-card:nth-child(1) .kpi-value { color: var(--accent-blue); }
-.kpi-card:nth-child(2) .kpi-value { color: var(--text-primary); }
-.kpi-card:nth-child(3) .kpi-value { color: var(--text-primary); font-size: 22px; margin-top: 6px; }
-.kpi-card:nth-child(4) .kpi-value { color: var(--accent-green); }
 
 .kpi-sub {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
   font-family: var(--font-sans);
+  opacity: 0.9;
+  transition: all 0.2s ease;
+  line-height: 1.3;
 }
-.kpi-sub em { color: var(--accent-blue); font-style: normal; font-size: 11px; }
+.kpi-sub em {
+  color: var(--accent-blue);
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 600;
+}
 
 .kpi-corner {
   position: absolute;
-  bottom: 12px; right: 14px;
-  font-size: 22px;
+  bottom: 10px;
+  right: 12px;
+  font-size: 20px;
   opacity: 0.05;
   font-family: var(--font-mono);
   font-weight: 700;
   user-select: none;
+  transition: opacity 0.2s ease;
 }
-
-/* Subtle fade on hover instead of glitch */
-.kpi-card:hover .kpi-value { opacity: 0.95; }
 
 /* ── Panels ─────────────────────────────────────────────────── */
 .panel {
@@ -380,7 +378,6 @@ p, span, div, td, th, a, label, li {
   flex-shrink: 0;
 }
 
-/* ── Fade up animation ──────────────────────────────────────── */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -412,6 +409,11 @@ p, span, div, td, th, a, label, li {
 @keyframes shimmer {
   0%   { background-position: -1000px 0; }
   100% { background-position: 1000px 0; }
+}
+
+@keyframes cardGlow {
+  0%, 100% { box-shadow: 0 0 0 rgba(88, 166, 255, 0); }
+  50%      { box-shadow: 0 0 12px rgba(88, 166, 255, 0.2); }
 }
 
 .animate-pulse      { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
@@ -548,9 +550,17 @@ p, span, div, td, th, a, label, li {
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
+  gap: 12px;
+  margin-bottom: 2px;
 }
-.stat-grid > * { min-width: 0; }
+.stat-grid > * {
+  min-width: 0;
+  animation: fadeUp 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.stat-grid > *:nth-child(1) { animation-delay: 0.05s; }
+.stat-grid > *:nth-child(2) { animation-delay: 0.1s; }
+.stat-grid > *:nth-child(3) { animation-delay: 0.15s; }
+.stat-grid > *:nth-child(4) { animation-delay: 0.2s; }
 
 /* 5-col stat grid (orgs page) */
 .stat-grid-5 {
