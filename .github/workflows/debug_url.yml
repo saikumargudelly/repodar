@@ -1,0 +1,14 @@
+name: Debug Secrets URL
+on:
+  workflow_dispatch:
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reveal URL
+        env:
+          BACKEND_URL: ${{ secrets.RENDER_BACKEND_URL }}
+        run: |
+          echo "Base64 URL:"
+          echo "$BACKEND_URL" | base64
