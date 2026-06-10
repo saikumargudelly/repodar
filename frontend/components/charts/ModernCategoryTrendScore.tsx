@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { CategoryMetrics, Period } from "@/lib/api";
 
 const PERIODS: { key: Period; label: string }[] = [
@@ -44,9 +45,11 @@ export function ModernCategoryTrendScore({
   data,
   period,
 }: ModernCategoryTrendScoreProps) {
+  const router = useRouter();
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"score" | "stars">("score");
   const [animated, setAnimated] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const periodLabel = PERIODS.find((p) => p.key === period)?.label ?? period;
 
@@ -60,6 +63,10 @@ export function ModernCategoryTrendScore({
   }, [data, sortBy]);
 
   const top12Categories = useMemo(() => chartData.slice(0, 12), [chartData]);
+
+  const displayedCategories = useMemo(() => {
+    return isExpanded ? top12Categories : top12Categories.slice(0, 6);
+  }, [top12Categories, isExpanded]);
 
   useEffect(() => {
     const t = setTimeout(() => setAnimated(true), 80);
@@ -141,7 +148,7 @@ export function ModernCategoryTrendScore({
       </div>
 
       <div style={{ padding: "16px 12px", flex: 1, display: "flex", flexDirection: "column", gap: "10px" }}>
-        {top12Categories.map((item, idx) => {
+        {displayedCategories.map((item, idx) => {
           const isHovered = hoveredCategory === item.category;
           const color = trendColor(item.trend_composite);
           const label = getTrendLabel(item.trend_composite);
@@ -295,6 +302,30 @@ export function ModernCategoryTrendScore({
             </div>
           );
         })}
+
+        {top12Categories.length > 6 && (
+          <div style={{ display: "flex", justifyContent: "center", marginTop: "6px" }}>
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "11px",
+                fontWeight: 600,
+                padding: "6px 16px",
+                borderRadius: "6px",
+                border: "1px solid var(--border)",
+                background: "rgba(255, 255, 255, 0.02)",
+                color: "var(--text-secondary)",
+                cursor: "pointer",
+                transition: "all 0.15s",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elevated)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.02)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+            >
+              {isExpanded ? "Show Less ▴" : "Show All ▾"}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Footer */}
@@ -309,34 +340,40 @@ export function ModernCategoryTrendScore({
           Hover any row for score breakdown · Updated 12 min ago
         </span>
         <div style={{ display: "flex", gap: "8px" }}>
-          <button style={{
-            fontSize: "11px",
-            fontWeight: 600,
-            padding: "5px 10px",
-            borderRadius: "6px",
-            border: "1px solid var(--border)",
-            background: "transparent",
-            color: "var(--text-secondary)",
-            cursor: "pointer",
-            transition: "all 0.15s",
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elevated)"; e.currentTarget.style.color = "var(--text-primary)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}>
+          <button 
+            onClick={() => router.push("/leaderboard")}
+            style={{
+              fontSize: "11px",
+              fontWeight: 600,
+              padding: "5px 10px",
+              borderRadius: "6px",
+              border: "1px solid var(--border)",
+              background: "transparent",
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elevated)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+          >
             Drill down ↗
           </button>
-          <button style={{
-            fontSize: "11px",
-            fontWeight: 600,
-            padding: "5px 10px",
-            borderRadius: "6px",
-            border: "1px solid var(--border)",
-            background: "transparent",
-            color: "var(--text-secondary)",
-            cursor: "pointer",
-            transition: "all 0.15s",
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elevated)"; e.currentTarget.style.color = "var(--text-primary)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}>
+          <button 
+            onClick={() => router.push("/radar")}
+            style={{
+              fontSize: "11px",
+              fontWeight: 600,
+              padding: "5px 10px",
+              borderRadius: "6px",
+              border: "1px solid var(--border)",
+              background: "transparent",
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elevated)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+          >
             Acceleration leaders ↗
           </button>
         </div>

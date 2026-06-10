@@ -550,14 +550,31 @@ function LeaderboardTable({
                   }}
                 >
                   {/* Compare checkbox */}
-                  <td style={{ padding: "10px 8px 10px 16px", width: "28px", verticalAlign: "top" }}>
-                    <input
-                      type="checkbox"
-                      checked={selected}
-                      onChange={() => onToggleCompare(slug)}
+                  <td style={{ padding: "12px 8px 10px 16px", width: "28px", verticalAlign: "top" }}>
+                    <div 
+                      onClick={() => onToggleCompare(slug)}
+                      style={{
+                        width: "14px",
+                        height: "14px",
+                        borderRadius: "3px",
+                        border: `1.5px solid ${selected ? "var(--text-primary)" : "var(--border)"}`,
+                        background: selected ? "var(--text-primary)" : "transparent",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                        userSelect: "none",
+                        marginTop: "2px",
+                      }}
                       title="Add to comparison"
-                      style={{ cursor: "pointer", accentColor: "var(--text-primary)" }}
-                    />
+                    >
+                      {selected && (
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="var(--bg-primary)" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                    </div>
                   </td>
                   
                   {/* Rank */}
@@ -695,33 +712,7 @@ function LeaderboardTable({
         </table>
       )}
 
-      {/* Footer scroll Chevron */}
-      <div style={{
-        padding: "10px",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        borderTop: "1px solid var(--border)",
-      }}>
-        <div style={{
-          width: "28px",
-          height: "28px",
-          borderRadius: "50%",
-          border: "1px solid var(--border)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "var(--text-muted)",
-          cursor: "pointer",
-          transition: "all 0.15s",
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--text-secondary)"; e.currentTarget.style.color = "var(--text-primary)"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-muted)"; }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </div>
-      </div>
+
 
       <style>{`
         @keyframes rowFadeIn {
