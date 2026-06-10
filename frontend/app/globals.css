@@ -20,13 +20,13 @@
   --text-muted:     #6e7681;
 
   /* Accent palette — calm, readable */
-  --accent-blue:   #58a6ff;
+  --accent-blue:   #ffffff;
   --accent-green:  #3fb950;
   --accent-yellow: #d29922;
   --accent-red:    #f85149;
 
   /* Aliases kept for backwards compatibility */
-  --cyan:  #58a6ff;
+  --cyan:  #ffffff;
   --amber: #d29922;
   --pink:  #f85149;
   --green: #3fb950;
@@ -224,7 +224,7 @@ p, span, div, td, th, a, label, li {
   transition: all 0.15s;
 }
 .btn-cyber-cyan  { border-color: var(--border); color: var(--accent-blue); }
-.btn-cyber-cyan:hover  { background: rgba(88,166,255,0.1); border-color: var(--accent-blue); }
+.btn-cyber-cyan:hover  { background: rgba(255,255,255,0.08); border-color: var(--accent-blue); }
 .btn-cyber-amber { border-color: var(--border); color: var(--accent-yellow); }
 .btn-cyber-amber:hover { background: rgba(210,153,34,0.1); border-color: var(--accent-yellow); }
 

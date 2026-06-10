@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth, useUser, SignOutButton } from "@clerk/nextjs";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 
 // Icons matching the design mockup and spec
 const OverviewIcon = (
@@ -145,6 +147,15 @@ export function Sidebar() {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
+  // Fetch unread alerts for dynamic radar badge
+  const { data: alertsData } = useQuery({
+    queryKey: ["sidebar-alerts"],
+    queryFn: () => api.getAlerts(true, 200),
+    enabled: authLoaded && !!userId,
+    refetchInterval: 30000,
+  });
+  const unreadCount = alertsData?.length ?? 0;
+
   // Extract user details
   const profileName = user?.firstName ?? user?.fullName ?? "Saikumar";
   const profileEmail = user?.primaryEmailAddress?.emailAddress ?? "";
@@ -277,13 +288,15 @@ export function Sidebar() {
               </div>
             )}
             
-            {section.items.map((item) => {
+             {section.items.map((item) => {
               const isActive = isNavActive(item.href);
+              const badgeText = item.href === "/radar" ? (unreadCount > 0 ? (unreadCount > 99 ? "99+" : String(unreadCount)) : null) : (item.badge?.text ?? null);
+              const badgeType = item.badge?.type ?? "dark";
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="sidebar-nav-link"
+                  className={`sidebar-nav-link ${isActive ? "active" : ""}`}
                   style={{
                     padding: collapsed && !isMobile ? "9px 0" : "9px 10px",
                     fontWeight: isActive ? 700 : 400,
@@ -299,18 +312,18 @@ export function Sidebar() {
                   {(!collapsed || isMobile) && (
                     <span className="sidebar-label" style={{ flex: 1, fontFamily: "var(--font-sans)", fontSize: "13px", letterSpacing: "0", marginLeft: "10px" }}>{item.label}</span>
                   )}
-                  {(!collapsed || isMobile) && item.badge && (
+                  {(!collapsed || isMobile) && badgeText && (
                     <span style={{
                       fontSize: "10px",
                       fontWeight: 600,
-                      padding: item.badge.text === "β" ? "1px 5px" : "2px 8px",
+                      padding: badgeText === "β" ? "1px 5px" : "2px 8px",
                       borderRadius: "10px",
                       lineHeight: 1,
                       marginRight: "4px",
                       display: "inline-flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      ...(item.badge.type === "peach" ? {
+                      ...(badgeType === "peach" ? {
                         background: "#ffebe9",
                         color: "#a51d24",
                       } : {
@@ -319,7 +332,7 @@ export function Sidebar() {
                         border: "1px solid var(--border)",
                       })
                     }}>
-                      {item.badge.text}
+                      {badgeText}
                     </span>
                   )}
                   {collapsed && !isMobile && (
@@ -562,8 +575,20 @@ export function Sidebar() {
           background: rgba(255,255,255,0.05) !important;
           color: var(--text-primary) !important;
         }
+        .sidebar-nav-link svg {
+          transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
         .sidebar-nav-link:hover svg {
           color: var(--text-primary) !important;
+          transform: scale(1.18) rotate(8deg);
+        }
+        .sidebar-nav-link.active svg {
+          animation: icon-bounce 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        @keyframes icon-bounce {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.2) translateY(-1px); }
+          100% { transform: scale(1) translateY(0); }
         }
         .sidebar-tooltip {
           display: none;
