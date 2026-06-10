@@ -62,11 +62,19 @@ HEADERS = {
 
 # ─── GraphQL batch query ────────────────────────────────────────────────────
 
-def _build_graphql_query(repos: list[dict]) -> str:
+def _build_graphql_query(repos: list[dict], since_map: dict[str, str]) -> str:
     """Build a single GraphQL query fetching all repos in one request."""
     fragments = []
     for i, r in enumerate(repos):
         alias = f"r{i}"
+        repo_id = r["id"]
+        since = since_map.get(repo_id)
+        
+        # Build history argument
+        history_args = ""
+        if since:
+            history_args = f'(since: "{since}")'
+            
         fragments.append(f"""
   {alias}: repository(owner: "{r['owner']}", name: "{r['name']}") {{
     stargazerCount
@@ -83,6 +91,14 @@ def _build_graphql_query(repos: list[dict]) -> str:
       nodes {{ topic {{ name }} }}
     }}
     createdAt
+    mergedPullRequests: pullRequests(states: MERGED) {{ totalCount }}
+    defaultBranchRef {{
+      target {{
+        ... on Commit {{
+          history{history_args} {{ totalCount }}
+        }}
+      }}
+    }}
   }}""")
     body = "\n".join(fragments)
     return f"query {{\n{body}\n}}"
@@ -260,7 +276,7 @@ async def fetch_repo_metrics(
         chunk_size = 25
         for chunk_start in range(0, len(repos), chunk_size):
             chunk = repos[chunk_start: chunk_start + chunk_size]
-            query = _build_graphql_query(chunk)
+            query = _build_graphql_query(chunk, since_map)
 
             graphql_data = {}
             try:
@@ -286,6 +302,12 @@ async def fetch_repo_metrics(
                 if gdata:
                     lang_edges = gdata.get("languages", {}).get("edges", [])
                     topic_nodes = gdata.get("repositoryTopics", {}).get("nodes", [])
+                    
+                    commit_count = 0
+                    default_branch = gdata.get("defaultBranchRef")
+                    if default_branch and default_branch.get("target"):
+                        commit_count = default_branch["target"].get("history", {}).get("totalCount", 0)
+
                     parsed = {
                         "repo_id": repo["id"],
                         "owner": repo["owner"],
@@ -300,6 +322,9 @@ async def fetch_repo_metrics(
                         "language_breakdown": _parse_language_breakdown(lang_edges),
                         "repo_created_at": gdata.get("createdAt", ""),
                         "topics": _parse_topics(topic_nodes),
+                        "merged_prs": gdata.get("mergedPullRequests", {}).get("totalCount", 0),
+                        "commit_count": commit_count,
+                        "commit_is_delta": repo["id"] in since_map,
                     }
                 else:
                     # REST fallback
@@ -329,26 +354,34 @@ async def fetch_repo_metrics(
                 async with sem:
                     return await _get_contributor_count(session, owner, name)
 
-            async def throttled_prs():
-                async with sem:
-                    return await _get_merged_pr_count(session, owner, name)
+            # Check if we successfully got merged_prs and commit_count via GraphQL
+            has_graphql_data = (repo_id in results) and ("merged_prs" in results[repo_id])
 
-            async def throttled_commits():
-                async with sem:
-                    return await _get_commit_count_since(session, owner, name, since=since)
-
-            # Fetch contributors, merged PRs, and commits concurrently for this specific repo
-            c_count, pr_count, commit_count = await asyncio.gather(
-                throttled_contrib(),
-                throttled_prs(),
-                throttled_commits()
-            )
-
-            if repo_id in results:
+            if has_graphql_data:
+                # Fast path: only fetch contributor count via REST (no Search/Commit API limits hit!)
+                c_count = await throttled_contrib()
                 results[repo_id]["contributors"] = c_count
-                results[repo_id]["merged_prs"] = pr_count
-                results[repo_id]["commit_count"] = commit_count
-                results[repo_id]["commit_is_delta"] = since is not None
+            else:
+                # Slow path (fallback): fetch everything via REST
+                async def throttled_prs():
+                    async with sem:
+                        return await _get_merged_pr_count(session, owner, name)
+
+                async def throttled_commits():
+                    async with sem:
+                        return await _get_commit_count_since(session, owner, name, since=since)
+
+                c_count, pr_count, commit_count = await asyncio.gather(
+                    throttled_contrib(),
+                    throttled_prs(),
+                    throttled_commits()
+                )
+
+                if repo_id in results:
+                    results[repo_id]["contributors"] = c_count
+                    results[repo_id]["merged_prs"] = pr_count
+                    results[repo_id]["commit_count"] = commit_count
+                    results[repo_id]["commit_is_delta"] = since is not None
 
         # Gather everything concurrently with rate-limit and timeout protection
         await asyncio.gather(*[
