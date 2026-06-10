@@ -18,9 +18,9 @@ def inspect():
         print(f"Total Repositories: {total}")
         print(f"Active Repositories: {active}")
         
-        # Check sustainability labels in Repository
-        labels = db.query(Repository.sustainability_label, func.count(Repository.id)).group_by(Repository.sustainability_label).all()
-        print("\nRepository Sustainability Labels:")
+        # Check sustainability labels in ComputedMetric
+        labels = db.query(ComputedMetric.sustainability_label, func.count(ComputedMetric.id)).group_by(ComputedMetric.sustainability_label).all()
+        print("\nComputedMetric Sustainability Labels:")
         for label, count in labels:
             print(f"  {label}: {count}")
             

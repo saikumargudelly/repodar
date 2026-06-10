@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { CategoryMetrics, Period } from "@/lib/api";
 
 const PERIODS: { key: Period; label: string }[] = [
@@ -13,38 +13,26 @@ const PERIODS: { key: Period; label: string }[] = [
   { key: "5y", label: "5Y" },
 ];
 
-const CATEGORY_COLORS: Record<string, string> = {
-  "LLM Models": "#3b82f6",
-  "Agent Frameworks": "#8b5cf6",
-  "Inference Engines": "#f59e0b",
-  "Vector Databases": "#10b981",
-  "Model Serving / Runtimes": "#06b6d4",
-  "Distributed Compute / Infra": "#f97316",
-  "Evaluation Frameworks": "#84cc16",
-  "Fine-tuning Toolkits": "#ec4899",
-  "AI / ML": "#3b82f6",
-  "DevTools": "#38bdf8",
-  "Web Frameworks": "#a78bfa",
-  "Web & Mobile": "#a78bfa",
-  "Security": "#f87171",
-  "Data Engineering": "#34d399",
-  "Data & Infra": "#34d399",
-  "Blockchain": "#fbbf24",
-  "OSS Tools": "#fb923c",
-  "Science & Research": "#84cc16",
-  "Creative & Gaming": "#ec4899",
-};
-
 function trendColor(score: number): string {
-  if (score >= 0.65) return "#22c55e";
-  if (score >= 0.4) return "#f59e0b";
-  return "#6b7280";
+  if (score >= 0.65) return "#84cc16"; // HIGH - Green
+  if (score >= 0.4) return "#f59e0b"; // MID - Orange/Amber
+  return "#6e7681"; // LOW - Grey
 }
 
 function getTrendLabel(score: number): string {
   if (score >= 0.65) return "HIGH";
   if (score >= 0.4) return "MID";
   return "LOW";
+}
+
+function formatNumber(num: number): string {
+  if (num >= 1000000) {
+    return `${(num / 1000000).toFixed(1).replace(/\.0$/, "")}M`;
+  }
+  if (num >= 1000) {
+    return `${(num / 1000).toFixed(1)}k`;
+  }
+  return String(num);
 }
 
 interface ModernCategoryTrendScoreProps {
@@ -57,395 +45,310 @@ export function ModernCategoryTrendScore({
   period,
 }: ModernCategoryTrendScoreProps) {
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
-  const [showMore, setShowMore] = useState(false);
-  const [hoveredTooltip, setHoveredTooltip] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<"score" | "stars">("score");
+  const [animated, setAnimated] = useState(false);
 
   const periodLabel = PERIODS.find((p) => p.key === period)?.label ?? period;
 
-  const chartData = useMemo(
-    () => [...data].sort((a, b) => b.trend_composite - a.trend_composite),
-    [data]
-  );
+  const chartData = useMemo(() => {
+    return [...data].sort((a, b) => {
+      if (sortBy === "stars") {
+        return b.period_star_gain - a.period_star_gain;
+      }
+      return b.trend_composite - a.trend_composite;
+    });
+  }, [data, sortBy]);
 
-  const topCategories = useMemo(() => chartData.slice(0, 6), [chartData]);
-  const restCategories = useMemo(() => chartData.slice(6), [chartData]);
-  const displayCategories = showMore ? chartData : topCategories;
+  const top12Categories = useMemo(() => chartData.slice(0, 12), [chartData]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setAnimated(true), 80);
+    return () => clearTimeout(t);
+  }, []);
 
   return (
-    <div className="panel">
-      <div className="panel-header">
-        <div style={{ minWidth: 0 }}>
-          <div className="panel-title">Category Trend Score ({periodLabel})</div>
-          <div
-            style={{
-              fontFamily: "var(--font-sans)",
+    <div className="panel" style={{ display: "flex", flexDirection: "column" }}>
+      <div className="panel-header" style={{ borderBottom: "1px solid var(--border)", padding: "14px 16px" }}>
+        <div style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "flex-start", gap: "16px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <span style={{ fontSize: "16px", fontWeight: 700, color: "var(--text-primary)" }}>
+              Category trend score · {periodLabel}
+            </span>
+            <div style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "x 10px",
               fontSize: "11px",
               color: "var(--text-muted)",
-              marginTop: "3px",
-            }}
-          >
-            Stars 40% · Acceleration 20% · Contributors 20% · Releases 10% · Issues 10%
+              rowGap: "4px",
+              columnGap: "10px",
+            }}>
+              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#84cc16" }} />Stars 40%</span>
+              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#818cf8" }} />Acceleration 20%</span>
+              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#06b6d4" }} />Contributors 20%</span>
+              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#f59e0b" }} />Releases 10%</span>
+              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#f87171" }} />Issues 10%</span>
+            </div>
           </div>
-        </div>
-        <div
-          style={{
-            display: "flex",
-            gap: "12px",
-            fontSize: "11px",
-            color: "var(--text-muted)",
-            flexShrink: 0,
-            fontFamily: "var(--font-sans)",
-          }}
-        >
-          {[
-            ["#22c55e", "HIGH"],
-            ["#f59e0b", "MID"],
-            ["#6b7280", "LOW"],
-          ].map(([c, l]) => (
-            <span
-              key={l}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                opacity: 0.8,
-              }}
-            >
-              <span
+
+          <div style={{ display: "flex", alignItems: "center", gap: "14px", flexShrink: 0 }}>
+            {/* Legend */}
+            <div style={{ display: "flex", gap: "10px", fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: "5px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#84cc16" }} />High</span>
+              <span style={{ display: "flex", alignItems: "center", gap: "5px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#f59e0b" }} />Mid</span>
+              <span style={{ display: "flex", alignItems: "center", gap: "5px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#6e7681" }} />Low</span>
+            </div>
+
+            {/* Toggle Sort Buttons */}
+            <div style={{ display: "flex", background: "var(--bg-elevated)", border: "1px solid var(--border)", padding: "2px", borderRadius: "6px" }}>
+              <button
+                onClick={() => setSortBy("score")}
                 style={{
-                  width: "8px",
-                  height: "8px",
-                  background: c,
-                  display: "inline-block",
-                  borderRadius: "50%",
+                  fontFamily: "var(--font-sans)",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  padding: "4px 10px",
+                  borderRadius: "4px",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                  background: sortBy === "score" ? "rgba(255,255,255,0.08)" : "transparent",
+                  color: sortBy === "score" ? "var(--text-primary)" : "var(--text-muted)",
                 }}
-              />
-              {l}
-            </span>
-          ))}
+              >
+                Score
+              </button>
+              <button
+                onClick={() => setSortBy("stars")}
+                style={{
+                  fontFamily: "var(--font-sans)",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  padding: "4px 10px",
+                  borderRadius: "4px",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                  background: sortBy === "stars" ? "rgba(255,255,255,0.08)" : "transparent",
+                  color: sortBy === "stars" ? "var(--text-primary)" : "var(--text-muted)",
+                }}
+              >
+                Stars ⬆
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div style={{ padding: "20px 24px" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          {displayCategories.map((item, idx) => {
-            const isHovered = hoveredCategory === item.category;
-            const color = trendColor(item.trend_composite);
-            const label = getTrendLabel(item.trend_composite);
-            const percentage = item.trend_composite * 100;
-            const categoryColor = CATEGORY_COLORS[item.category] ?? "#6b7280";
+      <div style={{ padding: "16px 12px", flex: 1, display: "flex", flexDirection: "column", gap: "10px" }}>
+        {top12Categories.map((item, idx) => {
+          const isHovered = hoveredCategory === item.category;
+          const color = trendColor(item.trend_composite);
+          const label = getTrendLabel(item.trend_composite);
+          const percentage = item.trend_composite * 100;
 
-            return (
-              <div
-                key={item.category}
-                onMouseEnter={() => setHoveredCategory(item.category)}
-                onMouseLeave={() => setHoveredCategory(null)}
-                style={{
+          return (
+            <div
+              key={item.category}
+              className="trend-row"
+              onMouseEnter={() => setHoveredCategory(item.category)}
+              onMouseLeave={() => setHoveredCategory(null)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                padding: "8px",
+                borderRadius: "8px",
+                opacity: hoveredCategory === null || isHovered ? 1 : 0.4,
+              }}
+            >
+              {/* Rank */}
+              <span style={{
+                width: "18px",
+                fontSize: "12px",
+                fontWeight: 600,
+                color: "var(--text-muted)",
+                marginRight: "8px",
+                textAlign: "right",
+                fontFamily: "var(--font-mono)",
+              }}>
+                {idx + 1}
+              </span>
+
+              {/* Title & Repos Count */}
+              <div style={{ width: "130px", display: "flex", flexDirection: "column", marginRight: "12px", flexShrink: 0 }}>
+                <span style={{
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  color: "var(--text-primary)",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }} title={item.category}>
+                  {item.category}
+                </span>
+                <span style={{
+                  fontSize: "10px",
+                  color: "var(--text-muted)",
+                  fontFamily: "var(--font-mono)",
+                  marginTop: "1px",
+                }}>
+                  {item.repo_count}r
+                </span>
+              </div>
+
+              {/* Thick Pill Progress Bar */}
+              <div style={{ flex: 1, minWidth: 0, marginRight: "16px" }}>
+                <div style={{
+                  position: "relative",
+                  height: "18px",
+                  background: "rgba(255, 255, 255, 0.03)",
+                  borderRadius: "9px",
+                  overflow: "hidden",
                   display: "flex",
                   alignItems: "center",
-                  gap: "10px",
-                  cursor: "pointer",
-                  transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-                  opacity: hoveredCategory === null || isHovered ? 1 : 0.4,
-                  transform: isHovered ? "translateX(2px)" : "translateX(0)",
-                  paddingLeft: isHovered ? "2px" : "0",
-                }}
-              >
-                {/* Category info and trend badge */}
-                <div style={{ width: "130px", flexShrink: 0 }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      marginBottom: "2px",
-                      transition: "transform 0.2s ease",
-                      transform: isHovered ? "scale(1.02)" : "scale(1)",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: "16px",
-                        height: "16px",
-                        borderRadius: "2px",
-                        background: `${categoryColor}30`,
-                        border: `1.2px solid ${categoryColor}50`,
-                        flexShrink: 0,
-                        transition: "all 0.2s ease",
-                        boxShadow: isHovered ? `0 0 8px ${categoryColor}40` : "none",
-                      }}
-                    />
-                    <span
-                      style={{
-                        fontSize: "11px",
-                        fontWeight: 600,
-                        color: "var(--text-primary)",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        letterSpacing: "0.02em",
-                      }}
-                    >
-                      {item.category}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "9px",
-                      color: "var(--text-muted)",
-                      fontFamily: "var(--font-mono)",
-                      opacity: 0.7,
-                      transition: "opacity 0.2s ease",
-                    }}
-                  >
-                    {item.repo_count}r
-                  </div>
+                  border: "1px solid rgba(255, 255, 255, 0.04)",
+                }}>
+                  <div style={{
+                    height: "100%",
+                    background: color,
+                    width: animated ? `${percentage}%` : "0%",
+                    transition: "width 1.2s cubic-bezier(0.25, 1, 0.5, 1)",
+                    borderRadius: "9px",
+                  }} />
+
+                  {/* Percentage overlay text inside the bar */}
+                  <span style={{
+                    position: "absolute",
+                    left: "10px",
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    color: "#ffffff",
+                    fontFamily: "var(--font-mono)",
+                    textShadow: "0 1px 3px rgba(0,0,0,0.5)",
+                    pointerEvents: "none",
+                  }}>
+                    {percentage.toFixed(0)}%
+                  </span>
                 </div>
-
-                {/* Progress visualization */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  {/* Background track */}
-                  <div
-                    style={{
-                      position: "relative",
-                      height: "28px",
-                      display: "flex",
-                      alignItems: "center",
-                      borderRadius: "6px",
-                      background: "rgba(255, 255, 255, 0.03)",
-                      border: `1px solid ${isHovered ? `${color}20` : "rgba(255, 255, 255, 0.05)"}`,
-                      overflow: "hidden",
-                      transition: "all 0.2s ease",
-                      boxShadow: isHovered ? `inset 0 0 8px ${color}10` : "none",
-                    }}
-                  >
-                    {/* Animated gradient fill */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        width: `${percentage}%`,
-                        background: `linear-gradient(90deg, ${color}30 0%, ${color}60 100%)`,
-                        transition: isHovered
-                          ? "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
-                          : "width 0.5s ease-out",
-                        borderRadius: "6px",
-                        boxShadow: isHovered ? `0 0 12px ${color}40` : "none",
-                      }}
-                    />
-
-                    {/* Border highlight on hover */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        width: `${percentage}%`,
-                        borderRight: `2px solid ${color}80`,
-                        borderRadius: "6px",
-                        opacity: isHovered ? 1 : 0,
-                        transition: "opacity 0.25s ease",
-                      }}
-                    />
-
-                    {/* Percentage text inside bar */}
-                    {percentage > 12 && (
-                      <div
-                        style={{
-                          position: "relative",
-                          paddingLeft: "8px",
-                          fontSize: "11px",
-                          fontWeight: 700,
-                          color: percentage > 45 ? "rgba(255,255,255,0.9)" : color,
-                          fontFamily: "var(--font-mono)",
-                          zIndex: 2,
-                          textShadow: percentage <= 45 ? `0 0 6px ${color}30` : "none",
-                          transition: "all 0.2s ease",
-                        }}
-                      >
-                        {percentage.toFixed(0)}%
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Metrics column */}
-                <div
-                  style={{
-                    width: "100px",
-                    flexShrink: 0,
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "flex-end",
-                    gap: "2px",
-                  }}
-                >
-                  {/* Trend badge - animated */}
-                  <div
-                    onMouseEnter={() => setHoveredTooltip(item.category)}
-                    onMouseLeave={() => setHoveredTooltip(null)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "3px",
-                      padding: "3px 7px",
-                      background: `${color}12`,
-                      border: `1.2px solid ${isHovered ? `${color}60` : `${color}30`}`,
-                      borderRadius: "3px",
-                      fontSize: "9px",
-                      fontWeight: 700,
-                      color: color,
-                      fontFamily: "var(--font-mono)",
-                      letterSpacing: "0.06em",
-                      cursor: "help",
-                      transition: "all 0.2s ease",
-                      transform: isHovered ? "scale(1.05)" : "scale(1)",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: "5px",
-                        height: "5px",
-                        borderRadius: "50%",
-                        background: color,
-                        display: "inline-block",
-                        animation: isHovered ? "pulse 1.5s ease-in-out infinite" : "none",
-                      }}
-                    />
-                    {label}
-                  </div>
-
-                  {/* Stars gained - interactive */}
-                  <div style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", opacity: 0.8, transition: "all 0.2s ease", transform: isHovered ? "translateY(-1px)" : "translateY(0)" }}>
-                    <span style={{ color: "#22c55e", fontWeight: 600 }}>
-                      +{item.period_star_gain > 999 ? `${(item.period_star_gain / 1000).toFixed(1)}k` : item.period_star_gain}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Hover tooltip */}
-                {isHovered && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      right: "150px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      background: "var(--bg-elevated)",
-                      border: `1px solid ${color}40`,
-                      borderRadius: "6px",
-                      padding: "10px 12px",
-                      fontSize: "11px",
-                      fontFamily: "var(--font-mono)",
-                      whiteSpace: "nowrap",
-                      zIndex: 10,
-                      boxShadow: "0 4px 16px rgba(0, 0, 0, 0.4)",
-                      animation: "slideLeftIn 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-                      pointerEvents: "none",
-                    }}
-                  >
-                    <div
-                      style={{
-                        color: color,
-                        fontWeight: 700,
-                        marginBottom: "4px",
-                      }}
-                    >
-                      Trend: {percentage.toFixed(1)}
-                    </div>
-                    <div style={{ color: "var(--text-muted)", fontSize: "10px" }}>
-                      Contributors: {item.total_contributors.toLocaleString()}
-                    </div>
-                  </div>
-                )}
               </div>
-            );
-          })}
 
-          {/* Show more button */}
-          {restCategories.length > 0 && !showMore && (
-            <button
-              onClick={() => setShowMore(true)}
-              style={{
-                alignSelf: "center",
-                marginTop: "6px",
-                padding: "7px 14px",
-                background: "rgba(255, 255, 255, 0.06)",
-                border: "1px solid rgba(255, 255, 255, 0.12)",
-                borderRadius: "5px",
-                color: "var(--text-muted)",
-                fontSize: "11px",
-                cursor: "pointer",
-                fontFamily: "var(--font-sans)",
-                fontWeight: 500,
-                letterSpacing: "0.02em",
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
-                e.currentTarget.style.color = "var(--text-primary)";
-                e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.2)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)";
-                e.currentTarget.style.color = "var(--text-muted)";
-                e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.12)";
-              }}
-            >
-              +{restCategories.length} more
-            </button>
-          )}
+              {/* Score Number Value */}
+              <span style={{
+                width: "28px",
+                fontSize: "13px",
+                fontWeight: 700,
+                color: color,
+                textAlign: "right",
+                fontFamily: "var(--font-mono)",
+                marginRight: "16px",
+                flexShrink: 0,
+              }}>
+                {percentage.toFixed(0)}
+              </span>
 
-          {/* Show less button */}
-          {showMore && (
-            <button
-              onClick={() => setShowMore(false)}
-              style={{
-                alignSelf: "center",
-                marginTop: "6px",
-                padding: "7px 14px",
-                background: "rgba(255, 255, 255, 0.06)",
-                border: "1px solid rgba(255, 255, 255, 0.12)",
-                borderRadius: "5px",
-                color: "var(--text-muted)",
-                fontSize: "11px",
-                cursor: "pointer",
-                fontFamily: "var(--font-sans)",
-                fontWeight: 500,
-                letterSpacing: "0.02em",
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
-                e.currentTarget.style.color = "var(--text-primary)";
-                e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.2)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)";
-                e.currentTarget.style.color = "var(--text-muted)";
-                e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.12)";
-              }}
-            >
-              Show less
-            </button>
-          )}
+              {/* Star Velocity Gained */}
+              <span style={{
+                width: "65px",
+                fontSize: "13px",
+                fontWeight: 600,
+                color: "#22c55e",
+                textAlign: "right",
+                fontFamily: "var(--font-mono)",
+                marginRight: "16px",
+                flexShrink: 0,
+              }}>
+                +{formatNumber(item.period_star_gain)}
+              </span>
+
+              {/* Status Badge Pill */}
+              <div style={{
+                width: "56px",
+                display: "flex",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}>
+                <span style={{
+                  fontSize: "9px",
+                  fontWeight: 700,
+                  padding: "3px 8px",
+                  borderRadius: "20px",
+                  lineHeight: 1,
+                  fontFamily: "var(--font-sans)",
+                  letterSpacing: "0.03em",
+                  ...(label === "HIGH" ? {
+                    background: "rgba(132, 204, 22, 0.12)",
+                    color: "#84cc16",
+                    border: "1px solid rgba(132, 204, 22, 0.2)",
+                  } : label === "MID" ? {
+                    background: "rgba(245, 158, 11, 0.12)",
+                    color: "#f59e0b",
+                    border: "1px solid rgba(245, 158, 11, 0.2)",
+                  } : {
+                    background: "rgba(255, 255, 255, 0.04)",
+                    color: "var(--text-muted)",
+                    border: "1px solid rgba(255, 255, 255, 0.08)",
+                  })
+                }}>
+                  {label}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer */}
+      <div style={{
+        borderTop: "1px solid var(--border)",
+        padding: "12px 16px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+      }}>
+        <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>
+          Hover any row for score breakdown · Updated 12 min ago
+        </span>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button style={{
+            fontSize: "11px",
+            fontWeight: 600,
+            padding: "5px 10px",
+            borderRadius: "6px",
+            border: "1px solid var(--border)",
+            background: "transparent",
+            color: "var(--text-secondary)",
+            cursor: "pointer",
+            transition: "all 0.15s",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elevated)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}>
+            Drill down ↗
+          </button>
+          <button style={{
+            fontSize: "11px",
+            fontWeight: 600,
+            padding: "5px 10px",
+            borderRadius: "6px",
+            border: "1px solid var(--border)",
+            background: "transparent",
+            color: "var(--text-secondary)",
+            cursor: "pointer",
+            transition: "all 0.15s",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elevated)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}>
+            Acceleration leaders ↗
+          </button>
         </div>
       </div>
 
       <style>{`
-        @keyframes slideLeftIn {
-          from {
-            opacity: 0;
-            transform: translateY(-50%) translateX(8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(-50%) translateX(0);
-          }
+        .trend-row {
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .trend-row:hover {
+          background: rgba(255, 255, 255, 0.03);
+          transform: translateX(4px);
         }
       `}</style>
     </div>

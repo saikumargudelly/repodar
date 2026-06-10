@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
@@ -282,33 +282,248 @@ function LeaderboardTable({
   onTogglePin: (entry: LeaderboardEntry) => void;
 }) {
   const router = useRouter();
+  const [filterQuery, setFilterQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [sortBy, setSortBy] = useState<"stars" | "forks" | "issues" | "age">("stars");
+
   const periodLabel = PERIODS.find((p) => p.key === period)?.label ?? period;
 
+  // Local helper to format large numbers
+  const formatNum = (num: number): string => {
+    if (num >= 1000000) {
+      return `${(num / 1000000).toFixed(1).replace(/\.0$/, "")}M`;
+    }
+    if (num >= 1000) {
+      return `${(num / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+    }
+    return String(num);
+  };
+
+  // Local helper to format stars change
+  const formatStarsChange = (num: number | string | null | undefined): string => {
+    if (num === null || num === undefined) return "";
+    const parsed = typeof num === "string" ? parseFloat(num) : num;
+    if (isNaN(parsed)) return String(num);
+    return `+${formatNum(parsed)}`;
+  };
+
+  // Local helper to style language badges
+  const getLangBadgeStyle = (lang: string) => {
+    const l = lang.toLowerCase();
+    if (l === "typescript" || l === "javascript") {
+      return { background: "rgba(59, 130, 246, 0.12)", color: "#3b82f6", border: "1px solid rgba(59, 130, 246, 0.2)" };
+    }
+    if (l === "rust") {
+      return { background: "rgba(249, 115, 22, 0.12)", color: "#f97316", border: "1px solid rgba(249, 115, 22, 0.2)" };
+    }
+    if (l === "go" || l === "golang") {
+      return { background: "rgba(6, 182, 212, 0.12)", color: "#06b6d4", border: "1px solid rgba(6, 182, 212, 0.2)" };
+    }
+    if (l === "python") {
+      return { background: "rgba(59, 130, 246, 0.12)", color: "#3b82f6", border: "1px solid rgba(59, 130, 246, 0.2)" };
+    }
+    return { background: "rgba(255, 255, 255, 0.04)", color: "var(--text-secondary)", border: "1px solid rgba(255, 255, 255, 0.08)" };
+  };
+
+  // Compute category list dynamically from entries
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    entries.forEach((e) => {
+      if (e.category) set.add(e.category);
+    });
+    return ["All", ...Array.from(set).slice(0, 3)];
+  }, [entries]);
+
+  // Filter and Sort logic
+  const processedEntries = useMemo(() => {
+    let result = [...entries];
+
+    // Search Query Filter
+    if (filterQuery.trim()) {
+      const q = filterQuery.toLowerCase();
+      result = result.filter(
+        (e) =>
+          e.name.toLowerCase().includes(q) ||
+          e.owner.toLowerCase().includes(q) ||
+          (e.description && e.description.toLowerCase().includes(q))
+      );
+    }
+
+    // Category Filter
+    if (selectedCategory !== "All") {
+      result = result.filter((e) => e.category === selectedCategory);
+    }
+
+    // Sorting
+    result.sort((a, b) => {
+      if (sortBy === "forks") {
+        return b.current_forks - a.current_forks;
+      }
+      if (sortBy === "issues") {
+        return (b.open_issues ?? 0) - (a.open_issues ?? 0);
+      }
+      if (sortBy === "age") {
+        return b.age_days - a.age_days;
+      }
+      return b.current_stars - a.current_stars;
+    });
+
+    return result;
+  }, [entries, filterQuery, selectedCategory, sortBy]);
+
   return (
-    <div className="panel">
-      <div className="panel-header">
-        <div className="panel-title">Top Repos — {periodLabel}</div>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--cyan)", border: "1px solid rgba(0,229,255,0.2)", padding: "2px 8px", letterSpacing: "0.1em" }}>
-          LIVE · GITHUB SEARCH API
-        </span>
+    <div className="panel" style={{ display: "flex", flexDirection: "column" }}>
+      <div className="panel-header" style={{ borderBottom: "1px solid var(--border)", padding: "14px 16px" }}>
+        <div style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: "16px", fontWeight: 700, color: "var(--text-primary)" }}>
+            Top repos · {periodLabel}
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "5px",
+              fontSize: "10px",
+              fontWeight: 700,
+              padding: "3px 8px",
+              borderRadius: "20px",
+              background: "rgba(34, 197, 94, 0.12)",
+              color: "#22c55e",
+              border: "1px solid rgba(34, 197, 94, 0.2)",
+              lineHeight: 1,
+            }}>
+              <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
+              Live
+            </span>
+            <button style={{
+              fontSize: "11px",
+              fontWeight: 600,
+              padding: "4px 8px",
+              borderRadius: "6px",
+              border: "1px solid var(--border)",
+              background: "transparent",
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+            }}>
+              GitHub Search API
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter and Sort Row */}
+      <div style={{
+        padding: "12px 16px",
+        borderBottom: "1px solid var(--border)",
+        background: "rgba(255, 255, 255, 0.01)",
+        display: "flex",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: "12px",
+      }}>
+        {/* Search */}
+        <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+          <span style={{ position: "absolute", left: "10px", color: "var(--text-muted)", display: "flex", alignItems: "center", pointerEvents: "none" }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </span>
+          <input
+            type="text"
+            placeholder="Filter"
+            value={filterQuery}
+            onChange={(e) => setFilterQuery(e.target.value)}
+            style={{
+              padding: "5px 10px 5px 28px",
+              background: "var(--bg-elevated)",
+              border: "1px solid var(--border)",
+              borderRadius: "6px",
+              fontSize: "12px",
+              color: "var(--text-primary)",
+              outline: "none",
+              width: "120px",
+              transition: "width 0.2s ease, border-color 0.2s ease",
+            }}
+            onFocus={(e) => { e.currentTarget.style.width = "180px"; e.currentTarget.style.borderColor = "var(--text-muted)"; }}
+            onBlur={(e) => { if (!filterQuery) { e.currentTarget.style.width = "120px"; } e.currentTarget.style.borderColor = "var(--border)"; }}
+          />
+        </div>
+
+        {/* Category Pills */}
+        <div style={{ display: "flex", gap: "6px" }}>
+          {categories.map((cat: string) => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "11px",
+                fontWeight: 600,
+                padding: "4px 12px",
+                borderRadius: "16px",
+                cursor: "pointer",
+                transition: "all 0.15s",
+                border: "1px solid var(--border)",
+                background: selectedCategory === cat ? "#ffffff" : "transparent",
+                color: selectedCategory === cat ? "var(--bg-primary)" : "var(--text-secondary)",
+              }}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {/* Sort Buttons */}
+        <div style={{ display: "flex", gap: "6px", marginLeft: "auto" }}>
+          {[
+            { key: "stars", label: "Stars", icon: "⭐" },
+            { key: "forks", label: "Forks", icon: "🍴" },
+            { key: "issues", label: "Issues", icon: "☉" },
+            { key: "age", label: "Age", icon: "🕒" },
+          ].map((s) => (
+            <button
+              key={s.key}
+              onClick={() => setSortBy(s.key as any)}
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "11px",
+                fontWeight: 600,
+                padding: "4px 10px",
+                borderRadius: "6px",
+                cursor: "pointer",
+                transition: "all 0.15s",
+                border: "1px solid var(--border)",
+                background: sortBy === s.key ? "#ffffff" : "transparent",
+                color: sortBy === s.key ? "var(--bg-primary)" : "var(--text-secondary)",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+              }}
+            >
+              <span style={{ fontSize: "10px" }}>{s.icon}</span>
+              {s.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {isLoading ? (
         <div style={{ padding: "32px", textAlign: "center", fontFamily: "var(--font-sans)", color: "var(--text-muted)", fontSize: "13px" }}>
           Searching GitHub…
         </div>
-      ) : entries.length === 0 ? (
+      ) : processedEntries.length === 0 ? (
         <div style={{ padding: "32px", textAlign: "center", fontFamily: "var(--font-sans)", color: "var(--text-muted)", fontSize: "13px" }}>
-          No jutsu detected in this period. Try a longer window.
+          No repositories found matching filters.
         </div>
       ) : (
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", fontFamily: "var(--font-sans)" }}>
           <thead>
             <tr style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
-              {["", "#", "Repo / Description", "Category", "Stars / Gained", "Forks", "Open Issues", "Age", ""].map((h, i) => (
+              {["", "#", "Repo", "Category", "Stars", "Forks", "Issues", "Age", ""].map((h, i) => (
                 <th key={i} style={{
                   padding: "9px 12px",
-                  textAlign: ["#", "Stars / Gained", "Forks", "Open Issues", "Age"].includes(h) ? "right" : "left",
+                  textAlign: ["#", "Stars", "Forks", "Issues", "Age"].includes(h) ? "right" : "left",
                   fontWeight: 600, fontSize: "11px", letterSpacing: "0.03em", whiteSpace: "nowrap", textTransform: "uppercase",
                 }}>
                   {h}
@@ -317,14 +532,22 @@ function LeaderboardTable({
             </tr>
           </thead>
           <tbody>
-            {entries.map((repo) => {
+            {processedEntries.map((repo: LeaderboardEntry, idx: number) => {
               const slug = `${repo.owner}/${repo.name}`;
               const selected = compareSelection.includes(slug);
               const pinned = isPinned(repo.repo_id);
+              const years = Math.max(1, Math.round(repo.age_days / 365));
+              const agePercentage = Math.min((repo.age_days / (365 * 12)) * 100, 100);
+              const categoryColor = CATEGORY_COLORS[repo.category] ?? "#6b7280";
+
               return (
                 <tr
                   key={repo.repo_id}
-                  style={{ borderBottom: "1px solid var(--border)", background: selected ? "rgba(124,58,237,0.06)" : "transparent" }}
+                  className="repo-row"
+                  style={{
+                    borderBottom: "1px solid var(--border)",
+                    background: selected ? "rgba(255, 255, 255, 0.02)" : "transparent",
+                  }}
                 >
                   {/* Compare checkbox */}
                   <td style={{ padding: "10px 8px 10px 16px", width: "28px", verticalAlign: "top" }}>
@@ -333,26 +556,38 @@ function LeaderboardTable({
                       checked={selected}
                       onChange={() => onToggleCompare(slug)}
                       title="Add to comparison"
-                      style={{ cursor: "pointer", accentColor: "#7c3aed" }}
+                      style={{ cursor: "pointer", accentColor: "var(--text-primary)" }}
                     />
                   </td>
+                  
+                  {/* Rank */}
                   <td
-                    style={{ padding: "12px 12px", textAlign: "right", color: "var(--text-muted)", width: "40px", verticalAlign: "top", cursor: "pointer" }}
+                    style={{ padding: "12px 12px", textAlign: "right", color: "var(--text-muted)", width: "40px", verticalAlign: "top", cursor: "pointer", fontFamily: "var(--font-mono)" }}
                     onClick={() => router.push(`/repo/${repo.owner}/${repo.name}`)}
                   >
-                    {repo.rank}
+                    {idx + 1}
                   </td>
+
+                  {/* Repo Details */}
                   <td
                     style={{ padding: "12px 12px", maxWidth: "340px", cursor: "pointer" }}
                     onClick={() => router.push(`/repo/${repo.owner}/${repo.name}`)}
-                    onMouseEnter={(e) => (e.currentTarget.closest("tr")!.style.background = selected ? "rgba(124,58,237,0.10)" : "var(--bg-elevated)")}
-                    onMouseLeave={(e) => (e.currentTarget.closest("tr")!.style.background = selected ? "rgba(124,58,237,0.06)" : "transparent")}
                   >
                     <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                        <span><span style={{ fontWeight: 600 }}>{repo.owner}/</span>{repo.name}</span>
+                        <span className="repo-name" style={{ color: "var(--text-primary)", fontSize: "14px" }}>
+                          <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>{repo.owner}/</span>
+                          <span style={{ fontWeight: 700 }}>{repo.name}</span>
+                        </span>
                         {repo.primary_language && (
-                          <span style={{ fontSize: "11px", color: "var(--text-muted)", background: "var(--bg-elevated)", padding: "2px 6px", borderRadius: "4px" }}>
+                          <span style={{
+                            fontSize: "10px",
+                            fontWeight: 600,
+                            padding: "2px 6px",
+                            borderRadius: "4px",
+                            lineHeight: 1,
+                            ...getLangBadgeStyle(repo.primary_language)
+                          }}>
                             {repo.primary_language}
                           </span>
                         )}
@@ -364,8 +599,15 @@ function LeaderboardTable({
                       )}
                       {repo.topics && repo.topics.length > 0 && (
                         <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "2px" }}>
-                          {repo.topics.slice(0, 4).map((t) => (
-                            <span key={t} style={{ fontSize: "10px", color: "var(--accent-blue)", background: "rgba(59,130,246,0.1)", padding: "1px 5px", borderRadius: "3px" }}>
+                          {repo.topics.slice(0, 4).map((t: string) => (
+                            <span key={t} style={{
+                              fontSize: "10px",
+                              color: "var(--text-muted)",
+                              background: "rgba(255, 255, 255, 0.04)",
+                              border: "1px solid var(--border)",
+                              padding: "1px 5px",
+                              borderRadius: "3px"
+                            }}>
                               {t}
                             </span>
                           ))}
@@ -373,27 +615,59 @@ function LeaderboardTable({
                       )}
                     </div>
                   </td>
-                  <td style={{ padding: "12px 12px", color: "var(--text-muted)", fontSize: "12px", verticalAlign: "top" }}>{repo.category}</td>
-                  <td style={{ padding: "12px 12px", textAlign: "right", fontFamily: "monospace", fontWeight: 700, color: "var(--accent-blue)", verticalAlign: "top" }}>
+
+                  {/* Category Pill */}
+                  <td style={{ padding: "12px 12px", verticalAlign: "top" }}>
+                    <span style={{
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      padding: "3px 10px",
+                      borderRadius: "20px",
+                      background: `${categoryColor}15`,
+                      color: categoryColor,
+                      border: `1.2px solid ${categoryColor}25`,
+                      display: "inline-block",
+                      whiteSpace: "nowrap",
+                    }}>
+                      {repo.category}
+                    </span>
+                  </td>
+
+                  {/* Stars / Stars gained */}
+                  <td style={{ padding: "12px 12px", textAlign: "right", fontFamily: "var(--font-mono)", verticalAlign: "top" }}>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "2px" }}>
-                      <span>{repo.current_stars.toLocaleString()} ⭐</span>
+                      <span style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: "13px" }}>
+                        {formatNum(repo.current_stars)}
+                      </span>
                       {repo.star_gain_label && (
-                        <span style={{ fontSize: "11px", fontWeight: 400, color: "var(--accent-green)" }}>
-                          +{repo.star_gain_label}
+                        <span style={{ fontSize: "11px", fontWeight: 600, color: "#22c55e" }}>
+                          {formatStarsChange(repo.star_gain_label)}
                         </span>
                       )}
                     </div>
                   </td>
-                  <td style={{ padding: "12px 12px", textAlign: "right", fontFamily: "monospace", fontSize: "12px", color: "var(--text-muted)", verticalAlign: "top" }}>
-                    {repo.current_forks.toLocaleString()}
+
+                  {/* Forks */}
+                  <td style={{ padding: "12px 12px", textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "13px", color: "var(--text-secondary)", verticalAlign: "top" }}>
+                    {formatNum(repo.current_forks)}
                   </td>
-                  <td style={{ padding: "12px 12px", textAlign: "right", fontFamily: "monospace", fontSize: "12px", color: "var(--text-muted)", verticalAlign: "top" }}>
+
+                  {/* Issues */}
+                  <td style={{ padding: "12px 12px", textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "13px", color: "var(--text-secondary)", verticalAlign: "top" }}>
                     {repo.open_issues != null ? repo.open_issues.toLocaleString() : "—"}
                   </td>
-                  <td style={{ padding: "12px 12px", textAlign: "right", color: "var(--text-muted)", fontSize: "12px", verticalAlign: "top" }}>
-                    {repo.age_days}d
+
+                  {/* Age relative bar */}
+                  <td style={{ padding: "12px 12px", textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "13px", color: "var(--text-secondary)", verticalAlign: "top" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", justifyContent: "flex-end" }}>
+                      <span>{years}y</span>
+                      <div style={{ width: "24px", height: "3px", background: "rgba(255,255,255,0.06)", borderRadius: "1.5px", overflow: "hidden", flexShrink: 0 }}>
+                        <div style={{ height: "100%", background: "rgba(255,255,255,0.4)", width: `${agePercentage}%` }} />
+                      </div>
+                    </div>
                   </td>
-                  {/* Pin button */}
+
+                  {/* Pin watchlist */}
                   <td style={{ padding: "12px 12px", verticalAlign: "top", width: "32px" }}>
                     <button
                       onClick={() => onTogglePin(repo)}
@@ -403,14 +677,15 @@ function LeaderboardTable({
                         border: "none",
                         cursor: "pointer",
                         fontSize: "16px",
-                        opacity: pinned ? 1 : 0.3,
-                        transition: "opacity 0.15s",
+                        opacity: pinned ? 1 : 0.2,
+                        color: pinned ? "var(--accent-yellow)" : "var(--text-muted)",
+                        transition: "opacity 0.15s, color 0.15s",
                         padding: 0,
                       }}
-                      onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-                      onMouseLeave={(e) => (e.currentTarget.style.opacity = pinned ? "1" : "0.3")}
+                      onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.color = "var(--accent-yellow)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.opacity = pinned ? "1" : "0.2"; e.currentTarget.style.color = pinned ? "var(--accent-yellow)" : "var(--text-muted)"; }}
                     >
-                      {pinned ? "★" : "☆"}
+                      ★
                     </button>
                   </td>
                 </tr>
@@ -419,6 +694,51 @@ function LeaderboardTable({
           </tbody>
         </table>
       )}
+
+      {/* Footer scroll Chevron */}
+      <div style={{
+        padding: "10px",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        borderTop: "1px solid var(--border)",
+      }}>
+        <div style={{
+          width: "28px",
+          height: "28px",
+          borderRadius: "50%",
+          border: "1px solid var(--border)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "var(--text-muted)",
+          cursor: "pointer",
+          transition: "all 0.15s",
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--text-secondary)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-muted)"; }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes rowFadeIn {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .repo-row {
+          animation: rowFadeIn 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+          transition: background-color 0.2s ease;
+        }
+        .repo-row:hover {
+          background-color: rgba(255, 255, 255, 0.02) !important;
+        }
+        .repo-row:hover .repo-name {
+          text-decoration: underline;
+        }
+      `}</style>
     </div>
   );
 }
