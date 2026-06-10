@@ -231,12 +231,38 @@ def trigger_explanations(background_tasks: BackgroundTasks):
     )
 
 
+_pipeline_running = False
+_last_pipeline_result = None
+
+
+class PipelineStatusResponse(BaseModel):
+    running: bool
+    last_result: dict | None
+
+
+@router.get("/pipeline-status", response_model=PipelineStatusResponse)
+def get_pipeline_status():
+    """Get the current running status and the outcome of the last pipeline run."""
+    global _pipeline_running, _last_pipeline_result
+    return {
+        "running": _pipeline_running,
+        "last_result": _last_pipeline_result
+    }
+
+
 @router.post("/run-all", response_model=PipelineStatus)
 async def run_full_pipeline(background_tasks: BackgroundTasks):
     """
     Kick off the full pipeline in the background (discover → ingest → score → explain).
     Returns immediately — check /admin/status to monitor progress.
     """
+    global _pipeline_running, _last_pipeline_result
+    if _pipeline_running:
+        raise HTTPException(
+            status_code=409,
+            detail="Pipeline execution is already in progress."
+        )
+
     from app.services.ingestion import run_daily_ingestion
     from app.services.scoring import run_daily_scoring
     from app.services.explanation import enrich_top_repos_with_explanations
@@ -244,6 +270,9 @@ async def run_full_pipeline(background_tasks: BackgroundTasks):
     logger = logging.getLogger("app.admin")
 
     async def _run():
+        global _pipeline_running, _last_pipeline_result
+        _pipeline_running = True
+        _last_pipeline_result = {"status": "running"}
         try:
             from app.database import SessionLocal
             db_heal = SessionLocal()
@@ -264,13 +293,28 @@ async def run_full_pipeline(background_tasks: BackgroundTasks):
                 score_result.get('scored', 0),
                 explain_count,
             )
+            _last_pipeline_result = {
+                "status": "complete",
+                "discovered": ingest_result.get('discovered', 0),
+                "reactivated": ingest_result.get('reactivated', 0),
+                "ingested": ingest_result.get('ingested', 0),
+                "scored": score_result.get('scored', 0),
+                "failed_scoring": score_result.get('failed', 0),
+                "alerts_generated": score_result.get('alerts', 0),
+                "categories_cached": score_result.get('categories_cached', 0),
+                "explanations": explain_count,
+                "scoring_date": str(score_result.get('date')) if score_result.get('date') else None,
+            }
         except Exception as e:
             logger.error("run-all pipeline error: %s", e, exc_info=True)
+            _last_pipeline_result = {"status": "error", "detail": str(e)}
+        finally:
+            _pipeline_running = False
 
     background_tasks.add_task(_run)
     return PipelineStatus(
         status="started",
-        detail="Full pipeline is running in the background. Check /admin/status for progress.",
+        detail="Full pipeline is running in the background. Check /admin/status or /admin/pipeline-status for progress.",
     )
 
 
