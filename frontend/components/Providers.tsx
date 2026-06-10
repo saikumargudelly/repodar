@@ -19,20 +19,14 @@ export function useTheme() {
 }
 
 function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("dark");
+  const [theme] = useState<Theme>("dark");
 
   useEffect(() => {
-    const stored = localStorage.getItem("repodar_theme") as Theme | null;
-    if (stored && ["dark", "fire", "matrix"].includes(stored)) {
-      setThemeState(stored);
-      document.documentElement.setAttribute("data-theme", stored);
-    }
+    document.documentElement.setAttribute("data-theme", "dark");
   }, []);
 
   const setTheme = (t: Theme) => {
-    setThemeState(t);
-    localStorage.setItem("repodar_theme", t);
-    document.documentElement.setAttribute("data-theme", t);
+    // Theme is locked to dark
   };
 
   return (

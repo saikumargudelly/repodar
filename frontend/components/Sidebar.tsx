@@ -2,183 +2,153 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "@clerk/nextjs";
-import { api } from "@/lib/api";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useAuth, useUser, SignOutButton } from "@clerk/nextjs";
 
-const NAV_ITEMS = [
-  {
-    href: "/overview",
-    label: "Overview",
-    icon: (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="7" height="7" rx="1.5"/>
-        <rect x="14" y="3" width="7" height="7" rx="1.5"/>
-        <rect x="3" y="14" width="7" height="7" rx="1.5"/>
-        <rect x="14" y="14" width="7" height="7" rx="1.5"/>
-      </svg>
-    ),
-  },
-  {
-    href: "/explore",
-    label: "Explore",
-    icon: (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="11" cy="11" r="8"/>
-        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        <line x1="11" y1="8" x2="11" y2="14"/>
-        <line x1="8" y1="11" x2="14" y2="11"/>
-      </svg>
-    ),
-  },
-  {
-    href: "/collections",
-    label: "Collections",
-    icon: (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="4" y="4" width="16" height="16" rx="2" ry="2"/>
-        <rect x="9" y="9" width="6" height="6"/>
-        <line x1="9" y1="1" x2="9" y2="4"/>
-        <line x1="15" y1="1" x2="15" y2="4"/>
-        <line x1="9" y1="20" x2="9" y2="23"/>
-        <line x1="15" y1="20" x2="15" y2="23"/>
-        <line x1="20" y1="9" x2="23" y2="9"/>
-        <line x1="20" y1="14" x2="23" y2="14"/>
-        <line x1="1" y1="9" x2="4" y2="9"/>
-        <line x1="1" y1="14" x2="4" y2="14"/>
-      </svg>
-    ),
-  },
-  {
-    href: "/leaderboard",
-    label: "Leaderboard",
-    icon: (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
-        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
-        <path d="M4 22h16"/>
-        <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
-        <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
-        <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
-      </svg>
-    ),
-  },
-  {
-    href: "/radar",
-    label: "Radar",
-    icon: (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/>
-        <path d="M4 6h.01"/>
-        <path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/>
-        <circle cx="12" cy="12" r="2"/>
-      </svg>
-    ),
-  },
-  {
-    href: "/topics",
-    label: "Topics",
-    icon: (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
-        <line x1="7" y1="7" x2="7.01" y2="7"/>
-      </svg>
-    ),
-  },
-  {
-    href: "/network",
-    label: "Network",
-    icon: (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="5" r="2"/>
-        <circle cx="19" cy="12" r="2"/>
-        <circle cx="5" cy="12" r="2"/>
-        <circle cx="12" cy="19" r="2"/>
-        <path d="M12 7v4M12 15v2M14 5.5l4 5M10 5.5l-4 5"/>
-      </svg>
-    ),
-  },
-  {
-    href: "/orgs",
-    label: "Org Health",
-    icon: (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-        <polyline points="9 22 9 12 15 12 15 22"/>
-      </svg>
-    ),
-  },
-  {
-    href: "/compare",
-    label: "Compare",
-    icon: (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/>
-      </svg>
-    ),
-  },
-  {
-    href: "/settings",
-    label: "Settings",
-    icon: (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-      </svg>
-    ),
-  },
-  {
-    href: "/research",
-    label: "Research",
-    icon: (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/>
-      </svg>
-    ),
-  },
-  {
-    href: "/weekly",
-    label: "Weekly",
-    icon: (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-        <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
-        <line x1="3" y1="10" x2="21" y2="10"/>
-      </svg>
-    ),
-  },
-  {
-    href: "/watchlist",
-    label: "Watchlist",
-    icon: (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-      </svg>
-    ),
-  },
-];
+// Icons matching the design mockup and spec
+const OverviewIcon = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+    <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+    <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+    <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+  </svg>
+);
 
-const ALL_VERTICALS = [
-  { key: "ai_ml",      label: "AI / ML",        icon: "🤖" },
-  { key: "devtools",   label: "DevTools",        icon: "🛠" },
-  { key: "web_mobile", label: "Web & Mobile",    icon: "🌐" },
-  { key: "data_infra", label: "Data & Infra",    icon: "📊" },
-  { key: "security",   label: "Security",        icon: "🔒" },
-  { key: "blockchain", label: "Blockchain",      icon: "⛓" },
-  { key: "oss_tools",  label: "OSS Tools",       icon: "📦" },
-  { key: "science",    label: "Science",          icon: "🔬" },
-  { key: "creative",   label: "Creative",         icon: "🎨" },
+const ExploreIcon = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="8"/>
+    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    <line x1="11" y1="8" x2="11" y2="14"/>
+    <line x1="8" y1="11" x2="14" y2="11"/>
+  </svg>
+);
+
+const TopicsIcon = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+    <line x1="7" y1="7" x2="7.01" y2="7"/>
+  </svg>
+);
+
+const RadarIcon = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/>
+    <path d="M4 6h.01"/>
+    <path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/>
+    <circle cx="12" cy="12" r="2"/>
+  </svg>
+);
+
+const LeaderboardIcon = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
+    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+    <path d="M4 22h16"/>
+    <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
+    <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
+    <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
+  </svg>
+);
+
+const NetworkIcon = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="5" r="2"/>
+    <circle cx="19" cy="12" r="2"/>
+    <circle cx="5" cy="12" r="2"/>
+    <circle cx="12" cy="19" r="2"/>
+    <path d="M12 7v4M12 15v2M14 5.5l4 5M10 5.5l-4 5"/>
+  </svg>
+);
+
+const CompareIcon = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/>
+  </svg>
+);
+
+const ResearchIcon = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 18h8M3 22h18M14 22a7 7 0 1 0-14 0M9 14h2M9 12a3 3 0 0 1 6 0V6" />
+    <path d="M12 2v4M11 4h2" />
+  </svg>
+);
+
+const CollectionsIcon = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>
+  </svg>
+);
+
+const WatchlistIcon = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+const OrgHealthIcon = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+    <line x1="8" y1="21" x2="16" y2="21" />
+    <line x1="12" y1="17" x2="12" y2="21" />
+    <path d="m17 9-3-3-3 6-3-3" />
+  </svg>
+);
+
+const WeeklyIcon = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="4" width="20" height="16" rx="2" />
+    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+  </svg>
+);
+
+const NAV_SECTIONS = [
+  {
+    title: "DISCOVER",
+    items: [
+      { href: "/overview", label: "Overview", icon: OverviewIcon },
+      { href: "/explore", label: "Explore", icon: ExploreIcon },
+      { href: "/topics", label: "Topics", icon: TopicsIcon },
+      { href: "/radar", label: "Radar", icon: RadarIcon, badge: { text: "20", type: "peach" } },
+    ],
+  },
+  {
+    title: "ANALYZE",
+    items: [
+      { href: "/leaderboard", label: "Leaderboard", icon: LeaderboardIcon },
+      { href: "/network", label: "Network", icon: NetworkIcon },
+      { href: "/compare", label: "Compare", icon: CompareIcon },
+      { href: "/research", label: "Research", icon: ResearchIcon, badge: { text: "β", type: "dark" } },
+    ],
+  },
+  {
+    title: "WORKSPACE",
+    items: [
+      { href: "/collections", label: "Collections", icon: CollectionsIcon },
+      { href: "/watchlist", label: "Watchlist", icon: WatchlistIcon },
+      { href: "/orgs", label: "Org health", icon: OrgHealthIcon },
+      { href: "/weekly", label: "Weekly", icon: WeeklyIcon, badge: { text: "New", type: "dark" } },
+    ],
+  },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const { isLoaded: authLoaded, userId } = useAuth();
+  const { user } = useUser();
   const [collapsed, setCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isTablet, setIsTablet] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [userVerticals, setUserVerticals] = useState<string[]>([]);
-  const [showMyTopics, setShowMyTopics] = useState(false);
+
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  // Extract user details
+  const profileName = user?.firstName ?? user?.fullName ?? "Saikumar";
+  const profileEmail = user?.primaryEmailAddress?.emailAddress ?? "";
+  const profileInitials = `${user?.firstName?.[0] ?? ""}${user?.lastName?.[0] ?? ""}`.toUpperCase() || profileName.slice(0, 2).toUpperCase();
 
   // Detect breakpoints
   useEffect(() => {
@@ -217,21 +187,20 @@ export function Sidebar() {
     setMobileOpen(false);
   }, [pathname]);
 
-  // Load user preferred verticals
+  // Click outside listener for profile menu
   useEffect(() => {
-    if (!authLoaded || !userId) return;
-    api.getOnboardingStatus(userId)
-      .then((s) => {
-        const prefs = s.selected_verticals ?? [];
-        setUserVerticals(prefs);
-        if (prefs.length > 0) setShowMyTopics(true);
-      })
-      .catch(() => {/* silent */});
-  }, [authLoaded, userId]);
-
-  const displayedVerticals = showMyTopics && userVerticals.length > 0
-    ? ALL_VERTICALS.filter((v) => userVerticals.includes(v.key))
-    : ALL_VERTICALS;
+    function handleClickOutside(e: MouseEvent) {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    }
+    if (profileMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [profileMenuOpen]);
 
   // Whether a nav item is the active route (supports nested paths like /collections/xyz)
   const isNavActive = (href: string) =>
@@ -266,13 +235,15 @@ export function Sidebar() {
           display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
           background: "var(--bg-elevated)",
         }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          {/* Concentric circle logo */}
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="2" />
+            <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14" />
           </svg>
         </div>
         {(!collapsed || isMobile) && (
           <div style={{ display: "flex", flexDirection: "column", gap: "2px", userSelect: "none" }}>
-            <span style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "15px", letterSpacing: "0.01em", color: "var(--accent-blue)", whiteSpace: "nowrap" }}>Repodar</span>
+            <span style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "15px", letterSpacing: "0.01em", color: "var(--text-primary)", whiteSpace: "nowrap" }}>Repodar</span>
             <span style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>GitHub AI Radar</span>
           </div>
         )}
@@ -286,180 +257,290 @@ export function Sidebar() {
         )}
       </div>
 
-      {/* ── Nav items ───────────────────────────────── */}
-      <nav style={{ flex: 1, padding: "10px 8px", display: "flex", flexDirection: "column", gap: "2px", overflowY: "auto" }}>
-        {NAV_ITEMS.map((item) => {
-          const isActive = isNavActive(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="sidebar-nav-link"
-              style={{
-                padding: collapsed && !isMobile ? "9px 0" : "9px 10px",
-                fontWeight: isActive ? 700 : 400,
-                color: isActive ? "var(--cyan)" : "var(--text-secondary)",
-                background: isActive ? "var(--cyan)0f" : "transparent",
-                justifyContent: "center",
-                borderLeft: isActive ? "2px solid var(--cyan)" : "2px solid transparent",
-              }}
-            >
-              <span style={{ display: "flex", alignItems: "center", justifyContent: "center", color: isActive ? "var(--cyan)" : "var(--text-muted)", flexShrink: 0, width: "17px" }}>
-                {item.icon}
-              </span>
-              <span className="sidebar-label" style={{ flex: 1, fontFamily: "var(--font-sans)", fontSize: "13px", letterSpacing: "0" }}>{item.label}</span>
-              <span className="sidebar-tooltip">{item.label}</span>
-            </Link>
-          );
-        })}
-
-        {/* ── Vertical Domain Filter ─────────────────────── */}
-        {(!collapsed || isMobile) && (
-          <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--border)" }}>
-            {/* Section header with My/All toggle */}
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "0 6px 8px",
-            }}>
-              <span style={{
+      {/* ── Nav sections and items ───────────────────────────────── */}
+      <nav style={{ flex: 1, padding: "12px 8px", display: "flex", flexDirection: "column", gap: "16px", overflowY: "auto" }}>
+        {NAV_SECTIONS.map((section) => (
+          <div key={section.title} style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+            {/* Section Header */}
+            {(!collapsed || isMobile) && (
+              <div style={{
                 fontFamily: "var(--font-sans)",
-                fontSize: "10px",
+                fontSize: "12px",
                 fontWeight: 700,
                 letterSpacing: "0.08em",
                 color: "var(--text-muted)",
                 textTransform: "uppercase",
+                padding: "0 10px 6px",
+                marginTop: "4px",
               }}>
-                Domains
-              </span>
-              {userVerticals.length > 0 && (
-                <div style={{ display: "flex", gap: "2px", background: "var(--bg-elevated)", borderRadius: "20px", padding: "2px" }}>
-                  <button
-                    onClick={() => setShowMyTopics(true)}
-                    style={{
-                      fontFamily: "var(--font-sans)",
-                      fontSize: "10px",
-                      fontWeight: 600,
-                      padding: "2px 8px",
-                      borderRadius: "10px",
-                      border: "none",
-                      cursor: "pointer",
-                      transition: "all 0.15s",
-                      background: showMyTopics ? "var(--accent-blue)" : "transparent",
-                      color: showMyTopics ? "#fff" : "var(--text-muted)",
-                    }}
-                    title="Show your preferred verticals"
-                  >
-                    Mine
-                  </button>
-                  <button
-                    onClick={() => setShowMyTopics(false)}
-                    style={{
-                      fontFamily: "var(--font-sans)",
-                      fontSize: "10px",
-                      fontWeight: 600,
-                      padding: "2px 8px",
-                      borderRadius: "10px",
-                      border: "none",
-                      cursor: "pointer",
-                      transition: "all 0.15s",
-                      background: !showMyTopics ? "var(--accent-blue)" : "transparent",
-                      color: !showMyTopics ? "#fff" : "var(--text-muted)",
-                    }}
-                    title="Show all verticals"
-                  >
-                    All
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Vertical pills */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
-              {displayedVerticals.map(({ key, label, icon }) => {
-                const isPreferred = userVerticals.includes(key);
-                const isActive = pathname.includes(`vertical=${key}`);
-                return (
-                  <Link
-                    key={key}
-                    href={`/overview?vertical=${key}`}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      padding: "6px 10px",
-                      borderRadius: "6px",
-                      textDecoration: "none",
-                      transition: "background 0.13s",
-                      background: isActive ? "rgba(88,166,255,0.07)" : "transparent",
-                      borderLeft: isActive ? "2px solid var(--accent-blue)" : "2px solid transparent",
-                    }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(88,166,255,0.07)"; }}
-                    onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-                  >
-                    <span style={{ fontSize: "13px", flexShrink: 0, lineHeight: 1 }}>{icon}</span>
+                {section.title}
+              </div>
+            )}
+            
+            {section.items.map((item) => {
+              const isActive = isNavActive(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="sidebar-nav-link"
+                  style={{
+                    padding: collapsed && !isMobile ? "9px 0" : "9px 10px",
+                    fontWeight: isActive ? 700 : 400,
+                    color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
+                    background: isActive ? "rgba(255, 255, 255, 0.05)" : "transparent",
+                    justifyContent: collapsed && !isMobile ? "center" : "flex-start",
+                    borderLeft: isActive ? "2px solid var(--text-primary)" : "2px solid transparent",
+                  }}
+                >
+                  <span style={{ display: "flex", alignItems: "center", justifyContent: "center", color: isActive ? "var(--text-primary)" : "var(--text-muted)", flexShrink: 0, width: "17px" }}>
+                    {item.icon}
+                  </span>
+                  {(!collapsed || isMobile) && (
+                    <span className="sidebar-label" style={{ flex: 1, fontFamily: "var(--font-sans)", fontSize: "13px", letterSpacing: "0", marginLeft: "10px" }}>{item.label}</span>
+                  )}
+                  {(!collapsed || isMobile) && item.badge && (
                     <span style={{
-                      fontFamily: "var(--font-sans)",
-                      fontSize: "12px",
-                      color: isActive ? "var(--accent-blue)" : isPreferred ? "var(--accent-blue)" : "var(--text-secondary)",
-                      fontWeight: isActive || isPreferred ? 600 : 400,
-                      flex: 1,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
+                      fontSize: "10px",
+                      fontWeight: 600,
+                      padding: item.badge.text === "β" ? "1px 5px" : "2px 8px",
+                      borderRadius: "10px",
+                      lineHeight: 1,
+                      marginRight: "4px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      ...(item.badge.type === "peach" ? {
+                        background: "#ffebe9",
+                        color: "#a51d24",
+                      } : {
+                        background: "rgba(255, 255, 255, 0.08)",
+                        color: "var(--text-secondary)",
+                        border: "1px solid var(--border)",
+                      })
                     }}>
-                      {label}
+                      {item.badge.text}
                     </span>
-                    {isPreferred && (
-                      <span style={{ fontSize: "8px", color: isActive ? "var(--accent-blue)" : "var(--text-muted)", flexShrink: 0 }}>✦</span>
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
+                  )}
+                  {collapsed && !isMobile && (
+                    <span className="sidebar-tooltip">{item.label}</span>
+                  )}
+                </Link>
+              );
+            })}
           </div>
-        )}
-
-        {/* Collapsed state: show icon-only vertical dots */}
-        {collapsed && !isMobile && (
-          <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: "2px", alignItems: "center" }}>
-            {ALL_VERTICALS.map(({ key, label, icon }) => (
-              <Link
-                key={key}
-                href={`/overview?vertical=${key}`}
-                title={label}
-                style={{
-                  width: "36px", height: "32px",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  borderRadius: "6px",
-                  textDecoration: "none",
-                  fontSize: "14px",
-                  transition: "background 0.13s",
-                  borderLeft: userVerticals.includes(key) ? "2px solid var(--accent-blue)" : "2px solid transparent",
-                }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(88,166,255,0.1)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-              >
-                {icon}
-              </Link>
-            ))}
-          </div>
-        )}
+        ))}
       </nav>
 
-      {/* Footer */}
-      <div
-        style={{ padding: collapsed && !isMobile ? "12px 10px" : "12px 14px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: collapsed && !isMobile ? "center" : "flex-start", gap: "8px" }}
-      >
-        <div style={{ width: "7px", height: "7px", borderRadius: "50%", background: "var(--accent-green)", flexShrink: 0 }} />
-        {(!collapsed || isMobile) && (
-          <div>
-            <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--accent-green)", fontWeight: 600, whiteSpace: "nowrap" }}>v2.0 · Online</div>
-            <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)", whiteSpace: "nowrap", marginTop: "1px" }}>AI/ML Ecosystem Tracker</div>
+      {/* Footer Profile Card */}
+      {authLoaded && userId && (
+        <div ref={profileMenuRef} style={{ position: "relative", borderTop: "1px solid var(--border)", padding: "10px", flexShrink: 0 }}>
+          {/* Profile Card Button */}
+          <div
+            onClick={() => setProfileMenuOpen((o) => !o)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              padding: collapsed && !isMobile ? "4px" : "6px 8px",
+              borderRadius: "8px",
+              cursor: "pointer",
+              transition: "background 0.15s",
+              background: profileMenuOpen ? "var(--bg-elevated)" : "transparent",
+              justifyContent: collapsed && !isMobile ? "center" : "flex-start",
+              gap: "10px",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elevated)"; }}
+            onMouseLeave={(e) => { if (!profileMenuOpen) e.currentTarget.style.background = "transparent"; }}
+          >
+            {/* Avatar circle */}
+            <div style={{
+              width: "38px",
+              height: "38px",
+              borderRadius: "50%",
+              background: "#ffffff",
+              color: "#0d1117",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: 700,
+              fontSize: "13px",
+              flexShrink: 0,
+            }}>
+              {profileInitials}
+            </div>
+
+            {(!collapsed || isMobile) && (
+              <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
+                <span style={{
+                  fontFamily: "var(--font-sans)",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  color: "var(--text-primary)",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}>
+                  {profileName}
+                </span>
+                <span style={{
+                  fontFamily: "var(--font-sans)",
+                  fontSize: "11px",
+                  color: "var(--text-muted)",
+                  whiteSpace: "nowrap",
+                  marginTop: "1px",
+                }}>
+                  v2.0 · Pro
+                </span>
+              </div>
+            )}
+
+            {(!collapsed || isMobile) && (
+              <button
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--text-muted)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "4px",
+                }}
+              >
+                {/* Vertical ellipsis ⋮ */}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="1.2" />
+                  <circle cx="12" cy="5" r="1.2" />
+                  <circle cx="12" cy="19" r="1.2" />
+                </svg>
+              </button>
+            )}
           </div>
-        )}
-      </div>
+
+          {/* Popup Dropdown Menu */}
+          {profileMenuOpen && (
+            <div
+              style={{
+                position: "absolute",
+                bottom: collapsed && !isMobile ? "10px" : "calc(100% + 8px)",
+                left: collapsed && !isMobile ? "calc(100% + 8px)" : "8px",
+                right: collapsed && !isMobile ? "auto" : "8px",
+                minWidth: "180px",
+                background: "var(--bg-surface)",
+                border: "1px solid var(--border)",
+                borderRadius: "8px",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.45)",
+                zIndex: 200,
+                overflow: "hidden",
+                animation: "fadeSlideDown 0.15s ease",
+              }}
+            >
+              {/* User info header */}
+              <div
+                style={{
+                  padding: "12px 14px 10px",
+                  borderBottom: "1px solid var(--border)",
+                }}
+              >
+                <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--text-primary)", fontFamily: "var(--font-sans)" }}>
+                  {profileName}
+                </div>
+                <div style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-sans)", marginTop: "1px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {profileEmail}
+                </div>
+              </div>
+
+              {/* Profile Link */}
+              <Link
+                href="/profile"
+                onClick={() => setProfileMenuOpen(false)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  padding: "10px 14px",
+                  color: "var(--text-primary)",
+                  background: pathname === "/profile" ? "var(--bg-elevated)" : "transparent",
+                  textDecoration: "none",
+                  fontFamily: "var(--font-sans)",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  transition: "background 0.12s",
+                }}
+                onMouseEnter={(e) => { if (pathname !== "/profile") (e.currentTarget as HTMLElement).style.background = "var(--bg-elevated)"; }}
+                onMouseLeave={(e) => { if (pathname !== "/profile") (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <circle cx="7" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.4"/>
+                  <path d="M2 12c0-2.21 2.24-4 5-4s5 1.79 5 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                </svg>
+                Profile
+              </Link>
+
+              {/* Settings Link */}
+              <Link
+                href="/settings"
+                onClick={() => setProfileMenuOpen(false)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  padding: "10px 14px",
+                  color: "var(--text-primary)",
+                  background: pathname === "/settings" ? "var(--bg-elevated)" : "transparent",
+                  textDecoration: "none",
+                  fontFamily: "var(--font-sans)",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  transition: "background 0.12s",
+                }}
+                onMouseEnter={(e) => { if (pathname !== "/settings") (e.currentTarget as HTMLElement).style.background = "var(--bg-elevated)"; }}
+                onMouseLeave={(e) => { if (pathname !== "/settings") (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+                Settings
+              </Link>
+
+              {/* Divider */}
+              <div style={{ height: "1px", background: "var(--border)", margin: "0 10px" }} />
+
+              {/* Sign out */}
+              <SignOutButton redirectUrl="/landing">
+                <button
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    width: "100%",
+                    padding: "10px 14px",
+                    background: "transparent",
+                    border: "none",
+                    color: "#f87171",
+                    fontFamily: "var(--font-sans)",
+                    fontSize: "13px",
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    textAlign: "left",
+                    transition: "background 0.12s",
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(248,113,113,0.08)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M5 2H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                    <path d="M9.5 9.5L12 7l-2.5-2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M12 7H6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                  </svg>
+                  Sign out
+                </button>
+              </SignOutButton>
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 
@@ -478,12 +559,11 @@ export function Sidebar() {
           border-radius: 6px;
         }
         .sidebar-nav-link:hover {
-          background: rgba(88,166,255,0.07) !important;
-          color: var(--accent-blue) !important;
+          background: rgba(255,255,255,0.05) !important;
+          color: var(--text-primary) !important;
         }
         .sidebar-nav-link:hover svg {
-          color: var(--accent-blue) !important;
-          stroke: var(--accent-blue) !important;
+          color: var(--text-primary) !important;
         }
         .sidebar-tooltip {
           display: none;

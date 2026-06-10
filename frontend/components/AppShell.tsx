@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { Nav } from "@/components/Nav";
@@ -45,6 +45,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { isLoaded, userId } = useAuth();
   const publicPath = isPublicPath(pathname);
   const noShellPath = isNoShellPath(pathname);
+  
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth <= 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -83,9 +92,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         style={{
           marginLeft: "var(--sidebar-width, 220px)",
           maxWidth: "100%",
-          marginTop: "48px",
+          marginTop: isMobile ? "56px" : "0px",
           overflowX: "hidden",
-          transition: "margin-left 0.3s ease",
+          transition: "margin-left 0.3s ease, margin-top 0.3s ease",
         }}
       >
         {children}
