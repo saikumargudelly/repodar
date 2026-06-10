@@ -254,7 +254,7 @@ async def run_full_pipeline(background_tasks: BackgroundTasks):
             finally:
                 db_heal.close()
 
-            ingest_result = await run_daily_ingestion(force_discovery=True)
+            ingest_result = await run_daily_ingestion(force_discovery=False)
             score_result = run_daily_scoring()
             explain_count = enrich_top_repos_with_explanations(top_n=20)
             logger.info(
@@ -350,11 +350,23 @@ def deduplicate_repositories_logic(db: Session) -> dict:
             # Re-point foreign keys safely (row-by-row for unique-constrained tables)
             db.query(DailyMetric).filter(DailyMetric.repo_id == dup_id).update({DailyMetric.repo_id: keep_id})
             db.query(ComputedMetric).filter(ComputedMetric.repo_id == dup_id).update({ComputedMetric.repo_id: keep_id})
-            db.query(ForkSnapshot).filter(ForkSnapshot.parent_repo_id == dup_id).update({ForkSnapshot.parent_repo_id: keep_id})
             db.query(TrendAlert).filter(TrendAlert.repo_id == dup_id).update({TrendAlert.repo_id: keep_id})
             db.query(RepoRelease).filter(RepoRelease.repo_id == dup_id).update({RepoRelease.repo_id: keep_id})
             db.query(SocialMention).filter(SocialMention.repo_id == dup_id).update({SocialMention.repo_id: keep_id})
             db.query(AlertRule).filter(AlertRule.repo_id == dup_id).update({AlertRule.repo_id: keep_id})
+
+            # ForkSnapshot: merge fork snapshots safely
+            dup_forks = db.query(ForkSnapshot).filter(ForkSnapshot.parent_repo_id == dup_id).all()
+            for df in dup_forks:
+                exists = db.query(ForkSnapshot).filter_by(
+                    parent_repo_id=keep_id,
+                    fork_full_name=df.fork_full_name,
+                    snapshot_date=df.snapshot_date
+                ).first()
+                if exists:
+                    db.delete(df)
+                else:
+                    df.parent_repo_id = keep_id
 
             # RepoContributor: merge Top contributors
             dup_contribs = db.query(RepoContributor).filter(RepoContributor.repo_id == dup_id).all()
@@ -493,7 +505,7 @@ async def run_full_pipeline_sync():
             db_heal.close()
 
         _logger.info("run-all-sync: starting ingestion")
-        ingest_result = await run_daily_ingestion(force_discovery=True)
+        ingest_result = await run_daily_ingestion(force_discovery=False)
         _logger.info(f"run-all-sync: ingestion done → {ingest_result}")
 
         _logger.info("run-all-sync: starting scoring")

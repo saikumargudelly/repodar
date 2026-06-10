@@ -260,7 +260,7 @@ async def lifespan(app: FastAPI):
     # Start in-process 2-hour scheduler
     scheduler = _schedule_pipeline()
 
-    # Initialize Redis caching
+    # Initialize Redis caching with fallback to in-memory caching if Redis is offline
     try:
         import os
         from redis import asyncio as aioredis
@@ -269,10 +269,21 @@ async def lifespan(app: FastAPI):
 
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
         redis = aioredis.from_url(redis_url, encoding="utf8", decode_responses=False)
+        
+        # Test connection quickly (1.5s timeout) to ensure Redis is actually up
+        await asyncio.wait_for(redis.ping(), timeout=1.5)
+        
         FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
         logger.info("FastAPI-Cache initialized with Redis.")
     except Exception as e:
-        logger.warning(f"Failed to initialize Redis cache: {e}")
+        logger.warning(f"Failed to initialize Redis cache: {e}. Falling back to InMemoryBackend.")
+        try:
+            from fastapi_cache import FastAPICache
+            from fastapi_cache.backends.inmemory import InMemoryBackend
+            FastAPICache.init(InMemoryBackend(), prefix="fastapi-cache")
+            logger.info("FastAPI-Cache initialized with InMemoryBackend fallback.")
+        except Exception as fallback_err:
+            logger.error(f"Failed to initialize InMemoryBackend: {fallback_err}")
 
     logger.info("Repodar ready. Pipeline scheduled every 2 h via APScheduler.")
     yield
@@ -386,8 +397,11 @@ def health(db: Session = Depends(get_db)):
         
     try:
         from fastapi_cache import FastAPICache
-        if not FastAPICache.get_backend():
+        backend = FastAPICache.get_backend()
+        if not backend:
             status["redis"] = "Not initialized"
+        else:
+            status["redis"] = backend.__class__.__name__
     except Exception as e:
         status["redis"] = f"error: {str(e)}"
         

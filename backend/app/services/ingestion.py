@@ -172,7 +172,15 @@ async def auto_discover_and_sync(force: bool = False) -> dict:
                 ]
             )
 
-        all_results = await asyncio.gather(*search_tasks, return_exceptions=True)
+        # Process the search tasks in chunks of 4 to prevent API congestion and secondary rate limiting
+        all_results = []
+        chunk_size = 4
+        for i in range(0, len(search_tasks), chunk_size):
+            chunk = search_tasks[i:i + chunk_size]
+            chunk_results = await asyncio.gather(*chunk, return_exceptions=True)
+            all_results.extend(chunk_results)
+            if i + chunk_size < len(search_tasks):
+                await asyncio.sleep(1.5)  # Pause between chunks to yield the event loop and ease rate limits
 
         # Flatten and deduplicate by full_name
         seen_slugs: dict[str, dict] = {}
