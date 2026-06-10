@@ -64,7 +64,7 @@ elif DATABASE_URL.startswith("postgresql"):  # includes normalized postgres:// U
         "pool_size": 10,          # Maintain 10 persistent connections
         "max_overflow": 20,       # Allow 20 additional overflow connections
         "pool_pre_ping": True,    # Test connections before using (prevents stale connections)
-        "pool_recycle": 3600,     # Recycle connections every 1 hour
+        "pool_recycle": 60,       # Recycle connections every 1 minute (safeguard against Neon aggressive dropping)
         "connect_args": {"connect_timeout": 10, "keepalives": 1, "keepalives_idle": 30}
     })
     engine = create_engine(DATABASE_URL, **engine_kwargs)
