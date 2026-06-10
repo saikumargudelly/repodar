@@ -22,63 +22,84 @@ jobs:
           BACKEND_URL: ${{ secrets.RENDER_BACKEND_URL || 'https://repodar.up.railway.app' }}
           API_KEY: ${{ secrets.REPODAR_ADMIN_API_KEY }}
         run: |
-          echo "Waking up Render backend and triggering pipeline asynchronously at: $BACKEND_URL"
-          
-          # Trigger the background pipeline run (returns immediately).
+          echo "=== Step 1: Wake up Render backend (cold-start safe) ==="
+          # Render free-tier instances sleep after inactivity and can take 60-90s to cold-start.
+          # We poll /health every 10s for up to 3 minutes before giving up.
+          WAKE_RETRIES=18
+          WAKE_INTERVAL=10
+          AWAKE=false
+
+          for i in $(seq 1 $WAKE_RETRIES); do
+            health_status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$BACKEND_URL/health" || echo "000")
+            echo "Wake-up attempt $i/$WAKE_RETRIES: /health returned HTTP $health_status"
+            if [ "$health_status" = "200" ]; then
+              AWAKE=true
+              echo "Backend is awake and healthy!"
+              break
+            fi
+            sleep $WAKE_INTERVAL
+          done
+
+          if [ "$AWAKE" = "false" ]; then
+            echo "Error: Backend did not wake up after $((WAKE_RETRIES * WAKE_INTERVAL))s. Aborting."
+            exit 1
+          fi
+
+          echo ""
+          echo "=== Step 2: Trigger pipeline asynchronously ==="
+          # POST /admin/run-all returns immediately (HTTP 200) — pipeline runs in background.
           response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST \
             -H "X-Admin-Key: $API_KEY" \
             -H "Content-Type: application/json" \
-            --max-time 60 \
+            --max-time 30 \
             "$BACKEND_URL/admin/run-all")
-          
+
           body=$(echo "$response" | sed '$d')
           status=$(echo "$response" | tail -n1 | cut -d':' -f2)
-          
-          echo "Trigger Response Body:"
-          echo "$body"
+
+          echo "Trigger Response Body: $body"
           echo "HTTP Status Code: $status"
-          
+
+          # 200 = started, 409 = already running (treat both as success)
           if [ "$status" -ne 200 ] && [ "$status" -ne 201 ] && [ "$status" -ne 409 ]; then
-            echo "Error: Failed to trigger pipeline (status code $status)"
+            echo "Error: Failed to trigger pipeline (HTTP $status)"
             exit 1
           fi
-          
-          echo "Pipeline triggered successfully (or already running). Starting status polling..."
-          
-          # Poll the /admin/pipeline-status endpoint until execution is complete
-          # Poll limit: 40 iterations * 15 seconds = 10 minutes max
-          POLL_INTERVAL=15
-          MAX_POLLS=40
+
+          echo "Pipeline triggered. Starting status polling..."
+
+          echo ""
+          echo "=== Step 3: Poll pipeline-status until complete (max 12 min) ==="
+          # Poll every 20s for up to 36 iterations = 12 minutes maximum
+          POLL_INTERVAL=20
+          MAX_POLLS=36
           POLL_COUNT=0
-          
+
           while [ $POLL_COUNT -lt $MAX_POLLS ]; do
-            # Wait 15 seconds
             sleep $POLL_INTERVAL
             POLL_COUNT=$((POLL_COUNT + 1))
-            
-            status_response=$(curl -s -H "X-Admin-Key: $API_KEY" "$BACKEND_URL/admin/pipeline-status")
-            
-            # Use jq to extract running status and last result
-            is_running=$(echo "$status_response" | jq -r '.running')
-            last_status=$(echo "$status_response" | jq -r '.last_result.status')
-            
-            echo "Poll #$POLL_COUNT: running=$is_running, last_result_status=$last_status"
-            
+
+            status_response=$(curl -s --max-time 15 -H "X-Admin-Key: $API_KEY" "$BACKEND_URL/admin/pipeline-status" || echo "{}")
+
+            is_running=$(echo "$status_response" | jq -r '.running // "unknown"')
+            last_status=$(echo "$status_response" | jq -r '.last_result.status // "null"')
+
+            echo "Poll #$POLL_COUNT/$MAX_POLLS | running=$is_running | last_status=$last_status"
+
             if [ "$is_running" = "false" ]; then
               if [ "$last_status" = "complete" ]; then
-                echo "Pipeline execution completed successfully!"
-                echo "Result details:"
+                echo "Pipeline completed successfully!"
                 echo "$status_response" | jq '.last_result'
                 exit 0
               elif [ "$last_status" = "error" ]; then
-                echo "Error: Pipeline failed. Details:"
+                echo "Pipeline failed:"
                 echo "$status_response" | jq '.last_result'
                 exit 1
               else
-                echo "Warning: Pipeline in unknown state. Continuing polling..."
+                echo "Pipeline in unknown state ($last_status) — continuing to poll..."
               fi
             fi
           done
-          
-          echo "Error: Pipeline polling timed out after 10 minutes."
+
+          echo "Error: Pipeline polling timed out after $((MAX_POLLS * POLL_INTERVAL))s."
           exit 1
