@@ -67,22 +67,14 @@ def _build_graphql_query(repos: list[dict], since_map: dict[str, str]) -> str:
     fragments = []
     for i, r in enumerate(repos):
         alias = f"r{i}"
-        repo_id = r["id"]
-        since = since_map.get(repo_id)
-        
-        # Build history argument
-        history_args = ""
-        if since:
-            history_args = f'(since: "{since}")'
-            
         fragments.append(f"""
   {alias}: repository(owner: "{r['owner']}", name: "{r['name']}") {{
     stargazerCount
     forkCount
     watchers {{ totalCount }}
-    openIssuesCount: issues(states: OPEN) {{ totalCount }}
-    openPullRequests: pullRequests(states: OPEN) {{ totalCount }}
-    releases {{ totalCount }}
+    openIssuesCount: issues(states: OPEN, first: 1) {{ totalCount }}
+    openPullRequests: pullRequests(states: OPEN, first: 1) {{ totalCount }}
+    releases(first: 1) {{ totalCount }}
     primaryLanguage {{ name }}
     languages(first: 10, orderBy: {{field: SIZE, direction: DESC}}) {{
       edges {{ size node {{ name }} }}
@@ -91,14 +83,7 @@ def _build_graphql_query(repos: list[dict], since_map: dict[str, str]) -> str:
       nodes {{ topic {{ name }} }}
     }}
     createdAt
-    mergedPullRequests: pullRequests(states: MERGED) {{ totalCount }}
-    defaultBranchRef {{
-      target {{
-        ... on Commit {{
-          history{history_args} {{ totalCount }}
-        }}
-      }}
-    }}
+    mergedPullRequests: pullRequests(states: MERGED, first: 1) {{ totalCount }}
   }}""")
     body = "\n".join(fragments)
     return f"query {{\n{body}\n}}"
@@ -272,29 +257,38 @@ async def fetch_repo_metrics(
     results = {}
 
     async with aiohttp.ClientSession() as session:
-        # ── GraphQL batch (chunks of 25 to avoid query size limits) ──
-        chunk_size = 25
-        for chunk_start in range(0, len(repos), chunk_size):
-            chunk = repos[chunk_start: chunk_start + chunk_size]
-            query = _build_graphql_query(chunk, since_map)
+        # ── GraphQL batch (chunks of 15 to avoid query size limits & timeouts) ──
+        chunk_size = 15
+        graphql_sem = asyncio.Semaphore(2)
 
-            graphql_data = {}
+        async def fetch_one_chunk(chunk):
+            query = _build_graphql_query(chunk, since_map)
             try:
-                async with session.post(
-                    GRAPHQL_URL,
-                    json={"query": query},
-                    headers=HEADERS,
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as resp:
-                    if resp.status == 200:
-                        payload = await resp.json()
-                        graphql_data = payload.get("data", {}) or {}
-                    else:
-                        logger.warning(f"GraphQL chunk failed: HTTP {resp.status}")
+                async with graphql_sem:
+                    async with session.post(
+                        GRAPHQL_URL,
+                        json={"query": query},
+                        headers=HEADERS,
+                        timeout=aiohttp.ClientTimeout(total=30),
+                    ) as resp:
+                        if resp.status == 200:
+                            payload = await resp.json()
+                            return chunk, payload.get("data", {}) or {}
+                        else:
+                            logger.warning(f"GraphQL chunk failed: HTTP {resp.status}")
+                            return chunk, {}
             except Exception as e:
                 logger.warning(f"GraphQL request error: {e}")
+                return chunk, {}
 
-            # ── Parse GraphQL results per repo in chunk ──
+        # Build chunks
+        chunks = [repos[i:i + chunk_size] for i in range(0, len(repos), chunk_size)]
+
+        # Fetch GraphQL chunks concurrently
+        chunk_results = await asyncio.gather(*[fetch_one_chunk(c) for c in chunks])
+
+        # Parse GraphQL results
+        for chunk, graphql_data in chunk_results:
             for i, repo in enumerate(chunk):
                 alias = f"r{i}"
                 gdata = graphql_data.get(alias)
@@ -302,13 +296,7 @@ async def fetch_repo_metrics(
                 if gdata:
                     lang_edges = gdata.get("languages", {}).get("edges", [])
                     topic_nodes = gdata.get("repositoryTopics", {}).get("nodes", [])
-                    
-                    commit_count = 0
-                    default_branch = gdata.get("defaultBranchRef")
-                    if default_branch and default_branch.get("target"):
-                        commit_count = default_branch["target"].get("history", {}).get("totalCount", 0)
-
-                    parsed = {
+                    results[repo["id"]] = {
                         "repo_id": repo["id"],
                         "owner": repo["owner"],
                         "name": repo["name"],
@@ -323,23 +311,9 @@ async def fetch_repo_metrics(
                         "repo_created_at": gdata.get("createdAt", ""),
                         "topics": _parse_topics(topic_nodes),
                         "merged_prs": gdata.get("mergedPullRequests", {}).get("totalCount", 0),
-                        "commit_count": commit_count,
+                        "commit_count": 0,
                         "commit_is_delta": repo["id"] in since_map,
                     }
-                else:
-                    # REST fallback
-                    logger.info(f"Using REST fallback for {repo['owner']}/{repo['name']}")
-                    rest = await _get_repo_rest_fallback(session, repo["owner"], repo["name"])
-                    if rest is None:
-                        logger.error(f"Both GraphQL and REST failed for {repo['owner']}/{repo['name']}")
-                        continue
-                    parsed = {"repo_id": repo["id"], "owner": repo["owner"], "name": repo["name"], **rest}
-
-                results[repo["id"]] = parsed
-
-            # ── Rate limit courtesy pause between chunks ──
-            if chunk_start + chunk_size < len(repos):
-                await asyncio.sleep(1)
 
         # Throttle REST concurrency to protect socket limits and prevent GitHub secondary rate limits
         sem = asyncio.Semaphore(15)
@@ -354,15 +328,42 @@ async def fetch_repo_metrics(
                 async with sem:
                     return await _get_contributor_count(session, owner, name)
 
-            # Check if we successfully got merged_prs and commit_count via GraphQL
-            has_graphql_data = (repo_id in results) and ("merged_prs" in results[repo_id])
+            # Check if we successfully got base metadata from GraphQL
+            has_graphql_data = repo_id in results
 
             if has_graphql_data:
-                # Fast path: only fetch contributor count via REST (no Search/Commit API limits hit!)
-                c_count = await throttled_contrib()
-                results[repo_id]["contributors"] = c_count
+                # Fast path: fetch contributor count and commit count via REST
+                async def throttled_commits():
+                    async with sem:
+                        return await _get_commit_count_since(session, owner, name, since=since)
+
+                c_count, commit_count = await asyncio.gather(
+                    throttled_contrib(),
+                    throttled_commits()
+                )
+                if repo_id in results:
+                    results[repo_id]["contributors"] = c_count
+                    results[repo_id]["commit_count"] = commit_count
+                    results[repo_id]["commit_is_delta"] = since is not None
             else:
-                # Slow path (fallback): fetch everything via REST
+                # Slow path (fallback): fetch base metadata first, then extra info concurrently
+                logger.info(f"Using REST fallback for {owner}/{name}")
+                async def throttled_rest():
+                    async with sem:
+                        return await _get_repo_rest_fallback(session, owner, name)
+
+                rest = await throttled_rest()
+                if rest is None:
+                    logger.error(f"Both GraphQL and REST failed for {owner}/{name}")
+                    return
+
+                results[repo_id] = {
+                    "repo_id": repo_id,
+                    "owner": owner,
+                    "name": name,
+                    **rest
+                }
+
                 async def throttled_prs():
                     async with sem:
                         return await _get_merged_pr_count(session, owner, name)

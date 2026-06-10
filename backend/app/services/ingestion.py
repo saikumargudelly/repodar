@@ -127,20 +127,26 @@ async def auto_discover_and_sync(force: bool = False) -> dict:
 
     # Determine whether to run full search-based discovery
     # Reduced from 20h to 4h throttle to discover more repos while respecting rate limits
-    timestamp_file = os.path.join(os.path.dirname(__file__), "last_search_discovery.txt")
     run_full_search = force
-    FULL_SEARCH_INTERVAL = 4 * 3600  # 4 hours: balance between coverage and rate limits
+    FULL_SEARCH_INTERVAL = timedelta(hours=4)
     if not run_full_search:
-        if not os.path.exists(timestamp_file):
-            run_full_search = True
-        else:
-            try:
-                with open(timestamp_file, "r") as f:
-                    last_run = float(f.read().strip())
-                if (time.time() - last_run) > FULL_SEARCH_INTERVAL:
-                    run_full_search = True
-            except Exception:
+        try:
+            system_repo = db.query(Repository).filter(Repository.id == "system:last_search_discovery").first()
+            if not system_repo or not system_repo.last_seen_trending:
                 run_full_search = True
+            else:
+                time_elapsed = now - system_repo.last_seen_trending
+                if time_elapsed > FULL_SEARCH_INTERVAL:
+                    run_full_search = True
+                else:
+                    logger.info(f"Full discovery is on cooldown. Remaining: {FULL_SEARCH_INTERVAL - time_elapsed}")
+        except Exception as e:
+            logger.warning(f"Failed to query system discovery row from DB: {e}")
+            run_full_search = True
+
+
+    # Close the DB session during search queries to avoid idle timeout closures
+    db.close()
 
     try:
         # If running full search, run all discovery searches with proper batching.
@@ -203,9 +209,16 @@ async def auto_discover_and_sync(force: bool = False) -> dict:
 
         logger.info(f"Auto-discovery: {len(seen_slugs)} unique repos found across all searches")
 
+        # Re-open database session for persistence after long-running network IO
+        db = SessionLocal()
+
         # Bulk load all existing repositories to prevent N+1 queries
         all_repos = db.query(Repository).all()
         existing_map = {f"{r.owner.lower()}/{r.name.lower()}": r for r in all_repos}
+
+        active_to_refresh_ids = []
+        inactive_to_reactivate_ids = []
+        new_repos = []
 
         for slug, repo_data in seen_slugs.items():
             try:
@@ -221,15 +234,13 @@ async def auto_discover_and_sync(force: bool = False) -> dict:
                 existing = existing_map.get(f"{owner.lower()}/{name.lower()}")
 
                 if existing:
-                    # Always refresh last_seen_trending
-                    existing.last_seen_trending = now
-                    if not existing.is_active:
-                        # Repo is back — reactivate it
-                        existing.is_active = True
+                    if existing.is_active:
+                        active_to_refresh_ids.append(existing.id)
+                        refreshed += 1
+                    else:
+                        inactive_to_reactivate_ids.append(existing.id)
                         reactivated += 1
                         logger.info(f"Reactivated: {owner}/{name}")
-                    else:
-                        refreshed += 1
                 else:
                     # Brand new repo — insert it
                     category = _infer_category(repo_data)
@@ -249,34 +260,69 @@ async def auto_discover_and_sync(force: bool = False) -> dict:
                         discovered_at=now,
                         last_seen_trending=now,
                     )
-                    db.add(new_repo)
+                    new_repos.append(new_repo)
                     discovered += 1
                     logger.info(f"Discovered: {owner}/{name} [{category}]")
 
             except Exception as e:
-                logger.error(f"Error upserting discovered repo {slug}: {e}")
+                logger.error(f"Error processing discovered repo {slug}: {e}")
                 continue
 
-        db.commit()
-        
-        # Save timestamp if full search was run successfully
+        # Execute bulk updates and inserts
+        if active_to_refresh_ids:
+            db.query(Repository).filter(Repository.id.in_(active_to_refresh_ids)).update(
+                {Repository.last_seen_trending: now},
+                synchronize_session=False
+            )
+        if inactive_to_reactivate_ids:
+            db.query(Repository).filter(Repository.id.in_(inactive_to_reactivate_ids)).update(
+                {Repository.last_seen_trending: now, Repository.is_active: True},
+                synchronize_session=False
+            )
+        if new_repos:
+            db.bulk_save_objects(new_repos)
+
+        # Stage system discovery timestamp update if full search was run successfully
         if run_full_search:
             try:
-                with open(timestamp_file, "w") as f:
-                    f.write(str(time.time()))
+                system_repo = db.query(Repository).filter(Repository.id == "system:last_search_discovery").first()
+                if not system_repo:
+                    system_repo = Repository(
+                        id="system:last_search_discovery",
+                        owner="system",
+                        name="last_search_discovery",
+                        category="system",
+                        github_url="",
+                        source="system",
+                        is_active=False,
+                        discovered_at=now,
+                        last_seen_trending=now
+                    )
+                    db.add(system_repo)
+                else:
+                    system_repo.last_seen_trending = now
             except Exception as e:
-                logger.warning(f"Failed to save search discovery timestamp: {e}")
+                logger.warning(f"Failed to stage system discovery timestamp in DB: {e}")
+
+        db.commit()
+
 
         summary = {"discovered": discovered, "reactivated": reactivated, "refreshed": refreshed}
         logger.info(f"Auto-discovery complete: {summary}")
         return summary
 
     except Exception as e:
-        db.rollback()
+        try:
+            db.rollback()
+        except Exception:
+            pass
         logger.error(f"Auto-discovery pipeline error: {e}", exc_info=True)
         return {"discovered": 0, "reactivated": 0, "refreshed": 0, "error": str(e)}
     finally:
-        db.close()
+        try:
+            db.close()
+        except Exception:
+            pass
 
 
 def deactivate_stale_repos() -> int:
@@ -301,15 +347,19 @@ def deactivate_stale_repos() -> int:
             .all()
         )
 
-        for repo in stale:
-            repo.is_active = False
-            logger.info(
-                f"Deactivated stale repo: {repo.owner}/{repo.name} "
-                f"(last seen trending: {repo.last_seen_trending})"
-            )
-
-        db.commit()
         if stale:
+            for repo in stale:
+                logger.info(
+                    f"Deactivated stale repo: {repo.owner}/{repo.name} "
+                    f"(last seen trending: {repo.last_seen_trending})"
+                )
+            
+            stale_ids = [repo.id for repo in stale]
+            # Perform bulk update to avoid sequential roundtrips
+            db.query(Repository).filter(Repository.id.in_(stale_ids)).update(
+                {Repository.is_active: False}, synchronize_session=False
+            )
+            db.commit()
             logger.info(f"Deactivated {len(stale)} stale auto-discovered repos")
         return len(stale)
 
@@ -412,6 +462,10 @@ async def run_daily_ingestion(force_discovery: bool = False) -> dict:
         )
         prev_metrics_map = {row.repo_id: row for row in prev_metrics_list}
 
+        new_metrics = []
+        metric_updates = []
+        repo_updates = []
+
         for m in metrics_list:
             repo_id = m["repo_id"]
             try:
@@ -441,25 +495,30 @@ async def run_daily_ingestion(force_discovery: bool = False) -> dict:
 
                 if existing:
                     # ── UPSERT: refresh the existing today row ─────────────
-                    existing.captured_at        = now
-                    existing.stars              = m.get("stars", 0)
-                    existing.forks              = m.get("forks", 0)
-                    existing.watchers           = m.get("watchers", 0)
-                    existing.contributors       = m.get("contributors", 0)
-                    existing.open_issues        = m.get("open_issues", 0)
-                    existing.open_prs           = m.get("open_prs", 0)
-                    existing.merged_prs         = m.get("merged_prs", 0)
-                    existing.releases           = m.get("releases", 0)
-                    existing.commit_count       = commit_count
-                    existing.daily_star_delta   = daily_star_delta
-                    existing.daily_fork_delta   = daily_fork_delta
-                    existing.daily_pr_delta     = daily_pr_delta
-                    existing.daily_commit_delta = daily_commit_delta
-                    existing.language_breakdown = json.dumps(m.get("language_breakdown", {}))
+                    metric_updates.append({
+                        "id": existing.id,
+                        "captured_at": now,
+                        "stars": m.get("stars", 0),
+                        "forks": m.get("forks", 0),
+                        "watchers": m.get("watchers", 0),
+                        "contributors": m.get("contributors", 0),
+                        "open_issues": m.get("open_issues", 0),
+                        "open_prs": m.get("open_prs", 0),
+                        "merged_prs": m.get("merged_prs", 0),
+                        "releases": m.get("releases", 0),
+                        "commit_count": commit_count,
+                        "daily_star_delta": daily_star_delta,
+                        "daily_fork_delta": daily_fork_delta,
+                        "daily_pr_delta": daily_pr_delta,
+                        "daily_commit_delta": daily_commit_delta,
+                        "language_breakdown": json.dumps(m.get("language_breakdown", {}))
+                    })
                     updated += 1
                 else:
                     # ── INSERT: first run of the day ───────────────────────
+                    new_id = str(uuid.uuid4())
                     metric = DailyMetric(
+                        id=new_id,
                         repo_id=repo_id,
                         captured_at=now,
                         stars=m.get("stars", 0),
@@ -477,7 +536,7 @@ async def run_daily_ingestion(force_discovery: bool = False) -> dict:
                         daily_commit_delta=daily_commit_delta,
                         language_breakdown=json.dumps(m.get("language_breakdown", {})),
                     )
-                    db.add(metric)
+                    new_metrics.append(metric)
                     # Track for potential subsequent upserts in this same run
                     existing_today[repo_id] = metric
                     inserted += 1
@@ -486,22 +545,33 @@ async def run_daily_ingestion(force_discovery: bool = False) -> dict:
                 # Persist topics and stars_snapshot for Early-Radar + Topic Intelligence.
                 if repo_id in repo_map:
                     repo = repo_map[repo_id]
-                    repo.age_days = _calc_age_days(m.get("repo_created_at", ""))
-                    if m.get("primary_language"):
-                        repo.primary_language = m["primary_language"]
-                    # Persist GitHub topic tags as a JSON array
-                    raw_topics = m.get("topics")
-                    if raw_topics is not None:
-                        repo.topics = json.dumps(raw_topics)
-                    # Denormalised star count for fast Early-Radar queries
-                    repo.stars_snapshot = m.get("stars", 0)
-                    repo.last_fetched_at = now
+                    repo_updates.append({
+                        "id": repo.id,
+                        "age_days": _calc_age_days(m.get("repo_created_at", "")),
+                        "primary_language": m.get("primary_language") or repo.primary_language,
+                        "topics": json.dumps(m["topics"]) if m.get("topics") is not None else repo.topics,
+                        "stars_snapshot": m.get("stars", 0),
+                        "last_fetched_at": now
+                    })
 
             except Exception as e:
-                logger.error(f"Failed to save metric for repo {repo_id}: {e}")
+                logger.error(f"Failed to prepare metric for repo {repo_id}: {e}")
                 failed += 1
 
-        db.commit()
+        # Perform chunked bulk database operations
+        chunk_size = 200
+        if new_metrics:
+            for idx in range(0, len(new_metrics), chunk_size):
+                db.bulk_save_objects(new_metrics[idx:idx + chunk_size])
+                db.commit()
+        if metric_updates:
+            for idx in range(0, len(metric_updates), chunk_size):
+                db.bulk_update_mappings(DailyMetric, metric_updates[idx:idx + chunk_size])
+                db.commit()
+        if repo_updates:
+            for idx in range(0, len(repo_updates), chunk_size):
+                db.bulk_update_mappings(Repository, repo_updates[idx:idx + chunk_size])
+                db.commit()
 
         # ── Step 4: Enrich high-momentum repos with contributors & forks ──────
         # Run for repos that pushed fresh metrics this cycle.
@@ -578,8 +648,8 @@ async def _enrich_contributors_and_forks(repos: list, today) -> None:
                 if isinstance(res, Exception) or not res:
                     continue
                 fetched_data.append(res)
-        if start + batch_size < len(repos):
-            await asyncio.sleep(2)  # gentle pacing
+            if start + batch_size < len(repos):
+                await asyncio.sleep(2)  # gentle pacing
 
     # 3. Sequential database updates using a single DB session
     db = SessionLocal()
@@ -605,6 +675,11 @@ async def _enrich_contributors_and_forks(repos: list, today) -> None:
         )
         fork_map = {(row.parent_repo_id, row.fork_full_name): row for row in all_existing_forks}
 
+        new_contribs = []
+        contrib_updates = []
+        new_forks = []
+        fork_updates = []
+
         for repo_id, contributors, forks in fetched_data:
             # Contributors
             for c in contributors:
@@ -612,18 +687,23 @@ async def _enrich_contributors_and_forks(repos: list, today) -> None:
                     continue
                 existing = contrib_map.get((repo_id, c["login"]))
                 if existing:
-                    existing.contributions = c["contributions"]
-                    existing.avatar_url = c.get("avatar_url", "")
-                    existing.updated_at = now
+                    contrib_updates.append({
+                        "id": existing.id,
+                        "contributions": c["contributions"],
+                        "avatar_url": c.get("avatar_url", ""),
+                        "updated_at": now
+                    })
                 else:
+                    new_id = str(uuid.uuid4())
                     new_contrib = RepoContributor(
+                        id=new_id,
                         repo_id=repo_id,
                         login=c["login"],
                         avatar_url=c.get("avatar_url", ""),
                         contributions=c["contributions"],
                         updated_at=now,
                     )
-                    db.add(new_contrib)
+                    new_contribs.append(new_contrib)
                     contrib_map[(repo_id, c["login"])] = new_contrib
 
             # Forks
@@ -641,12 +721,17 @@ async def _enrich_contributors_and_forks(repos: list, today) -> None:
                         pass
 
                 if existing_fork:
-                    existing_fork.stars = f["stars"]
-                    existing_fork.forks = f["forks"]
-                    existing_fork.last_push_at = push_dt
-                    existing_fork.captured_at = now
+                    fork_updates.append({
+                        "id": existing_fork.id,
+                        "stars": f["stars"],
+                        "forks": f["forks"],
+                        "last_push_at": push_dt,
+                        "captured_at": now
+                    })
                 else:
+                    new_id = str(uuid.uuid4())
                     new_fork = ForkSnapshot(
+                        id=new_id,
                         parent_repo_id=repo_id,
                         fork_owner=f["fork_owner"],
                         fork_name=f["fork_name"],
@@ -660,10 +745,27 @@ async def _enrich_contributors_and_forks(repos: list, today) -> None:
                         snapshot_date=today,
                         captured_at=now,
                     )
-                    db.add(new_fork)
+                    new_forks.append(new_fork)
                     fork_map[(repo_id, f["fork_full_name"])] = new_fork
 
-        db.commit()
+        # Execute chunked bulk database operations
+        chunk_size = 200
+        if new_contribs:
+            for idx in range(0, len(new_contribs), chunk_size):
+                db.bulk_save_objects(new_contribs[idx:idx + chunk_size])
+                db.commit()
+        if contrib_updates:
+            for idx in range(0, len(contrib_updates), chunk_size):
+                db.bulk_update_mappings(RepoContributor, contrib_updates[idx:idx + chunk_size])
+                db.commit()
+        if new_forks:
+            for idx in range(0, len(new_forks), chunk_size):
+                db.bulk_save_objects(new_forks[idx:idx + chunk_size])
+                db.commit()
+        if fork_updates:
+            for idx in range(0, len(fork_updates), chunk_size):
+                db.bulk_update_mappings(ForkSnapshot, fork_updates[idx:idx + chunk_size])
+                db.commit()
         logger.info(f"Enrichment completed and saved successfully for {len(fetched_data)} repos")
     except Exception as e:
         db.rollback()
