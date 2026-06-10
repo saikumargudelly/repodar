@@ -274,18 +274,21 @@ async def run_full_pipeline(background_tasks: BackgroundTasks):
         _pipeline_running = True
         _last_pipeline_result = {"status": "running"}
         try:
-            from app.database import SessionLocal
-            db_heal = SessionLocal()
-            try:
-                deduplicate_repositories_logic(db_heal)
-            except Exception as e:
-                logger.warning("Auto-deduplication failed: %s", e)
-            finally:
-                db_heal.close()
+            def run_heal():
+                from app.database import SessionLocal
+                db_heal = SessionLocal()
+                try:
+                    deduplicate_repositories_logic(db_heal)
+                except Exception as e:
+                    logger.warning("Auto-deduplication failed: %s", e)
+                finally:
+                    db_heal.close()
+
+            await asyncio.to_thread(run_heal)
 
             ingest_result = await run_daily_ingestion(force_discovery=False)
-            score_result = run_daily_scoring()
-            explain_count = enrich_top_repos_with_explanations(top_n=20)
+            score_result = await asyncio.to_thread(run_daily_scoring)
+            explain_count = await asyncio.to_thread(enrich_top_repos_with_explanations, 20)
             logger.info(
                 "run-all complete | discovered=%s ingested=%s scored=%s explained=%s",
                 ingest_result.get('discovered', 0),
