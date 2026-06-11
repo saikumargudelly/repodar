@@ -286,56 +286,52 @@ export default function RadarPage() {
       {mode === "established" && (
         <div className="space-y-6">
           {/* Controls toolbar */}
-          <div className="bg-[#1f1f23] border border-[#2d2d34] rounded-xl p-4 flex flex-wrap items-center gap-4">
+          <div className="bg-[#1f1f23] border border-[#2d2d34] rounded-xl p-4 flex flex-wrap items-center gap-3">
             {/* New Only Checkbox */}
-            <label className="flex items-center gap-2 text-xs font-bold font-mono text-gray-400 cursor-pointer select-none pr-4 border-r border-[#2d2d34]">
+            <label className="flex items-center gap-2 text-xs font-bold font-mono text-gray-400 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={newOnly}
                 onChange={(e) => setNewOnly(e.target.checked)}
-                className="w-3.5 h-3.5 rounded cursor-pointer"
-                style={{ accentColor: "#6366f1" }}
+                className="w-4 h-4 rounded border-[#2d2d34] bg-[#18181b] text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
               />
               New only (&lt;180d)
             </label>
 
-            {/* Sort by label + Sorting Buttons */}
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-gray-600 font-bold uppercase tracking-wider font-mono">Sort</span>
-              <div className="flex items-center border border-[#2d2d34] rounded-md overflow-hidden bg-[#18181b]">
-                <button
-                  onClick={() => setEstablishedSort("trend_score")}
-                  className={`px-3 py-1.5 text-xs font-semibold border-r border-[#2d2d34] transition-all cursor-pointer ${
-                    establishedSort === "trend_score" ? "bg-[#27272a] text-white" : "text-gray-400 hover:text-white"
-                  }`}
-                >
-                  Trend score
-                </button>
-                <button
-                  onClick={() => setEstablishedSort("star_velocity_7d")}
-                  className={`px-3 py-1.5 text-xs font-semibold border-r border-[#2d2d34] transition-all cursor-pointer ${
-                    establishedSort === "star_velocity_7d" ? "bg-[#27272a] text-white" : "text-gray-400 hover:text-white"
-                  }`}
-                >
-                  Stars/d
-                </button>
-                <button
-                  onClick={() => setEstablishedSort("acceleration")}
-                  className={`px-3 py-1.5 text-xs font-semibold border-r border-[#2d2d34] transition-all cursor-pointer ${
-                    establishedSort === "acceleration" ? "bg-[#27272a] text-white" : "text-gray-400 hover:text-white"
-                  }`}
-                >
-                  Accel
-                </button>
-                <button
-                  onClick={() => setEstablishedSort("sustainability_score")}
-                  className={`px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-                    establishedSort === "sustainability_score" ? "bg-[#27272a] text-white" : "text-gray-400 hover:text-white"
-                  }`}
-                >
-                  Sustain
-                </button>
-              </div>
+            {/* Sorting Buttons */}
+            <div className="flex items-center border border-[#2d2d34] rounded-md overflow-hidden bg-[#18181b] ml-4">
+              <button
+                onClick={() => setEstablishedSort("trend_score")}
+                className={`px-3 py-1.5 text-xs font-semibold border-r border-[#2d2d34] transition-all cursor-pointer ${
+                  establishedSort === "trend_score" ? "bg-[#27272a] text-white" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                Trend score
+              </button>
+              <button
+                onClick={() => setEstablishedSort("star_velocity_7d")}
+                className={`px-3 py-1.5 text-xs font-semibold border-r border-[#2d2d34] transition-all cursor-pointer ${
+                  establishedSort === "star_velocity_7d" ? "bg-[#27272a] text-white" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                Stars/d
+              </button>
+              <button
+                onClick={() => setEstablishedSort("acceleration")}
+                className={`px-3 py-1.5 text-xs font-semibold border-r border-[#2d2d34] transition-all cursor-pointer ${
+                  establishedSort === "acceleration" ? "bg-[#27272a] text-white" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                Accel
+              </button>
+              <button
+                onClick={() => setEstablishedSort("sustainability_score")}
+                className={`px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                  establishedSort === "sustainability_score" ? "bg-[#27272a] text-white" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                Sustain
+              </button>
             </div>
 
             {/* Export buttons */}
@@ -619,53 +615,46 @@ export default function RadarPage() {
               </div>
             </div>
 
-            {/* Checkboxes, Selects, and Exports row — align-items: flex-end so checkboxes bottom-align with selects */}
-            <div className="flex flex-wrap items-end gap-6">
-              {/* Checkboxes block — shown as a grouped card with label */}
-              <div className="flex flex-col gap-0">
-                <span className="text-[9px] text-gray-600 font-bold uppercase tracking-wider font-mono mb-2">Signal filters</span>
-                <div className="flex flex-col gap-2 bg-[#18181b] border border-[#2d2d34] rounded-md px-3 py-2.5">
-                  <label className="radar-checkbox-inline flex items-center gap-2 text-xs font-bold font-mono text-gray-400 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={preViralOnly}
-                      onChange={(e) => setPreViralOnly(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded cursor-pointer"
-                      style={{ accentColor: "#6366f1" }}
-                    />
-                    Pre-viral only (14d to 5k)
-                  </label>
-                  <label className="radar-checkbox-inline flex items-center gap-2 text-xs font-bold font-mono text-gray-400 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={requireConsistentGrowth}
-                      onChange={(e) => setRequireConsistentGrowth(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded cursor-pointer"
-                      style={{ accentColor: "#6366f1" }}
-                    />
-                    Consistent growth (5+ of 7d)
-                  </label>
-                  <label className="radar-checkbox-inline flex items-center gap-2 text-xs font-bold font-mono text-gray-400 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={requireForkMomentum}
-                      onChange={(e) => setRequireForkMomentum(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded cursor-pointer"
-                      style={{ accentColor: "#6366f1" }}
-                    />
-                    Fork momentum
-                  </label>
-                  <label className="radar-checkbox-inline flex items-center gap-2 text-xs font-bold font-mono text-gray-400 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={requireSustainedVelocity}
-                      onChange={(e) => setRequireSustainedVelocity(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded cursor-pointer"
-                      style={{ accentColor: "#6366f1" }}
-                    />
-                    Sustained 30d velocity
-                  </label>
-                </div>
+            {/* Checkboxes, Selects, and Exports row */}
+            <div className="flex flex-wrap items-start gap-6">
+              {/* Checkboxes block */}
+              <div className="flex flex-col gap-2.5">
+                <label className="flex items-center gap-2 text-xs font-bold font-mono text-gray-400 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={preViralOnly}
+                    onChange={(e) => setPreViralOnly(e.target.checked)}
+                    className="w-4 h-4 rounded border-[#2d2d34] bg-[#18181b] text-indigo-500 focus:ring-0 cursor-pointer"
+                  />
+                  Pre-viral only (14d to 5k)
+                </label>
+                <label className="flex items-center gap-2 text-xs font-bold font-mono text-gray-400 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={requireConsistentGrowth}
+                    onChange={(e) => setRequireConsistentGrowth(e.target.checked)}
+                    className="w-4 h-4 rounded border-[#2d2d34] bg-[#18181b] text-indigo-500 focus:ring-0 cursor-pointer"
+                  />
+                  Consistent growth (5+ of 7d)
+                </label>
+                <label className="flex items-center gap-2 text-xs font-bold font-mono text-gray-400 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={requireForkMomentum}
+                    onChange={(e) => setRequireForkMomentum(e.target.checked)}
+                    className="w-4 h-4 rounded border-[#2d2d34] bg-[#18181b] text-indigo-500 focus:ring-0 cursor-pointer"
+                  />
+                  Fork momentum
+                </label>
+                <label className="flex items-center gap-2 text-xs font-bold font-mono text-gray-400 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={requireSustainedVelocity}
+                    onChange={(e) => setRequireSustainedVelocity(e.target.checked)}
+                    className="w-4 h-4 rounded border-[#2d2d34] bg-[#18181b] text-indigo-500 focus:ring-0 cursor-pointer"
+                  />
+                  Sustained 30d velocity
+                </label>
               </div>
 
               {/* Selects block */}
