@@ -115,7 +115,7 @@ export default function ResearchListPage() {
   };
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: C.bg, color: C.text, overflow: "hidden" }}>
+    <div style={{ height: "calc(100vh - 26px)", display: "flex", flexDirection: "column", background: C.bg, color: C.text, overflow: "hidden" }}>
       <style>{`
         ::-webkit-scrollbar {
           width: 6px;
@@ -347,61 +347,6 @@ export default function ResearchListPage() {
             <div style={{ flex: "0 0 58%", background: C.bg }} />
           </>
         )}
-      </div>
-
-      {/* Footer (matches mockup footer) */}
-      <div style={{
-        height: "36px",
-        borderTop: `1px solid ${C.border}`,
-        background: C.bgCard,
-        padding: "0 16px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        fontSize: "12px",
-        color: C.textSub,
-        fontFamily: "var(--font-sans)",
-        flexShrink: 0
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: C.green }} />
-            Live
-          </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <line x1="6" y1="3" x2="6" y2="15" />
-              <circle cx="18" cy="6" r="3" />
-              <circle cx="6" cy="18" r="3" />
-              <path d="M6 9a9 9 0 0 0 9 9" />
-              <circle cx="18" cy="18" r="3" />
-            </svg>
-            1,349 repos
-          </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
-              <rect x="9" y="9" width="6" height="6" />
-              <line x1="9" y1="1" x2="9" y2="4" />
-              <line x1="15" y1="1" x2="15" y2="4" />
-              <line x1="9" y1="20" x2="9" y2="23" />
-              <line x1="15" y1="20" x2="15" y2="23" />
-              <line x1="20" y1="9" x2="23" y2="9" />
-              <line x1="20" y1="15" x2="23" y2="15" />
-              <line x1="1" y1="9" x2="4" y2="9" />
-              <line x1="1" y1="15" x2="4" y2="15" />
-            </svg>
-            AI/ML ecosystem
-          </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
-            20 alerts
-          </span>
-        </div>
-        <div>Repodar v2.0</div>
       </div>
     </div>
   );

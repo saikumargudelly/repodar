@@ -125,7 +125,12 @@ function RepoCard({
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-        <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "11px", color: C.textSub }}>⭐ {starsK}</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontFamily: "var(--font-mono, monospace)", fontSize: "11px", color: C.textSub }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+          </svg>
+          {starsK}
+        </span>
         {repo.primary_language && (
           <span style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: C.textSub }}>• {repo.primary_language}</span>
         )}
@@ -291,7 +296,11 @@ function ChatBubble({
           padding: "4px 10px", background: C.bgCard, borderRadius: "6px",
           border: `1px solid ${C.border}`, maxWidth: "90%",
         }}>
-          🔍 <em>{msg.query_explanation}</em>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0 }}>
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <em>{msg.query_explanation}</em>
         </div>
       )}
 
@@ -343,7 +352,11 @@ function StreamingBubble({ text, repos, status, queryExplanation }: {
           padding: "4px 10px", background: C.bgCard, borderRadius: "6px",
           border: `1px solid ${C.border}`, maxWidth: "90%",
         }}>
-          🔍 <em>{queryExplanation}</em>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0 }}>
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <em>{queryExplanation}</em>
         </div>
       )}
       {status && !text && (
@@ -371,7 +384,11 @@ function StreamingBubble({ text, repos, status, queryExplanation }: {
         <div style={{ display: "flex", flexDirection: "column", gap: "8px", paddingLeft: "4px" }}>
           {repos.slice(0, 5).map((r) => (
             <div key={r.full_name} style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: "8px", padding: "10px 12px", fontFamily: "var(--font-sans)", fontSize: "12px", color: C.textSub }}>
-              <strong style={{ color: C.text }}>{r.full_name}</strong> — {(r.stars / 1000).toFixed(1)}k ⭐ · {r.trend_label} · {r.description?.slice(0, 60)}
+              <strong style={{ color: C.text }}>{r.full_name}</strong> — {(r.stars / 1000).toFixed(1)}k 
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ display: "inline-block", margin: "0 4px", verticalAlign: "middle" }}>
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+              · {r.trend_label} · {r.description?.slice(0, 60)}
             </div>
           ))}
         </div>
@@ -986,7 +1003,7 @@ export default function ResearchSessionPage() {
   };
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: C.bg, color: C.text, overflow: "hidden" }}>
+    <div style={{ height: "calc(100vh - 26px)", display: "flex", flexDirection: "column", background: C.bg, color: C.text, overflow: "hidden" }}>
       <style>{`
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
         @keyframes blink { 50%{opacity:0} }
@@ -1312,9 +1329,35 @@ export default function ResearchSessionPage() {
               {messages.length === 0 && !sending && (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "8px", marginBottom: "8px" }}>
                   {[
-                    { label: "Trending in AI agents", q: "what's trending in AI agents?", icon: "📈" },
-                    { label: "Compare vllm vs llama.cpp", q: "compare vllm vs llama.cpp", icon: "🔄" },
-                    { label: "Top Rust repos", q: "top rust repositories", icon: "⭐" },
+                    {
+                      label: "Trending in AI agents",
+                      q: "what's trending in AI agents?",
+                      icon: (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: "6px" }}>
+                          <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                          <polyline points="17 6 23 6 23 12" />
+                        </svg>
+                      )
+                    },
+                    {
+                      label: "Compare vllm vs llama.cpp",
+                      q: "compare vllm vs llama.cpp",
+                      icon: (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: "6px" }}>
+                          <path d="M7 16V4M7 4L3 8M7 4l4 4" />
+                          <path d="M17 8v12M17 20l-4-4M17 20l4-4" />
+                        </svg>
+                      )
+                    },
+                    {
+                      label: "Top Rust repos",
+                      q: "top rust repositories",
+                      icon: (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: "6px" }}>
+                          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                        </svg>
+                      )
+                    },
                   ].map(({ label, q, icon }) => (
                     <button
                       key={label}
@@ -1336,7 +1379,7 @@ export default function ResearchSessionPage() {
                       onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.textSub; e.currentTarget.style.color = C.text; }}
                       onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textSub; }}
                     >
-                      <span style={{ marginRight: "6px" }}>{icon}</span>
+                      {icon}
                       {label}
                     </button>
                   ))}
@@ -1426,11 +1469,23 @@ export default function ResearchSessionPage() {
                     justifyContent: "center",
                     cursor: !sttSupported || sending || isTranscribing ? "not-allowed" : "pointer",
                     opacity: !sttSupported || sending || isTranscribing ? 0.5 : 1,
-                    fontSize: "16px",
                     flexShrink: 0,
+                    padding: 0,
                   }}
                 >
-                  {isTranscribing ? "…" : isRecording ? "■" : "🎙"}
+                  {isTranscribing ? (
+                    "…"
+                  ) : isRecording ? (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                      <rect x="6" y="6" width="12" height="12" rx="1.5" />
+                    </svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ display: "block" }}>
+                      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                      <line x1="12" y1="19" x2="12" y2="23" />
+                    </svg>
+                  )}
                 </button>
                 <button
                   onClick={() => handleSend()}
@@ -1514,61 +1569,6 @@ export default function ResearchSessionPage() {
           </div>
         </div>
       )}
-
-      {/* Footer (matches mockup footer) */}
-      <div style={{
-        height: "36px",
-        borderTop: `1px solid ${C.border}`,
-        background: C.bgCard,
-        padding: "0 16px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        fontSize: "12px",
-        color: C.textSub,
-        fontFamily: "var(--font-sans)",
-        flexShrink: 0
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: C.green }} />
-            Live
-          </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <line x1="6" y1="3" x2="6" y2="15" />
-              <circle cx="18" cy="6" r="3" />
-              <circle cx="6" cy="18" r="3" />
-              <path d="M6 9a9 9 0 0 0 9 9" />
-              <circle cx="18" cy="18" r="3" />
-            </svg>
-            1,349 repos
-          </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
-              <rect x="9" y="9" width="6" height="6" />
-              <line x1="9" y1="1" x2="9" y2="4" />
-              <line x1="15" y1="1" x2="15" y2="4" />
-              <line x1="9" y1="20" x2="9" y2="23" />
-              <line x1="15" y1="20" x2="15" y2="23" />
-              <line x1="20" y1="9" x2="23" y2="9" />
-              <line x1="20" y1="15" x2="23" y2="15" />
-              <line x1="1" y1="9" x2="4" y2="9" />
-              <line x1="1" y1="15" x2="4" y2="15" />
-            </svg>
-            AI/ML ecosystem
-          </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
-            20 alerts
-          </span>
-        </div>
-        <div>Repodar v2.0</div>
-      </div>
     </div>
   );
 }
