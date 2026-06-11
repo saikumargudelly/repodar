@@ -262,7 +262,7 @@ export default function RadarPage() {
                   type="checkbox"
                   checked={beforePreViralOnly}
                   onChange={(e) => setBeforePreViralOnly(e.target.checked)}
-                  style={{ accentColor: "var(--cyan)", width: "14px", height: "14px", cursor: "pointer" }}
+                  style={{ accentColor: "#58a6ff", width: "14px", height: "14px", cursor: "pointer" }}
                 />
                 Pre-viral only
               </label>
@@ -334,7 +334,7 @@ export default function RadarPage() {
                 type="checkbox"
                 checked={newOnly}
                 onChange={(e) => setNewOnly(e.target.checked)}
-                style={{ accentColor: "var(--cyan)", width: "14px", height: "14px", cursor: "pointer" }}
+                style={{ accentColor: "#58a6ff", width: "14px", height: "14px", cursor: "pointer" }}
               />
               New only (&lt;180D)
             </label>
@@ -482,7 +482,7 @@ export default function RadarPage() {
                         type="checkbox"
                         checked={checked}
                         onChange={(e) => onChange(e.target.checked)}
-                        style={{ accentColor: "var(--cyan)", width: "14px", height: "14px", cursor: "pointer", flexShrink: 0 }}
+                        style={{ accentColor: "#58a6ff", width: "14px", height: "14px", cursor: "pointer", flexShrink: 0 }}
                       />
                       {label}
                     </label>
@@ -553,7 +553,7 @@ export default function RadarPage() {
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
                 <thead>
                   <tr>
-                    {["#", "REPO", "CATEGORY", "STAGE", "BREAKOUT", "TREND", "ACCEL", "SIGNALS", "HEALTH"].map((h) => (
+                    {["#", "REPO", "STAGE", "BREAKOUT", "TREND", "ACCEL", "ETA", "SIGNALS", "HEALTH"].map((h) => (
                       <th key={h} className="th-mono">{h}</th>
                     ))}
                   </tr>
@@ -577,6 +577,27 @@ export default function RadarPage() {
                 </tbody>
               </table>
             )}
+          </div>
+
+          {/* Footer: Showing N of M + navigation */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "12px", padding: "0 4px" }}>
+            <span style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: "var(--text-muted)" }}>
+              {earlyLoading ? "" : `Showing ${Math.min(earlyRows.length, earlyRows.length)} of ${earlyRows.length}`}
+            </span>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button
+                onClick={() => router.push("/radar?tab=breakout")}
+                style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: "var(--text-secondary)", background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: "6px", padding: "6px 14px", cursor: "pointer", fontWeight: 500 }}
+              >
+                Top breakouts ↗
+              </button>
+              <button
+                onClick={() => router.push("/overview")}
+                style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: "var(--text-secondary)", background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: "6px", padding: "6px 14px", cursor: "pointer", fontWeight: 500 }}
+              >
+                Signal picks ↗
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -605,7 +626,7 @@ function SliderBlock({
         value={current}
         onChange={(e) => onChange(Number(e.target.value))}
         className="radar-range"
-        style={{ width: "100%", accentColor: "var(--cyan)", cursor: "pointer" }}
+        style={{ width: "100%", accentColor: "#58a6ff", cursor: "pointer" }}
       />
       {(minLabel || maxLabel) && (
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: "4px" }}>
@@ -744,45 +765,101 @@ function BeforeCard({ repo, onClick }: { repo: EarlyRadarRepo; onClick: () => vo
 function EarlyRow({ repo, rank, onClick }: { repo: EarlyRadarRepo; rank: number; onClick: () => void }) {
   const stage = repo.momentum_stage ?? "emerging";
   const signals = repo.active_signals ?? [];
+  const accel = repo.acceleration ?? 0;
+  const breakout = repo.breakout_score ?? repo.trend_score;
+  const eta = repo.estimated_viral_eta_days;
+
+  // Stage badge colors (cast to string to handle any API values)
+  const stageStr = stage as string;
+  let stageBg = "transparent";
+  let stageBorder = "var(--border)";
+  let stageTextColor = "var(--text-muted)";
+  if (stageStr === "breakout" || stageStr === "viral") {
+    stageBorder = "#3fb950"; stageTextColor = "#3fb950";
+  } else if (stageStr === "pre_viral") {
+    stageBorder = "#d29922"; stageTextColor = "#d29922";
+  } else if (stageStr === "accelerating" || stageStr === "rising") {
+    stageBorder = "#58a6ff"; stageTextColor = "#58a6ff";
+  } else if (stageStr === "emerging") {
+    stageBorder = "#58a6ff"; stageTextColor = "#58a6ff"; stageBg = "rgba(88,166,255,0.08)";
+  } else if (stageStr === "watch") {
+    stageBorder = "#d29922"; stageTextColor = "#d29922";
+  }
+
+  // Health indicator
+  let healthDot = "#3fb950";
+  let healthText = "Healthy";
+  if (repo.sustainability_label === "RED") { healthDot = "#f85149"; healthText = "Critical"; }
+  else if (repo.sustainability_label === "YELLOW") { healthDot = "#d29922"; healthText = "Caution"; }
 
   return (
     <tr className="tr-cyber" style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }} onClick={onClick}>
-      <td style={{ padding: "11px 16px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px" }}>{String(rank).padStart(2, "0")}</td>
-      <td style={{ padding: "11px 16px", fontFamily: "var(--font-mono)" }}>
-        <span style={{ color: "var(--text-muted)" }}>{repo.owner}/</span>
-        <span style={{ fontWeight: 700, color: "var(--text-primary)" }}>{repo.name}</span>
+      {/* # */}
+      <td style={{ padding: "10px 12px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px", whiteSpace: "nowrap" }}>
+        {rank}
       </td>
-      <td style={{ padding: "11px 16px", fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)" }}>
-        {repo.category}
+
+      {/* REPO — two-line: name bold on top, category·stars on bottom */}
+      <td style={{ padding: "10px 12px", maxWidth: "160px" }}>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "12px", fontWeight: 700, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>{repo.owner.slice(0, 1)}/</span>{repo.name}
+        </div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {repo.category}{repo.stars >= 1000 ? ` · ${(repo.stars / 1000).toFixed(1)}k st...` : ` · ${repo.stars} st`}
+        </div>
       </td>
-      <td style={{ padding: "11px 16px" }}>
+
+      {/* STAGE badge */}
+      <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
         <span style={{
-          fontFamily: "var(--font-mono)", fontSize: "10px",
-          color: stageColor(stage), letterSpacing: "0.05em", fontWeight: 600,
+          fontFamily: "var(--font-mono)", fontSize: "10px", fontWeight: 500,
+          padding: "2px 8px", borderRadius: "12px",
+          border: `1px solid ${stageBorder}`,
+          color: stageTextColor, background: stageBg,
         }}>
-          {stageText(stage)}
+          {stage.replace(/_/g, " ")}
         </span>
       </td>
-      <td style={{ padding: "11px 16px", fontFamily: "var(--font-mono)", color: "var(--cyan)", fontWeight: 700 }}>
-        {(repo.breakout_score ?? repo.trend_score).toFixed(3)}
+
+      {/* BREAKOUT */}
+      <td style={{ padding: "10px 12px", fontFamily: "var(--font-mono)", color: "#7c6af7", fontWeight: 700, textAlign: "right" }}>
+        {breakout.toFixed(3)}
       </td>
-      <td style={{ padding: "11px 16px", fontFamily: "var(--font-mono)", color: "var(--amber)" }}>
+
+      {/* TREND */}
+      <td style={{ padding: "10px 12px", fontFamily: "var(--font-mono)", color: "#d29922", textAlign: "right" }}>
         {repo.trend_score.toFixed(4)}
       </td>
-      <td style={{ padding: "11px 16px", fontFamily: "var(--font-mono)", color: repo.acceleration > 0.1 ? "var(--green)" : "var(--text-primary)" }}>
-        {repo.acceleration.toFixed(2)}
+
+      {/* ACCEL */}
+      <td style={{ padding: "10px 12px", fontFamily: "var(--font-mono)", textAlign: "right", color: accel > 0.05 ? "#3fb950" : "var(--text-muted)" }}>
+        {accel > 0.05 ? `+${accel.toFixed(2)}` : "—"}
       </td>
-      <td style={{ padding: "11px 16px" }}>
-        <div style={{ display: "flex", gap: "4px", flexDirection: "column" }}>
+
+      {/* ETA */}
+      <td style={{ padding: "10px 12px", fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-secondary)", textAlign: "right", whiteSpace: "nowrap" }}>
+        {eta !== undefined && eta !== null ? `~${eta}d` : "—"}
+      </td>
+
+      {/* SIGNALS — stacked plain text, up to 2 + overflow count */}
+      <td style={{ padding: "10px 12px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
           {signals.slice(0, 2).map((s) => (
-            <span key={s} style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-secondary)" }}>
+            <span key={s} style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
               {s.replace(/_/g, " ")}
             </span>
           ))}
+          {signals.length > 2 && (
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)" }}>+{signals.length - 2}</span>
+          )}
         </div>
       </td>
-      <td style={{ padding: "11px 16px" }}>
-        <SustainBadge label={repo.sustainability_label} />
+
+      {/* HEALTH — dot + text */}
+      <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", fontWeight: 600, color: healthDot }}>
+          ● {healthText}
+        </span>
       </td>
     </tr>
   );
