@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import ReactMarkdown from "react-markdown";
-import { api, ResearchMessage, ResearchPin, ResearchRepo } from "@/lib/api";
+import { api, ResearchMessage, ResearchPin, ResearchRepo, ResearchSession } from "@/lib/api";
 
 function MD({ children }: { children: string }) {
   return <ReactMarkdown>{children}</ReactMarkdown>;
@@ -397,6 +397,9 @@ export default function ResearchSessionPage() {
   const [title, setTitle] = useState("Untitled Research");
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
+  const [sessions, setSessions] = useState<ResearchSession[]>([]);
+  const [creating, setCreating] = useState(false);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
 
   // Chat state
   const [messages, setMessages] = useState<ResearchMessage[]>([]);
@@ -464,6 +467,7 @@ export default function ResearchSessionPage() {
   // Load session
   useEffect(() => {
     if (!isLoaded) return;
+    api.research.listSessions(effectiveUserId).then(setSessions).catch(console.error);
     api.research.getSession(sessionId, effectiveUserId).then((data) => {
       setTitle(data.title);
       setTitleDraft(data.title);
@@ -472,6 +476,27 @@ export default function ResearchSessionPage() {
       if (data.report) setReportMd(data.report.content_md);
     }).catch(console.error);
   }, [isLoaded, effectiveUserId, sessionId]);
+
+  const handleCreate = async () => {
+    setCreating(true);
+    try {
+      const s = await api.research.createSession(effectiveUserId, "Untitled Research");
+      router.push(`/research/${s.id}`);
+    } catch (e) {
+      console.error(e);
+      setCreating(false);
+    }
+  };
+
+  const handleDeleteSession = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Delete this research session?")) return;
+    await api.research.deleteSession(id, effectiveUserId);
+    setSessions((prev) => prev.filter((s) => s.id !== id));
+    if (id === sessionId) {
+      router.push("/research");
+    }
+  };
 
   // Auto-send ?q= parameter from quick-start
   useEffect(() => {
@@ -904,9 +929,64 @@ export default function ResearchSessionPage() {
     }
   };
 
-  // ─── Render ─────────────────────────────────────────────────────────────────
+  const QUICK_CHIPS = [
+    {
+      label: "AI/ML trends this week",
+      q: "what's trending in AI and ML this week?",
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: "6px" }}>
+          <path d="M12 22a4 4 0 0 0 4-4V6a4 4 0 1 0-8 0v12a4 4 0 0 0 4 4z" />
+          <path d="M22 12a4 4 0 0 0-4-4H6a4 4 0 1 0 0 8h12a4 4 0 0 0 4-4z" />
+        </svg>
+      )
+    },
+    {
+      label: "Security tools",
+      q: "security tools gaining stars this month",
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: "6px" }}>
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          <circle cx="12" cy="11" r="2" />
+          <path d="M12 13v3" />
+        </svg>
+      )
+    },
+    {
+      label: "Rust rising stars",
+      q: "rust repos with high momentum",
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: "6px" }}>
+          <path d="M6 18V4h6a5 5 0 0 1 0 10H6" />
+          <path d="M12 14l5 5" />
+        </svg>
+      )
+    },
+    {
+      label: "Data infra",
+      q: "map the data infrastructure ecosystem",
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: "6px" }}>
+          <rect x="3" y="4" width="18" height="6" rx="1" />
+          <rect x="3" y="14" width="18" height="6" rx="1" />
+          <path d="M6 10v4M18 10v4" />
+        </svg>
+      )
+    }
+  ];
+
+  const handleChipClick = async (label: string, q: string) => {
+    setCreating(true);
+    try {
+      const s = await api.research.createSession(effectiveUserId, label);
+      router.push(`/research/${s.id}?q=${encodeURIComponent(q)}`);
+    } catch (e) {
+      console.error(e);
+      setCreating(false);
+    }
+  };
+
   return (
-    <div className="main-content" style={{ height: "calc(100vh - 0px)", display: "flex", flexDirection: "column", overflow: "hidden", padding: 0 }}>
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: C.bg, color: C.text, overflow: "hidden" }}>
       <style>{`
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
         @keyframes blink { 50%{opacity:0} }
@@ -922,355 +1002,572 @@ export default function ResearchSessionPage() {
         .research-md strong { color: ${C.text}; }
         .research-md a { color: ${C.text}; text-decoration: underline; }
         .research-md a:hover { color: ${C.textSub}; }
-        .res-panel-tab { padding: 6px 16px; border-radius: 6px; border: 1px solid ${C.border}; font-family: var(--font-sans); font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.13s; }
-        .res-panel-tab.active { background: ${C.text}; color: ${C.bg}; border-color: ${C.text}; }
-        .res-panel-tab:not(.active) { background: transparent; color: ${C.textSub}; }
-        .res-panel-tab:not(.active):hover { color: ${C.text}; border-color: ${C.textSub}; }
-        @media (max-width: 900px) {
-          .research-layout { flex-direction: column !important; }
-          .research-report-panel { height: 45vh !important; }
-          .research-chat-panel { height: 55vh !important; }
+
+        ::-webkit-scrollbar {
+          width: 6px;
+          height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: #30363d;
+          border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: #8b949e;
         }
       `}</style>
 
-      {/* ── Top bar ────────────────────────────────────────────────────────── */}
+      {/* Global Header */}
       <div style={{
-        height: "52px", borderBottom: `1px solid ${C.border}`,
-        display: "flex", alignItems: "center", padding: "0 20px",
-        justifyContent: "space-between", flexShrink: 0,
-        background: C.bgCard, gap: "12px",
+        height: "56px",
+        background: C.bgCard,
+        borderBottom: `1px solid ${C.border}`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "0 24px",
+        flexShrink: 0
       }}>
-        {/* Left: breadcrumb + title */}
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
-          <button onClick={() => router.push("/research")} style={{ background: "none", border: "none", color: C.textSub, cursor: "pointer", fontSize: "12px", fontFamily: "var(--font-sans)", display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
-            🔬 Research
-          </button>
-          <span style={{ color: C.border }}>/</span>
-          {editingTitle ? (
-            <input
-              value={titleDraft}
-              onChange={(e) => setTitleDraft(e.target.value)}
-              onBlur={saveTitle}
-              onKeyDown={(e) => { if (e.key === "Enter") saveTitle(); if (e.key === "Escape") setEditingTitle(false); }}
-              autoFocus
-              style={{
-                fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "14px",
-                color: C.text, background: C.bgHover,
-                border: `1px solid ${C.textSub}`, borderRadius: "6px",
-                padding: "3px 8px", outline: "none", minWidth: "200px",
-              }}
-            />
-          ) : (
-            <span
-              onClick={() => { setTitleDraft(title); setEditingTitle(true); }}
-              title="Click to rename"
-              style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "14px", color: C.text, cursor: "text", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-            >
-              {title}
-            </span>
-          )}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ fontSize: "20px" }}>🔬</span>
+          <h1 style={{ fontFamily: "var(--font-sans)", fontSize: "16px", fontWeight: 700, color: "#ffffff", margin: 0 }}>
+            Research mode
+          </h1>
+          <span style={{
+            background: C.bgHover,
+            color: C.textSub,
+            borderRadius: "10px",
+            padding: "2px 8px",
+            fontSize: "11px",
+            fontWeight: 600,
+            fontFamily: "var(--font-sans)",
+            marginLeft: "4px"
+          }}>
+            β
+          </span>
+        </div>
+        <button
+          onClick={handleCreate}
+          disabled={creating}
+          style={{
+            background: "transparent",
+            border: `1px solid ${C.border}`,
+            borderRadius: "8px",
+            padding: "8px 16px",
+            color: "#ffffff",
+            fontSize: "13px",
+            fontWeight: 600,
+            fontFamily: "var(--font-sans)",
+            cursor: creating ? "not-allowed" : "pointer",
+            transition: "all 0.2s",
+            opacity: creating ? 0.7 : 1,
+          }}
+          onMouseEnter={(e) => { if (!creating) { e.currentTarget.style.borderColor = C.textSub; e.currentTarget.style.background = C.bgHover; } }}
+          onMouseLeave={(e) => { if (!creating) { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = "transparent"; } }}
+        >
+          {creating ? "Creating…" : "+ New research"}
+        </button>
+      </div>
+
+      {/* Main Container */}
+      <div style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
+        
+        {/* Left Column (Sessions list + controls) */}
+        <div style={{ flex: "0 0 42%", borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", overflow: "hidden", padding: "16px 20px 0 20px" }}>
+          
+          {/* Quick Start Chips */}
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "16px", flexShrink: 0 }}>
+            {QUICK_CHIPS.map(({ label, q, icon }) => (
+              <button
+                key={label}
+                onClick={() => handleChipClick(label, q)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  padding: "6px 14px",
+                  borderRadius: "20px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  fontFamily: "var(--font-sans)",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                  border: `1px solid ${C.border}`,
+                  color: C.textSub,
+                  background: C.bgCard,
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.textSub; e.currentTarget.style.color = C.text; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textSub; }}
+              >
+                {icon}
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Sessions List */}
+          <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "12px", paddingBottom: "20px" }}>
+            {sessions.map((s) => {
+              const active = sessionId === s.id;
+              return (
+                <div
+                  key={s.id}
+                  onClick={() => router.push(`/research/${s.id}`)}
+                  style={{
+                    background: C.bgCard,
+                    border: `1px solid ${active ? "#ffffff" : C.border}`,
+                    borderRadius: "10px",
+                    padding: "16px",
+                    cursor: "pointer",
+                    transition: "all 0.15s",
+                    position: "relative",
+                  }}
+                  onMouseEnter={(e) => { if (!active) e.currentTarget.style.borderColor = C.textSub; }}
+                  onMouseLeave={(e) => { if (!active) e.currentTarget.style.borderColor = C.border; }}
+                >
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px", marginBottom: "8px" }}>
+                    <div style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "14px", color: C.text, lineHeight: 1.3 }}>
+                      {s.title}
+                    </div>
+                    <button
+                      onClick={(e) => handleDeleteSession(s.id, e)}
+                      style={{
+                        width: "24px",
+                        height: "24px",
+                        borderRadius: "6px",
+                        border: `1px solid ${C.border}`,
+                        background: "transparent",
+                        color: C.textSub,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        lineHeight: 1,
+                        flexShrink: 0,
+                        transition: "all 0.15s",
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.textSub; e.currentTarget.style.color = C.text; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textSub; }}
+                      title="Delete session"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "4px" }}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontFamily: "var(--font-sans)", fontSize: "12px", color: C.textSub }}>
+                      <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: C.green, display: "inline-block" }} />
+                      {s.message_count} messages
+                    </div>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontFamily: "var(--font-sans)", fontSize: "12px", color: C.textSub }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: "2px" }}>
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                        <line x1="16" y1="2" x2="16" y2="6" />
+                        <line x1="8" y1="2" x2="8" y2="6" />
+                        <line x1="3" y1="10" x2="21" y2="10" />
+                      </svg>
+                      {new Date(s.updated_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Right: actions */}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
-          {pins.length >= 3 && (
-            <button onClick={handleGenReport} disabled={generatingReport}
-              style={{ fontFamily: "var(--font-sans)", fontSize: "12px", fontWeight: 600, padding: "5px 14px", borderRadius: "6px", border: `1px solid ${C.border}`, cursor: generatingReport ? "not-allowed" : "pointer", background: C.bgCard, color: C.textSub, transition: "all 0.13s", opacity: generatingReport ? 0.7 : 1 }}>
-              {generatingReport ? "⏳ Generating…" : "📄 Generate Report"}
-            </button>
-          )}
-          {reportMd && (
-            <button onClick={handleExportMd}
-              style={{ fontFamily: "var(--font-sans)", fontSize: "12px", fontWeight: 600, padding: "5px 14px", borderRadius: "6px", border: `1px solid ${C.border}`, cursor: "pointer", background: C.bgCard, color: C.textSub }}>
-              ↓ Export MD
-            </button>
-          )}
-          <button onClick={handleShare} disabled={sharing}
-            style={{ fontFamily: "var(--font-sans)", fontSize: "12px", fontWeight: 600, padding: "5px 14px", borderRadius: "6px", border: `1px solid ${C.border}`, cursor: sharing ? "not-allowed" : "pointer", background: copied ? "rgba(63,185,80,0.12)" : C.bgCard, color: copied ? C.green : C.textSub, transition: "all 0.15s" }}>
-            {copied ? "✓ Link Copied!" : sharing ? "…" : "🔗 Share"}
-          </button>
+        {/* Right Column (Research Detail Panel) */}
+        <div style={{ flex: "0 0 58%", display: "flex", flexDirection: "column", overflow: "hidden", padding: "16px 20px 20px 20px" }}>
+          
+          {/* Chat Panel Card Container */}
+          <div style={{
+            flex: 1,
+            background: C.bgCard,
+            border: `1px solid ${C.border}`,
+            borderRadius: "12px",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden"
+          }}>
+            
+            {/* Panel Header */}
+            <div style={{
+              height: "56px", borderBottom: `1px solid ${C.border}`,
+              display: "flex", alignItems: "center", padding: "0 16px",
+              justifyContent: "space-between", flexShrink: 0,
+              background: C.bgCard, gap: "12px",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: C.textSub, flexShrink: 0 }}>
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M12 2v4M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
+                  <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+                </svg>
+                {editingTitle ? (
+                  <input
+                    value={titleDraft}
+                    onChange={(e) => setTitleDraft(e.target.value)}
+                    onBlur={saveTitle}
+                    onKeyDown={(e) => { if (e.key === "Enter") saveTitle(); if (e.key === "Escape") setEditingTitle(false); }}
+                    autoFocus
+                    style={{
+                      fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "14px",
+                      color: C.text, background: C.bgHover,
+                      border: `1px solid ${C.textSub}`, borderRadius: "6px",
+                      padding: "3px 8px", outline: "none", minWidth: "200px",
+                    }}
+                  />
+                ) : (
+                  <span
+                    onClick={() => { setTitleDraft(title); setEditingTitle(true); }}
+                    title="Click to rename"
+                    style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "14px", color: C.text, cursor: "text", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                  >
+                    {title}
+                  </span>
+                )}
+              </div>
+
+              {/* Actions: Report & Pinned */}
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginLeft: "auto", marginRight: "4px", flexShrink: 0 }}>
+                {pins.length >= 3 && (
+                  <button
+                    onClick={handleGenReport}
+                    disabled={generatingReport}
+                    style={{
+                      fontFamily: "var(--font-sans)", fontSize: "11px", fontWeight: 600,
+                      padding: "5px 12px", borderRadius: "6px", border: `1px solid ${C.border}`,
+                      cursor: generatingReport ? "not-allowed" : "pointer",
+                      background: C.bgHover, color: C.text, transition: "all 0.13s",
+                      opacity: generatingReport ? 0.7 : 1,
+                    }}
+                  >
+                    {generatingReport ? "⏳ Report…" : "📄 Gen Report"}
+                  </button>
+                )}
+                {reportMd && (
+                  <button
+                    onClick={() => setReportModalOpen(true)}
+                    style={{
+                      fontFamily: "var(--font-sans)", fontSize: "11px", fontWeight: 600,
+                      padding: "5px 12px", borderRadius: "6px", border: `1px solid ${C.border}`,
+                      cursor: "pointer", background: C.green + "15", color: C.green,
+                    }}
+                  >
+                    📄 View Report
+                  </button>
+                )}
+                <button
+                  onClick={handleShare}
+                  disabled={sharing}
+                  style={{
+                    fontFamily: "var(--font-sans)", fontSize: "11px", fontWeight: 600,
+                    padding: "5px 12px", borderRadius: "6px", border: `1px solid ${C.border}`,
+                    cursor: sharing ? "not-allowed" : "pointer",
+                    background: copied ? "rgba(63,185,80,0.12)" : C.bgHover,
+                    color: copied ? C.green : C.textSub,
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {copied ? "✓ Copied!" : "🔗 Share"}
+                </button>
+              </div>
+              
+              {/* Close detail panel (navigates back to /research) */}
+              <button
+                onClick={() => router.push("/research")}
+                style={{
+                  width: "24px",
+                  height: "24px",
+                  borderRadius: "6px",
+                  border: `1px solid ${C.border}`,
+                  background: "transparent",
+                  color: C.textSub,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.textSub; e.currentTarget.style.color = C.text; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textSub; }}
+                title="Close panel"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Panel Scrollable Body */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: "16px" }}>
+              
+              {/* Subtitle */}
+              {messages.length === 0 && !sending && (
+                <div style={{ fontFamily: "var(--font-sans)", fontSize: "13px", color: C.textSub }}>
+                  Ask anything about GitHub repos — live data, no hallucination.
+                </div>
+              )}
+
+              {/* Quick Suggestion Pills */}
+              {messages.length === 0 && !sending && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "8px", marginBottom: "8px" }}>
+                  {[
+                    { label: "Trending in AI agents", q: "what's trending in AI agents?", icon: "📈" },
+                    { label: "Compare vllm vs llama.cpp", q: "compare vllm vs llama.cpp", icon: "🔄" },
+                    { label: "Top Rust repos", q: "top rust repositories", icon: "⭐" },
+                  ].map(({ label, q, icon }) => (
+                    <button
+                      key={label}
+                      onClick={() => handleSend(q)}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        padding: "6px 14px",
+                        borderRadius: "20px",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        fontFamily: "var(--font-sans)",
+                        cursor: "pointer",
+                        transition: "all 0.15s",
+                        border: `1px solid ${C.border}`,
+                        color: C.textSub,
+                        background: C.bgHover,
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.textSub; e.currentTarget.style.color = C.text; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textSub; }}
+                    >
+                      <span style={{ marginRight: "6px" }}>{icon}</span>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Message History */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                {messages.map((msg) => (
+                  <ChatBubble key={msg.id} msg={msg} onPin={handlePin} pinnedNames={pinnedNames} sessionId={sessionId} userId={effectiveUserId} />
+                ))}
+
+                {/* Streaming bubble */}
+                {sending && (
+                  <StreamingBubble
+                    text={streamText}
+                    repos={streamRepos}
+                    status={streamStatus}
+                    queryExplanation={streamQueryExp}
+                  />
+                )}
+                <div ref={chatEndRef} />
+              </div>
+            </div>
+
+            {/* Input Panel */}
+            <div style={{ borderTop: `1px solid ${C.border}`, padding: "12px", display: "flex", flexDirection: "column", gap: "10px", background: C.bgCard }}>
+              
+              <div style={{ display: "flex", gap: "8px" }}>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <textarea
+                    ref={inputRef}
+                    rows={2}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Ask layman or technical..."
+                    disabled={sending || isTranscribing}
+                    style={{
+                      width: "100%", resize: "none", fontFamily: "var(--font-sans)", fontSize: "13px",
+                      color: C.text, background: C.bgHover,
+                      border: `1px solid ${C.border}`, borderRadius: "8px", padding: "10px 12px",
+                      outline: "none", lineHeight: 1.5, transition: "border-color 0.13s",
+                      opacity: sending || isTranscribing ? 0.7 : 1,
+                    }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = "#218bff"; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = C.border; }}
+                  />
+                  {(sttStatus || isRecording) && (
+                    <div style={{
+                      fontFamily: "var(--font-sans)",
+                      fontSize: "11px",
+                      color: isRecording ? C.red : C.textSub,
+                      minHeight: "16px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                    }}>
+                      {isRecording && (
+                        <span style={{
+                          display: "inline-block",
+                          width: "8px",
+                          height: "8px",
+                          borderRadius: "999px",
+                          background: C.red,
+                          animation: "pulse 1s ease infinite",
+                        }} />
+                      )}
+                      {sttStatus}
+                      {isRecording && <span style={{ color: C.textSub }}>{recordingSeconds}s</span>}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={handleToggleRecording}
+                  disabled={!sttSupported || sending || isTranscribing}
+                  style={{
+                    alignSelf: "flex-end",
+                    background: isRecording ? C.red : C.bgHover,
+                    color: isRecording ? "#fff" : C.textSub,
+                    border: `1px solid ${isRecording ? C.red : C.border}`,
+                    borderRadius: "8px",
+                    width: "40px",
+                    height: "40px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: !sttSupported || sending || isTranscribing ? "not-allowed" : "pointer",
+                    opacity: !sttSupported || sending || isTranscribing ? 0.5 : 1,
+                    fontSize: "16px",
+                    flexShrink: 0,
+                  }}
+                >
+                  {isTranscribing ? "…" : isRecording ? "■" : "🎙"}
+                </button>
+                <button
+                  onClick={() => handleSend()}
+                  disabled={sending || isTranscribing || !input.trim()}
+                  style={{
+                    alignSelf: "flex-end",
+                    background: C.text, color: C.bg,
+                    border: "none", borderRadius: "8px",
+                    width: "40px", height: "40px",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    cursor: sending || isTranscribing || !input.trim() ? "not-allowed" : "pointer",
+                    opacity: sending || isTranscribing || !input.trim() ? 0.5 : 1,
+                    fontSize: "18px", flexShrink: 0,
+                    transition: "opacity 0.13s, transform 0.1s",
+                  }}
+                >
+                  ↑
+                </button>
+              </div>
+
+              {/* Pinned Repos indicator at bottom */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: C.textSub, fontWeight: 600 }}>
+                  <span>Repos pinned</span>
+                  <span>{pins.length} / 3</span>
+                </div>
+                <div style={{ height: "4px", background: "rgba(255, 255, 255, 0.06)", borderRadius: "2px", overflow: "hidden" }}>
+                  <div style={{ height: "100%", background: C.green, width: `${Math.min((pins.length / 3) * 100, 100)}%`, transition: "width 0.3s ease" }} />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* ── Two-panel layout ─────────────────────────────────────────────────── */}
-      <div className="research-layout" style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
-
-        {/* ── LEFT: Report / Pins panel (65%) ─────────────────────────────── */}
-        <div className="research-report-panel" style={{
-          flex: "0 0 65%", borderRight: `1px solid ${C.border}`,
-          display: "flex", flexDirection: "column", overflow: "hidden",
-        }}>
-          {/* Panel tabs */}
-          <div style={{
-            display: "flex", alignItems: "center", gap: "8px",
-            padding: "10px 16px", borderBottom: `1px solid ${C.border}`, flexShrink: 0,
-            background: C.bgCard,
-          }}>
-            <button className={`res-panel-tab ${activePanel === "report" ? "active" : ""}`} onClick={() => setActivePanel("report")}>
-              📄 Report
-            </button>
-            <button className={`res-panel-tab ${activePanel === "pins" ? "active" : ""}`} onClick={() => setActivePanel("pins")}>
-              📌 Pinboard {pins.length > 0 ? `(${pins.length})` : ""}
-            </button>
-            {pins.length < 3 && activePanel === "report" && !reportMd && (
-              <span style={{ marginLeft: "auto", fontFamily: "var(--font-sans)", fontSize: "11px", color: C.textSub }}>
-                Pin {3 - pins.length} more repo{3 - pins.length !== 1 ? "s" : ""} to generate a report
-              </span>
-            )}
-          </div>
-
-          {/* Panel content */}
-          <div style={{ flex: 1, overflow: "auto", padding: "20px" }}>
-            {activePanel === "report" ? (
-              reportMd ? (
-                <div className="research-md" style={{ fontFamily: "var(--font-sans)", fontSize: "13px", lineHeight: 1.7, color: C.text }}>
-                  <MD>{reportMd}</MD>
-                </div>
-              ) : (
-                <div style={{
-                  height: "100%", display: "flex", flexDirection: "column",
-                  alignItems: "center", justifyContent: "center", gap: "16px", textAlign: "center",
-                }}>
-                  <div style={{ fontSize: "48px", opacity: 0.3 }}>📄</div>
-                  <div style={{ fontFamily: "var(--font-sans)", fontWeight: 600, color: C.text, fontSize: "15px" }}>
-                    Report will appear here
-                  </div>
-                  <div style={{ fontFamily: "var(--font-sans)", color: C.textSub, fontSize: "12px", maxWidth: "320px" }}>
-                    Chat with the agent, pin repos you find interesting, then click <strong>Generate Report</strong> to get an AI-written brief.
-                  </div>
-                  <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: C.textSub, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: "6px", padding: "8px 14px" }}>
-                    {pins.length}/3 repos pinned {pins.length < 3 ? `— pin ${3 - pins.length} more to unlock` : "— ready!"}
-                  </div>
-                </div>
-              )
-            ) : (
-              /* Pinboard */
-              pins.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "60px 0", color: C.textSub, fontFamily: "var(--font-sans)", fontSize: "13px" }}>
-                  No repos pinned yet. Ask the agent to find repos, then pin the ones you want to track.
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                  {pins.map((pin) => (
-                    <div key={pin.id} style={{
-                      background: C.bgCard, border: `1px solid ${C.border}`,
-                      borderRadius: "10px", padding: "14px 16px",
-                      display: "flex", flexDirection: "column", gap: "8px",
-                    }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <a href={pin.repo_data?.github_url ?? `https://github.com/${pin.repo_full_name}`} target="_blank" rel="noopener noreferrer"
-                          style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "13px", color: C.text, textDecoration: "underline" }}>
-                          {pin.repo_full_name}
-                        </a>
-                        <button onClick={() => handleUnpin(pin.id)}
-                          style={{ background: "none", border: "none", cursor: "pointer", color: C.textMuted, fontSize: "16px", padding: "0 4px" }}
-                          title="Unpin">×</button>
-                      </div>
-                      {pin.repo_data?.description && (
-                        <div style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: C.textSub }}>
-                          {pin.repo_data.description.slice(0, 120)}
-                        </div>
-                      )}
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                        {pin.repo_data?.stars !== undefined && (
-                          <span style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: C.textSub }}>
-                            ⭐ {pin.repo_data.stars >= 1000 ? `${(pin.repo_data.stars / 1000).toFixed(1)}k` : pin.repo_data.stars}
-                          </span>
-                        )}
-                        {pin.repo_data?.trend_label && (
-                          <span style={{ fontSize: "10px", fontWeight: 700, color: TREND_COLORS[pin.repo_data.trend_label] }}>
-                            {pin.repo_data.trend_label}
-                          </span>
-                        )}
-                        {/* Stage selector */}
-                        <select
-                          value={pin.stage}
-                          onChange={(e) => handleUpdatePinStage(pin.id, e.target.value)}
-                          style={{
-                            marginLeft: "auto", fontFamily: "var(--font-sans)", fontSize: "11px", fontWeight: 600,
-                            background: C.bgHover, color: C.textSub,
-                            border: `1px solid ${C.border}`, borderRadius: "6px", padding: "3px 8px", cursor: "pointer",
-                          }}
-                        >
-                          {Object.entries(STAGE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                        </select>
-                      </div>
-                      {pin.note && (
-                        <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: C.textSub, background: C.bgHover, border: `1px solid ${C.border}`, borderRadius: "6px", padding: "6px 10px", fontStyle: "italic" }}>
-                          {pin.note}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )
-            )}
-          </div>
-        </div>
-
-        {/* ── RIGHT: Chat panel (35%) ──────────────────────────────────────── */}
-        <div className="research-chat-panel" style={{
-          flex: "0 0 35%", display: "flex", flexDirection: "column", overflow: "hidden",
-          background: C.bgCard,
-        }}>
-          {/* Messages */}
-          <div style={{ flex: 1, overflow: "auto", padding: "16px 14px", display: "flex", flexDirection: "column", gap: "14px" }}>
-            {/* Welcome */}
-            {messages.length === 0 && !sending && (
-              <div style={{
-                background: C.bgHover, border: `1px solid ${C.border}`,
-                borderRadius: "12px", padding: "16px",
-                fontFamily: "var(--font-sans)", fontSize: "13px", color: C.textSub, lineHeight: 1.6,
-              }}>
-                <strong style={{ color: C.text }}>🤖 Research Agent</strong><br />
-                Hi! Ask me anything about GitHub repositories — from layman terms to precise technical filters. All data is fetched live from GitHub.
-                <div style={{ marginTop: "10px", fontFamily: "var(--font-sans)", fontSize: "11px", color: C.textSub }}>
-                  Try: <em>&quot;what&apos;s trending in AI agents?&quot;</em> or <em>&quot;compare vllm vs llama.cpp&quot;</em>
-                </div>
-              </div>
-            )}
-
-            {messages.map((msg) => (
-              <ChatBubble key={msg.id} msg={msg} onPin={handlePin} pinnedNames={pinnedNames} sessionId={sessionId} userId={effectiveUserId} />
-            ))}
-
-            {/* Streaming bubble */}
-            {sending && (
-              <StreamingBubble
-                text={streamText}
-                repos={streamRepos}
-                status={streamStatus}
-                queryExplanation={streamQueryExp}
-              />
-            )}
-
-            <div ref={chatEndRef} />
-          </div>
-
-          {/* Follow-up suggestions */}
-          {followUps.length > 0 && !sending && (
-            <div style={{
-              display: "flex", gap: "6px", padding: "8px 14px", flexWrap: "wrap",
-              borderTop: `1px solid ${C.border}`, background: C.bgCard,
-            }}>
-              {followUps.map((f) => (
-                <button
-                  key={f}
-                  onClick={() => { setInput(f); inputRef.current?.focus(); }}
-                  style={{
-                    fontFamily: "var(--font-sans)", fontSize: "11px", fontWeight: 500,
-                    padding: "4px 10px", borderRadius: "12px", border: `1px solid ${C.border}`,
-                    cursor: "pointer", background: C.bgHover, color: C.textSub,
-                    transition: "all 0.13s",
-                  }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.text; (e.currentTarget as HTMLElement).style.borderColor = C.textSub; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.textSub; (e.currentTarget as HTMLElement).style.borderColor = C.border; }}
-                >
-                  💡 {f}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Input bar */}
-          <div style={{
-            borderTop: `1px solid ${C.border}`, padding: "12px 14px",
-            display: "flex", gap: "8px", flexShrink: 0, background: C.bgCard,
-          }}>
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "6px" }}>
-              <textarea
-                ref={inputRef}
-                rows={2}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask anything… layman or technical (Enter to send, Shift+Enter for newline)"
-                disabled={sending || isTranscribing}
+      {/* Report Modal overlay */}
+      {reportModalOpen && reportMd && (
+        <div
+          onClick={() => setReportModalOpen(false)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1000,
+            display: "flex", alignItems: "center", justifyContent: "center", padding: "20px"
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: "12px",
+              width: "min(800px, 100%)", maxHeight: "80vh", display: "flex", flexDirection: "column",
+              boxShadow: "0 10px 40px rgba(0,0,0,0.6)", overflow: "hidden"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: `1px solid ${C.border}`, background: C.bgHover }}>
+              <span style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "15px", color: C.text }}>📄 Research Report: {title}</span>
+              <button
+                onClick={() => setReportModalOpen(false)}
                 style={{
-                  flex: 1, resize: "none", fontFamily: "var(--font-sans)", fontSize: "13px",
-                  color: C.text, background: C.bgHover,
-                  border: `1px solid ${C.border}`, borderRadius: "8px", padding: "10px 12px",
-                  outline: "none", lineHeight: 1.5, transition: "border-color 0.13s",
-                  opacity: sending || isTranscribing ? 0.7 : 1,
+                  width: "28px", height: "28px", borderRadius: "6px", border: `1px solid ${C.border}`,
+                  background: "transparent", color: C.textSub, display: "flex", alignItems: "center",
+                  justifyContent: "center", cursor: "pointer", transition: "all 0.15s"
                 }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = C.textSub; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = C.border; }}
-              />
-              {(sttStatus || isRecording) && (
-                <div style={{
-                  fontFamily: "var(--font-sans)",
-                  fontSize: "11px",
-                  color: isRecording ? C.red : C.textSub,
-                  minHeight: "16px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                }}>
-                  {isRecording && (
-                    <span style={{
-                      display: "inline-block",
-                      width: "8px",
-                      height: "8px",
-                      borderRadius: "999px",
-                      background: C.red,
-                      animation: "pulse 1s ease infinite",
-                    }} />
-                  )}
-                  {sttStatus}
-                  {isRecording && <span style={{ color: C.textSub }}>{recordingSeconds}s</span>}
-                </div>
-              )}
+              >
+                ✕
+              </button>
             </div>
-            <button
-              onClick={handleToggleRecording}
-              disabled={!sttSupported || sending || isTranscribing}
-              title={
-                !sttSupported
-                  ? "Voice input not supported in this browser"
-                  : isRecording
-                    ? "Stop recording"
-                    : "Start voice input"
-              }
-              style={{
-                alignSelf: "flex-end",
-                background: isRecording ? C.red : C.bgHover,
-                color: isRecording ? "#fff" : C.textSub,
-                border: `1px solid ${isRecording ? C.red : C.border}`,
-                borderRadius: "8px",
-                width: "40px",
-                height: "40px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: !sttSupported || sending || isTranscribing ? "not-allowed" : "pointer",
-                opacity: !sttSupported || sending || isTranscribing ? 0.5 : 1,
-                fontSize: "16px",
-                flexShrink: 0,
-              }}
-            >
-              {isTranscribing ? "…" : isRecording ? "■" : "🎙"}
-            </button>
-            <button
-              onClick={() => handleSend()}
-              disabled={sending || isTranscribing || !input.trim()}
-              style={{
-                alignSelf: "flex-end",
-                background: C.text, color: C.bg,
-                border: "none", borderRadius: "8px",
-                width: "40px", height: "40px",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: sending || isTranscribing || !input.trim() ? "not-allowed" : "pointer",
-                opacity: sending || isTranscribing || !input.trim() ? 0.5 : 1,
-                fontSize: "18px", flexShrink: 0,
-                transition: "opacity 0.13s, transform 0.1s",
-              }}
-              onMouseDown={(e) => { if (!sending && !isTranscribing && input.trim()) (e.currentTarget as HTMLElement).style.transform = "scale(0.9)"; }}
-              onMouseUp={(e) => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; }}
-            >
-              ↑
-            </button>
+            <div style={{ flex: 1, overflowY: "auto", padding: "24px 30px" }} className="research-md">
+              <MD>{reportMd}</MD>
+            </div>
+            <div style={{ padding: "12px 20px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end", background: C.bgHover }}>
+              <button
+                onClick={handleExportMd}
+                style={{
+                  fontFamily: "var(--font-sans)", fontSize: "12px", fontWeight: 600,
+                  padding: "6px 16px", borderRadius: "6px", border: `1px solid ${C.border}`,
+                  background: C.text, color: C.bg, cursor: "pointer"
+                }}
+              >
+                ↓ Export Markdown
+              </button>
+            </div>
           </div>
         </div>
+      )}
+
+      {/* Footer (matches mockup footer) */}
+      <div style={{
+        height: "36px",
+        borderTop: `1px solid ${C.border}`,
+        background: C.bgCard,
+        padding: "0 16px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        fontSize: "12px",
+        color: C.textSub,
+        fontFamily: "var(--font-sans)",
+        flexShrink: 0
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: C.green }} />
+            Live
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="6" y1="3" x2="6" y2="15" />
+              <circle cx="18" cy="6" r="3" />
+              <circle cx="6" cy="18" r="3" />
+              <path d="M6 9a9 9 0 0 0 9 9" />
+              <circle cx="18" cy="18" r="3" />
+            </svg>
+            1,349 repos
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
+              <rect x="9" y="9" width="6" height="6" />
+              <line x1="9" y1="1" x2="9" y2="4" />
+              <line x1="15" y1="1" x2="15" y2="4" />
+              <line x1="9" y1="20" x2="9" y2="23" />
+              <line x1="15" y1="20" x2="15" y2="23" />
+              <line x1="20" y1="9" x2="23" y2="9" />
+              <line x1="20" y1="15" x2="23" y2="15" />
+              <line x1="1" y1="9" x2="4" y2="9" />
+              <line x1="1" y1="15" x2="4" y2="15" />
+            </svg>
+            AI/ML ecosystem
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            20 alerts
+          </span>
+        </div>
+        <div>Repodar v2.0</div>
       </div>
     </div>
   );
