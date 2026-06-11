@@ -293,7 +293,7 @@ function VerticalSelector({
     : VERTICALS;
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "12px", width: "100%", overflowX: "auto", padding: "6px 0" }} className="scroll-selector">
+    <div style={{ display: "flex", alignItems: "center", gap: "12px", width: "100%", overflowX: "auto", padding: "2px 0" }} className="scroll-selector">
       {/* Mine Toggle Switch */}
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginRight: "6px", flexShrink: 0 }}>
         <div
@@ -1379,7 +1379,7 @@ export default function OverviewPage() {
       </div>
 
       {/* Header */}
-      <div className="overview-header" style={{ marginBottom: "20px" }}>
+      <div className="overview-header" style={{ marginBottom: "0px" }}>
         {/* CSS for micro-animations */}
         <style>{`
           @keyframes pulse-badge {
@@ -1417,7 +1417,7 @@ export default function OverviewPage() {
         </div>
 
         {/* Row 2: Subtitle & Badge + Trends button */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", marginBottom: "12px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", marginBottom: "6px" }}>
           <div style={{
             fontFamily: "var(--font-sans)", fontSize: "13px",
             color: C.textSub,
@@ -1507,7 +1507,7 @@ export default function OverviewPage() {
         </div>
 
         {/* Row 3: Vertical selector — always full width */}
-        <div style={{ marginTop: "4px" }}>
+        <div style={{ marginTop: "0px" }}>
           <VerticalSelector
             selected={vertical}
             onChange={(v) => { setVertical(v); setCompareSelection([]); }}
