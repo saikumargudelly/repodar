@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   BarChart,
   Bar,
@@ -10,39 +11,24 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  Cell,
+  CartesianGrid,
 } from "recharts";
 import { api, TopicMomentum, TopicRepo } from "@/lib/api";
-import { SustainBadge } from "@/components/Nav";
 
 // ── Score bar component ─────────────────────────────────────
 function ScoreBar({ value, max = 1 }: { value: number; max?: number }) {
   const pct = Math.min(100, (value / max) * 100);
-  const color = pct > 70 ? "var(--accent-green)" : pct > 40 ? "var(--accent-blue)" : "var(--text-muted)";
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-      <div style={{
-        flex: 1,
-        height: "4px",
-        background: "var(--bg-dim)",
-        borderRadius: "2px",
-        overflow: "hidden",
-      }}>
-        <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: "2px", transition: "width 0.3s ease" }} />
+    <div className="flex items-center gap-3 w-full">
+      <div className="flex-1 h-1.5 bg-[#27272a] rounded-full overflow-hidden">
+        <div 
+          className="h-full bg-indigo-500 rounded-full transition-all duration-300" 
+          style={{ width: `${pct}%` }} 
+        />
       </div>
-      <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color, minWidth: "40px", textAlign: "right" }}>
+      <span className="font-mono text-[10px] text-gray-400 w-12 text-right">
         {value.toFixed(4)}
       </span>
-    </div>
-  );
-}
-
-// ── Stat chip ───────────────────────────────────────────────
-function StatChip({ label, value, accent }: { label: string; value: string; accent?: string }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-      <span style={{ fontFamily: "var(--font-sans)", fontSize: "10px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</span>
-      <span style={{ fontFamily: "var(--font-mono)", fontSize: "13px", fontWeight: 700, color: accent ?? "var(--text-primary)" }}>{value}</span>
     </div>
   );
 }
@@ -52,6 +38,8 @@ export default function TopicsPage() {
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [minRepos, setMinRepos] = useState(2);
   const [search, setSearch] = useState("");
+  const [chartLimit, setChartLimit] = useState<15 | 20>(15);
+  const [sortBy, setSortBy] = useState<"velocity" | "score" | "repos" | "accel">("velocity");
 
   const { data: topics, isLoading } = useQuery({
     queryKey: ["topic-momentum", minRepos],
@@ -66,451 +54,475 @@ export default function TopicsPage() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Filter list of topics by search input
   const filtered: TopicMomentum[] = (topics ?? []).filter((t) =>
     t.topic.toLowerCase().includes(search.toLowerCase())
   );
 
+  // Sort filtered topics based on the active Sort Toggle
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortBy === "score") {
+      return b.avg_trend_score - a.avg_trend_score;
+    }
+    if (sortBy === "repos") {
+      return b.repo_count - a.repo_count;
+    }
+    if (sortBy === "accel") {
+      return b.avg_acceleration - a.avg_acceleration;
+    }
+    return b.total_star_velocity - a.total_star_velocity;
+  });
+
+  // Sliced data for the velocity bar chart (always sorted by velocity descending)
   const chartData = [...filtered]
     .sort((a, b) => b.total_star_velocity - a.total_star_velocity)
-    .slice(0, 20)
+    .slice(0, chartLimit)
     .map((t) => ({
-      name: t.topic,
+      name: `#${t.topic}`,
       velocity: Math.round(t.total_star_velocity),
-      avg_score: parseFloat(t.avg_trend_score.toFixed(4)),
+      avg_score: t.avg_trend_score,
     }));
 
   const maxScore = Math.max(...filtered.map((t) => t.avg_trend_score), 1);
 
+  // Formatter helpers
+  const formatVelocityHeader = (num: number) => {
+    const sign = num >= 0 ? "+" : "";
+    if (Math.abs(num) >= 1_000_000) {
+      return `${sign}${(num / 1_000_000).toFixed(2)}M/d`;
+    }
+    if (Math.abs(num) >= 1000) {
+      return `${sign}${(num / 1000).toFixed(1)}k/d`;
+    }
+    return `${sign}${num.toFixed(0)}/d`;
+  };
+
+  const formatTableVelocity = (num: number) => {
+    const sign = num >= 0 ? "+" : "";
+    if (Math.abs(num) >= 1_000_000) {
+      return `${sign}${(num / 1_000_000).toFixed(1)}M`;
+    }
+    if (Math.abs(num) >= 1000) {
+      return `${sign}${(num / 1000).toFixed(1)}k`;
+    }
+    return `${sign}${num.toFixed(0)}`;
+  };
+
+  const formatYAxisTicks = (value: number) => {
+    if (value >= 1000) return `${value / 1000}k`;
+    return value.toString();
+  };
+
   return (
-    <div className="page-root">
-      {/* ── Page Header ─────────────────────────────────── */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "12px" }}>
+    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+      {/* ── Page Header ── */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
-          <div className="section-title-cyber">
-            Topic Intelligence<span className="terminal-cursor" />
-          </div>
-          <div style={{ fontFamily: "var(--font-sans)", fontSize: "13px", color: "var(--text-muted)", marginTop: "6px" }}>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Topic intelligence</h1>
+          <p className="text-xs text-gray-500 font-medium font-sans mt-1">
             GitHub topic tags ranked by combined star velocity &amp; trend score
-          </div>
+          </p>
         </div>
 
         {/* Summary chips */}
         {topics && (
-          <div style={{
-            display: "flex",
-            gap: "20px",
-            padding: "12px 16px",
-            border: "1px solid var(--border)",
-            borderRadius: "8px",
-            background: "var(--bg-surface)",
-          }}>
-            <StatChip label="Topics" value={filtered.length.toString()} accent="var(--accent-blue)" />
-            <StatChip label="Avg Score" value={filtered.length ? (filtered.reduce((s, t) => s + t.avg_trend_score, 0) / filtered.length).toFixed(4) : "—"} />
-            <StatChip label="Total Velocity" value={`+${filtered.reduce((s, t) => s + t.total_star_velocity, 0).toFixed(0)}/d`} accent="var(--accent-green)" />
-          </div>
-        )}
-      </div>
-
-      {/* ── Controls ────────────────────────────────────── */}
-      <div style={{
-        display: "flex",
-        gap: "10px",
-        flexWrap: "wrap",
-        alignItems: "center",
-        padding: "12px 16px",
-        background: "var(--bg-surface)",
-        border: "1px solid var(--border)",
-        borderRadius: "8px",
-      }}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
-        <input
-          type="text"
-          placeholder="Search topics…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="cyber-input"
-          style={{ minWidth: "200px", flex: 1 }}
-        />
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
-            Min repos:
-          </span>
-          <select
-            value={minRepos}
-            onChange={(e) => setMinRepos(Number(e.target.value))}
-            className="cyber-select"
-            style={{ width: "70px" }}
-          >
-            {[1, 2, 3, 5].map((n) => <option key={n} value={n}>{n}</option>)}
-          </select>
-        </div>
-        {selectedTopic && (
-          <button
-            onClick={() => setSelectedTopic(null)}
-            className="btn-cyber btn-cyber-cyan"
-            style={{ padding: "5px 12px", fontSize: "12px", whiteSpace: "nowrap" }}
-          >
-            ← Clear selection
-          </button>
-        )}
-      </div>
-
-      {/* ── Loading state ────────────────────────────────── */}
-      {isLoading && (
-        <div style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "12px",
-          padding: "80px 0",
-        }}>
-          <div style={{
-            width: "36px", height: "36px", border: "2px solid var(--border)",
-            borderTopColor: "var(--accent-blue)", borderRadius: "50%",
-            animation: "spin 0.8s linear infinite",
-          }} />
-          <span style={{ fontFamily: "var(--font-sans)", fontSize: "13px", color: "var(--text-muted)" }}>
-            Analysing topic momentum…
-          </span>
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
-      )}
-
-      {/* ── Main content ─────────────────────────────────── */}
-      {!isLoading && topics && (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: selectedTopic ? "1fr 380px" : "1fr",
-          gap: "20px",
-          alignItems: "start",
-        }}>
-          {/* ── LEFT COLUMN ──────────────────────────────── */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "20px", minWidth: 0 }}>
-
-            {/* Bar chart */}
-            {chartData.length > 0 && (
-              <div className="panel">
-                <div className="panel-header">
-                  <span className="panel-title">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
-                    </svg>
-                    Star Velocity by Topic — Top 20
-                  </span>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)" }}>
-                    stars/day
-                  </span>
-                </div>
-                <div style={{ padding: "0 16px 16px" }}>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={chartData} margin={{ top: 8, right: 0, bottom: 60, left: 0 }}>
-                      <XAxis
-                        dataKey="name"
-                        tick={{ fontSize: 10, fill: "var(--text-muted)", fontFamily: "var(--font-sans)" }}
-                        angle={-40}
-                        textAnchor="end"
-                        interval={0}
-                      />
-                      <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)", fontFamily: "var(--font-mono)" }} />
-                      <Tooltip
-                        contentStyle={{
-                          background: "var(--bg-elevated)",
-                          border: "1px solid var(--border)",
-                          borderRadius: "6px",
-                          fontSize: "11px",
-                          fontFamily: "var(--font-sans)",
-                          color: "var(--text-primary)",
-                        }}
-                        formatter={(v: any) => [`+${typeof v === "number" ? v : 0}/day`, "Velocity"]}
-                      />
-                      <Bar dataKey="velocity" radius={[3, 3, 0, 0]}>
-                        {chartData.map((entry) => (
-                          <Cell
-                            key={entry.name}
-                            fill={entry.name === selectedTopic ? "var(--accent-green)" : "var(--accent-blue)"}
-                            cursor="pointer"
-                            opacity={selectedTopic && entry.name !== selectedTopic ? 0.4 : 1}
-                            onClick={() => setSelectedTopic(entry.name === selectedTopic ? null : entry.name)}
-                          />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            )}
-
-            {/* Topic table */}
-            <div className="panel">
-              <div className="panel-header">
-                <span className="panel-title">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>
-                  </svg>
-                  All Topics
-                </span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)" }}>
-                  {filtered.length} results
-                </span>
-              </div>
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
-                  <thead>
-                    <tr>
-                      <th className="th-mono" style={{ textAlign: "left", paddingLeft: "16px" }}>#</th>
-                      <th className="th-mono" style={{ textAlign: "left" }}>Topic</th>
-                      <th className="th-mono" style={{ textAlign: "right" }}>Repos</th>
-                      <th className="th-mono" style={{ textAlign: "right" }}>Avg Score</th>
-                      <th className="th-mono" style={{ textAlign: "right", minWidth: "130px" }}>Score Bar</th>
-                      <th className="th-mono" style={{ textAlign: "right" }}>Vel/day</th>
-                      <th className="th-mono" style={{ textAlign: "right" }}>Accel</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((t, i) => (
-                      <tr
-                        key={t.topic}
-                        className="tr-cyber"
-                        style={{
-                          borderBottom: "1px solid var(--border)",
-                          background: selectedTopic === t.topic ? "rgba(88,166,255,0.06)" : "transparent",
-                          cursor: "pointer",
-                        }}
-                        onClick={() => setSelectedTopic(selectedTopic === t.topic ? null : t.topic)}
-                      >
-                        {/* Rank */}
-                        <td style={{ padding: "10px 8px 10px 16px", fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)", width: "36px" }}>
-                          {i + 1}
-                        </td>
-                        {/* Tag */}
-                        <td style={{ padding: "10px 12px" }}>
-                          <span style={{
-                            fontFamily: "var(--font-sans)",
-                            fontSize: "12px",
-                            fontWeight: 500,
-                            background: selectedTopic === t.topic ? "rgba(88,166,255,0.12)" : "var(--bg-elevated)",
-                            color: selectedTopic === t.topic ? "var(--accent-blue)" : "var(--text-secondary)",
-                            border: `1px solid ${selectedTopic === t.topic ? "var(--accent-blue)" : "var(--border)"}`,
-                            borderRadius: "4px",
-                            padding: "2px 8px",
-                            letterSpacing: "0.02em",
-                            display: "inline-block",
-                          }}>
-                            #{t.topic}
-                          </span>
-                        </td>
-                        {/* Repos */}
-                        <td style={{ padding: "10px 12px", textAlign: "right", fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--text-primary)" }}>
-                          {t.repo_count}
-                        </td>
-                        {/* Avg score */}
-                        <td style={{ padding: "10px 12px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>
-                          {t.avg_trend_score.toFixed(4)}
-                        </td>
-                        {/* Score bar */}
-                        <td style={{ padding: "10px 16px 10px 12px", minWidth: "130px" }}>
-                          <ScoreBar value={t.avg_trend_score} max={maxScore} />
-                        </td>
-                        {/* Velocity */}
-                        <td style={{ padding: "10px 12px", textAlign: "right", fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--accent-blue)" }}>
-                          +{t.total_star_velocity.toFixed(1)}
-                        </td>
-                        {/* Accel */}
-                        <td style={{ padding: "10px 16px 10px 12px", textAlign: "right", fontFamily: "var(--font-mono)", color: t.avg_acceleration > 1 ? "var(--accent-green)" : "var(--text-secondary)" }}>
-                          {t.avg_acceleration > 1 ? "▲ " : ""}{t.avg_acceleration.toFixed(2)}
-                        </td>
-                      </tr>
-                    ))}
-                    {filtered.length === 0 && (
-                      <tr>
-                        <td colSpan={7} style={{ padding: "40px", textAlign: "center", fontFamily: "var(--font-sans)", fontSize: "13px", color: "var(--text-muted)" }}>
-                          No topics match your search.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+          <div className="flex items-center gap-5 px-5 py-3 border border-[#2d2d34] rounded-lg bg-[#16161a]">
+            <div>
+              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono block">Topics</span>
+              <span className="text-sm font-bold text-white font-mono">{filtered.length}</span>
+            </div>
+            <div className="w-[1px] h-8 bg-gray-800" />
+            <div>
+              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono block">Avg score</span>
+              <span className="text-sm font-bold text-white font-mono">
+                {filtered.length ? (filtered.reduce((s, t) => s + t.avg_trend_score, 0) / filtered.length).toFixed(3) : "0.000"}
+              </span>
+            </div>
+            <div className="w-[1px] h-8 bg-gray-800" />
+            <div>
+              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono block">Total velocity</span>
+              <span className="text-sm font-bold text-emerald-400 font-mono">
+                {formatVelocityHeader(filtered.reduce((s, t) => s + t.total_star_velocity, 0))}
+              </span>
             </div>
           </div>
+        )}
+      </div>
 
-          {/* ── RIGHT COLUMN — selected topic detail ────── */}
-          {selectedTopic && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px", position: "sticky", top: "72px", maxHeight: "calc(100vh - 100px)", minWidth: 0 }}>
-              {/* Panel header */}
-              <div className="panel" style={{ overflow: "hidden", display: "flex", flexDirection: "column", maxHeight: "inherit" }}>
-                <div className="panel-header" style={{ flexShrink: 0 }}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                    <span style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                      Topic
-                    </span>
-                    <span className="panel-title" style={{ color: "var(--accent-blue)", fontSize: "16px" }}>
-                      #{selectedTopic}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => setSelectedTopic(null)}
-                    style={{ background: "none", border: "1px solid var(--border)", borderRadius: "5px", cursor: "pointer", color: "var(--text-muted)", padding: "4px 8px", fontSize: "12px" }}
-                    aria-label="Close panel"
-                  >✕</button>
+      {/* ── Chart Section ── */}
+      <div className="bg-[#1f1f23] border border-[#2d2d34] rounded-xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-bold text-white">
+            <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <line x1="18" y1="20" x2="18" y2="10" />
+              <line x1="12" y1="20" x2="12" y2="4" />
+              <line x1="6" y1="20" x2="6" y2="14" />
+            </svg>
+            Star velocity by topic — top {chartLimit}
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono">stars / day</span>
+            <div className="flex border border-[#2d2d34] rounded-md overflow-hidden bg-[#18181b]">
+              <button
+                onClick={() => setChartLimit(15)}
+                className={`px-3 py-1 text-xs font-semibold transition-all cursor-pointer ${
+                  chartLimit === 15
+                    ? "bg-[#27272a] text-white border-r border-[#2d2d34]"
+                    : "text-gray-400 hover:text-white border-r border-[#2d2d34]"
+                }`}
+              >
+                Top 15
+              </button>
+              <button
+                onClick={() => setChartLimit(20)}
+                className={`px-3 py-1 text-xs font-semibold transition-all cursor-pointer ${
+                  chartLimit === 20 ? "bg-[#27272a] text-white" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                Top 20
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Recharts Bar Chart */}
+        {chartData.length > 0 ? (
+          <div className="h-[240px] w-full pr-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 10, right: 0, bottom: 35, left: -10 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#2a2a2f" />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 10, fill: "#8e8e93", fontWeight: 500 }}
+                  angle={-35}
+                  textAnchor="end"
+                  interval={0}
+                  stroke="#2a2a2f"
+                />
+                <YAxis
+                  tickFormatter={formatYAxisTicks}
+                  tick={{ fontSize: 10, fill: "#8e8e93", fontFamily: "monospace" }}
+                  stroke="#2a2a2f"
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "#1f1f23",
+                    border: "1px solid #2d2d34",
+                    borderRadius: "8px",
+                    fontSize: "11px",
+                    color: "#e6edf3",
+                  }}
+                  formatter={(v: any) => [`+${v}/d`, "Velocity"]}
+                />
+                <Bar 
+                  dataKey="velocity" 
+                  fill="#6366f1" 
+                  radius={[3, 3, 0, 0]}
+                  cursor="pointer"
+                  onClick={(data) => {
+                    if (data && typeof data.name === "string") {
+                      const cleanName = data.name.replace("#", "");
+                      setSelectedTopic(selectedTopic === cleanName ? null : cleanName);
+                    }
+                  }}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="h-[240px] flex items-center justify-center text-gray-500 font-mono text-xs">No chart data available</div>
+        )}
+      </div>
+
+      {/* ── Table Section Controls ── */}
+      <div className="bg-[#1f1f23] border border-[#2d2d34] rounded-xl overflow-hidden shadow-sm">
+        {/* Toolbar */}
+        <div className="p-4 border-b border-[#2d2d34]/80 flex flex-wrap items-center gap-3">
+          {/* Search Input */}
+          <div className="relative flex-1 min-w-[200px] max-w-[260px]">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </span>
+            <input
+              type="text"
+              placeholder="Search topics…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 bg-[#18181b] border border-[#2d2d34] rounded-md text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-gray-500 transition-all font-semibold"
+            />
+          </div>
+
+          {/* Min Repos input */}
+          <div className="flex items-center gap-2 bg-[#18181b] border border-[#2d2d34] rounded-md px-3 py-1.5">
+            <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider font-mono whitespace-nowrap">Min repos</span>
+            <input
+              type="number"
+              min={1}
+              value={minRepos}
+              onChange={(e) => setMinRepos(Math.max(1, parseInt(e.target.value) || 1))}
+              className="w-8 bg-transparent text-white font-bold font-mono text-xs focus:outline-none text-center"
+            />
+          </div>
+
+          {/* Sort selection buttons */}
+          <div className="flex items-center border border-[#2d2d34] rounded-md overflow-hidden bg-[#18181b] ml-auto">
+            <button
+              onClick={() => setSortBy("velocity")}
+              className={`px-3 py-1.5 text-xs font-semibold border-r border-[#2d2d34] transition-all cursor-pointer ${
+                sortBy === "velocity" ? "bg-[#27272a] text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Velocity
+            </button>
+            <button
+              onClick={() => setSortBy("score")}
+              className={`px-3 py-1.5 text-xs font-semibold border-r border-[#2d2d34] transition-all cursor-pointer ${
+                sortBy === "score" ? "bg-[#27272a] text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Score
+            </button>
+            <button
+              onClick={() => setSortBy("repos")}
+              className={`px-3 py-1.5 text-xs font-semibold border-r border-[#2d2d34] transition-all cursor-pointer ${
+                sortBy === "repos" ? "bg-[#27272a] text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Repos
+            </button>
+            <button
+              onClick={() => setSortBy("accel")}
+              className={`px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                sortBy === "accel" ? "bg-[#27272a] text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Accel
+            </button>
+          </div>
+        </div>
+
+        {/* Topics Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-[#2d2d34]">
+                <th className="py-3 px-4 text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono w-12">#</th>
+                <th className="py-3 px-4 text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono">Topic</th>
+                <th className="py-3 px-4 text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono text-center w-20">Repos</th>
+                <th className="py-3 px-4 text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono text-right w-24">Avg score</th>
+                <th className="py-3 px-4 text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono w-44">Score bar</th>
+                <th className="py-3 px-4 text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono text-right w-28">Vel / day</th>
+                <th className="py-3 px-4 text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono text-center w-24">Accel</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#2d2d34]/60">
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td colSpan={7} className="py-6 px-4"><div className="h-4 bg-[#2a2a2f] rounded w-full" /></td>
+                  </tr>
+                ))
+              ) : sorted.map((t, idx) => (
+                <tr
+                  key={t.topic}
+                  onClick={() => setSelectedTopic(selectedTopic === t.topic ? null : t.topic)}
+                  className={`hover:bg-[#232328] transition-colors cursor-pointer ${
+                    selectedTopic === t.topic ? "bg-indigo-500/5 hover:bg-indigo-500/10" : ""
+                  }`}
+                >
+                  {/* Rank */}
+                  <td className="py-3 px-4 font-mono text-xs text-gray-500 font-semibold">{idx + 1}</td>
+                  {/* Topic name and repo count */}
+                  <td className="py-3 px-4">
+                    <div className="font-bold text-white text-sm"># {t.topic}</div>
+                    <div className="text-[10px] text-gray-500 font-medium font-sans mt-0.5">{t.repo_count} repos</div>
+                  </td>
+                  {/* Repos count */}
+                  <td className="py-3 px-4 text-center font-mono text-xs text-gray-200 font-bold">{t.repo_count}</td>
+                  {/* Avg Trend Score */}
+                  <td className="py-3 px-4 text-right font-mono text-xs text-gray-400">{t.avg_trend_score.toFixed(4)}</td>
+                  {/* Score bar */}
+                  <td className="py-3 px-4 min-w-[150px]">
+                    <ScoreBar value={t.avg_trend_score} max={maxScore} />
+                  </td>
+                  {/* Total star velocity per day */}
+                  <td className="py-3 px-4 text-right font-mono text-xs text-emerald-400 font-bold">
+                    {formatTableVelocity(t.total_star_velocity)}
+                  </td>
+                  {/* Acceleration pill */}
+                  <td className="py-3 px-4 text-center">
+                    {t.avg_acceleration > 0 ? (
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                        +{t.avg_acceleration.toFixed(2)}
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-medium bg-[#18181b] border border-gray-800 text-gray-500">
+                        {t.avg_acceleration.toFixed(2)}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {!isLoading && sorted.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-gray-500 font-mono text-xs">
+                    No topics match your filters.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer controls inside table card */}
+        <div className="p-4 border-t border-[#2d2d34] flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#1b1b1f]">
+          <div className="text-xs text-gray-500 font-medium font-sans">
+            Showing {sorted.length} of {topics?.length ?? 0}
+          </div>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/early-radar"
+              className="px-4 py-1.5 bg-[#18181b] border border-[#2d2d34] hover:border-gray-600 rounded-md text-xs font-semibold text-gray-300 hover:text-white transition-all inline-flex items-center gap-1 cursor-pointer"
+            >
+              Acceleration leaders <span className="text-xs">↗</span>
+            </Link>
+            <Link
+              href="/overview"
+              className="px-4 py-1.5 bg-[#18181b] border border-[#2d2d34] hover:border-gray-600 rounded-md text-xs font-semibold text-gray-300 hover:text-white transition-all inline-flex items-center gap-1 cursor-pointer"
+            >
+              By category <span className="text-xs">↗</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Slide-over Drawer for Selected Topic Detail ── */}
+      {selectedTopic && (
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-200"
+            onClick={() => setSelectedTopic(null)}
+          />
+          
+          <div className="absolute inset-y-0 right-0 pl-10 max-w-full flex">
+            <div className="w-screen max-w-md bg-[#16161a] border-l border-[#2d2d34] shadow-2xl flex flex-col">
+              {/* Drawer Header */}
+              <div className="px-6 py-5 border-b border-[#2d2d34] flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono">Topic Details</span>
+                  <h2 className="text-xl font-bold text-white mt-0.5">#{selectedTopic}</h2>
                 </div>
+                <button 
+                  onClick={() => setSelectedTopic(null)}
+                  className="text-gray-400 hover:text-white border border-[#2d2d34] hover:border-gray-600 rounded-md p-1.5 transition-colors cursor-pointer"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
 
-                {/* Topic stats summary */}
-                {topics && (() => {
-                  const td = topics.find((t) => t.topic === selectedTopic);
-                  if (!td) return null;
-                  return (
-                    <div style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: "12px",
-                      padding: "12px 16px",
-                      borderBottom: "1px solid var(--border)",
-                      flexShrink: 0,
-                    }}>
-                      <StatChip label="Repos" value={td.repo_count.toString()} accent="var(--accent-blue)" />
-                      <StatChip label="Avg Score" value={td.avg_trend_score.toFixed(4)} />
-                      <StatChip label="Velocity" value={`+${td.total_star_velocity.toFixed(1)}/d`} accent="var(--accent-green)" />
-                      <StatChip label="Acceleration" value={td.avg_acceleration.toFixed(2)} accent={td.avg_acceleration > 1 ? "var(--accent-green)" : undefined} />
+              {/* Topic Metrics */}
+              {(() => {
+                const td = topics?.find((t) => t.topic === selectedTopic);
+                if (!td) return null;
+                return (
+                  <div className="grid grid-cols-2 gap-4 p-6 border-b border-[#2d2d34] bg-[#1f1f23]/40">
+                    <div className="bg-[#1f1f23] border border-[#2d2d34]/80 rounded-lg p-3">
+                      <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono block">Repos</span>
+                      <span className="text-lg font-bold text-white">{td.repo_count}</span>
                     </div>
-                  );
-                })()}
-
-                {/* Repo list */}
-                <div style={{ overflowY: "auto", flex: 1 }}>
-                  {/* Loading state */}
-                  {reposLoading && (
-                    <div style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: "10px",
-                      padding: "40px 0",
-                    }}>
-                      <div style={{
-                        width: "28px", height: "28px", border: "2px solid var(--border)",
-                        borderTopColor: "var(--accent-blue)", borderRadius: "50%",
-                        animation: "spin 0.8s linear infinite",
-                      }} />
-                      <span style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: "var(--text-muted)" }}>
-                        Loading repos…
+                    <div className="bg-[#1f1f23] border border-[#2d2d34]/80 rounded-lg p-3">
+                      <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono block">Avg Trend Score</span>
+                      <span className="text-lg font-bold text-white">{td.avg_trend_score.toFixed(4)}</span>
+                    </div>
+                    <div className="bg-[#1f1f23] border border-[#2d2d34]/80 rounded-lg p-3">
+                      <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono block">Velocity</span>
+                      <span className="text-lg font-bold text-emerald-400">+{td.total_star_velocity.toFixed(1)}/d</span>
+                    </div>
+                    <div className="bg-[#1f1f23] border border-[#2d2d34]/80 rounded-lg p-3">
+                      <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono block">Acceleration</span>
+                      <span className={`text-lg font-bold ${td.avg_acceleration > 1 ? "text-emerald-400" : "text-gray-300"}`}>
+                        {td.avg_acceleration.toFixed(2)}
                       </span>
                     </div>
-                  )}
+                  </div>
+                );
+              })()}
 
-                  {/* Empty state */}
-                  {!reposLoading && (topicRepos ?? []).length === 0 && (
-                    <div style={{ padding: "40px 16px", textAlign: "center", fontFamily: "var(--font-sans)", fontSize: "13px", color: "var(--text-muted)" }}>
-                      No repos found for #{selectedTopic}
-                    </div>
-                  )}
-
-                  {/* Repo cards */}
-                  {!reposLoading && (topicRepos ?? []).length > 0 && (
-                    <div style={{ padding: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
-                      {(topicRepos ?? []).map((repo: TopicRepo, idx) => (
-                        <div
-                          key={repo.repo_id}
-                          onClick={() => router.push(`/repo/${repo.owner}/${repo.name}`)}
-                          style={{
-                            padding: "12px",
-                            border: "1px solid var(--border)",
-                            borderRadius: "8px",
-                            background: "var(--bg-elevated)",
-                            cursor: "pointer",
-                            transition: "border-color 0.13s, background 0.13s",
-                          }}
-                          onMouseEnter={(e) => {
-                            (e.currentTarget as HTMLElement).style.borderColor = "var(--accent-blue)";
-                            (e.currentTarget as HTMLElement).style.background = "var(--bg-dim)";
-                          }}
-                          onMouseLeave={(e) => {
-                            (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
-                            (e.currentTarget as HTMLElement).style.background = "var(--bg-elevated)";
-                          }}
-                        >
-                          {/* Repo header */}
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px", gap: "8px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
-                              <span style={{
-                                fontFamily: "var(--font-mono)",
-                                fontSize: "11px",
-                                fontWeight: 700,
-                                color: "var(--accent-blue)",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                              }}>
-                                {repo.owner}/{repo.name}
-                              </span>
-                            </div>
-                            <SustainBadge label={repo.sustainability_label} />
-                          </div>
-
-                          {/* Score bar */}
-                          <div style={{ marginBottom: "8px" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-                              <span style={{ fontFamily: "var(--font-sans)", fontSize: "10px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Trend Score</span>
-                            </div>
-                            <ScoreBar value={repo.trend_score} max={1} />
-                          </div>
-
-                          {/* Stats row */}
-                          <div style={{
-                            display: "grid",
-                            gridTemplateColumns: "1fr 1fr 1fr",
-                            gap: "6px",
-                            paddingTop: "8px",
-                            borderTop: "1px solid var(--border)",
-                          }}>
-                            <div style={{ textAlign: "center" }}>
-                              <div style={{ fontFamily: "var(--font-sans)", fontSize: "9px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Stars</div>
-                              <div style={{ fontFamily: "var(--font-mono)", fontSize: "12px", fontWeight: 700, color: "var(--text-primary)" }}>
-                                {repo.stars != null ? (repo.stars >= 1000 ? `${(repo.stars / 1000).toFixed(1)}k` : repo.stars.toString()) : "—"}
-                              </div>
-                            </div>
-                            <div style={{ textAlign: "center" }}>
-                              <div style={{ fontFamily: "var(--font-sans)", fontSize: "9px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Rank</div>
-                              <div style={{ fontFamily: "var(--font-mono)", fontSize: "12px", fontWeight: 700, color: "var(--text-primary)" }}>
-                                #{idx + 1}
-                              </div>
-                            </div>
-                            <div style={{ textAlign: "center" }}>
-                              <div style={{ fontFamily: "var(--font-sans)", fontSize: "9px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Accel</div>
-                              <div style={{ fontFamily: "var(--font-mono)", fontSize: "12px", fontWeight: 700, color: repo.acceleration > 1 ? "var(--accent-green)" : "var(--text-secondary)" }}>
-                                {repo.acceleration > 1 ? "▲" : ""}{repo.acceleration.toFixed(2)}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Topic tags */}
-                          {repo.topics && repo.topics.length > 0 && (
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "8px" }}>
-                              {repo.topics.slice(0, 5).map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="cyber-tag"
-                                  style={{
-                                    color: tag === selectedTopic ? "var(--accent-blue)" : undefined,
-                                    borderColor: tag === selectedTopic ? "var(--accent-blue)" : undefined,
-                                    background: tag === selectedTopic ? "rgba(88,166,255,0.1)" : undefined,
-                                  }}
-                                >
-                                  #{tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
+              {/* Drawer Repositories List */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider font-mono mb-2">Repositories</h3>
+                
+                {reposLoading ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <div className="w-8 h-8 border-2 border-gray-800 border-t-indigo-500 rounded-full animate-spin" />
+                    <span className="text-xs text-gray-500 font-mono">Loading repositories...</span>
+                  </div>
+                ) : (topicRepos ?? []).length === 0 ? (
+                  <div className="text-center py-12 text-xs text-gray-500 font-mono">No repositories found for #{selectedTopic}</div>
+                ) : (
+                  (topicRepos ?? []).map((repo: TopicRepo, idx) => (
+                    <div 
+                      key={repo.repo_id}
+                      onClick={() => {
+                        setSelectedTopic(null);
+                        router.push(`/repo/${repo.owner}/${repo.name}`);
+                      }}
+                      className="bg-[#1f1f23] border border-[#2d2d34] hover:border-gray-600 rounded-xl p-4 cursor-pointer transition-all duration-200"
+                    >
+                      <div className="flex justify-between items-start mb-2 gap-2">
+                        <div className="text-[13px] font-semibold text-indigo-400 truncate hover:underline">
+                          {repo.owner}/{repo.name}
                         </div>
-                      ))}
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          repo.sustainability_label === "GREEN" 
+                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
+                            : repo.sustainability_label === "YELLOW"
+                            ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                            : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                        }`}>
+                          {repo.sustainability_label || "YELLOW"}
+                        </span>
+                      </div>
+                      
+                      {/* Trend Score */}
+                      <div className="mb-3">
+                        <div className="flex justify-between text-[10px] text-gray-500 font-semibold uppercase font-mono mb-1">
+                          <span>Trend Score</span>
+                          <span>{repo.trend_score.toFixed(4)}</span>
+                        </div>
+                        <ScoreBar value={repo.trend_score} max={1} />
+                      </div>
+                      
+                      {/* Repository stats */}
+                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-800/60 text-center">
+                        <div>
+                          <span className="text-[9px] text-gray-500 font-bold uppercase font-mono block">Stars</span>
+                          <span className="text-xs font-semibold text-gray-300">
+                            {repo.stars != null ? (repo.stars >= 1000 ? `${(repo.stars / 1000).toFixed(1)}k` : repo.stars) : "—"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-gray-500 font-bold uppercase font-mono block">Rank</span>
+                          <span className="text-xs font-semibold text-gray-300">#{idx + 1}</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-gray-500 font-bold uppercase font-mono block">Accel</span>
+                          <span className={`text-xs font-semibold ${repo.acceleration > 1 ? "text-emerald-400" : "text-gray-300"}`}>
+                            {repo.acceleration > 1 ? "▲" : ""}{repo.acceleration.toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </div>
+                  ))
+                )}
               </div>
             </div>
-          )}
+          </div>
         </div>
       )}
     </div>
