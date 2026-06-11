@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { api, ResearchSession } from "@/lib/api";
@@ -11,26 +11,45 @@ const VERTICAL_LABELS: Record<string, string> = {
   oss_tools: "OSS Tools", science: "Science", creative: "Creative",
 };
 
+// B&W Theme Palette
+const C = {
+  bg: "#0d1117",
+  bgCard: "#161b22",
+  bgHover: "#21262d",
+  border: "#30363d",
+  text: "#e6edf3",
+  textSub: "#8b949e",
+  textMuted: "#6e7681",
+  green: "#3fb950",
+  amber: "#d29922",
+  red: "#f85149",
+};
+
 export default function ResearchListPage() {
   const router = useRouter();
   const { userId, isLoaded } = useAuth();
+  
+  // Fallback to "default-user" in dev mode or signed out states to prevent lockouts
+  const effectiveUserId = useMemo(() => {
+    return isLoaded && userId ? userId : "default-user";
+  }, [isLoaded, userId]);
+
   const [sessions, setSessions] = useState<ResearchSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    if (!isLoaded || !userId) return;
-    api.research.listSessions(userId)
+    setLoading(true);
+    api.research.listSessions(effectiveUserId)
       .then(setSessions)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [isLoaded, userId]);
+  }, [effectiveUserId]);
 
   const handleCreate = async () => {
-    if (!userId) return;
     setCreating(true);
     try {
-      const s = await api.research.createSession(userId, "Untitled Research");
+      const s = await api.research.createSession(effectiveUserId, "Untitled Research");
       router.push(`/research/${s.id}`);
     } catch (e) {
       console.error(e);
@@ -40,19 +59,18 @@ export default function ResearchListPage() {
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!userId) return;
     if (!confirm("Delete this research session?")) return;
-    await api.research.deleteSession(id, userId);
+    await api.research.deleteSession(id, effectiveUserId);
     setSessions((prev) => prev.filter((s) => s.id !== id));
   };
 
   return (
-    <div className="main-content" style={{ minHeight: "100vh" }}>
+    <div className="main-content" style={{ minHeight: "100vh", background: C.bg, color: C.text }}>
       <style>{`
         .research-card {
-          background: var(--bg-surface);
-          border: 1px solid var(--border);
-          border-radius: 10px;
+          background: ${C.bgCard};
+          border: 1px solid ${C.border};
+          border-radius: 8px;
           padding: 18px 20px;
           cursor: pointer;
           transition: border-color 0.15s, box-shadow 0.15s;
@@ -61,19 +79,19 @@ export default function ResearchListPage() {
           gap: 8px;
         }
         .research-card:hover {
-          border-color: var(--accent-blue);
-          box-shadow: 0 0 0 1px rgba(88,166,255,0.15), 0 4px 16px rgba(0,0,0,0.2);
+          border-color: ${C.textSub};
+          box-shadow: 0 0 0 1px rgba(230,237,243,0.1), 0 4px 16px rgba(0,0,0,0.4);
         }
         .badge-pill {
           display: inline-flex; align-items: center;
           padding: 2px 8px; border-radius: 10px;
           font-size: 10px; font-weight: 600; font-family: var(--font-sans);
-          border: 1px solid var(--border); color: var(--text-muted);
-          background: var(--bg-elevated);
+          border: 1px solid ${C.border}; color: ${C.textSub};
+          background: ${C.bgHover};
         }
         .badge-pill.has-report {
           border-color: rgba(63,185,80,0.4);
-          color: var(--accent-green);
+          color: ${C.green};
           background: rgba(63,185,80,0.08);
         }
         .quick-chips {
@@ -82,10 +100,10 @@ export default function ResearchListPage() {
         .quick-chip {
           padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 500;
           font-family: var(--font-sans); cursor: pointer; transition: all 0.15s;
-          border: 1px solid var(--border); color: var(--text-muted);
-          background: var(--bg-elevated);
+          border: 1px solid ${C.border}; color: ${C.textSub};
+          background: ${C.bgCard};
         }
-        .quick-chip:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
+        .quick-chip:hover { border-color: ${C.textSub}; color: ${C.text}; }
       `}</style>
 
       {/* Header */}
@@ -95,7 +113,7 @@ export default function ResearchListPage() {
             <h1 className="section-title-cyber" style={{ fontSize: "28px", marginBottom: "6px" }}>
               🔬 Research <span>Mode</span>
             </h1>
-            <p style={{ fontFamily: "var(--font-sans)", fontSize: "13px", color: "var(--text-muted)" }}>
+            <p style={{ fontFamily: "var(--font-sans)", fontSize: "13px", color: C.textSub }}>
               Conversational GitHub intelligence — real-time data, no hallucination
             </p>
           </div>
@@ -104,9 +122,9 @@ export default function ResearchListPage() {
             disabled={creating}
             style={{
               display: "flex", alignItems: "center", gap: "8px",
-              background: "var(--accent-blue)", color: "#fff",
+              background: C.text, color: C.bg,
               border: "none", borderRadius: "8px", padding: "10px 20px",
-              fontFamily: "var(--font-sans)", fontSize: "13px", fontWeight: 600,
+              fontFamily: "var(--font-sans)", fontSize: "13px", fontWeight: 700,
               cursor: creating ? "not-allowed" : "pointer", opacity: creating ? 0.7 : 1,
               transition: "opacity 0.15s, transform 0.1s",
             }}
@@ -126,10 +144,9 @@ export default function ResearchListPage() {
             { label: "📊 Data infra landscape", q: "map the data infrastructure ecosystem" },
           ].map(({ label, q }) => (
             <button key={label} className="quick-chip" onClick={async () => {
-              if (!userId) return;
               setCreating(true);
               try {
-                const s = await api.research.createSession(userId, label);
+                const s = await api.research.createSession(effectiveUserId, label);
                 router.push(`/research/${s.id}?q=${encodeURIComponent(q)}`);
               } catch { setCreating(false); }
             }}>{label}</button>
@@ -139,26 +156,26 @@ export default function ResearchListPage() {
 
       {/* Session list */}
       {loading ? (
-        <div style={{ textAlign: "center", color: "var(--text-muted)", padding: "60px 0", fontFamily: "var(--font-sans)", fontSize: "14px" }}>
+        <div style={{ textAlign: "center", color: C.textSub, padding: "60px 0", fontFamily: "var(--font-sans)", fontSize: "14px" }}>
           Loading sessions…
         </div>
       ) : sessions.length === 0 ? (
         <div style={{
           textAlign: "center", padding: "80px 20px",
-          border: "1px dashed var(--border)", borderRadius: "12px",
-          background: "var(--bg-surface)",
+          border: `1px dashed ${C.border}`, borderRadius: "12px",
+          background: C.bgCard,
         }}>
           <div style={{ fontSize: "40px", marginBottom: "16px" }}>🔬</div>
-          <div style={{ fontFamily: "var(--font-sans)", fontWeight: 600, color: "var(--text-primary)", fontSize: "16px", marginBottom: "8px" }}>
+          <div style={{ fontFamily: "var(--font-sans)", fontWeight: 600, color: C.text, fontSize: "16px", marginBottom: "8px" }}>
             No research sessions yet
           </div>
-          <div style={{ fontFamily: "var(--font-sans)", color: "var(--text-muted)", fontSize: "13px", marginBottom: "20px" }}>
+          <div style={{ fontFamily: "var(--font-sans)", color: C.textSub, fontSize: "13px", marginBottom: "20px" }}>
             Start a conversation to research GitHub repos in real-time
           </div>
           <button onClick={handleCreate} style={{
-            background: "var(--accent-blue)", color: "#fff", border: "none",
+            background: C.text, color: C.bg, border: "none",
             borderRadius: "8px", padding: "10px 24px",
-            fontFamily: "var(--font-sans)", fontSize: "13px", fontWeight: 600, cursor: "pointer",
+            fontFamily: "var(--font-sans)", fontSize: "13px", fontWeight: 700, cursor: "pointer",
           }}>
             Start Research
           </button>
@@ -168,18 +185,18 @@ export default function ResearchListPage() {
           {sessions.map((s) => (
             <div key={s.id} className="research-card" onClick={() => router.push(`/research/${s.id}`)}>
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "8px" }}>
-                <div style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "14px", color: "var(--text-primary)", lineHeight: 1.3 }}>
+                <div style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "14px", color: C.text, lineHeight: 1.3 }}>
                   {s.title}
                 </div>
                 <button
                   onClick={(e) => handleDelete(s.id, e)}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: "16px", flexShrink: 0, padding: "0 4px", lineHeight: 1 }}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: C.textMuted, fontSize: "16px", flexShrink: 0, padding: "0 4px", lineHeight: 1 }}
                   title="Delete session"
                 >×</button>
               </div>
 
               {s.description && (
-                <div style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.5 }}>{s.description}</div>
+                <div style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: C.textSub, lineHeight: 1.5 }}>{s.description}</div>
               )}
 
               <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "4px" }}>
@@ -195,10 +212,10 @@ export default function ResearchListPage() {
               </div>
 
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "4px" }}>
-                <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)" }}>
+                <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: C.textMuted }}>
                   {s.message_count} messages
                 </div>
-                <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)" }}>
+                <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: C.textMuted }}>
                   {new Date(s.updated_at).toLocaleDateString()}
                 </div>
               </div>

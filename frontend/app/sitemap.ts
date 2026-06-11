@@ -5,7 +5,10 @@ const API_URL  = process.env.NEXT_PUBLIC_API_URL  ?? "http://localhost:8000";
 
 async function fetchRepoIds(): Promise<string[]> {
   try {
-    const res = await fetch(`${API_URL}/repos?per_page=200`, { next: { revalidate: 3600 } });
+    const res = await fetch(`${API_URL}/repos?per_page=200`, { 
+      next: { revalidate: 3600 },
+      signal: AbortSignal.timeout(4000)
+    });
     if (!res.ok) return [];
     
     // Check if it's the new paginated structure
@@ -25,7 +28,10 @@ async function fetchRepoIds(): Promise<string[]> {
 
 async function fetchSnapshotIds(): Promise<string[]> {
   try {
-    const res = await fetch(`${API_URL}/snapshots`, { next: { revalidate: 3600 } });
+    const res = await fetch(`${API_URL}/snapshots`, { 
+      next: { revalidate: 3600 },
+      signal: AbortSignal.timeout(4000)
+    });
     if (!res.ok) return [];
     const data: Array<{ week_id: string }> = await res.json();
     return data.map((s) => s.week_id);

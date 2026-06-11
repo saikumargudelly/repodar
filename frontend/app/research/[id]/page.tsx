@@ -10,10 +10,23 @@ function MD({ children }: { children: string }) {
   return <ReactMarkdown>{children}</ReactMarkdown>;
 }
 
+const C = {
+  bg: "#0d1117",
+  bgCard: "#161b22",
+  bgHover: "#21262d",
+  border: "#30363d",
+  text: "#e6edf3",
+  textSub: "#8b949e",
+  textMuted: "#6e7681",
+  green: "#3fb950",
+  amber: "#d29922",
+  red: "#f85149",
+};
+
 const TREND_COLORS: Record<string, string> = {
-  HIGH: "var(--accent-green)",
-  MID: "var(--accent-yellow, #e3b341)",
-  LOW: "var(--accent-red, #f85149)",
+  HIGH: C.green,
+  MID: C.amber,
+  LOW: C.red,
 };
 
 const STAGE_LABELS: Record<string, string> = {
@@ -77,9 +90,9 @@ function RepoCard({
 
   return (
     <div style={{
-      background: "var(--bg-elevated)",
-      border: `1px solid var(--border)`,
-      borderLeft: `3px solid ${TREND_COLORS[repo.trend_label] ?? "var(--border)"}`,
+      background: C.bgCard,
+      border: `1px solid ${C.border}`,
+      borderLeft: `3px solid ${TREND_COLORS[repo.trend_label] ?? C.border}`,
       borderRadius: "8px",
       padding: "12px 14px",
       display: "flex",
@@ -91,7 +104,7 @@ function RepoCard({
           href={repo.github_url}
           target="_blank"
           rel="noopener noreferrer"
-          style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "13px", color: "var(--accent-blue)", textDecoration: "none", lineHeight: 1.3 }}
+          style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "13px", color: C.text, textDecoration: "underline", lineHeight: 1.3 }}
         >
           {repo.full_name}
         </a>
@@ -107,17 +120,17 @@ function RepoCard({
         </span>
       </div>
 
-      <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)", lineHeight: 1.4 }}>
+      <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: C.textSub, lineHeight: 1.4 }}>
         {repo.description?.slice(0, 100) || "No description"}
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-        <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "11px", color: "var(--text-secondary)" }}>⭐ {starsK}</span>
+        <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "11px", color: C.textSub }}>⭐ {starsK}</span>
         {repo.primary_language && (
-          <span style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)" }}>• {repo.primary_language}</span>
+          <span style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: C.textSub }}>• {repo.primary_language}</span>
         )}
         {repo.topics?.slice(0, 2).map((t) => (
-          <span key={t} style={{ fontFamily: "var(--font-sans)", fontSize: "10px", color: "var(--text-muted)", background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "4px", padding: "1px 6px" }}>
+          <span key={t} style={{ fontFamily: "var(--font-sans)", fontSize: "10px", color: C.textSub, background: C.bgHover, border: `1px solid ${C.border}`, borderRadius: "4px", padding: "1px 6px" }}>
             {t}
           </span>
         ))}
@@ -128,11 +141,10 @@ function RepoCard({
           onClick={() => onPin(repo)}
           style={{
             fontFamily: "var(--font-sans)", fontSize: "11px", fontWeight: 600,
-            padding: "4px 10px", borderRadius: "6px", border: "1px solid var(--border)",
+            padding: "4px 10px", borderRadius: "6px", border: `1px solid ${isPinned ? C.text : C.border}`,
             cursor: "pointer", transition: "all 0.13s",
-            background: isPinned ? "rgba(88,166,255,0.15)" : "var(--bg-surface)",
-            color: isPinned ? "var(--accent-blue)" : "var(--text-muted)",
-            borderColor: isPinned ? "var(--accent-blue)" : "var(--border)",
+            background: isPinned ? C.text : C.bgHover,
+            color: isPinned ? C.bg : C.textSub,
           }}
         >
           {isPinned ? "📌 Pinned" : "📌 Pin"}
@@ -143,12 +155,12 @@ function RepoCard({
           onClick={() => router.push(`/repo/${repo.full_name}`)}
           style={{
             fontFamily: "var(--font-sans)", fontSize: "11px", fontWeight: 600,
-            padding: "4px 10px", borderRadius: "6px", border: "1px solid var(--border)",
-            cursor: "pointer", background: "var(--bg-surface)", color: "var(--text-muted)",
+            padding: "4px 10px", borderRadius: "6px", border: `1px solid ${C.border}`,
+            cursor: "pointer", background: C.bgHover, color: C.textSub,
             transition: "all 0.13s",
           }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--accent-blue)"; (e.currentTarget as HTMLElement).style.borderColor = "var(--accent-blue)"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--text-muted)"; (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"; }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.text; (e.currentTarget as HTMLElement).style.borderColor = C.textSub; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.textSub; (e.currentTarget as HTMLElement).style.borderColor = C.border; }}
         >
           📊 Details
         </button>
@@ -158,9 +170,9 @@ function RepoCard({
           onClick={() => setBlogOpen(!blogOpen)}
           style={{
             fontFamily: "var(--font-sans)", fontSize: "11px", fontWeight: 600,
-            padding: "4px 10px", borderRadius: "6px", border: `1px solid ${blogOpen ? "var(--accent-blue)" : "var(--border)"}`,
-            cursor: "pointer", background: blogOpen ? "rgba(88,166,255,0.1)" : "var(--bg-surface)",
-            color: blogOpen ? "var(--accent-blue)" : "var(--text-muted)",
+            padding: "4px 10px", borderRadius: "6px", border: `1px solid ${blogOpen ? C.textSub : C.border}`,
+            cursor: "pointer", background: blogOpen ? C.bgHover : C.bgCard,
+            color: blogOpen ? C.text : C.textSub,
             transition: "all 0.13s",
           }}
         >
@@ -172,12 +184,12 @@ function RepoCard({
             onClick={() => onAddToReport(repo)}
             style={{
               fontFamily: "var(--font-sans)", fontSize: "11px", fontWeight: 600,
-              padding: "4px 10px", borderRadius: "6px", border: "1px solid var(--border)",
-              cursor: "pointer", background: "var(--bg-surface)", color: "var(--text-muted)",
+              padding: "4px 10px", borderRadius: "6px", border: `1px solid ${C.border}`,
+              cursor: "pointer", background: C.bgHover, color: C.textSub,
               transition: "all 0.13s",
             }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--accent-blue)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--text-muted)"; }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.text; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.textSub; }}
           >
             → Report
           </button>
@@ -188,19 +200,19 @@ function RepoCard({
       {blogOpen && (
         <div style={{
           marginTop: "8px", padding: "12px", borderRadius: "8px",
-          background: "var(--bg-surface)", border: "1px solid var(--border)",
+          background: C.bgHover, border: `1px solid ${C.border}`,
           display: "flex", flexDirection: "column", gap: "8px",
         }}>
-          <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)" }}>✍️ Generate social post for {repo.name}</div>
+          <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", fontWeight: 600, color: C.textSub }}>✍️ Generate social post for {repo.name}</div>
           {/* Platform selector tabs */}
           <div style={{ display: "flex", gap: "4px" }}>
             {PLATFORMS.map(p => (
               <button key={p.key} onClick={() => setBlogPlatform(p.key)} style={{
                 fontFamily: "var(--font-sans)", fontSize: "10px", fontWeight: 600,
                 padding: "3px 8px", borderRadius: "5px",
-                border: `1px solid ${blogPlatform === p.key ? "var(--accent-blue)" : "var(--border)"}`,
-                background: blogPlatform === p.key ? "rgba(88,166,255,0.15)" : "transparent",
-                color: blogPlatform === p.key ? "var(--accent-blue)" : "var(--text-muted)",
+                border: `1px solid ${blogPlatform === p.key ? C.textSub : C.border}`,
+                background: blogPlatform === p.key ? C.bgHover : "transparent",
+                color: blogPlatform === p.key ? C.text : C.textSub,
                 cursor: "pointer",
               }}>{p.icon} {p.label}</button>
             ))}
@@ -210,10 +222,10 @@ function RepoCard({
             disabled={generatingBlog}
             style={{
               fontFamily: "var(--font-sans)", fontSize: "11px", fontWeight: 600,
-              padding: "5px 12px", borderRadius: "6px", border: "1px solid var(--accent-blue)",
+              padding: "5px 12px", borderRadius: "6px", border: `1px solid ${C.border}`,
               cursor: generatingBlog ? "wait" : "pointer",
-              background: generatingBlog ? "rgba(88,166,255,0.1)" : "var(--accent-blue)",
-              color: generatingBlog ? "var(--accent-blue)" : "#fff",
+              background: generatingBlog ? C.bgHover : C.text,
+              color: generatingBlog ? C.textSub : C.bg,
               opacity: generatingBlog ? 0.7 : 1, alignSelf: "flex-start",
             }}
           >
@@ -226,8 +238,8 @@ function RepoCard({
                 rows={8}
                 style={{
                   width: "100%", resize: "vertical", fontFamily: "var(--font-sans)", fontSize: "11px",
-                  color: "var(--text-primary)", background: "var(--bg-elevated)",
-                  border: "1px solid var(--border)", borderRadius: "6px", padding: "8px 10px",
+                  color: C.text, background: C.bgCard,
+                  border: `1px solid ${C.border}`, borderRadius: "6px", padding: "8px 10px",
                   lineHeight: 1.5,
                 }}
               />
@@ -237,9 +249,9 @@ function RepoCard({
                   position: "absolute", top: "6px", right: "8px",
                   fontFamily: "var(--font-sans)", fontSize: "10px", fontWeight: 600,
                   padding: "3px 8px", borderRadius: "4px",
-                  border: "1px solid var(--border)",
-                  background: blogCopied ? "rgba(63,185,80,0.15)" : "var(--bg-surface)",
-                  color: blogCopied ? "var(--accent-green)" : "var(--text-muted)",
+                  border: `1px solid ${C.border}`,
+                  background: blogCopied ? "rgba(63,185,80,0.15)" : C.bgHover,
+                  color: blogCopied ? C.green : C.textSub,
                   cursor: "pointer",
                 }}
               >
@@ -265,7 +277,7 @@ function ChatBubble({
   onPin: (r: ResearchRepo) => void;
   pinnedNames: Set<string>;
   sessionId: string;
-  userId: string | null | undefined;
+  userId: string;
 }) {
   const isUser = msg.role === "user";
 
@@ -274,10 +286,10 @@ function ChatBubble({
       {/* Query explanation (agent only) */}
       {!isUser && msg.query_explanation && (
         <div style={{
-          fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)",
+          fontFamily: "var(--font-sans)", fontSize: "11px", color: C.textSub,
           display: "flex", alignItems: "center", gap: "6px",
-          padding: "4px 10px", background: "var(--bg-elevated)", borderRadius: "6px",
-          border: "1px solid var(--border)", maxWidth: "90%",
+          padding: "4px 10px", background: C.bgCard, borderRadius: "6px",
+          border: `1px solid ${C.border}`, maxWidth: "90%",
         }}>
           🔍 <em>{msg.query_explanation}</em>
         </div>
@@ -286,9 +298,9 @@ function ChatBubble({
       {/* Bubble */}
       <div style={{
         maxWidth: "92%",
-        background: isUser ? "var(--accent-blue)" : "var(--bg-elevated)",
-        color: isUser ? "#fff" : "var(--text-primary)",
-        border: `1px solid ${isUser ? "transparent" : "var(--border)"}`,
+        background: isUser ? C.bgHover : C.bgCard,
+        color: C.text,
+        border: `1px solid ${C.border}`,
         borderRadius: isUser ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
         padding: "10px 14px",
         fontFamily: "var(--font-sans)",
@@ -304,10 +316,10 @@ function ChatBubble({
       {!isUser && msg.repos && msg.repos.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%", paddingLeft: "4px" }}>
           {msg.repos.slice(0, 8).map((r) => (
-            <RepoCard key={r.full_name} repo={r} onPin={onPin} isPinned={pinnedNames.has(r.full_name)} sessionId={sessionId} userId={userId ?? undefined} />
+            <RepoCard key={r.full_name} repo={r} onPin={onPin} isPinned={pinnedNames.has(r.full_name)} sessionId={sessionId} userId={userId} />
           ))}
           {msg.repos.length > 8 && (
-            <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)", padding: "4px 8px" }}>
+            <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: C.textSub, padding: "4px 8px" }}>
               +{msg.repos.length - 8} more repos
             </div>
           )}
@@ -326,40 +338,40 @@ function StreamingBubble({ text, repos, status, queryExplanation }: {
     <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
       {queryExplanation && (
         <div style={{
-          fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)",
+          fontFamily: "var(--font-sans)", fontSize: "11px", color: C.textSub,
           display: "flex", alignItems: "center", gap: "6px",
-          padding: "4px 10px", background: "var(--bg-elevated)", borderRadius: "6px",
-          border: "1px solid var(--border)", maxWidth: "90%",
+          padding: "4px 10px", background: C.bgCard, borderRadius: "6px",
+          border: `1px solid ${C.border}`, maxWidth: "90%",
         }}>
           🔍 <em>{queryExplanation}</em>
         </div>
       )}
       {status && !text && (
         <div style={{
-          fontFamily: "var(--font-sans)", fontSize: "12px", color: "var(--text-muted)",
+          fontFamily: "var(--font-sans)", fontSize: "12px", color: C.textSub,
           display: "flex", alignItems: "center", gap: "8px",
-          padding: "8px 14px", background: "var(--bg-elevated)", border: "1px solid var(--border)",
+          padding: "8px 14px", background: C.bgCard, border: `1px solid ${C.border}`,
           borderRadius: "14px 14px 14px 4px",
         }}>
-          <span style={{ display: "inline-block", width: "8px", height: "8px", borderRadius: "50%", background: "var(--accent-blue)", animation: "pulse 1.2s ease infinite" }} />
+          <span style={{ display: "inline-block", width: "8px", height: "8px", borderRadius: "50%", background: C.textSub, animation: "pulse 1.2s ease infinite" }} />
           {status}
         </div>
       )}
       {text && (
         <div style={{
-          maxWidth: "92%", background: "var(--bg-elevated)", color: "var(--text-primary)",
-          border: "1px solid var(--border)", borderRadius: "14px 14px 14px 4px",
+          maxWidth: "92%", background: C.bgCard, color: C.text,
+          border: `1px solid ${C.border}`, borderRadius: "14px 14px 14px 4px",
           padding: "10px 14px", fontFamily: "var(--font-sans)", fontSize: "13px", lineHeight: 1.6,
         }}>
           <div className="research-md"><MD>{text}</MD></div>
-          <span style={{ display: "inline-block", width: "2px", height: "14px", background: "var(--accent-blue)", verticalAlign: "middle", animation: "blink 0.7s step-end infinite", marginLeft: "2px" }} />
+          <span style={{ display: "inline-block", width: "2px", height: "14px", background: C.textSub, verticalAlign: "middle", animation: "blink 0.7s step-end infinite", marginLeft: "2px" }} />
         </div>
       )}
       {repos.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: "8px", paddingLeft: "4px" }}>
           {repos.slice(0, 5).map((r) => (
-            <div key={r.full_name} style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "8px", padding: "10px 12px", fontFamily: "var(--font-sans)", fontSize: "12px", color: "var(--text-muted)" }}>
-              <strong style={{ color: "var(--accent-blue)" }}>{r.full_name}</strong> — {(r.stars / 1000).toFixed(1)}k ⭐ · {r.trend_label} · {r.description?.slice(0, 60)}
+            <div key={r.full_name} style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: "8px", padding: "10px 12px", fontFamily: "var(--font-sans)", fontSize: "12px", color: C.textSub }}>
+              <strong style={{ color: C.text }}>{r.full_name}</strong> — {(r.stars / 1000).toFixed(1)}k ⭐ · {r.trend_label} · {r.description?.slice(0, 60)}
             </div>
           ))}
         </div>
@@ -376,6 +388,10 @@ export default function ResearchSessionPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { userId, isLoaded } = useAuth();
+
+  const effectiveUserId = useMemo(() => {
+    return isLoaded && userId ? userId : "default-user";
+  }, [isLoaded, userId]);
 
   // Session state
   const [title, setTitle] = useState("Untitled Research");
@@ -447,15 +463,15 @@ export default function ResearchSessionPage() {
 
   // Load session
   useEffect(() => {
-    if (!isLoaded || !userId) return;
-    api.research.getSession(sessionId, userId).then((data) => {
+    if (!isLoaded) return;
+    api.research.getSession(sessionId, effectiveUserId).then((data) => {
       setTitle(data.title);
       setTitleDraft(data.title);
       setMessages(data.messages);
       setPins(data.pins);
       if (data.report) setReportMd(data.report.content_md);
     }).catch(console.error);
-  }, [isLoaded, userId, sessionId]);
+  }, [isLoaded, effectiveUserId, sessionId]);
 
   // Auto-send ?q= parameter from quick-start
   useEffect(() => {
@@ -503,32 +519,29 @@ export default function ResearchSessionPage() {
 
   // ── Pin a repo ──────────────────────────────────────────────────────────────
   const handlePin = useCallback(async (repo: ResearchRepo) => {
-    if (!userId) return;
     if (pinnedNames.has(repo.full_name)) return;
     try {
       const pin = await api.research.pinRepo(
-        sessionId, userId, repo.full_name, repo as unknown as Record<string, unknown>
+        sessionId, effectiveUserId, repo.full_name, repo as unknown as Record<string, unknown>
       );
       setPins((prev) => [...prev, pin]);
     } catch (e) { console.error(e); }
-  }, [sessionId, userId, pinnedNames]);
+  }, [sessionId, effectiveUserId, pinnedNames]);
 
   const handleUnpin = async (pinId: string) => {
-    if (!userId) return;
-    await api.research.unpinRepo(sessionId, userId, pinId);
+    await api.research.unpinRepo(sessionId, effectiveUserId, pinId);
     setPins((prev) => prev.filter((p) => p.id !== pinId));
   };
 
   const handleUpdatePinStage = async (pinId: string, stage: string) => {
-    if (!userId) return;
-    const updated = await api.research.updatePin(sessionId, userId, pinId, { stage });
+    const updated = await api.research.updatePin(sessionId, effectiveUserId, pinId, { stage });
     setPins((prev) => prev.map((p) => (p.id === pinId ? updated : p)));
   };
 
   // ── Send message via SSE ────────────────────────────────────────────────────
   const handleSend = useCallback(async (overrideInput?: string) => {
     const text = (overrideInput ?? input).trim();
-    if (!text || !userId || sending) return;
+    if (!text || sending) return;
 
     setSending(true);
     setInput("");
@@ -549,7 +562,7 @@ export default function ResearchSessionPage() {
     // Close any existing SSE
     if (esRef.current) { esRef.current.close(); esRef.current = null; }
 
-    const url = api.research.streamUrl(sessionId, userId, text);
+    const url = api.research.streamUrl(sessionId, effectiveUserId, text);
     const es = new EventSource(url);
     esRef.current = es;
 
@@ -618,11 +631,9 @@ export default function ResearchSessionPage() {
       setStreamStatus(""); setSending(false);
       setStreamText(""); setStreamRepos([]);
     };
-  }, [input, userId, sending, sessionId, streamQueryExp]);
+  }, [input, effectiveUserId, sending, sessionId, streamQueryExp]);
 
   const transcribeAudioBlob = useCallback(async (audioBlob: Blob, mimeType: string) => {
-    if (!userId) return;
-
     setIsTranscribing(true);
     setSttStatus("Transcribing…");
 
@@ -636,7 +647,7 @@ export default function ResearchSessionPage() {
             : "webm";
 
       const transcript = await api.research.transcribeSpeech(
-        userId,
+        effectiveUserId,
         audioBlob,
         `voice-${Date.now()}.${ext}`,
       );
@@ -655,7 +666,7 @@ export default function ResearchSessionPage() {
     } finally {
       setIsTranscribing(false);
     }
-  }, [handleSend, userId]);
+  }, [handleSend, effectiveUserId]);
 
   const startVoiceDetection = useCallback((stream: MediaStream, recorder: MediaRecorder) => {
     if (typeof AudioContext === "undefined") {
@@ -839,10 +850,9 @@ export default function ResearchSessionPage() {
 
   // ── Generate report ─────────────────────────────────────────────────────────
   const handleGenReport = async () => {
-    if (!userId) return;
     setGeneratingReport(true);
     try {
-      const result = await api.research.generateReport(sessionId, userId);
+      const result = await api.research.generateReport(sessionId, effectiveUserId);
       setReportMd(result.content_md);
       setActivePanel("report");
     } catch (e: unknown) {
@@ -854,10 +864,9 @@ export default function ResearchSessionPage() {
 
   // ── Share ───────────────────────────────────────────────────────────────────
   const handleShare = async () => {
-    if (!userId) return;
     setSharing(true);
     try {
-      const { token } = await api.research.createShare(sessionId, userId, 7);
+      const { token } = await api.research.createShare(sessionId, effectiveUserId, 7);
       const link = `${window.location.origin}/research/share/${token}`;
       await navigator.clipboard.writeText(link);
       setCopied(true);
@@ -881,10 +890,9 @@ export default function ResearchSessionPage() {
 
   // ── Save title ──────────────────────────────────────────────────────────────
   const saveTitle = async () => {
-    if (!userId) return;
     const trimmed = titleDraft.trim();
     if (!trimmed || trimmed === title) { setEditingTitle(false); return; }
-    await api.research.updateSession(sessionId, userId, { title: trimmed });
+    await api.research.updateSession(sessionId, effectiveUserId, { title: trimmed });
     setTitle(trimmed);
     setEditingTitle(false);
   };
@@ -908,15 +916,16 @@ export default function ResearchSessionPage() {
         .research-md ul, .research-md ol { padding-left: 20px; margin: 6px 0; }
         .research-md li { margin-bottom: 4px; }
         .research-md h1,.research-md h2,.research-md h3 { margin: 10px 0 6px; font-family: var(--font-sans); }
-        .research-md code { background: rgba(88,166,255,0.1); padding: 1px 5px; border-radius: 4px; font-size: 12px; font-family: var(--font-mono, monospace); }
-        .research-md pre { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px; margin: 8px 0; overflow-x: auto; }
-        .research-md blockquote { border-left: 3px solid var(--accent-blue); padding-left: 12px; color: var(--text-muted); margin: 6px 0; }
-        .research-md strong { color: var(--text-primary); }
-        .research-md a { color: var(--accent-blue); }
-        .res-panel-tab { padding: 6px 16px; border-radius: 6px; border: 1px solid var(--border); font-family: var(--font-sans); font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.13s; }
-        .res-panel-tab.active { background: var(--accent-blue); color: #fff; border-color: var(--accent-blue); }
-        .res-panel-tab:not(.active) { background: transparent; color: var(--text-muted); }
-        .res-panel-tab:not(.active):hover { color: var(--accent-blue); border-color: var(--accent-blue); }
+        .research-md code { background: rgba(230,237,243,0.1); padding: 1px 5px; border-radius: 4px; font-size: 12px; font-family: var(--font-mono, monospace); color: ${C.text}; }
+        .research-md pre { background: ${C.bgCard}; border: 1px solid ${C.border}; border-radius: 6px; padding: 10px; margin: 8px 0; overflow-x: auto; }
+        .research-md blockquote { border-left: 3px solid ${C.textSub}; padding-left: 12px; color: ${C.textSub}; margin: 6px 0; }
+        .research-md strong { color: ${C.text}; }
+        .research-md a { color: ${C.text}; text-decoration: underline; }
+        .research-md a:hover { color: ${C.textSub}; }
+        .res-panel-tab { padding: 6px 16px; border-radius: 6px; border: 1px solid ${C.border}; font-family: var(--font-sans); font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.13s; }
+        .res-panel-tab.active { background: ${C.text}; color: ${C.bg}; border-color: ${C.text}; }
+        .res-panel-tab:not(.active) { background: transparent; color: ${C.textSub}; }
+        .res-panel-tab:not(.active):hover { color: ${C.text}; border-color: ${C.textSub}; }
         @media (max-width: 900px) {
           .research-layout { flex-direction: column !important; }
           .research-report-panel { height: 45vh !important; }
@@ -926,17 +935,17 @@ export default function ResearchSessionPage() {
 
       {/* ── Top bar ────────────────────────────────────────────────────────── */}
       <div style={{
-        height: "52px", borderBottom: "1px solid var(--border)",
+        height: "52px", borderBottom: `1px solid ${C.border}`,
         display: "flex", alignItems: "center", padding: "0 20px",
         justifyContent: "space-between", flexShrink: 0,
-        background: "var(--bg-surface)", gap: "12px",
+        background: C.bgCard, gap: "12px",
       }}>
         {/* Left: breadcrumb + title */}
         <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
-          <button onClick={() => router.push("/research")} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "12px", fontFamily: "var(--font-sans)", display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
+          <button onClick={() => router.push("/research")} style={{ background: "none", border: "none", color: C.textSub, cursor: "pointer", fontSize: "12px", fontFamily: "var(--font-sans)", display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
             🔬 Research
           </button>
-          <span style={{ color: "var(--border)" }}>/</span>
+          <span style={{ color: C.border }}>/</span>
           {editingTitle ? (
             <input
               value={titleDraft}
@@ -946,8 +955,8 @@ export default function ResearchSessionPage() {
               autoFocus
               style={{
                 fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "14px",
-                color: "var(--text-primary)", background: "var(--bg-elevated)",
-                border: "1px solid var(--accent-blue)", borderRadius: "6px",
+                color: C.text, background: C.bgHover,
+                border: `1px solid ${C.textSub}`, borderRadius: "6px",
                 padding: "3px 8px", outline: "none", minWidth: "200px",
               }}
             />
@@ -955,7 +964,7 @@ export default function ResearchSessionPage() {
             <span
               onClick={() => { setTitleDraft(title); setEditingTitle(true); }}
               title="Click to rename"
-              style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "14px", color: "var(--text-primary)", cursor: "text", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+              style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "14px", color: C.text, cursor: "text", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
             >
               {title}
             </span>
@@ -966,18 +975,18 @@ export default function ResearchSessionPage() {
         <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
           {pins.length >= 3 && (
             <button onClick={handleGenReport} disabled={generatingReport}
-              style={{ fontFamily: "var(--font-sans)", fontSize: "12px", fontWeight: 600, padding: "5px 14px", borderRadius: "6px", border: "1px solid var(--border)", cursor: generatingReport ? "not-allowed" : "pointer", background: "var(--bg-elevated)", color: "var(--text-secondary)", transition: "all 0.13s", opacity: generatingReport ? 0.7 : 1 }}>
+              style={{ fontFamily: "var(--font-sans)", fontSize: "12px", fontWeight: 600, padding: "5px 14px", borderRadius: "6px", border: `1px solid ${C.border}`, cursor: generatingReport ? "not-allowed" : "pointer", background: C.bgCard, color: C.textSub, transition: "all 0.13s", opacity: generatingReport ? 0.7 : 1 }}>
               {generatingReport ? "⏳ Generating…" : "📄 Generate Report"}
             </button>
           )}
           {reportMd && (
             <button onClick={handleExportMd}
-              style={{ fontFamily: "var(--font-sans)", fontSize: "12px", fontWeight: 600, padding: "5px 14px", borderRadius: "6px", border: "1px solid var(--border)", cursor: "pointer", background: "var(--bg-elevated)", color: "var(--text-secondary)" }}>
+              style={{ fontFamily: "var(--font-sans)", fontSize: "12px", fontWeight: 600, padding: "5px 14px", borderRadius: "6px", border: `1px solid ${C.border}`, cursor: "pointer", background: C.bgCard, color: C.textSub }}>
               ↓ Export MD
             </button>
           )}
           <button onClick={handleShare} disabled={sharing}
-            style={{ fontFamily: "var(--font-sans)", fontSize: "12px", fontWeight: 600, padding: "5px 14px", borderRadius: "6px", border: "1px solid var(--border)", cursor: sharing ? "not-allowed" : "pointer", background: copied ? "rgba(63,185,80,0.12)" : "var(--bg-elevated)", color: copied ? "var(--accent-green)" : "var(--text-secondary)", transition: "all 0.15s" }}>
+            style={{ fontFamily: "var(--font-sans)", fontSize: "12px", fontWeight: 600, padding: "5px 14px", borderRadius: "6px", border: `1px solid ${C.border}`, cursor: sharing ? "not-allowed" : "pointer", background: copied ? "rgba(63,185,80,0.12)" : C.bgCard, color: copied ? C.green : C.textSub, transition: "all 0.15s" }}>
             {copied ? "✓ Link Copied!" : sharing ? "…" : "🔗 Share"}
           </button>
         </div>
@@ -988,14 +997,14 @@ export default function ResearchSessionPage() {
 
         {/* ── LEFT: Report / Pins panel (65%) ─────────────────────────────── */}
         <div className="research-report-panel" style={{
-          flex: "0 0 65%", borderRight: "1px solid var(--border)",
+          flex: "0 0 65%", borderRight: `1px solid ${C.border}`,
           display: "flex", flexDirection: "column", overflow: "hidden",
         }}>
           {/* Panel tabs */}
           <div style={{
             display: "flex", alignItems: "center", gap: "8px",
-            padding: "10px 16px", borderBottom: "1px solid var(--border)", flexShrink: 0,
-            background: "var(--bg-surface)",
+            padding: "10px 16px", borderBottom: `1px solid ${C.border}`, flexShrink: 0,
+            background: C.bgCard,
           }}>
             <button className={`res-panel-tab ${activePanel === "report" ? "active" : ""}`} onClick={() => setActivePanel("report")}>
               📄 Report
@@ -1004,7 +1013,7 @@ export default function ResearchSessionPage() {
               📌 Pinboard {pins.length > 0 ? `(${pins.length})` : ""}
             </button>
             {pins.length < 3 && activePanel === "report" && !reportMd && (
-              <span style={{ marginLeft: "auto", fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)" }}>
+              <span style={{ marginLeft: "auto", fontFamily: "var(--font-sans)", fontSize: "11px", color: C.textSub }}>
                 Pin {3 - pins.length} more repo{3 - pins.length !== 1 ? "s" : ""} to generate a report
               </span>
             )}
@@ -1014,7 +1023,7 @@ export default function ResearchSessionPage() {
           <div style={{ flex: 1, overflow: "auto", padding: "20px" }}>
             {activePanel === "report" ? (
               reportMd ? (
-                <div className="research-md" style={{ fontFamily: "var(--font-sans)", fontSize: "13px", lineHeight: 1.7, color: "var(--text-primary)" }}>
+                <div className="research-md" style={{ fontFamily: "var(--font-sans)", fontSize: "13px", lineHeight: 1.7, color: C.text }}>
                   <MD>{reportMd}</MD>
                 </div>
               ) : (
@@ -1023,13 +1032,13 @@ export default function ResearchSessionPage() {
                   alignItems: "center", justifyContent: "center", gap: "16px", textAlign: "center",
                 }}>
                   <div style={{ fontSize: "48px", opacity: 0.3 }}>📄</div>
-                  <div style={{ fontFamily: "var(--font-sans)", fontWeight: 600, color: "var(--text-primary)", fontSize: "15px" }}>
+                  <div style={{ fontFamily: "var(--font-sans)", fontWeight: 600, color: C.text, fontSize: "15px" }}>
                     Report will appear here
                   </div>
-                  <div style={{ fontFamily: "var(--font-sans)", color: "var(--text-muted)", fontSize: "12px", maxWidth: "320px" }}>
+                  <div style={{ fontFamily: "var(--font-sans)", color: C.textSub, fontSize: "12px", maxWidth: "320px" }}>
                     Chat with the agent, pin repos you find interesting, then click <strong>Generate Report</strong> to get an AI-written brief.
                   </div>
-                  <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "6px", padding: "8px 14px" }}>
+                  <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: C.textSub, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: "6px", padding: "8px 14px" }}>
                     {pins.length}/3 repos pinned {pins.length < 3 ? `— pin ${3 - pins.length} more to unlock` : "— ready!"}
                   </div>
                 </div>
@@ -1037,34 +1046,34 @@ export default function ResearchSessionPage() {
             ) : (
               /* Pinboard */
               pins.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "60px 0", color: "var(--text-muted)", fontFamily: "var(--font-sans)", fontSize: "13px" }}>
+                <div style={{ textAlign: "center", padding: "60px 0", color: C.textSub, fontFamily: "var(--font-sans)", fontSize: "13px" }}>
                   No repos pinned yet. Ask the agent to find repos, then pin the ones you want to track.
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                   {pins.map((pin) => (
                     <div key={pin.id} style={{
-                      background: "var(--bg-elevated)", border: "1px solid var(--border)",
+                      background: C.bgCard, border: `1px solid ${C.border}`,
                       borderRadius: "10px", padding: "14px 16px",
                       display: "flex", flexDirection: "column", gap: "8px",
                     }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                         <a href={pin.repo_data?.github_url ?? `https://github.com/${pin.repo_full_name}`} target="_blank" rel="noopener noreferrer"
-                          style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "13px", color: "var(--accent-blue)", textDecoration: "none" }}>
+                          style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "13px", color: C.text, textDecoration: "underline" }}>
                           {pin.repo_full_name}
                         </a>
                         <button onClick={() => handleUnpin(pin.id)}
-                          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: "16px", padding: "0 4px" }}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: C.textMuted, fontSize: "16px", padding: "0 4px" }}
                           title="Unpin">×</button>
                       </div>
                       {pin.repo_data?.description && (
-                        <div style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: "var(--text-muted)" }}>
+                        <div style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: C.textSub }}>
                           {pin.repo_data.description.slice(0, 120)}
                         </div>
                       )}
                       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                         {pin.repo_data?.stars !== undefined && (
-                          <span style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-secondary)" }}>
+                          <span style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: C.textSub }}>
                             ⭐ {pin.repo_data.stars >= 1000 ? `${(pin.repo_data.stars / 1000).toFixed(1)}k` : pin.repo_data.stars}
                           </span>
                         )}
@@ -1079,15 +1088,15 @@ export default function ResearchSessionPage() {
                           onChange={(e) => handleUpdatePinStage(pin.id, e.target.value)}
                           style={{
                             marginLeft: "auto", fontFamily: "var(--font-sans)", fontSize: "11px", fontWeight: 600,
-                            background: "var(--bg-surface)", color: "var(--text-secondary)",
-                            border: "1px solid var(--border)", borderRadius: "6px", padding: "3px 8px", cursor: "pointer",
+                            background: C.bgHover, color: C.textSub,
+                            border: `1px solid ${C.border}`, borderRadius: "6px", padding: "3px 8px", cursor: "pointer",
                           }}
                         >
                           {Object.entries(STAGE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                         </select>
                       </div>
                       {pin.note && (
-                        <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)", background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "6px", padding: "6px 10px", fontStyle: "italic" }}>
+                        <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: C.textSub, background: C.bgHover, border: `1px solid ${C.border}`, borderRadius: "6px", padding: "6px 10px", fontStyle: "italic" }}>
                           {pin.note}
                         </div>
                       )}
@@ -1102,27 +1111,27 @@ export default function ResearchSessionPage() {
         {/* ── RIGHT: Chat panel (35%) ──────────────────────────────────────── */}
         <div className="research-chat-panel" style={{
           flex: "0 0 35%", display: "flex", flexDirection: "column", overflow: "hidden",
-          background: "var(--bg-surface)",
+          background: C.bgCard,
         }}>
           {/* Messages */}
           <div style={{ flex: 1, overflow: "auto", padding: "16px 14px", display: "flex", flexDirection: "column", gap: "14px" }}>
             {/* Welcome */}
             {messages.length === 0 && !sending && (
               <div style={{
-                background: "var(--bg-elevated)", border: "1px solid var(--border)",
+                background: C.bgHover, border: `1px solid ${C.border}`,
                 borderRadius: "12px", padding: "16px",
-                fontFamily: "var(--font-sans)", fontSize: "13px", color: "var(--text-secondary)", lineHeight: 1.6,
+                fontFamily: "var(--font-sans)", fontSize: "13px", color: C.textSub, lineHeight: 1.6,
               }}>
-                <strong style={{ color: "var(--accent-blue)" }}>🤖 Research Agent</strong><br />
+                <strong style={{ color: C.text }}>🤖 Research Agent</strong><br />
                 Hi! Ask me anything about GitHub repositories — from layman terms to precise technical filters. All data is fetched live from GitHub.
-                <div style={{ marginTop: "10px", fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)" }}>
+                <div style={{ marginTop: "10px", fontFamily: "var(--font-sans)", fontSize: "11px", color: C.textSub }}>
                   Try: <em>&quot;what&apos;s trending in AI agents?&quot;</em> or <em>&quot;compare vllm vs llama.cpp&quot;</em>
                 </div>
               </div>
             )}
 
             {messages.map((msg) => (
-              <ChatBubble key={msg.id} msg={msg} onPin={handlePin} pinnedNames={pinnedNames} sessionId={sessionId} userId={userId} />
+              <ChatBubble key={msg.id} msg={msg} onPin={handlePin} pinnedNames={pinnedNames} sessionId={sessionId} userId={effectiveUserId} />
             ))}
 
             {/* Streaming bubble */}
@@ -1142,7 +1151,7 @@ export default function ResearchSessionPage() {
           {followUps.length > 0 && !sending && (
             <div style={{
               display: "flex", gap: "6px", padding: "8px 14px", flexWrap: "wrap",
-              borderTop: "1px solid var(--border)", background: "var(--bg-surface)",
+              borderTop: `1px solid ${C.border}`, background: C.bgCard,
             }}>
               {followUps.map((f) => (
                 <button
@@ -1150,12 +1159,12 @@ export default function ResearchSessionPage() {
                   onClick={() => { setInput(f); inputRef.current?.focus(); }}
                   style={{
                     fontFamily: "var(--font-sans)", fontSize: "11px", fontWeight: 500,
-                    padding: "4px 10px", borderRadius: "12px", border: "1px solid var(--border)",
-                    cursor: "pointer", background: "var(--bg-elevated)", color: "var(--text-muted)",
+                    padding: "4px 10px", borderRadius: "12px", border: `1px solid ${C.border}`,
+                    cursor: "pointer", background: C.bgHover, color: C.textSub,
                     transition: "all 0.13s",
                   }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--accent-blue)"; (e.currentTarget as HTMLElement).style.borderColor = "var(--accent-blue)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--text-muted)"; (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"; }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.text; (e.currentTarget as HTMLElement).style.borderColor = C.textSub; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.textSub; (e.currentTarget as HTMLElement).style.borderColor = C.border; }}
                 >
                   💡 {f}
                 </button>
@@ -1165,8 +1174,8 @@ export default function ResearchSessionPage() {
 
           {/* Input bar */}
           <div style={{
-            borderTop: "1px solid var(--border)", padding: "12px 14px",
-            display: "flex", gap: "8px", flexShrink: 0, background: "var(--bg-surface)",
+            borderTop: `1px solid ${C.border}`, padding: "12px 14px",
+            display: "flex", gap: "8px", flexShrink: 0, background: C.bgCard,
           }}>
             <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "6px" }}>
               <textarea
@@ -1179,19 +1188,19 @@ export default function ResearchSessionPage() {
                 disabled={sending || isTranscribing}
                 style={{
                   flex: 1, resize: "none", fontFamily: "var(--font-sans)", fontSize: "13px",
-                  color: "var(--text-primary)", background: "var(--bg-elevated)",
-                  border: "1px solid var(--border)", borderRadius: "8px", padding: "10px 12px",
+                  color: C.text, background: C.bgHover,
+                  border: `1px solid ${C.border}`, borderRadius: "8px", padding: "10px 12px",
                   outline: "none", lineHeight: 1.5, transition: "border-color 0.13s",
                   opacity: sending || isTranscribing ? 0.7 : 1,
                 }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = "var(--accent-blue)"; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = C.textSub; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = C.border; }}
               />
               {(sttStatus || isRecording) && (
                 <div style={{
                   fontFamily: "var(--font-sans)",
                   fontSize: "11px",
-                  color: isRecording ? "var(--accent-red, #f85149)" : "var(--text-muted)",
+                  color: isRecording ? C.red : C.textSub,
                   minHeight: "16px",
                   display: "flex",
                   alignItems: "center",
@@ -1203,12 +1212,12 @@ export default function ResearchSessionPage() {
                       width: "8px",
                       height: "8px",
                       borderRadius: "999px",
-                      background: "var(--accent-red, #f85149)",
+                      background: C.red,
                       animation: "pulse 1s ease infinite",
                     }} />
                   )}
                   {sttStatus}
-                  {isRecording && <span style={{ color: "var(--text-muted)" }}>{recordingSeconds}s</span>}
+                  {isRecording && <span style={{ color: C.textSub }}>{recordingSeconds}s</span>}
                 </div>
               )}
             </div>
@@ -1224,9 +1233,9 @@ export default function ResearchSessionPage() {
               }
               style={{
                 alignSelf: "flex-end",
-                background: isRecording ? "var(--accent-red, #f85149)" : "var(--bg-elevated)",
-                color: isRecording ? "#fff" : "var(--text-secondary)",
-                border: `1px solid ${isRecording ? "var(--accent-red, #f85149)" : "var(--border)"}`,
+                background: isRecording ? C.red : C.bgHover,
+                color: isRecording ? "#fff" : C.textSub,
+                border: `1px solid ${isRecording ? C.red : C.border}`,
                 borderRadius: "8px",
                 width: "40px",
                 height: "40px",
@@ -1246,7 +1255,7 @@ export default function ResearchSessionPage() {
               disabled={sending || isTranscribing || !input.trim()}
               style={{
                 alignSelf: "flex-end",
-                background: "var(--accent-blue)", color: "#fff",
+                background: C.text, color: C.bg,
                 border: "none", borderRadius: "8px",
                 width: "40px", height: "40px",
                 display: "flex", alignItems: "center", justifyContent: "center",
