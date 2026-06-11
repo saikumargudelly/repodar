@@ -578,3 +578,85 @@ async def run_full_pipeline_sync():
     except Exception as e:
         _logger.error(f"run-all-sync failed: {e}", exc_info=True)
         return {"status": "error", "detail": str(e)}
+
+
+@router.get("/run-all-stream")
+@router.post("/run-all-stream")
+async def run_full_pipeline_stream(force_discovery: bool = False):
+    """
+    Run full pipeline synchronously and stream the progress as an event stream.
+    This prevents Render's 100-second gateway timeout and CPU throttling by
+    periodically sending keep-alive bytes while tasks run.
+    """
+    from fastapi.responses import StreamingResponse
+    from app.services.ingestion import run_daily_ingestion
+    from app.services.scoring import run_daily_scoring
+    from app.services.explanation import enrich_top_repos_with_explanations
+    import logging
+    import json
+    
+    _logger = logging.getLogger("app.admin")
+
+    async def event_generator():
+        try:
+            yield "event: info\ndata: starting deduplication...\n\n"
+            from app.database import SessionLocal
+            db_heal = SessionLocal()
+            try:
+                res = deduplicate_repositories_logic(db_heal)
+                yield f"event: info\ndata: deduplication complete. merged={res.get('repos_merged',0)} deleted={res.get('metrics_deleted',0)}\n\n"
+            except Exception as e:
+                _logger.warning("Auto-deduplication failed: %s", e)
+                yield f"event: info\ndata: deduplication failed (non-fatal): {str(e)}\n\n"
+            finally:
+                db_heal.close()
+
+            yield f"event: info\ndata: starting ingestion (force_discovery={force_discovery})...\n\n"
+            
+            # Ingestion has network requests; periodically yield keep-alive ticks
+            ingest_task = asyncio.create_task(run_daily_ingestion(force_discovery=force_discovery))
+            while not ingest_task.done():
+                yield ": keepalive\n\n"
+                await asyncio.sleep(5)
+            
+            ingest_result = await ingest_task
+            yield f"event: info\ndata: ingestion complete. discovered={ingest_result.get('discovered',0)} ingested={ingest_result.get('ingested',0)} deactivated={ingest_result.get('deactivated',0)}\n\n"
+
+            yield "event: info\ndata: starting scoring...\n\n"
+            
+            # Run scoring in a thread pool since SQLAlchemy calls are blocking/sync
+            scoring_task = asyncio.create_task(asyncio.to_thread(run_daily_scoring))
+            while not scoring_task.done():
+                yield ": keepalive\n\n"
+                await asyncio.sleep(5)
+                
+            score_result = await scoring_task
+            yield f"event: info\ndata: scoring complete. scored={score_result.get('scored',0)} alerts={score_result.get('alerts',0)}\n\n"
+
+            yield "event: info\ndata: generating explanations...\n\n"
+            
+            explain_task = asyncio.create_task(asyncio.to_thread(enrich_top_repos_with_explanations, 20))
+            while not explain_task.done():
+                yield ": keepalive\n\n"
+                await asyncio.sleep(5)
+                
+            explain_count = await explain_task
+            yield f"event: info\ndata: explanations complete. generated={explain_count}\n\n"
+
+            summary = {
+                "status": "complete",
+                "discovered": ingest_result.get("discovered", 0),
+                "reactivated": ingest_result.get("reactivated", 0),
+                "ingested": ingest_result.get("ingested", 0),
+                "scored": score_result.get("scored", 0),
+                "failed_scoring": score_result.get("failed", 0),
+                "alerts_generated": score_result.get("alerts", 0),
+                "explanations": explain_count,
+            }
+            yield f"event: result\ndata: {json.dumps(summary)}\n\n"
+
+        except Exception as e:
+            _logger.error(f"run-all-stream failed: {e}", exc_info=True)
+            yield f"event: error\ndata: {str(e)}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
