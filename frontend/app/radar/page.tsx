@@ -249,7 +249,7 @@ export default function RadarPage() {
               Early insights
             </button>
             <button
-              onClick={() => switchMode("established")}
+              onClick={() => { setCategory("All"); }}
               className="px-3.5 py-1.5 text-xs font-semibold text-gray-400 hover:text-white cursor-pointer"
             >
               All
@@ -288,12 +288,11 @@ export default function RadarPage() {
           {/* Controls toolbar */}
           <div className="bg-[#1f1f23] border border-[#2d2d34] rounded-xl p-4 flex flex-wrap items-center gap-3">
             {/* New Only Checkbox */}
-            <label className="flex items-center gap-2 text-xs font-bold font-mono text-gray-400 cursor-pointer select-none">
+            <label className="radar-checkbox-inline flex items-center gap-2 text-xs font-bold font-mono text-gray-400 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={newOnly}
                 onChange={(e) => setNewOnly(e.target.checked)}
-                className="w-4 h-4 rounded border-[#2d2d34] bg-[#18181b] text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
               />
               New only (&lt;180d)
             </label>
@@ -616,42 +615,38 @@ export default function RadarPage() {
             </div>
 
             {/* Checkboxes, Selects, and Exports row */}
-            <div className="flex flex-wrap items-start gap-6">
+            <div className="flex flex-wrap items-end gap-6">
               {/* Checkboxes block */}
-              <div className="flex flex-col gap-2.5">
-                <label className="flex items-center gap-2 text-xs font-bold font-mono text-gray-400 cursor-pointer select-none">
+              <div className="flex flex-col gap-2.5 radar-filter-checkboxes">
+                <label className="radar-checkbox-inline flex items-center gap-2 text-xs font-bold font-mono text-gray-400 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={preViralOnly}
                     onChange={(e) => setPreViralOnly(e.target.checked)}
-                    className="w-4 h-4 rounded border-[#2d2d34] bg-[#18181b] text-indigo-500 focus:ring-0 cursor-pointer"
                   />
                   Pre-viral only (14d to 5k)
                 </label>
-                <label className="flex items-center gap-2 text-xs font-bold font-mono text-gray-400 cursor-pointer select-none">
+                <label className="radar-checkbox-inline flex items-center gap-2 text-xs font-bold font-mono text-gray-400 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={requireConsistentGrowth}
                     onChange={(e) => setRequireConsistentGrowth(e.target.checked)}
-                    className="w-4 h-4 rounded border-[#2d2d34] bg-[#18181b] text-indigo-500 focus:ring-0 cursor-pointer"
                   />
                   Consistent growth (5+ of 7d)
                 </label>
-                <label className="flex items-center gap-2 text-xs font-bold font-mono text-gray-400 cursor-pointer select-none">
+                <label className="radar-checkbox-inline flex items-center gap-2 text-xs font-bold font-mono text-gray-400 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={requireForkMomentum}
                     onChange={(e) => setRequireForkMomentum(e.target.checked)}
-                    className="w-4 h-4 rounded border-[#2d2d34] bg-[#18181b] text-indigo-500 focus:ring-0 cursor-pointer"
                   />
                   Fork momentum
                 </label>
-                <label className="flex items-center gap-2 text-xs font-bold font-mono text-gray-400 cursor-pointer select-none">
+                <label className="radar-checkbox-inline flex items-center gap-2 text-xs font-bold font-mono text-gray-400 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={requireSustainedVelocity}
                     onChange={(e) => setRequireSustainedVelocity(e.target.checked)}
-                    className="w-4 h-4 rounded border-[#2d2d34] bg-[#18181b] text-indigo-500 focus:ring-0 cursor-pointer"
                   />
                   Sustained 30d velocity
                 </label>

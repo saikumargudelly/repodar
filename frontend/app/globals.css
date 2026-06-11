@@ -971,6 +971,17 @@ p, span, div, td, th, a, label, li {
   min-height: 34px;
 }
 
+/* ── Radar checkbox styling ─────────────────────────────── */
+/* Style all checkboxes inside the radar controls panel */
+.radar-filter-checkboxes input[type="checkbox"],
+.radar-checkbox-inline input[type="checkbox"] {
+  accent-color: #6366f1;
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 .radar-range {
   width: 100%;
 }
