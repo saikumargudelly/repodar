@@ -35,9 +35,10 @@ def seed_repos() -> int:
             owner = item["owner"].strip()
             name = item["name"].strip()
 
+            from sqlalchemy import func
             existing = (
                 db.query(Repository)
-                .filter_by(owner=owner, name=name)
+                .filter(func.lower(Repository.owner) == owner.lower(), func.lower(Repository.name) == name.lower())
                 .first()
             )
             if existing:

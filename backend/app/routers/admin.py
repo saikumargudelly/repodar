@@ -358,7 +358,7 @@ async def trigger_discovery():
 
 
 def deduplicate_repositories_logic(db: Session) -> dict:
-    from sqlalchemy import func
+    from sqlalchemy import func, or_
     from datetime import datetime, timezone
     import uuid
     from app.models import Repository, DailyMetric, ComputedMetric, RepoContributor, ForkSnapshot, TrendAlert
@@ -367,7 +367,7 @@ def deduplicate_repositories_logic(db: Session) -> dict:
     from app.models.social_mention import SocialMention
     from app.models.alert_rule import AlertRule
     
-    # 1. Deduplicate Repository table (case-insensitive)
+    # 1. Find duplicate slugs (case-insensitive)
     dup_slugs = (
         db.query(func.lower(Repository.owner).label('low_owner'), func.lower(Repository.name).label('low_name'))
         .group_by(func.lower(Repository.owner), func.lower(Repository.name))
@@ -375,106 +375,176 @@ def deduplicate_repositories_logic(db: Session) -> dict:
         .all()
     )
     
-    repos_merged = 0
-    metrics_deleted = 0
-    
-    for low_owner, low_name in dup_slugs:
-        repos = (
-            db.query(Repository)
-            .filter(func.lower(Repository.owner) == low_owner, func.lower(Repository.name) == low_name)
-            .all()
-        )
+    if not dup_slugs:
+        return {"repos_merged": 0, "metrics_deleted": 0}
         
+    # Bulk load all repositories matching the duplicate slugs in a single query
+    filters = []
+    for low_owner, low_name in dup_slugs:
+        filters.append((func.lower(Repository.owner) == low_owner) & (func.lower(Repository.name) == low_name))
+    
+    all_duplicate_group_repos = db.query(Repository).filter(or_(*filters)).all()
+    
+    # Group in memory by slug
+    repos_by_slug = {}
+    for r in all_duplicate_group_repos:
+        slug = f"{r.owner.lower()}/{r.name.lower()}"
+        repos_by_slug.setdefault(slug, []).append(r)
+        
+    dup_id_to_keep_id = {}
+    dup_repos_to_delete = []
+    repos_merged = 0
+    
+    for slug, group_repos in repos_by_slug.items():
         # Keep the most active or oldest repository
-        repos.sort(key=lambda r: (not r.is_active, r.last_fetched_at is None, r.discovered_at or datetime.min))
-        keep_repo = repos[0]
-        duplicate_repos = repos[1:]
+        group_repos.sort(key=lambda r: (not r.is_active, r.last_fetched_at is None, r.discovered_at or datetime.min))
+        keep_repo = group_repos[0]
+        duplicate_repos = group_repos[1:]
         
         for dup in duplicate_repos:
-            dup_id = dup.id
-            keep_id = keep_repo.id
-            
-            # Re-point foreign keys safely (row-by-row for unique-constrained tables)
-            db.query(DailyMetric).filter(DailyMetric.repo_id == dup_id).update({DailyMetric.repo_id: keep_id})
-            db.query(ComputedMetric).filter(ComputedMetric.repo_id == dup_id).update({ComputedMetric.repo_id: keep_id})
-            db.query(TrendAlert).filter(TrendAlert.repo_id == dup_id).update({TrendAlert.repo_id: keep_id})
-            db.query(RepoRelease).filter(RepoRelease.repo_id == dup_id).update({RepoRelease.repo_id: keep_id})
-            db.query(SocialMention).filter(SocialMention.repo_id == dup_id).update({SocialMention.repo_id: keep_id})
-            db.query(AlertRule).filter(AlertRule.repo_id == dup_id).update({AlertRule.repo_id: keep_id})
-
-            # ForkSnapshot: merge fork snapshots safely
-            dup_forks = db.query(ForkSnapshot).filter(ForkSnapshot.parent_repo_id == dup_id).all()
-            for df in dup_forks:
-                exists = db.query(ForkSnapshot).filter_by(
-                    parent_repo_id=keep_id,
-                    fork_full_name=df.fork_full_name,
-                    snapshot_date=df.snapshot_date
-                ).first()
-                if exists:
-                    db.delete(df)
-                else:
-                    df.parent_repo_id = keep_id
-
-            # RepoContributor: merge Top contributors
-            dup_contribs = db.query(RepoContributor).filter(RepoContributor.repo_id == dup_id).all()
-            for dc in dup_contribs:
-                exists = db.query(RepoContributor).filter_by(repo_id=keep_id, login=dc.login).first()
-                if exists:
-                    exists.contributions = max(exists.contributions, dc.contributions)
-                    db.delete(dc)
-                else:
-                    dc.repo_id = keep_id
-
-            # WatchlistItem: merge watchlist items
-            dup_watchlist = db.query(WatchlistItem).filter(WatchlistItem.repo_id == dup_id).all()
-            for dw in dup_watchlist:
-                exists = db.query(WatchlistItem).filter_by(user_id=dw.user_id, repo_id=keep_id).first()
-                if exists:
-                    db.delete(dw)
-                else:
-                    dw.repo_id = keep_id
-            
-            db.delete(dup)
+            dup_id_to_keep_id[dup.id] = keep_repo.id
+            dup_repos_to_delete.append(dup)
             repos_merged += 1
+
+    if not dup_id_to_keep_id:
+        return {"repos_merged": 0, "metrics_deleted": 0}
+
+    all_repo_ids = list(dup_id_to_keep_id.keys()) + list(dup_id_to_keep_id.values())
+
+    # Bulk fetch uniquely constrained rows for memory-based deduplication
+    fork_snapshots = db.query(ForkSnapshot).filter(ForkSnapshot.parent_repo_id.in_(all_repo_ids)).all()
+    contributors = db.query(RepoContributor).filter(RepoContributor.repo_id.in_(all_repo_ids)).all()
+    watchlist_items = db.query(WatchlistItem).filter(WatchlistItem.repo_id.in_(all_repo_ids)).all()
+
+    # Merge ForkSnapshot in memory
+    forks_by_key = {}
+    for f in fork_snapshots:
+        repo_id = dup_id_to_keep_id.get(f.parent_repo_id, f.parent_repo_id)
+        key = (repo_id, f.fork_full_name, f.snapshot_date)
+        forks_by_key.setdefault(key, []).append(f)
+
+    for key, group in forks_by_key.items():
+        if len(group) == 1:
+            f = group[0]
+            if f.parent_repo_id in dup_id_to_keep_id:
+                f.parent_repo_id = key[0]
+        else:
+            # Sort group: kept repo snapshots first, then duplicate repo snapshots
+            group.sort(key=lambda x: x.parent_repo_id != key[0])
+            to_keep = group[0]
+            to_delete = group[1:]
+            
+            if to_keep.parent_repo_id in dup_id_to_keep_id:
+                to_keep.parent_repo_id = key[0]
+                
+            for f in to_delete:
+                db.delete(f)
+
+    # Merge RepoContributor in memory
+    contribs_by_key = {}
+    for c in contributors:
+        repo_id = dup_id_to_keep_id.get(c.repo_id, c.repo_id)
+        key = (repo_id, c.login)
+        contribs_by_key.setdefault(key, []).append(c)
+
+    for key, group in contribs_by_key.items():
+        if len(group) == 1:
+            c = group[0]
+            if c.repo_id in dup_id_to_keep_id:
+                c.repo_id = key[0]
+        else:
+            group.sort(key=lambda x: x.repo_id != key[0])
+            to_keep = group[0]
+            to_delete = group[1:]
+            
+            for c in to_delete:
+                to_keep.contributions = max(to_keep.contributions, c.contributions)
+                db.delete(c)
+                
+            if to_keep.repo_id in dup_id_to_keep_id:
+                to_keep.repo_id = key[0]
+
+    # Merge WatchlistItem in memory
+    watchlist_by_key = {}
+    for w in watchlist_items:
+        repo_id = dup_id_to_keep_id.get(w.repo_id, w.repo_id)
+        key = (w.user_id, repo_id)
+        watchlist_by_key.setdefault(key, []).append(w)
+
+    for key, group in watchlist_by_key.items():
+        if len(group) == 1:
+            w = group[0]
+            if w.repo_id in dup_id_to_keep_id:
+                w.repo_id = key[1]
+        else:
+            group.sort(key=lambda x: x.repo_id != key[1])
+            to_keep = group[0]
+            to_delete = group[1:]
+            
+            if to_keep.repo_id in dup_id_to_keep_id:
+                to_keep.repo_id = key[1]
+                
+            for w in to_delete:
+                db.delete(w)
+
+    # Bulk update non-uniquely constrained tables to redirect duplicate repo metrics
+    for dup_id, keep_id in dup_id_to_keep_id.items():
+        db.query(DailyMetric).filter(DailyMetric.repo_id == dup_id).update({DailyMetric.repo_id: keep_id}, synchronize_session=False)
+        db.query(ComputedMetric).filter(ComputedMetric.repo_id == dup_id).update({ComputedMetric.repo_id: keep_id}, synchronize_session=False)
+        db.query(TrendAlert).filter(TrendAlert.repo_id == dup_id).update({TrendAlert.repo_id: keep_id}, synchronize_session=False)
+        db.query(RepoRelease).filter(RepoRelease.repo_id == dup_id).update({RepoRelease.repo_id: keep_id}, synchronize_session=False)
+        db.query(SocialMention).filter(SocialMention.repo_id == dup_id).update({SocialMention.repo_id: keep_id}, synchronize_session=False)
+        db.query(AlertRule).filter(AlertRule.repo_id == dup_id).update({AlertRule.repo_id: keep_id}, synchronize_session=False)
+
+    # Delete the duplicate repo rows
+    for dup in dup_repos_to_delete:
+        db.delete(dup)
 
     db.flush()
 
-    # 2. Deduplicate DailyMetric per (repo_id, date part of captured_at)
-    dup_dms = (
-        db.query(DailyMetric.repo_id, func.date(DailyMetric.captured_at).label('d_date'))
-        .group_by(DailyMetric.repo_id, func.date(DailyMetric.captured_at))
-        .having(func.count(DailyMetric.id) > 1)
-        .all()
-    )
-    for repo_id, d_date in dup_dms:
-        rows = (
-            db.query(DailyMetric)
-            .filter(DailyMetric.repo_id == repo_id, func.date(DailyMetric.captured_at) == d_date)
-            .order_by(DailyMetric.captured_at.desc())
-            .all()
-        )
-        for row in rows[1:]:
-            db.delete(row)
-            metrics_deleted += 1
+    # Only run metric deduplication on target repositories that were actually merged
+    merged_repo_ids = set(dup_id_to_keep_id.values())
+    metrics_deleted = 0
 
-    # 3. Deduplicate ComputedMetric per (repo_id, date)
-    dup_cms = (
-        db.query(ComputedMetric.repo_id, ComputedMetric.date)
-        .group_by(ComputedMetric.repo_id, ComputedMetric.date)
-        .having(func.count(ComputedMetric.id) > 1)
-        .all()
-    )
-    for repo_id, d in dup_cms:
-        rows = (
-            db.query(ComputedMetric)
-            .filter_by(repo_id=repo_id, date=d)
-            .order_by(ComputedMetric.computed_at.desc())
+    if merged_repo_ids:
+        # Deduplicate DailyMetric per (repo_id, date part of captured_at)
+        dup_dms = (
+            db.query(DailyMetric.repo_id, func.date(DailyMetric.captured_at).label('d_date'))
+            .filter(DailyMetric.repo_id.in_(list(merged_repo_ids)))
+            .group_by(DailyMetric.repo_id, func.date(DailyMetric.captured_at))
+            .having(func.count(DailyMetric.id) > 1)
             .all()
         )
-        for row in rows[1:]:
-            db.delete(row)
-            metrics_deleted += 1
-            
+        for repo_id, d_date in dup_dms:
+            rows = (
+                db.query(DailyMetric)
+                .filter(DailyMetric.repo_id == repo_id, func.date(DailyMetric.captured_at) == d_date)
+                .order_by(DailyMetric.captured_at.desc())
+                .all()
+            )
+            for row in rows[1:]:
+                db.delete(row)
+                metrics_deleted += 1
+
+        # Deduplicate ComputedMetric per (repo_id, date)
+        dup_cms = (
+            db.query(ComputedMetric.repo_id, ComputedMetric.date)
+            .filter(ComputedMetric.repo_id.in_(list(merged_repo_ids)))
+            .group_by(ComputedMetric.repo_id, ComputedMetric.date)
+            .having(func.count(ComputedMetric.id) > 1)
+            .all()
+        )
+        for repo_id, d in dup_cms:
+            rows = (
+                db.query(ComputedMetric)
+                .filter_by(repo_id=repo_id, date=d)
+                .order_by(ComputedMetric.computed_at.desc())
+                .all()
+            )
+            for row in rows[1:]:
+                db.delete(row)
+                metrics_deleted += 1
+                
     db.commit()
     return {"repos_merged": repos_merged, "metrics_deleted": metrics_deleted}
 
@@ -603,7 +673,11 @@ async def run_full_pipeline_stream(force_discovery: bool = False):
             from app.database import SessionLocal
             db_heal = SessionLocal()
             try:
-                res = deduplicate_repositories_logic(db_heal)
+                dedup_task = asyncio.create_task(asyncio.to_thread(deduplicate_repositories_logic, db_heal))
+                while not dedup_task.done():
+                    yield ": keepalive\n\n"
+                    await asyncio.sleep(5)
+                res = await dedup_task
                 yield f"event: info\ndata: deduplication complete. merged={res.get('repos_merged',0)} deleted={res.get('metrics_deleted',0)}\n\n"
             except Exception as e:
                 _logger.warning("Auto-deduplication failed: %s", e)
@@ -659,4 +733,12 @@ async def run_full_pipeline_stream(force_discovery: bool = False):
             _logger.error(f"run-all-stream failed: {e}", exc_info=True)
             yield f"event: error\ndata: {str(e)}\n\n"
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "X-Accel-Buffering": "no",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
+    )

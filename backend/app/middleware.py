@@ -22,13 +22,24 @@ logger = logging.getLogger(__name__)
 _PUBLIC_V1_PREFIX = "/api/v1"
 
 
-class LoggingMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next) -> Response:
+class LoggingMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
         start_time = time.time()
-        response = await call_next(request)
-        process_time = time.time() - start_time
-        logger.info(f"HTTP {request.method} {request.url.path} - {response.status_code} - {process_time:.4f}s")
-        return response
+        
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                process_time = time.time() - start_time
+                logger.info(f"HTTP {scope['method']} {scope['path']} - {message['status']} - {process_time:.4f}s")
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
 
 
 def _utcnow():
@@ -43,38 +54,59 @@ def _today_date() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
-class APIKeyMiddleware(BaseHTTPMiddleware):
+class APIKeyMiddleware:
     """
-    Middleware that:
+    ASGI Middleware that:
     1. Only intercepts requests to paths starting with /api/v1
     2. Reads X-API-Key header
     3. Validates the key against the api_keys table (SHA-256 hash match)
     4. Enforces per-day rate limits based on the tier
     5. Increments call counters and updates last_used_at
     """
+    def __init__(self, app):
+        self.app = app
 
-    async def dispatch(self, request: Request, call_next) -> Response:
-        if not request.url.path.startswith(_PUBLIC_V1_PREFIX):
-            return await call_next(request)
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
 
-        raw_key: Optional[str] = request.headers.get("X-API-Key")
+        path = scope["path"]
+        if not path.startswith(_PUBLIC_V1_PREFIX):
+            await self.app(scope, receive, send)
+            return
+
+        # Read X-API-Key header from scope["headers"]
+        headers = dict(scope["headers"])
+        raw_key = headers.get(b"x-api-key")
         if not raw_key:
-            return JSONResponse(
+            response = JSONResponse(
                 status_code=401,
                 content={"detail": "Missing X-API-Key header. Get a key at /dev/api-keys."},
             )
+            await response(scope, receive, send)
+            return
 
-        key_hash = _hash_key(raw_key)
+        try:
+            raw_key_str = raw_key.decode("utf-8")
+        except Exception:
+            response = JSONResponse(status_code=400, content={"detail": "Invalid header encoding."})
+            await response(scope, receive, send)
+            return
+
+        key_hash = _hash_key(raw_key_str)
 
         db: Session = SessionLocal()
         try:
-            api_key: Optional[ApiKey] = (
+            api_key = (
                 db.query(ApiKey)
                 .filter(ApiKey.key_hash == key_hash, ApiKey.is_active == True)  # noqa: E712
                 .first()
             )
             if api_key is None:
-                return JSONResponse(status_code=401, content={"detail": "Invalid or revoked API key."})
+                response = JSONResponse(status_code=401, content={"detail": "Invalid or revoked API key."})
+                await response(scope, receive, send)
+                return
 
             # Check and reset daily counter if it rolled over midnight
             today = _today_date()
@@ -89,7 +121,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
             day_limit = api_key.day_limit()
             if api_key.calls_today >= day_limit:
-                return JSONResponse(
+                response = JSONResponse(
                     status_code=429,
                     content={
                         "detail": f"Daily rate limit exceeded ({day_limit} calls). Upgrade your plan.",
@@ -98,6 +130,8 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
                         "used": api_key.calls_today,
                     },
                 )
+                await response(scope, receive, send)
+                return
 
             # Increment counters
             api_key.calls_today += 1
@@ -106,17 +140,30 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             api_key.last_used_at = _utcnow()
             db.commit()
 
-            # Expose resolved info to downstream endpoints via request.state
-            request.state.api_key_id = api_key.id
-            request.state.api_key_tier = api_key.tier
+            # Set scope state (ASGI pattern)
+            if "state" not in scope:
+                scope["state"] = {}
+            scope["state"]["api_key_id"] = api_key.id
+            scope["state"]["api_key_tier"] = api_key.tier
+            
+            day_limit_val = api_key.day_limit()
+            remaining_val = max(0, api_key.day_limit() - api_key.calls_today)
         except Exception as exc:
             logger.error(f"[APIKeyMiddleware] DB error: {exc}", exc_info=True)
             db.rollback()
-            return JSONResponse(status_code=500, content={"detail": "Internal server error validating API key."})
+            response = JSONResponse(status_code=500, content={"detail": "Internal server error validating API key."})
+            await response(scope, receive, send)
+            return
         finally:
             db.close()
 
-        response = await call_next(request)
-        response.headers["X-RateLimit-Limit"] = str(api_key.day_limit())
-        response.headers["X-RateLimit-Remaining"] = str(max(0, api_key.day_limit() - api_key.calls_today))
-        return response
+        # Add headers to response during send
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                headers_list = list(message.get("headers", []))
+                headers_list.append((b"x-ratelimit-limit", str(day_limit_val).encode()))
+                headers_list.append((b"x-ratelimit-remaining", str(remaining_val).encode()))
+                message["headers"] = headers_list
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
