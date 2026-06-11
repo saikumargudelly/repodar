@@ -116,10 +116,40 @@ function useWatchlist() {
 function StatCard({ label, value, sub, index = 0 }: { label: string; value: string | number; sub?: string; index?: number }) {
   const [isHovered, setIsHovered] = useState(false);
   
-  const icons = ["📦", "🏆", "🚀", "✅"];
-  const colors = ["#58a6ff", "#d29922", "#f85149", "#3fb950"];
+  const colors = ["#218bff", "#10b981", "#f85149", "#3fb950"];
   const color = colors[index];
-  const icon = icons[index];
+
+  const svgIcons = [
+    // Card 1: Package
+    <svg key="pkg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}>
+      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+      <path d="m3.3 7 8.7 5 8.7-5" />
+      <path d="M12 22V12" />
+    </svg>,
+    // Card 2: Trophy
+    <svg key="trph" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}>
+      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+      <path d="M4 22h16" />
+      <path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34" />
+      <path d="M12 2a6 6 0 0 1 6 6v3.5a6 6 0 0 1-6 6 6 6 0 0 1-6-6V8a6 6 0 0 1 6-6Z" />
+    </svg>,
+    // Card 3: Rocket
+    <svg key="rkt" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}>
+      <path d="M4.5 16.5c-1.5 1.25-2.5 3.5-2.5 3.5s2.25-1 3.5-2.5" />
+      <path d="M12 2c1.5 2 2.5 4 2.5 6 0 1-.5 1.5-1.5 1.5s-4-1-6-2.5c-2-1.5-3-2.5-3-3.5 0-1 .5-1.5 1.5-1.5 2 0 4 1 6 2.5Z" />
+      <path d="M12 2s4 1.5 6 3.5c1.5 1.5 2.5 3 2.5 4.5 0 1-.5 1.5-1.5 1.5s-3-1-4.5-2.5c-1.5-1.5-2.5-3-2.5-7Z" />
+      <path d="M9 15 3 21" />
+      <path d="m15 9 6-6" />
+    </svg>,
+    // Card 4: Shield Check
+    <svg key="chk" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}>
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+      <polyline points="22 4 12 14.01 9 11.01" />
+    </svg>
+  ];
+
+  const subTextColor = (index === 0 || index === 1) ? "#3fb950" : index === 2 ? "#f85149" : "var(--text-muted)";
 
   return (
     <div
@@ -129,28 +159,34 @@ function StatCard({ label, value, sub, index = 0 }: { label: string; value: stri
       style={{
         transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
         transform: isHovered ? "scale(1.02) translateY(-2px)" : "scale(1) translateY(0)",
-        borderColor: isHovered ? color : "var(--border)",
-        boxShadow: isHovered ? `0 8px 24px ${color}15` : "none",
+        borderColor: isHovered ? "var(--text-muted)" : "var(--border)",
+        borderTop: `3px solid ${color}`,
+        boxShadow: isHovered ? `0 8px 24px ${color}10` : "none",
+        position: "relative",
       }}
     >
       {/* Icon + Label */}
-      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", color: "var(--text-muted)" }}>
         <span style={{
-          fontSize: "18px",
-          transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          transform: isHovered ? "scale(1.2)" : "scale(1)",
-          display: "inline-block",
+          display: "inline-flex",
+          alignItems: "center",
+          transition: "transform 0.3s ease",
+          transform: isHovered ? "scale(1.15)" : "scale(1)",
         }}>
-          {icon}
+          {svgIcons[index]}
         </span>
-        <div className="kpi-label">{label}</div>
+        <div className="kpi-label" style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)" }}>{label}</div>
       </div>
 
       {/* Value */}
       <div className="kpi-value" style={{
-        color: color,
-        transition: "all 0.2s ease",
-        opacity: isHovered ? 1 : 0.9,
+        color: "#ffffff",
+        fontSize: "24px",
+        fontWeight: 700,
+        fontFamily: "var(--font-sans)",
+        transition: "opacity 0.2s ease",
+        opacity: 0.95,
+        marginBottom: "6px",
       }}>
         {value}
       </div>
@@ -158,33 +194,34 @@ function StatCard({ label, value, sub, index = 0 }: { label: string; value: stri
       {/* Sub text */}
       {sub && (
         <div className="kpi-sub" style={{
-          transition: "color 0.2s ease",
-          color: isHovered ? "var(--text-secondary)" : "var(--text-muted)",
+          fontSize: "12px",
+          fontWeight: 600,
+          color: subTextColor,
+          display: "flex",
+          alignItems: "center",
+          gap: "4px",
         }}>
-          {/^[+]/.test(String(sub))
-            ? <><em>{String(sub).split(' ')[0]}</em>{' '}{String(sub).split(' ').slice(1).join(' ')}</>
-            : sub}
+          {index === 2 && (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+          )}
+          <span>{sub}</span>
         </div>
       )}
 
-      {/* Accent bar */}
-      <div
-        style={{
-          position: "absolute",
-          left: 0,
-          bottom: 0,
-          height: "2px",
-          background: color,
-          transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          width: isHovered ? "100%" : "0%",
-          borderRadius: "0 0 8px 8px",
-        }}
-      />
-
       {/* Corner number */}
       <div className="kpi-corner" style={{
-        opacity: isHovered ? 0.12 : 0.05,
+        opacity: isHovered ? 0.15 : 0.04,
         transition: "opacity 0.2s ease",
+        fontFamily: "var(--font-mono)",
+        fontSize: "24px",
+        fontWeight: 700,
+        color: "var(--text-muted)",
+        position: "absolute",
+        right: "12px",
+        bottom: "8px",
+        pointerEvents: "none",
       }}>
         {String(index + 1).padStart(2, '0')}
       </div>
@@ -295,7 +332,6 @@ function VerticalSelector({
       <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
         {displayed.map(({ key, label }) => {
           const active = selected === key;
-          const isFavorite = userVerticals.includes(key);
           return (
             <button
               key={key}
@@ -307,7 +343,7 @@ function VerticalSelector({
                 fontWeight: 600,
                 fontFamily: "var(--font-sans)",
                 cursor: "pointer",
-                transition: "all 0.15s",
+                transition: "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
                 background: active ? "rgba(255, 255, 255, 0.05)" : C.bgCard,
                 border: `1px solid ${active ? C.text : C.border}`,
                 color: active ? C.text : C.textSub,
@@ -316,16 +352,17 @@ function VerticalSelector({
                 if (!active) {
                   e.currentTarget.style.borderColor = C.textSub;
                   e.currentTarget.style.color = C.text;
+                  e.currentTarget.style.transform = "translateY(-1.5px)";
                 }
               }}
               onMouseLeave={(e) => {
                 if (!active) {
                   e.currentTarget.style.borderColor = C.border;
                   e.currentTarget.style.color = C.textSub;
+                  e.currentTarget.style.transform = "translateY(0)";
                 }
               }}
             >
-              {isFavorite && <span style={{ marginRight: "4px", color: C.amber }}>✦</span>}
               {label}
             </button>
           );
@@ -1342,14 +1379,35 @@ export default function OverviewPage() {
       </div>
 
       {/* Header */}
-      <div className="overview-header" style={{ marginBottom: "24px" }}>
+      <div className="overview-header" style={{ marginBottom: "20px" }}>
+        {/* CSS for micro-animations */}
+        <style>{`
+          @keyframes pulse-badge {
+            0% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0.4); }
+            70% { box-shadow: 0 0 0 5px rgba(248, 81, 73, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0); }
+          }
+        `}</style>
+
         {/* Row 1: Title + Period Selector */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", marginBottom: "8px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", marginBottom: "6px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <h1 style={{ fontFamily: "var(--font-sans)", fontSize: "28px", fontWeight: 700, color: C.text, margin: 0, letterSpacing: "-0.02em" }}>
               Ecosystem overview
             </h1>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.textSub} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ cursor: "pointer", opacity: 0.8, marginTop: "4px" }}>
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke={C.textSub}
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ cursor: "pointer", opacity: 0.8, marginTop: "4px", transition: "transform 0.2s ease, stroke 0.2s ease" }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = "rotate(15deg)"; e.currentTarget.style.stroke = C.text; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = "rotate(0deg)"; e.currentTarget.style.stroke = C.textSub; }}
+            >
               <title>Edit Ecosystem</title>
               <path d="M12 20h9" />
               <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
@@ -1359,7 +1417,7 @@ export default function OverviewPage() {
         </div>
 
         {/* Row 2: Subtitle & Badge + Trends button */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", marginBottom: "20px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", marginBottom: "12px" }}>
           <div style={{
             fontFamily: "var(--font-sans)", fontSize: "13px",
             color: C.textSub,
@@ -1373,10 +1431,10 @@ export default function OverviewPage() {
               alignItems: "center",
               gap: "4px",
               padding: "2px 8px",
-              background: "rgba(56, 189, 248, 0.15)",
-              border: "1px solid rgba(56, 189, 248, 0.3)",
+              background: "#e0f2fe",
+              border: "1px solid #bae6fd",
               borderRadius: "12px",
-              color: "#38bdf8",
+              color: "#0369a1",
               fontSize: "11px",
               fontWeight: 600,
             }}>
@@ -1387,6 +1445,24 @@ export default function OverviewPage() {
           <button
             onClick={() => setAlertsOpen((o) => !o)}
             title="Trend Alerts"
+            onMouseEnter={(e) => {
+              if (!alertsOpen) {
+                e.currentTarget.style.color = C.text;
+                e.currentTarget.style.borderColor = C.textSub;
+                e.currentTarget.style.background = "rgba(255, 255, 255, 0.02)";
+              }
+              const svg = e.currentTarget.querySelector("svg");
+              if (svg) svg.style.transform = "translate(2px, -2px)";
+            }}
+            onMouseLeave={(e) => {
+              if (!alertsOpen) {
+                e.currentTarget.style.color = C.textSub;
+                e.currentTarget.style.borderColor = C.border;
+                e.currentTarget.style.background = "transparent";
+              }
+              const svg = e.currentTarget.querySelector("svg");
+              if (svg) svg.style.transform = "translate(0, 0)";
+            }}
             style={{
               display: "flex",
               alignItems: "center",
@@ -1397,25 +1473,13 @@ export default function OverviewPage() {
               fontWeight: 600,
               fontFamily: "var(--font-sans)",
               cursor: "pointer",
-              transition: "all 0.15s",
+              transition: "all 0.2s ease",
               background: "transparent",
               border: `1px solid ${alertsOpen ? C.text : C.border}`,
               color: alertsOpen ? C.text : C.textSub,
             }}
-            onMouseEnter={(e) => {
-              if (!alertsOpen) {
-                e.currentTarget.style.color = C.text;
-                e.currentTarget.style.borderColor = C.textSub;
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!alertsOpen) {
-                e.currentTarget.style.color = C.textSub;
-                e.currentTarget.style.borderColor = C.border;
-              }
-            }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "2px" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.2s ease" }}>
               <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
               <polyline points="16 7 22 7 22 13" />
             </svg>
@@ -1434,6 +1498,7 @@ export default function OverviewPage() {
                 justifyContent: "center",
                 lineHeight: 1,
                 marginLeft: "4px",
+                animation: "pulse-badge 1.8s infinite",
               }}>
                 {unreadCount}
               </span>

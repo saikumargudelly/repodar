@@ -26,6 +26,13 @@ function getTrendLabel(score: number): string {
   return "LOW";
 }
 
+function getBarColor(category: string): string {
+  if (category === "Agent Frameworks") return "#3fb950"; // Green
+  if (category === "AI / ML") return "#38bdf8"; // Blue
+  if (category === "LLM Models") return "#d29922"; // Orange
+  return "#484f58"; // Gray
+}
+
 function formatNumber(num: number): string {
   if (num >= 1000000) {
     return `${(num / 1000000).toFixed(1).replace(/\.0$/, "")}M`;
@@ -147,10 +154,9 @@ export function ModernCategoryTrendScore({
         </div>
       </div>
 
-      <div style={{ padding: "16px 12px", flex: 1, display: "flex", flexDirection: "column", gap: "10px" }}>
+      <div style={{ padding: "16px 20px", flex: 1, display: "flex", flexDirection: "column", gap: "14px" }}>
         {displayedCategories.map((item, idx) => {
           const isHovered = hoveredCategory === item.category;
-          const color = trendColor(item.trend_composite);
           const label = getTrendLabel(item.trend_composite);
           const percentage = item.trend_composite * 100;
 
@@ -163,30 +169,17 @@ export function ModernCategoryTrendScore({
               style={{
                 display: "flex",
                 alignItems: "center",
-                padding: "8px",
-                borderRadius: "8px",
+                padding: "4px 0",
                 opacity: hoveredCategory === null || isHovered ? 1 : 0.4,
+                transition: "opacity 0.2s ease",
               }}
             >
-              {/* Rank */}
-              <span style={{
-                width: "18px",
-                fontSize: "12px",
-                fontWeight: 600,
-                color: "var(--text-muted)",
-                marginRight: "8px",
-                textAlign: "right",
-                fontFamily: "var(--font-mono)",
-              }}>
-                {idx + 1}
-              </span>
-
               {/* Title & Repos Count */}
-              <div style={{ width: "130px", display: "flex", flexDirection: "column", marginRight: "12px", flexShrink: 0 }}>
+              <div style={{ width: "160px", display: "flex", flexDirection: "column", flexShrink: 0, marginRight: "16px" }}>
                 <span style={{
                   fontWeight: 600,
                   fontSize: "13px",
-                  color: "var(--text-primary)",
+                  color: "#ffffff",
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
@@ -197,106 +190,74 @@ export function ModernCategoryTrendScore({
                   fontSize: "10px",
                   color: "var(--text-muted)",
                   fontFamily: "var(--font-mono)",
-                  marginTop: "1px",
+                  marginTop: "2px",
                 }}>
                   {item.repo_count}r
                 </span>
               </div>
 
-              {/* Thick Pill Progress Bar */}
-              <div style={{ flex: 1, minWidth: 0, marginRight: "16px" }}>
+              {/* Thin Progress Bar */}
+              <div style={{ flex: 1, display: "flex", alignItems: "center", paddingRight: "24px" }}>
                 <div style={{
-                  position: "relative",
-                  height: "18px",
-                  background: "rgba(255, 255, 255, 0.03)",
-                  borderRadius: "9px",
+                  width: "100%",
+                  height: "4px",
+                  background: "rgba(255, 255, 255, 0.06)",
+                  borderRadius: "2px",
                   overflow: "hidden",
-                  display: "flex",
-                  alignItems: "center",
-                  border: "1px solid rgba(255, 255, 255, 0.04)",
                 }}>
                   <div style={{
                     height: "100%",
-                    background: color,
+                    background: getBarColor(item.category),
                     width: animated ? `${percentage}%` : "0%",
                     transition: "width 1.2s cubic-bezier(0.25, 1, 0.5, 1)",
-                    borderRadius: "9px",
+                    borderRadius: "2px",
                   }} />
-
-                  {/* Percentage overlay text inside the bar */}
-                  <span style={{
-                    position: "absolute",
-                    left: "10px",
-                    fontSize: "10px",
-                    fontWeight: 700,
-                    color: "#ffffff",
-                    fontFamily: "var(--font-mono)",
-                    textShadow: "0 1px 3px rgba(0,0,0,0.5)",
-                    pointerEvents: "none",
-                  }}>
-                    {percentage.toFixed(0)}%
-                  </span>
                 </div>
               </div>
 
-              {/* Score Number Value */}
-              <span style={{
-                width: "28px",
-                fontSize: "13px",
-                fontWeight: 700,
-                color: color,
-                textAlign: "right",
-                fontFamily: "var(--font-mono)",
-                marginRight: "16px",
-                flexShrink: 0,
-              }}>
-                {percentage.toFixed(0)}
-              </span>
-
-              {/* Star Velocity Gained */}
-              <span style={{
-                width: "65px",
-                fontSize: "13px",
-                fontWeight: 600,
-                color: "#22c55e",
-                textAlign: "right",
-                fontFamily: "var(--font-mono)",
-                marginRight: "16px",
-                flexShrink: 0,
-              }}>
-                +{formatNumber(item.period_star_gain)}
-              </span>
-
-              {/* Status Badge Pill */}
-              <div style={{
-                width: "56px",
-                display: "flex",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}>
+              {/* Right Side Values layout */}
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", width: "180px", justifyContent: "flex-end", flexShrink: 0 }}>
+                {/* Score Percentage */}
                 <span style={{
-                  fontSize: "9px",
+                  fontSize: "13px",
                   fontWeight: 700,
-                  padding: "3px 8px",
-                  borderRadius: "20px",
-                  lineHeight: 1,
-                  fontFamily: "var(--font-sans)",
-                  letterSpacing: "0.03em",
-                  ...(label === "HIGH" ? {
-                    background: "rgba(132, 204, 22, 0.12)",
-                    color: "#84cc16",
-                    border: "1px solid rgba(132, 204, 22, 0.2)",
-                  } : label === "MID" ? {
-                    background: "rgba(245, 158, 11, 0.12)",
-                    color: "#f59e0b",
-                    border: "1px solid rgba(245, 158, 11, 0.2)",
-                  } : {
-                    background: "rgba(255, 255, 255, 0.04)",
-                    color: "var(--text-muted)",
-                    border: "1px solid rgba(255, 255, 255, 0.08)",
-                  })
+                  color: "#ffffff",
+                  fontFamily: "var(--font-mono)",
+                  width: "36px",
+                  textAlign: "right",
                 }}>
-                  {label}
+                  {percentage.toFixed(0)}%
+                </span>
+
+                {/* Score Level Badge/Dot */}
+                <span style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontSize: "12px",
+                  color: "var(--text-muted)",
+                  width: "56px",
+                }}>
+                  <span style={{
+                    width: "6px",
+                    height: "6px",
+                    borderRadius: "50%",
+                    background: label === "HIGH" ? "#3fb950" : label === "MID" ? "#d29922" : "#6e7681",
+                    display: "inline-block",
+                  }} />
+                  {label.toLowerCase()}
+                </span>
+
+                {/* Star Gained */}
+                <span style={{
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: "#2ea043",
+                  fontFamily: "var(--font-mono)",
+                  width: "68px",
+                  textAlign: "right",
+                }}>
+                  +{formatNumber(item.period_star_gain)}
                 </span>
               </div>
             </div>
