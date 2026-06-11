@@ -31,6 +31,9 @@ logger = logging.getLogger(__name__)
 class RepoFilterDTO(BaseModel):
     """Strict, typed filter contract. All fields optional — empty = no filter."""
 
+    # Search query
+    q:           Optional[str] = Field(None, description="Search term for owner, name, or description")
+
     # Multi-select
     languages:   list[str] = Field(default_factory=list, description="Primary language filter (OR logic)")
     categories:  list[str] = Field(default_factory=list, description="Category filter (OR logic)")
@@ -145,6 +148,16 @@ class QueryBuilder:
         # ── Filters ─────────────────────────────────────────────────────────
         if dto.active_only:
             q = q.filter(Repository.is_active == True)  # noqa: E712
+
+        if dto.q:
+            search_pattern = f"%{dto.q}%"
+            q = q.filter(
+                or_(
+                    Repository.name.ilike(search_pattern),
+                    Repository.owner.ilike(search_pattern),
+                    Repository.description.ilike(search_pattern),
+                )
+            )
 
         if dto.languages:
             q = q.filter(

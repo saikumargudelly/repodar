@@ -85,6 +85,7 @@ export interface RepoSummary {
   sustainability_label: "GREEN" | "YELLOW" | "RED" | null;
   star_velocity_7d: number | null;
   acceleration: number | null;
+  topics?: string[];
 }
 
 export interface RepoDetail extends RepoSummary {
@@ -774,6 +775,7 @@ export interface PaginatedResponse<T> {
 // ── Platform Features (Phase 1 & 2) ──────────────────────────────────────────
 
 export interface RepoFilterDTO {
+  q?: string;
   languages?: string[];
   categories?: string[];
   min_stars?: number;
@@ -782,6 +784,8 @@ export interface RepoFilterDTO {
   max_age_days?: number;
   min_trend_score?: number;
   sustainability_label?: string;
+  sort_by?: string;
+  sort_dir?: string;
 }
 
 export interface SavedFilterPreset {
