@@ -18,6 +18,19 @@ import { ModernCategoryCards } from "@/components/charts/ModernCategoryCards";
 import { ModernPRChart } from "@/components/charts/ModernPRChart";
 import { ModernCategoryTrendScore } from "@/components/charts/ModernCategoryTrendScore";
 
+const C = {
+  bg: "#0d1117",
+  bgCard: "#161b22",
+  bgHover: "#21262d",
+  border: "#30363d",
+  text: "#e6edf3",
+  textSub: "#8b949e",
+  textMuted: "#6e7681",
+  green: "#3fb950",
+  amber: "#d29922",
+  red: "#f85149",
+};
+
 const CATEGORY_COLORS: Record<string, string> = {
   "LLM Models": "#3b82f6",
   "Agent Frameworks": "#8b5cf6",
@@ -181,67 +194,138 @@ function StatCard({ label, value, sub, index = 0 }: { label: string; value: stri
 
 function PeriodSelector({ selected, onChange }: { selected: Period; onChange: (p: Period) => void }) {
   return (
-    <div className="scroll-selector" style={{ display: "flex", gap: "2px" }}>
-      {PERIODS.map(({ key, label }) => (
-        <button
-          key={key}
-          onClick={() => onChange(key)}
-          className={`filter-btn-cyber${selected === key ? ' active' : ''}`}
-        >
-          {label}
-        </button>
-      ))}
+    <div style={{ display: "flex", gap: "6px" }}>
+      {PERIODS.map(({ key, label }) => {
+        const active = selected === key;
+        return (
+          <button
+            key={key}
+            onClick={() => onChange(key)}
+            style={{
+              padding: "6px 14px",
+              borderRadius: "6px",
+              fontSize: "12px",
+              fontWeight: 600,
+              fontFamily: "var(--font-sans)",
+              cursor: "pointer",
+              transition: "all 0.15s",
+              background: "transparent",
+              border: `1px solid ${active ? C.text : C.border}`,
+              color: active ? C.text : C.textSub,
+            }}
+            onMouseEnter={(e) => {
+              if (!active) {
+                e.currentTarget.style.color = C.text;
+                e.currentTarget.style.borderColor = C.textSub;
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!active) {
+                e.currentTarget.style.color = C.textSub;
+                e.currentTarget.style.borderColor = C.border;
+              }
+            }}
+          >
+            {label}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-function VerticalSelector({ selected, onChange, userVerticals = [] }: { selected: Vertical; onChange: (v: Vertical) => void; userVerticals?: string[] }) {
-  const [showMine, setShowMine] = useState(false);
+function VerticalSelector({
+  selected,
+  onChange,
+  userVerticals = [],
+  showMine,
+  setShowMine,
+}: {
+  selected: Vertical;
+  onChange: (v: Vertical) => void;
+  userVerticals?: string[];
+  showMine: boolean;
+  setShowMine: (v: boolean) => void;
+}) {
+  const favorites = userVerticals.length > 0
+    ? userVerticals
+    : ["ai_ml", "devtools", "web_mobile", "oss_tools"];
 
-  const displayed = showMine && userVerticals.length > 0
-    ? VERTICALS.filter((v) => userVerticals.includes(v.key))
+  const displayed = showMine
+    ? VERTICALS.filter((v) => favorites.includes(v.key))
     : VERTICALS;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-      {/* Mine / All toggle — only show if user has preferences */}
-      {userVerticals.length > 0 && (
-        <div style={{ display: "flex", gap: "2px", alignSelf: "flex-start", background: "var(--bg-elevated)", borderRadius: "20px", padding: "2px" }}>
-          <button
-            onClick={() => setShowMine(true)}
+    <div style={{ display: "flex", alignItems: "center", gap: "12px", width: "100%", overflowX: "auto", padding: "6px 0" }} className="scroll-selector">
+      {/* Mine Toggle Switch */}
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginRight: "6px", flexShrink: 0 }}>
+        <div
+          onClick={() => setShowMine(!showMine)}
+          style={{
+            width: "36px",
+            height: "20px",
+            borderRadius: "10px",
+            background: showMine ? "#218bff" : C.border,
+            position: "relative",
+            cursor: "pointer",
+            transition: "background-color 0.2s",
+            border: `1px solid ${showMine ? "#218bff" : C.border}`,
+          }}
+        >
+          <div
             style={{
-              fontFamily: "var(--font-sans)", fontSize: "10px", fontWeight: 600,
-              padding: "2px 10px", borderRadius: "10px", border: "none", cursor: "pointer",
-              transition: "all 0.15s",
-              background: showMine ? "var(--accent-blue)" : "transparent",
-              color: showMine ? "#fff" : "var(--text-muted)",
+              width: "14px",
+              height: "14px",
+              borderRadius: "50%",
+              background: "#ffffff",
+              position: "absolute",
+              top: "2px",
+              left: showMine ? "18px" : "2px",
+              transition: "left 0.2s, background-color 0.2s",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.4)",
             }}
-          >✦ Mine</button>
-          <button
-            onClick={() => setShowMine(false)}
-            style={{
-              fontFamily: "var(--font-sans)", fontSize: "10px", fontWeight: 600,
-              padding: "2px 10px", borderRadius: "10px", border: "none", cursor: "pointer",
-              transition: "all 0.15s",
-              background: !showMine ? "var(--accent-blue)" : "transparent",
-              color: !showMine ? "#fff" : "var(--text-muted)",
-            }}
-          >All</button>
+          />
         </div>
-      )}
-      {/* Scrollable pill row */}
-      <div className="scroll-selector" style={{ display: "flex", gap: "6px" }}>
+        <span style={{ fontFamily: "var(--font-sans)", fontSize: "13px", color: showMine ? C.text : C.textSub, fontWeight: 600, userSelect: "none" }}>
+          Mine
+        </span>
+      </div>
+
+      {/* Category Pills */}
+      <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
         {displayed.map(({ key, label }) => {
+          const active = selected === key;
           const isFavorite = userVerticals.includes(key);
           return (
             <button
               key={key}
               onClick={() => onChange(key)}
-              className={`cat-pill-cyber${selected === key ? ' active' : ''}`}
-              title={isFavorite ? "Your preferred vertical" : undefined}
-              style={isFavorite && selected !== key ? { borderColor: "rgba(88,166,255,0.4)" } : undefined}
+              style={{
+                padding: "6px 14px",
+                borderRadius: "20px",
+                fontSize: "12px",
+                fontWeight: 600,
+                fontFamily: "var(--font-sans)",
+                cursor: "pointer",
+                transition: "all 0.15s",
+                background: active ? "rgba(255, 255, 255, 0.05)" : C.bgCard,
+                border: `1px solid ${active ? C.text : C.border}`,
+                color: active ? C.text : C.textSub,
+              }}
+              onMouseEnter={(e) => {
+                if (!active) {
+                  e.currentTarget.style.borderColor = C.textSub;
+                  e.currentTarget.style.color = C.text;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!active) {
+                  e.currentTarget.style.borderColor = C.border;
+                  e.currentTarget.style.color = C.textSub;
+                }
+              }}
             >
-              {isFavorite && <span style={{ marginRight: "3px", fontSize: "10px" }}>✦</span>}
+              {isFavorite && <span style={{ marginRight: "4px", color: C.amber }}>✦</span>}
               {label}
             </button>
           );
@@ -1009,6 +1093,7 @@ export default function OverviewPage() {
   const [period, setPeriod] = useState<Period>("7d");
   const [vertical, setVertical] = useState<Vertical>("ai_ml");
   const [userVerticals, setUserVerticals] = useState<string[]>([]);
+  const [showMine, setShowMine] = useState(false);
   const [compareSelection, setCompareSelection] = useState<string[]>([]);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const { items: watchlist, toggle: togglePin, isPinned } = useWatchlist();
@@ -1257,57 +1342,114 @@ export default function OverviewPage() {
       </div>
 
       {/* Header */}
-      <div className="overview-header">
-        {/* Row 1: Title + Period + Alerts button */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
-          <div>
-            <div className="section-title-cyber">
-              Ecosystem <span>Overview</span>
-              <span title="Shinobi-grade analytics · 忍者の道" style={{ marginLeft: "10px", fontSize: "13px", opacity: 0.3, cursor: "default", verticalAlign: "middle", display: "inline-block", userSelect: "none" }}>忍</span>
-            </div>
-            <div style={{
-              fontFamily: "var(--font-sans)", fontSize: "12px",
-              color: "var(--text-muted)",
-              marginTop: "6px",
-            }}>
-              As of {overview.as_of} · {PERIODS.find(p => p.key === period)?.label ?? period} · {VERTICALS.find(v => v.key === vertical)?.label ?? vertical}
-              {userVerticals.length > 0 && (
-                <span style={{ marginLeft: "8px", padding: "2px 7px", background: "rgba(88,166,255,0.12)", border: "1px solid rgba(88,166,255,0.3)", borderRadius: "10px", color: "var(--accent-blue)", fontSize: "11px", fontWeight: 600 }}>
-                  ✦ Personalized
-                </span>
-              )}
-            </div>
+      <div className="overview-header" style={{ marginBottom: "24px" }}>
+        {/* Row 1: Title + Period Selector */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", marginBottom: "8px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <h1 style={{ fontFamily: "var(--font-sans)", fontSize: "28px", fontWeight: 700, color: C.text, margin: 0, letterSpacing: "-0.02em" }}>
+              Ecosystem overview
+            </h1>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.textSub} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ cursor: "pointer", opacity: 0.8, marginTop: "4px" }}>
+              <title>Edit Ecosystem</title>
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            </svg>
           </div>
-          {/* Period selector + Alerts button */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
-            <PeriodSelector selected={period} onChange={setPeriod} />
-            <button
-              onClick={() => setAlertsOpen((o) => !o)}
-              title="Trend Alerts"
-              className={`filter-btn-cyber${alertsOpen ? " active" : ""}`}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                color: alertsOpen ? "var(--bg-primary)" : unreadCount > 0 ? "var(--accent-blue)" : "var(--text-muted)",
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-                <polyline points="16 7 22 7 22 13" />
-              </svg>
-              Trends
-              {unreadCount > 0 && (
-                <span style={{ background: "var(--accent-red)", color: "#fff", fontSize: "10px", fontWeight: 700, padding: "1px 5px", borderRadius: "10px", lineHeight: "14px" }}>
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-          </div>
+          <PeriodSelector selected={period} onChange={setPeriod} />
         </div>
-        {/* Row 2: Vertical selector — always full width */}
+
+        {/* Row 2: Subtitle & Badge + Trends button */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", marginBottom: "20px" }}>
+          <div style={{
+            fontFamily: "var(--font-sans)", fontSize: "13px",
+            color: C.textSub,
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}>
+            <span>As of {overview.as_of} · {PERIODS.find(p => p.key === period)?.label ?? period} · {VERTICALS.find(v => v.key === vertical)?.label ?? vertical}</span>
+            <span style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "4px",
+              padding: "2px 8px",
+              background: "rgba(56, 189, 248, 0.15)",
+              border: "1px solid rgba(56, 189, 248, 0.3)",
+              borderRadius: "12px",
+              color: "#38bdf8",
+              fontSize: "11px",
+              fontWeight: 600,
+            }}>
+              ✦ Personalized
+            </span>
+          </div>
+
+          <button
+            onClick={() => setAlertsOpen((o) => !o)}
+            title="Trend Alerts"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "6px 14px",
+              borderRadius: "6px",
+              fontSize: "12px",
+              fontWeight: 600,
+              fontFamily: "var(--font-sans)",
+              cursor: "pointer",
+              transition: "all 0.15s",
+              background: "transparent",
+              border: `1px solid ${alertsOpen ? C.text : C.border}`,
+              color: alertsOpen ? C.text : C.textSub,
+            }}
+            onMouseEnter={(e) => {
+              if (!alertsOpen) {
+                e.currentTarget.style.color = C.text;
+                e.currentTarget.style.borderColor = C.textSub;
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!alertsOpen) {
+                e.currentTarget.style.color = C.textSub;
+                e.currentTarget.style.borderColor = C.border;
+              }
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "2px" }}>
+              <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+              <polyline points="16 7 22 7 22 13" />
+            </svg>
+            <span>Trends</span>
+            {unreadCount > 0 && (
+              <span style={{
+                background: C.red,
+                color: "#fff",
+                fontSize: "10px",
+                fontWeight: 700,
+                width: "18px",
+                height: "18px",
+                borderRadius: "50%",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                lineHeight: 1,
+                marginLeft: "4px",
+              }}>
+                {unreadCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Row 3: Vertical selector — always full width */}
         <div style={{ marginTop: "4px" }}>
-          <VerticalSelector selected={vertical} onChange={(v) => { setVertical(v); setCompareSelection([]); }} userVerticals={userVerticals} />
+          <VerticalSelector
+            selected={vertical}
+            onChange={(v) => { setVertical(v); setCompareSelection([]); }}
+            userVerticals={userVerticals}
+            showMine={showMine}
+            setShowMine={setShowMine}
+          />
         </div>
       </div>
 
