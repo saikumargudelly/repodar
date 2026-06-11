@@ -114,19 +114,7 @@ export default function RadarPage() {
   const [signals,   setSignals]   = useState<Record<SignalKey, boolean>>({
     preViral: false, consistentGrowth: false, forkMomentum: false, sustainedVelocity: false,
   });
-  const [showSignalDrop, setShowSignalDrop] = useState(false);
-  const signalDropRef = useRef<HTMLDivElement>(null);
 
-  // Close signal dropdown on outside click
-  useEffect(() => {
-    function handle(e: MouseEvent) {
-      if (signalDropRef.current && !signalDropRef.current.contains(e.target as Node)) {
-        setShowSignalDrop(false);
-      }
-    }
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
-  }, []);
 
   const activeSignalCount = Object.values(signals).filter(Boolean).length;
 
@@ -390,56 +378,28 @@ export default function RadarPage() {
             {/* Signal filters dropdown + Stage + Sort */}
             <div style={{ display: "flex", alignItems: "flex-start", gap: "16px", flexWrap: "wrap" }}>
 
-              {/* Signal filters — dropdown multi-select */}
-              <div ref={signalDropRef} style={{ position: "relative" }}>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: C.textMuted, letterSpacing: "0.07em", marginBottom: "6px" }}>
+              {/* Signal filters — horizontal checkboxes */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", width: "100%", marginBottom: "8px" }}>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: C.textMuted, letterSpacing: "0.07em" }}>
                   SIGNAL FILTERS
                 </div>
-                <button onClick={() => setShowSignalDrop((p) => !p)} style={{
-                  display: "flex", alignItems: "center", gap: "8px",
-                  fontFamily: "var(--font-sans)", fontSize: "13px", color: C.text,
-                  background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: "6px",
-                  padding: "7px 12px", cursor: "pointer", minWidth: "200px", justifyContent: "space-between",
-                }}>
-                  <span>
-                    {activeSignalCount === 0 ? "All signals" : `${activeSignalCount} filter${activeSignalCount > 1 ? "s" : ""} active`}
-                  </span>
-                  <span style={{ fontSize: "9px", color: C.textMuted }}>▼</span>
-                </button>
-
-                {showSignalDrop && (
-                  <div style={{
-                    position: "absolute", top: "calc(100% + 4px)", left: 0,
-                    background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: "6px",
-                    zIndex: 60, minWidth: "250px", padding: "8px 0",
-                    boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
-                  }}>
-                    {SIGNAL_OPTS.map(({ key, label }) => (
-                      <label key={key} style={{
-                        display: "flex", alignItems: "center", gap: "10px",
-                        padding: "8px 14px", cursor: "pointer",
-                        fontFamily: "var(--font-sans)", fontSize: "13px", color: C.text,
-                      }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = C.bgHover)}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                      >
-                        <CheckBox
-                          checked={signals[key]}
-                          onChange={(v) => setSignals((prev) => ({ ...prev, [key]: v }))}
-                        />
-                        {label}
-                      </label>
-                    ))}
-                    {activeSignalCount > 0 && (
-                      <div style={{ borderTop: `1px solid ${C.border}`, marginTop: "4px", padding: "8px 14px" }}>
-                        <button onClick={() => setSignals({ preViral: false, consistentGrowth: false, forkMomentum: false, sustainedVelocity: false })}
-                          style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: C.textMuted, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
-                          Clear all
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
+                  {SIGNAL_OPTS.map(({ key, label }) => (
+                    <label key={key} style={{ display: "flex", alignItems: "center", gap: "8px", fontFamily: "var(--font-sans)", fontSize: "13px", color: C.text, cursor: "pointer", whiteSpace: "nowrap" }}>
+                      <CheckBox
+                        checked={signals[key]}
+                        onChange={(v) => setSignals((prev) => ({ ...prev, [key]: v }))}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                  {activeSignalCount > 0 && (
+                    <button onClick={() => setSignals({ preViral: false, consistentGrowth: false, forkMomentum: false, sustainedVelocity: false })}
+                      style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: C.textMuted, background: "transparent", border: `1px dashed ${C.border}`, borderRadius: "4px", padding: "2px 8px", cursor: "pointer", marginLeft: "8px" }}>
+                      Clear all
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Stage select */}

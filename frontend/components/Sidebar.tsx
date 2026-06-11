@@ -9,7 +9,7 @@ import { api } from "@/lib/api";
 
 // Icons matching the design mockup and spec
 const OverviewIcon = (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon-overview">
     <rect x="3" y="3" width="7" height="7" rx="1.5"/>
     <rect x="14" y="3" width="7" height="7" rx="1.5"/>
     <rect x="3" y="14" width="7" height="7" rx="1.5"/>
@@ -18,7 +18,7 @@ const OverviewIcon = (
 );
 
 const ExploreIcon = (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon-explore">
     <circle cx="11" cy="11" r="8"/>
     <line x1="21" y1="21" x2="16.65" y2="16.65"/>
     <line x1="11" y1="8" x2="11" y2="14"/>
@@ -27,14 +27,14 @@ const ExploreIcon = (
 );
 
 const TopicsIcon = (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon-topics">
     <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
     <line x1="7" y1="7" x2="7.01" y2="7"/>
   </svg>
 );
 
 const RadarIcon = (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon-radar">
     <path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/>
     <path d="M4 6h.01"/>
     <path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/>
@@ -43,7 +43,7 @@ const RadarIcon = (
 );
 
 const LeaderboardIcon = (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon-leaderboard">
     <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
     <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
     <path d="M4 22h16"/>
@@ -53,44 +53,34 @@ const LeaderboardIcon = (
   </svg>
 );
 
-const NetworkIcon = (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="5" r="2"/>
-    <circle cx="19" cy="12" r="2"/>
-    <circle cx="5" cy="12" r="2"/>
-    <circle cx="12" cy="19" r="2"/>
-    <path d="M12 7v4M12 15v2M14 5.5l4 5M10 5.5l-4 5"/>
-  </svg>
-);
-
 const CompareIcon = (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon-compare">
     <path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/>
   </svg>
 );
 
 const ResearchIcon = (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon-research">
     <path d="M6 18h8M3 22h18M14 22a7 7 0 1 0-14 0M9 14h2M9 12a3 3 0 0 1 6 0V6" />
     <path d="M12 2v4M11 4h2" />
   </svg>
 );
 
 const CollectionsIcon = (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon-collections">
     <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>
   </svg>
 );
 
 const WatchlistIcon = (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon-watchlist">
     <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0z" />
     <circle cx="12" cy="12" r="3" />
   </svg>
 );
 
 const OrgHealthIcon = (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon-orgs">
     <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
     <line x1="8" y1="21" x2="16" y2="21" />
     <line x1="12" y1="17" x2="12" y2="21" />
@@ -99,7 +89,7 @@ const OrgHealthIcon = (
 );
 
 const WeeklyIcon = (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon-weekly">
     <rect x="2" y="4" width="20" height="16" rx="2" />
     <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
   </svg>
@@ -118,8 +108,7 @@ const NAV_SECTIONS = [
   {
     title: "ANALYZE",
     items: [
-      { href: "/leaderboard", label: "Leaderboard", icon: LeaderboardIcon },
-      { href: "/network", label: "Network", icon: NetworkIcon },
+      { href: "/leaderboard", label: "Leaderboard & network", icon: LeaderboardIcon },
       { href: "/compare", label: "Compare", icon: CompareIcon },
       { href: "/research", label: "Research", icon: ResearchIcon, badge: { text: "β", type: "dark" } },
     ],
@@ -578,9 +567,86 @@ export function Sidebar() {
         .sidebar-nav-link svg {
           transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        .sidebar-nav-link:hover svg {
-          color: var(--text-primary) !important;
-          transform: scale(1.18) rotate(8deg);
+        .sidebar-nav-link:hover .nav-icon-overview {
+          animation: overview-wiggle 0.6s ease-in-out infinite;
+        }
+        .sidebar-nav-link:hover .nav-icon-explore {
+          animation: explore-scan 0.8s ease-in-out infinite;
+        }
+        .sidebar-nav-link:hover .nav-icon-topics {
+          animation: topics-swing 0.6s ease-in-out infinite;
+          transform-origin: top left;
+        }
+        .sidebar-nav-link:hover .nav-icon-radar {
+          animation: radar-sweep 1.5s linear infinite;
+        }
+        .sidebar-nav-link:hover .nav-icon-leaderboard {
+          animation: leaderboard-trophy 0.8s ease-in-out infinite;
+        }
+        .sidebar-nav-link:hover .nav-icon-compare {
+          animation: compare-bars 0.6s ease-in-out infinite;
+          transform-origin: bottom;
+        }
+        .sidebar-nav-link:hover .nav-icon-research {
+          animation: research-float 0.8s ease-in-out infinite;
+        }
+        .sidebar-nav-link:hover .nav-icon-collections {
+          animation: collections-bookmark 0.6s ease-in-out infinite;
+        }
+        .sidebar-nav-link:hover .nav-icon-watchlist {
+          animation: watchlist-eye 0.7s ease-in-out infinite;
+        }
+        .sidebar-nav-link:hover .nav-icon-orgs {
+          animation: orgs-pulse 0.7s ease-in-out infinite;
+        }
+        .sidebar-nav-link:hover .nav-icon-weekly {
+          animation: weekly-shake 0.5s ease-in-out infinite;
+        }
+        @keyframes overview-wiggle {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.15) rotate(5deg); }
+        }
+        @keyframes explore-scan {
+          0%, 100% { transform: translate(0, 0) scale(1.1); }
+          25% { transform: translate(2px, -2px) scale(1.1); }
+          75% { transform: translate(-1px, 1px) scale(1.1); }
+        }
+        @keyframes topics-swing {
+          0%, 100% { transform: rotate(0deg); }
+          50% { transform: rotate(-12deg); }
+        }
+        @keyframes radar-sweep {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        @keyframes leaderboard-trophy {
+          0%, 100% { transform: translateY(0) scale(1.1); }
+          50% { transform: translateY(-3px) scale(1.15) rotate(5deg); }
+        }
+        @keyframes compare-bars {
+          0%, 100% { transform: scaleY(1); }
+          50% { transform: scaleY(1.25); }
+        }
+        @keyframes research-float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-2px) rotate(-3deg); }
+        }
+        @keyframes collections-bookmark {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.15) rotate(-5deg); }
+        }
+        @keyframes watchlist-eye {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.2) rotate(10deg); }
+        }
+        @keyframes orgs-pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.1) translate(1px, -1px); }
+        }
+        @keyframes weekly-shake {
+          0%, 100% { transform: rotate(0deg); }
+          20%, 60% { transform: rotate(-8deg); }
+          40%, 80% { transform: rotate(8deg); }
         }
         .sidebar-nav-link.active svg {
           animation: icon-bounce 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
