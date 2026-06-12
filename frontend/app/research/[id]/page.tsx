@@ -441,6 +441,20 @@ export default function ResearchSessionPage() {
   const [sharing, setSharing] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Responsive state
+  const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+      setIsTablet(window.innerWidth > 768 && window.innerWidth <= 1024);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const esRef = useRef<EventSource | null>(null);
@@ -1002,8 +1016,10 @@ export default function ResearchSessionPage() {
     }
   };
 
+  const pageHeight = isMobile ? "calc(100vh - 56px - 26px)" : "calc(100vh - 26px)";
+
   return (
-    <div style={{ height: "calc(100vh - 26px)", display: "flex", flexDirection: "column", background: C.bg, color: C.text, overflow: "hidden" }}>
+    <div style={{ height: pageHeight, display: "flex", flexDirection: "column", background: C.bg, color: C.text, overflow: "hidden" }}>
       <style>{`
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
         @keyframes blink { 50%{opacity:0} }
@@ -1044,19 +1060,19 @@ export default function ResearchSessionPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        padding: "0 24px",
+        padding: isMobile ? "0 16px" : "0 24px",
         flexShrink: 0
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <span style={{ fontSize: "20px" }}>🔬</span>
-          <h1 style={{ fontFamily: "var(--font-sans)", fontSize: "16px", fontWeight: 700, color: "#ffffff", margin: 0 }}>
+          <h1 style={{ fontFamily: "var(--font-sans)", fontSize: isMobile ? "14px" : "16px", fontWeight: 700, color: "#ffffff", margin: 0 }}>
             Research mode
           </h1>
           <span style={{
             background: C.bgHover,
             color: C.textSub,
             borderRadius: "10px",
-            padding: "2px 8px",
+            padding: isMobile ? "2px 6px" : "2px 8px",
             fontSize: "11px",
             fontWeight: 600,
             fontFamily: "var(--font-sans)",
@@ -1072,7 +1088,7 @@ export default function ResearchSessionPage() {
             background: "transparent",
             border: `1px solid ${C.border}`,
             borderRadius: "8px",
-            padding: "8px 16px",
+            padding: isMobile ? "6px 12px" : "8px 16px",
             color: "#ffffff",
             fontSize: "13px",
             fontWeight: 600,
@@ -1091,111 +1107,126 @@ export default function ResearchSessionPage() {
       {/* Main Container */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
         
-        {/* Left Column (Sessions list + controls) */}
-        <div style={{ flex: "0 0 42%", borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", overflow: "hidden", padding: "16px 20px 0 20px" }}>
-          
-          {/* Quick Start Chips */}
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "16px", flexShrink: 0 }}>
-            {QUICK_CHIPS.map(({ label, q, icon }) => (
-              <button
-                key={label}
-                onClick={() => handleChipClick(label, q)}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  padding: "6px 14px",
-                  borderRadius: "20px",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  fontFamily: "var(--font-sans)",
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                  border: `1px solid ${C.border}`,
-                  color: C.textSub,
-                  background: C.bgCard,
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.textSub; e.currentTarget.style.color = C.text; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textSub; }}
-              >
-                {icon}
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {/* Sessions List */}
-          <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "12px", paddingBottom: "20px" }}>
-            {sessions.map((s) => {
-              const active = sessionId === s.id;
-              return (
-                <div
-                  key={s.id}
-                  onClick={() => router.push(`/research/${s.id}`)}
+        {/* Left Column (Sessions list + controls - hidden on mobile) */}
+        {!isMobile && (
+          <div style={{
+            flex: isTablet ? "0 0 35%" : "0 0 42%",
+            borderRight: `1px solid ${C.border}`,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            padding: "16px 20px 0 20px"
+          }}>
+            
+            {/* Quick Start Chips */}
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "16px", flexShrink: 0 }}>
+              {QUICK_CHIPS.map(({ label, q, icon }) => (
+                <button
+                  key={label}
+                  onClick={() => handleChipClick(label, q)}
                   style={{
-                    background: C.bgCard,
-                    border: `1px solid ${active ? "#ffffff" : C.border}`,
-                    borderRadius: "10px",
-                    padding: "16px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    padding: "6px 14px",
+                    borderRadius: "20px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    fontFamily: "var(--font-sans)",
                     cursor: "pointer",
                     transition: "all 0.15s",
-                    position: "relative",
+                    border: `1px solid ${C.border}`,
+                    color: C.textSub,
+                    background: C.bgCard,
                   }}
-                  onMouseEnter={(e) => { if (!active) e.currentTarget.style.borderColor = C.textSub; }}
-                  onMouseLeave={(e) => { if (!active) e.currentTarget.style.borderColor = C.border; }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.textSub; e.currentTarget.style.color = C.text; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textSub; }}
                 >
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px", marginBottom: "8px" }}>
-                    <div style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "14px", color: C.text, lineHeight: 1.3 }}>
-                      {s.title}
-                    </div>
-                    <button
-                      onClick={(e) => handleDeleteSession(s.id, e)}
-                      style={{
-                        width: "24px",
-                        height: "24px",
-                        borderRadius: "6px",
-                        border: `1px solid ${C.border}`,
-                        background: "transparent",
-                        color: C.textSub,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        cursor: "pointer",
-                        fontSize: "14px",
-                        lineHeight: 1,
-                        flexShrink: 0,
-                        transition: "all 0.15s",
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.textSub; e.currentTarget.style.color = C.text; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textSub; }}
-                      title="Delete session"
-                    >
-                      ✕
-                    </button>
-                  </div>
+                  {icon}
+                  {label}
+                </button>
+              ))}
+            </div>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "4px" }}>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontFamily: "var(--font-sans)", fontSize: "12px", color: C.textSub }}>
-                      <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: C.green, display: "inline-block" }} />
-                      {s.message_count} messages
+            {/* Sessions List */}
+            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "12px", paddingBottom: "20px" }}>
+              {sessions.map((s) => {
+                const active = sessionId === s.id;
+                return (
+                  <div
+                    key={s.id}
+                    onClick={() => router.push(`/research/${s.id}`)}
+                    style={{
+                      background: C.bgCard,
+                      border: `1px solid ${active ? "#ffffff" : C.border}`,
+                      borderRadius: "10px",
+                      padding: "16px",
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                      position: "relative",
+                    }}
+                    onMouseEnter={(e) => { if (!active) e.currentTarget.style.borderColor = C.textSub; }}
+                    onMouseLeave={(e) => { if (!active) e.currentTarget.style.borderColor = C.border; }}
+                  >
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px", marginBottom: "8px" }}>
+                      <div style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "14px", color: C.text, lineHeight: 1.3 }}>
+                        {s.title}
+                      </div>
+                      <button
+                        onClick={(e) => handleDeleteSession(s.id, e)}
+                        style={{
+                          width: "24px",
+                          height: "24px",
+                          borderRadius: "6px",
+                          border: `1px solid ${C.border}`,
+                          background: "transparent",
+                          color: C.textSub,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          fontSize: "14px",
+                          lineHeight: 1,
+                          flexShrink: 0,
+                          transition: "all 0.15s",
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.textSub; e.currentTarget.style.color = C.text; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textSub; }}
+                        title="Delete session"
+                      >
+                        ✕
+                      </button>
                     </div>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontFamily: "var(--font-sans)", fontSize: "12px", color: C.textSub }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: "2px" }}>
-                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                        <line x1="16" y1="2" x2="16" y2="6" />
-                        <line x1="8" y1="2" x2="8" y2="6" />
-                        <line x1="3" y1="10" x2="21" y2="10" />
-                      </svg>
-                      {new Date(s.updated_at).toLocaleDateString()}
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "4px" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontFamily: "var(--font-sans)", fontSize: "12px", color: C.textSub }}>
+                        <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: C.green, display: "inline-block" }} />
+                        {s.message_count} messages
+                      </div>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontFamily: "var(--font-sans)", fontSize: "12px", color: C.textSub }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: "2px" }}>
+                          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                          <line x1="16" y1="2" x2="16" y2="6" />
+                          <line x1="8" y1="2" x2="8" y2="6" />
+                          <line x1="3" y1="10" x2="21" y2="10" />
+                        </svg>
+                        {new Date(s.updated_at).toLocaleDateString()}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Right Column (Research Detail Panel) */}
-        <div style={{ flex: "0 0 58%", display: "flex", flexDirection: "column", overflow: "hidden", padding: "16px 20px 20px 20px" }}>
+        <div style={{
+          flex: isMobile ? "0 0 100%" : isTablet ? "0 0 65%" : "0 0 58%",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          padding: isMobile ? "12px 12px 16px 12px" : "16px 20px 20px 20px"
+        }}>
           
           {/* Chat Panel Card Container */}
           <div style={{

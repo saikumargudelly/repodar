@@ -77,6 +77,20 @@ export default function ResearchListPage() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
 
+  // Responsive breakpoints
+  const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+      setIsTablet(window.innerWidth > 768 && window.innerWidth <= 1024);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   useEffect(() => {
     setLoading(true);
     api.research.listSessions(effectiveUserId)
@@ -114,8 +128,11 @@ export default function ResearchListPage() {
     setSessions((prev) => prev.filter((s) => s.id !== id));
   };
 
+  // Determine standard page height based on the device's navigation margin-top behavior in AppShell
+  const pageHeight = isMobile ? "calc(100vh - 56px - 26px)" : "calc(100vh - 26px)";
+
   return (
-    <div style={{ height: "calc(100vh - 26px)", display: "flex", flexDirection: "column", background: C.bg, color: C.text, overflow: "hidden" }}>
+    <div style={{ height: pageHeight, display: "flex", flexDirection: "column", background: C.bg, color: C.text, overflow: "hidden" }}>
       <style>{`
         ::-webkit-scrollbar {
           width: 6px;
@@ -141,19 +158,19 @@ export default function ResearchListPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        padding: "0 24px",
+        padding: isMobile ? "0 16px" : "0 24px",
         flexShrink: 0
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <span style={{ fontSize: "20px" }}>🔬</span>
-          <h1 style={{ fontFamily: "var(--font-sans)", fontSize: "16px", fontWeight: 700, color: "#ffffff", margin: 0 }}>
+          <h1 style={{ fontFamily: "var(--font-sans)", fontSize: isMobile ? "14px" : "16px", fontWeight: 700, color: "#ffffff", margin: 0 }}>
             Research mode
           </h1>
           <span style={{
             background: C.bgHover,
             color: C.textSub,
             borderRadius: "10px",
-            padding: "2px 8px",
+            padding: isMobile ? "2px 6px" : "2px 8px",
             fontSize: "11px",
             fontWeight: 600,
             fontFamily: "var(--font-sans)",
@@ -169,7 +186,7 @@ export default function ResearchListPage() {
             background: "transparent",
             border: `1px solid ${C.border}`,
             borderRadius: "8px",
-            padding: "8px 16px",
+            padding: isMobile ? "6px 12px" : "8px 16px",
             color: "#ffffff",
             fontSize: "13px",
             fontWeight: 600,
@@ -194,7 +211,7 @@ export default function ResearchListPage() {
           </div>
         ) : sessions.length === 0 ? (
           /* Empty State View - Image 1 */
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "24px 24px 0 24px", overflowY: "auto" }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: isMobile ? "16px" : "24px 24px 0 24px", overflowY: "auto" }}>
             {/* Quick Start Chips */}
             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "32px", flexShrink: 0 }}>
               {QUICK_CHIPS.map(({ label, q, icon }) => (
@@ -244,7 +261,14 @@ export default function ResearchListPage() {
           /* Sessions Exist View - Image 4 */
           <>
             {/* Left Column (Sessions list + controls) */}
-            <div style={{ flex: "0 0 42%", borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", overflow: "hidden", padding: "16px 20px 0 20px" }}>
+            <div style={{
+              flex: isMobile ? "0 0 100%" : isTablet ? "0 0 35%" : "0 0 42%",
+              borderRight: isMobile ? "none" : `1px solid ${C.border}`,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              padding: isMobile ? "12px 16px 0 16px" : "16px 20px 0 20px"
+            }}>
               
               {/* Quick Start Chips */}
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "16px", flexShrink: 0 }}>
@@ -343,8 +367,10 @@ export default function ResearchListPage() {
               </div>
             </div>
 
-            {/* Right Column (Placeholder matching Image 4) */}
-            <div style={{ flex: "0 0 58%", background: C.bg }} />
+            {/* Right Column (Placeholder matching Image 4 - hidden on mobile) */}
+            {!isMobile && (
+              <div style={{ flex: isTablet ? "0 0 65%" : "0 0 58%", background: C.bg }} />
+            )}
           </>
         )}
       </div>
