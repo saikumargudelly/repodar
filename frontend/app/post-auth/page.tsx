@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { api } from "@/lib/api";
+import { ProfessionalLoader } from "@/components/ProfessionalLoader";
+
 
 type SetupStage = "auth" | "keys" | "onboarding" | "complete";
 
@@ -81,38 +83,10 @@ export default function PostAuthPage() {
         textAlign: "center",
         boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
       }}>
-        {/* Rasengan Loader */}
-        <div style={{ position: "relative", width: "70px", height: "70px", margin: "0 auto 24px", display: "block" }}>
-          {/* Outer Ring */}
-          <div style={{
-            position: "absolute",
-            inset: 0,
-            borderRadius: "50%",
-            border: "3px solid transparent",
-            borderTopColor: "#38bdf8",
-            borderBottomColor: "#38bdf8",
-            animation: "rotate-cw 1.2s linear infinite",
-          }} />
-          {/* Inner Ring */}
-          <div style={{
-            position: "absolute",
-            inset: "8px",
-            borderRadius: "50%",
-            border: "2.5px solid transparent",
-            borderLeftColor: "#00e5ff",
-            borderRightColor: "#00e5ff",
-            animation: "rotate-ccw 0.8s linear infinite",
-          }} />
-          {/* Core */}
-          <div style={{
-            position: "absolute",
-            inset: "20px",
-            borderRadius: "50%",
-            background: "radial-gradient(circle, #ffffff 20%, #38bdf8 80%)",
-            boxShadow: "0 0 16px #38bdf8, 0 0 32px rgba(56, 189, 248, 0.5)",
-            animation: "pulse-center 0.6s infinite alternate",
-          }} />
+        <div style={{ marginBottom: "24px" }}>
+          <ProfessionalLoader size={60} />
         </div>
+
 
         <h2 style={{ fontSize: "20px", fontWeight: 700, margin: "0 0 16px", letterSpacing: "-0.01em" }}>
           Finalizing Workspace

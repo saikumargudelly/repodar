@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { api, DigestFrequency } from "@/lib/api";
+import { ProfessionalLoader } from "@/components/ProfessionalLoader";
+
 
 type Step = "interests" | "watchlist" | "alerts" | "tour";
 
@@ -35,8 +37,10 @@ const VERTICAL_METADATA: Record<string, { element: string; color: string; shadow
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isLoaded, userId } = useAuth();
   const { user } = useUser();
+
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -60,13 +64,22 @@ export default function OnboardingPage() {
     let cancelled = false;
     (async () => {
       try {
+        const resetRequested = searchParams.get("reset") === "true";
+        if (resetRequested) {
+          try {
+            await api.resetOnboarding(userId);
+          } catch (resetErr) {
+            console.warn("Failed to reset onboarding in backend:", resetErr);
+          }
+        }
+
         const [status, overview] = await Promise.all([
           api.getOnboardingStatus(userId),
           api.getOverview(),
         ]);
         if (cancelled) return;
 
-        if (status.onboarding_completed || status.current_step === "complete") {
+        if (!resetRequested && (status.onboarding_completed || status.current_step === "complete")) {
           router.replace("/overview");
           return;
         }
@@ -100,7 +113,7 @@ export default function OnboardingPage() {
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, router, user?.primaryEmailAddress?.emailAddress, userId]);
+  }, [isLoaded, router, user?.primaryEmailAddress?.emailAddress, userId, searchParams]);
 
   const progressIndex = STEP_ORDER.indexOf(step);
 
@@ -186,17 +199,11 @@ export default function OnboardingPage() {
         color: "var(--color-text-primary, #e6edf3)",
         fontFamily: "var(--font-sans, system-ui)",
       }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ position: "relative", width: "50px", height: "50px", margin: "0 auto 16px" }}>
-            <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2px solid transparent", borderTopColor: "#38bdf8", animation: "rotate-cw 0.8s linear infinite" }} />
-          </div>
-          <p style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--color-text-secondary)" }}>
-            PREPARING ONBOARDING SETUP...
-          </p>
-        </div>
+        <ProfessionalLoader size={50} text="Preparing onboarding setup..." />
       </div>
     );
   }
+
 
   return (
     <div style={{

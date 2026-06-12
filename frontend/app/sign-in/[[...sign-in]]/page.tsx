@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { useSignIn } from "@clerk/nextjs/legacy";
 import type { OAuthStrategy } from "@clerk/shared/types";
+import { ProfessionalLoader } from "@/components/ProfessionalLoader";
+
 
 const PROVIDERS = [
   {
@@ -103,14 +105,8 @@ export default function SignInPage() {
         color: "var(--color-text-primary, #e6edf3)",
         fontFamily: "var(--font-sans, system-ui)",
       }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ position: "relative", width: "50px", height: "50px", margin: "0 auto 16px" }}>
-            <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2px solid transparent", borderTopColor: "#38bdf8", animation: "rotate-cw 0.8s linear infinite" }} />
-          </div>
-          <p style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--color-text-secondary)" }}>
-            ALREADY SIGNED IN. REDIRECTING...
-          </p>
-        </div>
+        <ProfessionalLoader size={50} text="Already signed in. Redirecting..." />
+
       </div>
     );
   }
@@ -216,9 +212,7 @@ export default function SignInPage() {
                 className="auth-provider-btn"
               >
                 {loading ? (
-                  <div style={{ position: "relative", width: "18px", height: "18px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2px solid transparent", borderTopColor: "var(--accent-blue, #38bdf8)", animation: "rotate-cw 0.8s linear infinite" }} />
-                  </div>
+                  <ProfessionalLoader size={18} />
                 ) : (
                   <span style={{ display: "inline-flex", alignItems: "center", color: "var(--color-text-secondary)" }}>
                     {provider.icon}

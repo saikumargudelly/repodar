@@ -188,3 +188,22 @@ def skip_onboarding(
     onboarding.updated_at = _utcnow()
     db.commit()
     return get_onboarding_status(user_id=user_id, db=db)
+
+
+@router.post("/reset", response_model=OnboardingStatusOut)
+def reset_onboarding(
+    user_id: str = Depends(_require_user),
+    db: Session = Depends(get_db),
+):
+    onboarding = _get_or_create(db, user_id)
+    onboarding.onboarding_completed = False
+    onboarding.interests_completed = False
+    onboarding.watchlist_completed = False
+    onboarding.alerts_completed = False
+    onboarding.tour_completed = False
+    onboarding.current_step = "interests"
+    onboarding.completed_at = None
+    onboarding.skipped_at = None
+    onboarding.updated_at = _utcnow()
+    db.commit()
+    return get_onboarding_status(user_id=user_id, db=db)

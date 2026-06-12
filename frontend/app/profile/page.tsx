@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { SignOutButton, useAuth, useUser } from "@clerk/nextjs";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, DigestFrequency, ProfilePreferencesPatchBody } from "@/lib/api";
 
@@ -41,9 +43,11 @@ function normalizeForm(state: FormState): FormState {
 }
 
 export default function ProfilePage() {
+  const router = useRouter();
   const { isLoaded, userId } = useAuth();
   const { user } = useUser();
   const queryClient = useQueryClient();
+  const [resetting, setResetting] = useState(false);
   const [form, setForm] = useState<FormState>({
     email: "",
     digest_frequency: "weekly",
@@ -51,6 +55,22 @@ export default function ProfilePage() {
   });
   const [initialForm, setInitialForm] = useState<FormState | null>(null);
   const [feedback, setFeedback] = useState<string>("");
+
+  const handleResetOnboarding = async () => {
+    if (!userId) return;
+    setResetting(true);
+    setFeedback("");
+    try {
+      await api.resetOnboarding(userId);
+      queryClient.invalidateQueries({ queryKey: ["profile-preferences", userId] });
+      router.push("/onboarding?reset=true");
+    } catch (err: any) {
+      console.error(err);
+      setFeedback(err.message || "Failed to reset onboarding. Please try again.");
+      setResetting(false);
+    }
+  };
+
   const accountEmail = user?.primaryEmailAddress?.emailAddress ?? "No primary email available";
   const firstName = user?.firstName ?? "Not available";
   const lastName = user?.lastName ?? "Not available";
@@ -384,7 +404,37 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      <div className="panel" style={{ padding: "18px", display: "grid", gap: "12px" }}>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)" }}>
+          Onboarding Setup
+        </div>
+        <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "13px", lineHeight: "1.5" }}>
+          Need to re-configure your feed or alert subscriptions? You can reset your onboarding progress and walk through the configuration setup again.
+        </p>
+        <div>
+          <button
+            onClick={handleResetOnboarding}
+            disabled={resetting}
+            className="btn-cyber"
+            style={{
+              padding: "10px 16px",
+              background: "rgba(248, 81, 73, 0.1)",
+              border: "1px solid rgba(248, 81, 73, 0.3)",
+              color: "#ff6b6b",
+              borderRadius: "8px",
+              cursor: resetting ? "not-allowed" : "pointer",
+              fontWeight: 600,
+              fontSize: "13px",
+              transition: "all 0.2s",
+            }}
+          >
+            {resetting ? "Resetting Onboarding..." : "Reset & Re-run Onboarding"}
+          </button>
+        </div>
+      </div>
+
       {feedback && (
+
         <div className="panel" style={{ border: feedback.includes("success") || feedback.includes("updated") ? "1px solid var(--green)" : "1px solid var(--pink)" }}>
           <p style={{ margin: 0, fontSize: "13px", color: feedback.includes("success") || feedback.includes("updated") ? "var(--green)" : "var(--pink)" }}>
             {feedback}

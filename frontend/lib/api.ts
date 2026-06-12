@@ -1098,6 +1098,12 @@ export const api = {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId },
     }),
+  resetOnboarding: (userId: string) =>
+    apiFetch<OnboardingStatus>("/onboarding/reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId },
+    }),
+
 
   // Report History
   getReportHistory: (periodType?: string) => {
