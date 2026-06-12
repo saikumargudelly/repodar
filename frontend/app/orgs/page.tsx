@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api, OrgHealthResponse, OrgRepoHealth } from "@/lib/api";
 import { SustainBadge } from "@/components/Nav";
+import { ProfessionalLoader } from "@/components/ProfessionalLoader";
+
 
 // ─── Popular org quick-picks ─────────────────────────────────────────────────
 const FEATURED_ORGS = [
@@ -15,26 +17,8 @@ const FEATURED_ORGS = [
 // ─── Loading spinner ──────────────────────────────────────────────────────────
 function Spinner({ label }: { label?: string }) {
   return (
-    <div style={{
-      display: "flex", flexDirection: "column", alignItems: "center",
-      gap: "16px", padding: "48px 24px",
-    }}>
-      <div style={{
-        width: "36px", height: "36px",
-        border: "3px solid var(--border)",
-        borderTop: "3px solid var(--accent-blue)",
-        borderRadius: "50%",
-        animation: "spin 0.9s linear infinite",
-      }} />
-      {label && (
-        <span style={{
-          fontFamily: "var(--font-mono)", fontSize: "11px",
-          color: "var(--text-muted)", letterSpacing: "0.08em",
-          textTransform: "uppercase",
-        }}>
-          {label}
-        </span>
-      )}
+    <div style={{ padding: "48px 24px" }}>
+      <ProfessionalLoader size={45} text={label} />
     </div>
   );
 }
@@ -227,21 +211,24 @@ function OrgResults({ data }: { data: OrgHealthResponse }) {
 // ─── Empty / initial state ────────────────────────────────────────────────────
 function EmptyState() {
   return (
-    <div className="panel" style={{
-      display: "flex", flexDirection: "column", alignItems: "center",
-      gap: "12px", padding: "56px 32px", textAlign: "center",
-    }}>
-      <div style={{ fontSize: "36px", opacity: 0.4 }}>🏢</div>
-      <div style={{
-        fontFamily: "var(--font-sans)", fontSize: "14px",
-        color: "var(--text-secondary)", fontWeight: 500,
-      }}>
-        Enter a GitHub organization name to analyse its portfolio
+    <div className="panel" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", padding: "56px 32px", textAlign: "center" }}>
+      <div className="narutorun-container" style={{ padding: "0 0 8px 0" }}>
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="var(--color-text-tertiary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="narutorun-svg">
+          <circle cx="29" cy="12" r="3" />
+          <path d="M 27 9 L 24 7 L 26 10 L 23 10 L 26 12" />
+          <path d="M 29 9 L 32 6 L 31 10 L 34 8 L 32 11" />
+          <path d="M 25 13 C 23 13, 21 11, 19 12 C 17 13, 16 15, 14 14" />
+          <path d="M 29 15 L 18 28" />
+          <path d="M 27 17 L 10 21" />
+          <path d="M 27 17 L 8 23" />
+          <path d="M 18 28 L 26 34 L 20 44" />
+          <path d="M 18 28 L 10 35 L 4 33" />
+        </svg>
       </div>
-      <div style={{
-        fontFamily: "var(--font-mono)", fontSize: "11px",
-        color: "var(--text-muted)",
-      }}>
+      <div style={{ fontFamily: "var(--font-sans)", fontSize: "14px", color: "var(--text-secondary)", fontWeight: 500 }}>
+        Enter a GitHub organization name to analyze its portfolio
+      </div>
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)" }}>
         // e.g. <span style={{ color: "var(--cyan)" }}>microsoft</span> · <span style={{ color: "var(--cyan)" }}>huggingface</span> · <span style={{ color: "var(--cyan)" }}>openai</span>
       </div>
     </div>

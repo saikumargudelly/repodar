@@ -31,17 +31,24 @@ def publish_weekly_snapshot() -> dict:
 
     db = SessionLocal()
     try:
-        week_id = _week_id()
+        # Find the latest date in ComputedMetric table to ensure we always capture valid scored data
+        latest_cm = db.query(ComputedMetric).order_by(ComputedMetric.date.desc()).first()
+        if not latest_cm:
+            logger.warning("No ComputedMetric records found in database — skipping snapshot.")
+            return {"status": "no_metrics", "detail": "No computed metrics available."}
+        
+        latest_date = latest_cm.date
+        week_id = _week_id(latest_date)
+
         existing = db.query(WeeklySnapshot).filter_by(week_id=week_id).first()
         if existing:
             logger.info(f"Snapshot for {week_id} already exists — skipping.")
             return {"week_id": week_id, "status": "already_exists"}
 
-        today = date.today()
         top = (
             db.query(ComputedMetric, Repository)
             .join(Repository, Repository.id == ComputedMetric.repo_id)
-            .filter(ComputedMetric.date == today, Repository.is_active == True)
+            .filter(ComputedMetric.date == latest_date, Repository.is_active == True)
             .order_by(ComputedMetric.trend_score.desc())
             .limit(25)
             .all()
@@ -52,9 +59,10 @@ def publish_weekly_snapshot() -> dict:
             dm = (
                 db.query(DailyMetric)
                 .filter_by(repo_id=repo.id)
-                .order_by(DailyMetric.date.desc())
+                .order_by(DailyMetric.captured_at.desc())
                 .first()
             )
+
             snapshot_repos.append({
                 "rank": rank,
                 "repo_id": repo.id,

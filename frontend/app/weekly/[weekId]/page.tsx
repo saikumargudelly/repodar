@@ -5,6 +5,8 @@ import Link from "next/link";
 import { use } from "react";
 import { api, SnapshotDetail } from "@/lib/api";
 import { SustainBadge } from "@/components/Nav";
+import { ProfessionalLoader } from "@/components/ProfessionalLoader";
+
 
 export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId: string }> }) {
   const { weekId } = use(params);
@@ -33,11 +35,11 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
       </div>
 
       {isLoading ? (
-        <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", padding: "40px 0",
-          textAlign: "center", fontSize: "12px", letterSpacing: "0.06em" }}>
-          // LOADING SNAPSHOT<span className="terminal-cursor" />
+        <div style={{ padding: "40px 0" }}>
+          <ProfessionalLoader size={45} text="Loading snapshot detail..." />
         </div>
       ) : error ? (
+
         <div style={{ fontFamily: "var(--font-mono)", color: "var(--red, #ef4444)", padding: "20px 0",
           fontSize: "12px" }}>
           // ERROR: snapshot not found

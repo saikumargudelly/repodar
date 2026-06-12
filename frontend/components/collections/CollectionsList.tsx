@@ -4,6 +4,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/nextjs";
 import { api, Collection } from "@/lib/api";
 import { useState } from "react";
+import { ProfessionalLoader } from "@/components/ProfessionalLoader";
+
 
 export function TrendingCollections() {
   const queryClient = useQueryClient();
@@ -24,15 +26,8 @@ export function TrendingCollections() {
 
   if (isLoading) {
     return (
-      <div style={{
-        padding: "60px 0",
-        textAlign: "center",
-        fontFamily: "var(--font-sans)",
-        fontSize: "13px",
-        color: "var(--text-muted)",
-        letterSpacing: "0.04em",
-      }}>
-        Loading collections…
+      <div style={{ padding: "60px 0" }}>
+        <ProfessionalLoader size={45} text="Loading collections..." />
       </div>
     );
   }
@@ -229,27 +224,40 @@ export function TrendingCollections() {
 
         {/* Empty state */}
         {(!collections || collections.length === 0) && (
-          <div style={{
-            gridColumn: "1 / -1",
-            padding: "60px 20px",
-            textAlign: "center",
-            border: "2px dashed var(--border)",
-            borderRadius: "8px",
-            background: "var(--bg-surface)",
-          }}>
-            <div style={{ fontSize: "32px", marginBottom: "12px", opacity: 0.4 }}>📦</div>
-            <div style={{
-              fontFamily: "var(--font-sans)",
-              fontSize: "14px",
-              color: "var(--text-secondary)",
-              fontWeight: 500,
-            }}>No collections yet.</div>
-            <div style={{
-              fontFamily: "var(--font-sans)",
-              fontSize: "12px",
-              color: "var(--text-muted)",
-              marginTop: "4px",
-            }}>Be the first to create one!</div>
+          <div
+            style={{
+              gridColumn: "1 / -1",
+              padding: "56px 32px",
+              textAlign: "center",
+              border: "1px dashed var(--border)",
+              borderRadius: "12px",
+              background: "rgba(22, 27, 34, 0.2)",
+              backdropFilter: "blur(8px)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "12px",
+            }}
+          >
+            <div className="narutorun-container" style={{ padding: "0 0 8px 0" }}>
+              <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="var(--color-text-tertiary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="narutorun-svg">
+                <circle cx="29" cy="12" r="3" />
+                <path d="M 27 9 L 24 7 L 26 10 L 23 10 L 26 12" />
+                <path d="M 29 9 L 32 6 L 31 10 L 34 8 L 32 11" />
+                <path d="M 25 13 C 23 13, 21 11, 19 12 C 17 13, 16 15, 14 14" />
+                <path d="M 29 15 L 18 28" />
+                <path d="M 27 17 L 10 21" />
+                <path d="M 27 17 L 8 23" />
+                <path d="M 18 28 L 26 34 L 20 44" />
+                <path d="M 18 28 L 10 35 L 4 33" />
+              </svg>
+            </div>
+            <div style={{ fontFamily: "var(--font-sans)", fontSize: "14px", color: "var(--text-secondary)", fontWeight: 500 }}>
+              No collections yet
+            </div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)" }}>
+              // Be the first to create a collection!
+            </div>
           </div>
         )}
       </div>

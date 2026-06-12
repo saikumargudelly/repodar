@@ -759,3 +759,14 @@ async def run_full_pipeline_stream(force_discovery: bool = False):
             "Connection": "keep-alive",
         }
     )
+
+
+@router.post("/publish-weekly-snapshot")
+async def trigger_publish_weekly_snapshot():
+    """Manually trigger publishing of the weekly snapshot."""
+    from app.services.weekly_snapshots import publish_weekly_snapshot
+    res = await asyncio.to_thread(publish_weekly_snapshot)
+    if res.get("status") == "error":
+        raise HTTPException(status_code=500, detail=res.get("detail"))
+    return res
+
