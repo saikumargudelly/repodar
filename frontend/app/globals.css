@@ -44,6 +44,18 @@
 
   /* Scanline — disabled */
   --scanline-color: transparent;
+
+  /* Design System CSS Variables (Naruto Theme Context) */
+  --color-background-primary: var(--bg-primary);
+  --color-background-secondary: var(--bg-surface);
+  --color-background-tertiary: var(--bg-dim);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-muted);
+  --color-border-secondary: var(--border);
+  --color-border-tertiary: var(--border);
+  --border-radius-md: 6px;
+  --border-radius-lg: 12px;
 }
 
 @theme inline {
@@ -1301,4 +1313,247 @@ p, span, div, td, th, a, label, li {
 /* ── Panel header: allow Trends badge to wrap ───────────────── */
 @media (max-width: 480px) {
   .panel-header { gap: 8px !important; }
+}
+
+/* ==========================================================================
+   Naruto-Themed Dashboard Component Styles
+   ========================================================================== */
+
+/* ── COMPONENT 1 — SharinganLiveDot ── */
+.sharingan-dot-container {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+}
+.sharingan-iris {
+  width: 8px;
+  height: 8px;
+  animation: sharingan-spin 4s linear infinite;
+  z-index: 2;
+}
+.sharingan-tomoe {
+  animation: tomoe-pulse 2s ease-in-out infinite;
+}
+.sharingan-glow-ring {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border: 2px solid #C0392B;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: sharingan-mount-glow 1.5s ease-out forwards;
+  z-index: 1;
+}
+@keyframes sharingan-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes tomoe-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+@keyframes sharingan-mount-glow {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+/* ── COMPONENT 2 — ChakraBarFill ── */
+.chakra-bar-container {
+  width: 100%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+.chakra-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  width: 0%;
+  transition: width 1.2s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.chakra-fire { background: linear-gradient(90deg, #E74C3C, #C0392B); }
+.chakra-lightning { background: linear-gradient(90deg, #5DADE2, #2980B9); }
+.chakra-wind { background: linear-gradient(90deg, #48C9B0, #1ABC9C); }
+.chakra-earth { background: linear-gradient(90deg, #BA8C14, #8B6914); }
+.chakra-water { background: linear-gradient(90deg, #2471A3, #1F4E79); }
+.chakra-void { background: linear-gradient(90deg, #888780, #5F5E5A); }
+
+/* ── COMPONENT 3 — HeadbandSignalDot ── */
+.signal-container {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 14px;
+  height: 14px;
+}
+.signal-high-glow {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: rgba(99, 153, 34, 0.2);
+  animation: signal-ringout 2.2s infinite;
+}
+@keyframes signal-ringout {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* ── COMPONENT 4 — NinjaRankPill ── */
+.ninja-rank-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-family: var(--font-sans);
+  white-space: nowrap;
+}
+.rank-jonin { background: #EAF3DE; color: #3B6D11; }
+.rank-chunin { background: #FAEEDA; color: #854F0B; }
+.rank-genin { background: var(--color-background-tertiary); color: var(--color-text-tertiary); }
+.rank-anbu { background: #1a1a2e; color: #E8E8E8; border: 1px solid #30363d; }
+
+/* ── COMPONENT 5 — NarutoRunEmptyState ── */
+.narutorun-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+}
+.narutorun-svg {
+  animation: idle-float 3s ease-in-out infinite;
+}
+@keyframes idle-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+/* ── COMPONENT 6 — RasenganTypingIndicator ── */
+.rasengan-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  position: relative;
+}
+.rasengan-outer {
+  animation: rotate-cw 1.2s linear infinite;
+  transform-origin: center;
+}
+.rasengan-inner {
+  animation: rotate-ccw 0.8s linear infinite;
+  transform-origin: center;
+}
+.rasengan-center {
+  animation: pulse-center 0.6s infinite;
+  transform-origin: center;
+}
+@keyframes rotate-cw {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes rotate-ccw {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+@keyframes pulse-center {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ── COMPONENT 7 — KonohaLeafBrandIcon ── */
+.brand-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--color-background-tertiary);
+  border: 1px solid var(--color-border-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.brand-icon svg {
+  color: var(--color-text-secondary);
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+.brand-icon:hover {
+  background: var(--color-background-secondary);
+}
+.brand-icon:hover svg {
+  transform: rotate(15deg);
+  color: #639922;
+}
+
+/* ── COMPONENT 8 — SubstitutionShimmer on .kpi-card ── */
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  transform: translateX(-100%);
+  pointer-events: none;
+  z-index: 3;
+}
+.kpi-card::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 120px; height: 120px;
+  background: radial-gradient(circle, #F5CBA7 0%, transparent 70%);
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+.kpi-card:hover {
+  animation: substitution-brightness 0.5s ease forwards, border-flash 0.25s ease forwards !important;
+}
+.kpi-card:hover::before {
+  animation: shimmer-sweep-sweep 0.5s ease-out forwards;
+}
+.kpi-card:hover::after {
+  animation: radial-bloom-bloom 0.3s ease-out forwards;
+}
+@keyframes shimmer-sweep-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(200%); }
+}
+@keyframes radial-bloom-bloom {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0.08;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+  }
+}
+@keyframes substitution-brightness {
+  0%, 40% { filter: brightness(1); }
+  55% { filter: brightness(1.18); }
+  70%, 100% { filter: brightness(1); }
+}
+@keyframes border-flash {
+  0% { border-color: var(--color-border-secondary); }
+  50% { border-color: rgba(245, 203, 167, 0.3); }
+  100% { border-color: var(--color-border-secondary); }
 }

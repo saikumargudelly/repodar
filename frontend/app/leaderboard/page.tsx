@@ -4,6 +4,7 @@ import { useState, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api, Period, CrossRepoContributor, ContributorRepoEntry } from "@/lib/api";
+import { NinjaRankPill } from "@/components/NinjaRankPill";
 
 // B&W Theme Palette
 const C = {
@@ -508,9 +509,7 @@ function LeaderboardAndNetworkContent() {
                           {row.sustainability_score ? `${(row.sustainability_score * 100).toFixed(0)}%` : "—"}
                         </td>
                         <td style={{ ...TD_STYLE, textAlign: "right", whiteSpace: "nowrap" }}>
-                          <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", fontWeight: 600, color: hl.dot }}>
-                            ● {hl.text}
-                          </span>
+                          <NinjaRankPill label={row.sustainability_label} />
                         </td>
                       </tr>
                     );

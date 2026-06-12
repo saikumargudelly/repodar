@@ -26,11 +26,49 @@ function getTrendLabel(score: number): string {
   return "LOW";
 }
 
-function getBarColor(category: string): string {
-  if (category === "Agent Frameworks") return "#3fb950"; // Green
-  if (category === "AI / ML") return "#38bdf8"; // Blue
-  if (category === "LLM Models") return "#d29922"; // Orange
-  return "#484f58"; // Gray
+function getChakraClass(category: string): string {
+  const norm = (category || "").trim();
+  if (norm === "Agent Frameworks") return "chakra-fire";
+  if (norm === "AI / ML") return "chakra-lightning";
+  if (norm === "LLM Models") return "chakra-wind";
+  if (norm === "DevTools") return "chakra-earth";
+  if (norm === "Data & Infra") return "chakra-water";
+  return "chakra-void";
+}
+
+function SignalDot({ label }: { label: string }) {
+  if (label === "HIGH") {
+    return (
+      <span className="signal-container" title="High Priority alert. Konoha Leaf.">
+        <span className="signal-high-glow"></span>
+        <svg viewBox="0 0 24 24" width="8" height="8" fill="#639922" stroke="none" style={{ position: "relative", zIndex: 1 }}>
+          <path d="M12,4 C7.58,4 4,7.58 4,12 C4,16.42 7.58,20 12,20 C14,20 15.8,19.2 17.2,17.8 L18.5,19.1 C16.8,20.9 14.5,22 12,22 C6.48,22 2,17.52 2,12 C2,6.48 6.48,2 12,2 C17,2 20.5,5 21,5.5 L18,8.5 L22,9 L21.5,5 L19.5,7 C18.2,5.2 15.2,4 12,4 Z" fill="#639922" />
+          <path d="M12,8 C9.79,8 8,9.79 8,12 C8,14.21 9.79,16 12,16 C13.5,16 14.8,15.2 15.5,14 L13.5,13 C13.2,13.6 12.6,14 12,14 C10.9,14 10,13.1 10,12 C10,10.9 10.9,10 12,10 C13.1,10 14,10.9 14,12" fill="none" stroke="#639922" strokeWidth="1.8" />
+          <path d="M5,19 L3,21" stroke="#639922" strokeWidth="2" />
+        </svg>
+      </span>
+    );
+  }
+  if (label === "MID") {
+    return (
+      <span className="signal-container" title="Medium alert. Sand Gourd.">
+        <svg viewBox="0 0 24 24" width="8" height="8" fill="#BA7517" stroke="none">
+          <circle cx="12" cy="12" r="10" fill="none" stroke="#BA7517" strokeWidth="2" />
+          <path d="M12,5 C10,5 9,7 9,9 C9,11 11,11.5 11,12 C11,12.5 9,13 9,15 C9,17 10,19 12,19 C14,19 15,17 15,15 C15,13 13,12.5 13,12 C13,11.5 15,11 15,9 C15,7 14,5 12,5 Z" fill="#BA7517" />
+        </svg>
+      </span>
+    );
+  }
+  return (
+    <span className="signal-container" title="Low alert. Scratched Headband.">
+      <svg viewBox="0 0 24 24" width="8" height="8" fill="none">
+        <rect x="2" y="6" width="20" height="12" rx="1.5" fill="var(--color-border-secondary)" stroke="var(--color-text-tertiary)" strokeWidth="1" />
+        <circle cx="5" cy="12" r="1" fill="var(--color-text-secondary)" />
+        <circle cx="19" cy="12" r="1" fill="var(--color-text-secondary)" />
+        <line x1="4" y1="8" x2="20" y2="16" stroke="#C0392B" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    </span>
+  );
 }
 
 function formatNumber(num: number): string {
@@ -198,20 +236,13 @@ export function ModernCategoryTrendScore({
 
               {/* Thin Progress Bar */}
               <div style={{ flex: 1, display: "flex", alignItems: "center", paddingRight: "24px" }}>
-                <div style={{
-                  width: "100%",
-                  height: "4px",
-                  background: "rgba(255, 255, 255, 0.06)",
-                  borderRadius: "2px",
-                  overflow: "hidden",
-                }}>
-                  <div style={{
-                    height: "100%",
-                    background: getBarColor(item.category),
-                    width: animated ? `${percentage}%` : "0%",
-                    transition: "width 1.2s cubic-bezier(0.25, 1, 0.5, 1)",
-                    borderRadius: "2px",
-                  }} />
+                <div className="chakra-bar-container">
+                  <div
+                    className={`chakra-bar-fill ${getChakraClass(item.category)}`}
+                    style={{
+                      width: animated ? `${percentage}%` : "0%",
+                    }}
+                  />
                 </div>
               </div>
 
@@ -238,13 +269,7 @@ export function ModernCategoryTrendScore({
                   color: "var(--text-muted)",
                   width: "56px",
                 }}>
-                  <span style={{
-                    width: "6px",
-                    height: "6px",
-                    borderRadius: "50%",
-                    background: label === "HIGH" ? "#3fb950" : label === "MID" ? "#d29922" : "#6e7681",
-                    display: "inline-block",
-                  }} />
+                  <SignalDot label={label} />
                   {label.toLowerCase()}
                 </span>
 

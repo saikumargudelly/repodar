@@ -243,12 +243,19 @@ export default function ResearchListPage() {
 
             {/* Centered Empty State */}
             <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "12px", textAlign: "center", paddingBottom: "80px" }}>
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6e7681" strokeWidth="1.5" style={{ opacity: 0.4, marginBottom: "8px" }}>
-                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                <polyline points="14 2 14 8 20 8" />
-                <circle cx="10" cy="13" r="3" />
-                <line x1="12" y1="15" x2="16" y2="19" />
-              </svg>
+              <div className="narutorun-container" style={{ padding: "0 0 8px 0" }}>
+                <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="var(--color-text-tertiary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="narutorun-svg">
+                  <circle cx="29" cy="12" r="3" />
+                  <path d="M 27 9 L 24 7 L 26 10 L 23 10 L 26 12" />
+                  <path d="M 29 9 L 32 6 L 31 10 L 34 8 L 32 11" />
+                  <path d="M 25 13 C 23 13, 21 11, 19 12 C 17 13, 16 15, 14 14" />
+                  <path d="M 29 15 L 18 28" />
+                  <path d="M 27 17 L 10 21" />
+                  <path d="M 27 17 L 8 23" />
+                  <path d="M 18 28 L 26 34 L 20 44" />
+                  <path d="M 18 28 L 10 35 L 4 33" />
+                </svg>
+              </div>
               <div style={{ fontFamily: "var(--font-sans)", fontWeight: 700, color: C.text, fontSize: "16px" }}>
                 No research sessions yet
               </div>

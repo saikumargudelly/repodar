@@ -366,7 +366,17 @@ function StreamingBubble({ text, repos, status, queryExplanation }: {
           padding: "8px 14px", background: C.bgCard, border: `1px solid ${C.border}`,
           borderRadius: "14px 14px 14px 4px",
         }}>
-          <span style={{ display: "inline-block", width: "8px", height: "8px", borderRadius: "50%", background: C.textSub, animation: "pulse 1.2s ease infinite" }} />
+          <div className="rasengan-indicator" title="Rasengan Chakra Sphere typing indicator">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="2" fill="#378ADD" className="rasengan-center" />
+              <g className="rasengan-inner">
+                <circle cx="12" cy="12" r="5.5" stroke="rgba(255,255,255,0.35)" strokeWidth="1" strokeDasharray="6 3 2 3" />
+              </g>
+              <g className="rasengan-outer">
+                <circle cx="12" cy="12" r="9.5" stroke="#378ADD" strokeWidth="1.5" strokeDasharray="10 4 2 4" />
+              </g>
+            </svg>
+          </div>
           {status}
         </div>
       )}

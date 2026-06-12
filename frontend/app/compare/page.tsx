@@ -10,6 +10,7 @@ import {
   ResponsiveContainer, Tooltip, Legend,
 } from "recharts";
 import { api, CompareEntry, RepoHistory } from "@/lib/api";
+import { NinjaRankPill } from "@/components/NinjaRankPill";
 
 // B&W Theme Palette
 const C = {
@@ -89,16 +90,7 @@ function buildRadarData(repos: CompareEntry[]) {
 // Health status indicator
 function HealthLabel({ label }: { label: string | null }) {
   if (!label) return <span style={{ color: C.textMuted, fontSize: "12px", fontFamily: "var(--font-mono)" }}>—</span>;
-  let color = C.green;
-  let text = "Healthy";
-  if (label === "YELLOW") { color = C.amber; text = "Caution"; }
-  else if (label === "RED") { color = C.red; text = "Critical"; }
-
-  return (
-    <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", fontWeight: 600, color }}>
-      ● {text}
-    </span>
-  );
+  return <NinjaRankPill label={label} />;
 }
 
 // Metric row
@@ -205,7 +197,19 @@ function AddRepoBox({ onAdd }: { onAdd: (id: string) => void }) {
 function EmptyState() {
   return (
     <div className="panel" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", padding: "56px 32px", textAlign: "center" }}>
-      <div style={{ fontSize: "36px", opacity: 0.4 }}>⚡</div>
+      <div className="narutorun-container" style={{ padding: "0 0 8px 0" }}>
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="var(--color-text-tertiary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="narutorun-svg">
+          <circle cx="29" cy="12" r="3" />
+          <path d="M 27 9 L 24 7 L 26 10 L 23 10 L 26 12" />
+          <path d="M 29 9 L 32 6 L 31 10 L 34 8 L 32 11" />
+          <path d="M 25 13 C 23 13, 21 11, 19 12 C 17 13, 16 15, 14 14" />
+          <path d="M 29 15 L 18 28" />
+          <path d="M 27 17 L 10 21" />
+          <path d="M 27 17 L 8 23" />
+          <path d="M 18 28 L 26 34 L 20 44" />
+          <path d="M 18 28 L 10 35 L 4 33" />
+        </svg>
+      </div>
       <div style={{ fontFamily: "var(--font-sans)", fontSize: "14px", color: C.textSub, fontWeight: 500 }}>
         Add at least 2 repositories to compare
       </div>

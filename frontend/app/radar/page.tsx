@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api, EarlyRadarRepo, RadarRepo } from "@/lib/api";
+import { NinjaRankPill } from "@/components/NinjaRankPill";
 
 function downloadBlob(content: string, filename: string, mime: string) {
   const blob = new Blob([content], { type: mime });
@@ -733,7 +734,7 @@ function EarlyRow({ repo, rank, onClick, TDM }: { repo: EarlyRadarRepo; rank: nu
 
       {/* HEALTH */}
       <td style={{ ...TDM, whiteSpace: "nowrap" }}>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", fontWeight: 600, color: hl.dot }}>● {hl.text}</span>
+        <NinjaRankPill label={repo.sustainability_label} />
       </td>
     </tr>
   );
@@ -741,6 +742,5 @@ function EarlyRow({ repo, rank, onClick, TDM }: { repo: EarlyRadarRepo; rank: nu
 
 // Health dot+text badge
 function HealthBadge({ label }: { label: string }) {
-  const hl = healthLabel(label);
-  return <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", fontWeight: 600, color: hl.dot }}>● {hl.text}</span>;
+  return <NinjaRankPill label={label} />;
 }
