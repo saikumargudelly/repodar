@@ -7,7 +7,7 @@ Fail-secure: if ADMIN_SECRET_KEY is not configured, all admin routes return 503.
 import asyncio
 import os
 import aiohttp
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Security
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Security, Request
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -236,6 +236,64 @@ _pipeline_running = False
 _last_pipeline_result = None
 
 
+async def _run_pipeline_background(force_discovery: bool):
+    global _pipeline_running, _last_pipeline_result
+    from app.services.ingestion import run_daily_ingestion
+    from app.services.scoring import run_daily_scoring
+    from app.services.explanation import enrich_top_repos_with_explanations
+    import logging
+    logger = logging.getLogger("app.admin")
+
+    if pipeline_lock.locked():
+        _last_pipeline_result = {"status": "skipped", "detail": "Another pipeline execution is already in progress."}
+        return
+
+    async with pipeline_lock:
+        _pipeline_running = True
+        _last_pipeline_result = {"status": "running"}
+        try:
+            def run_heal():
+                from app.database import SessionLocal
+                db_heal = SessionLocal()
+                try:
+                    deduplicate_repositories_logic(db_heal)
+                except Exception as e:
+                    logger.warning("Auto-deduplication failed: %s", e)
+                finally:
+                    db_heal.close()
+
+            await asyncio.to_thread(run_heal)
+
+            ingest_result = await run_daily_ingestion(force_discovery=force_discovery)
+            score_result = await asyncio.to_thread(run_daily_scoring)
+            explain_count = await asyncio.to_thread(enrich_top_repos_with_explanations, 20)
+            logger.info(
+                "run-all complete | force_discovery=%s discovered=%s ingested=%s scored=%s explained=%s",
+                force_discovery,
+                ingest_result.get('discovered', 0),
+                ingest_result.get('ingested', 0),
+                score_result.get('scored', 0),
+                explain_count,
+            )
+            _last_pipeline_result = {
+                "status": "complete",
+                "discovered": ingest_result.get('discovered', 0),
+                "reactivated": ingest_result.get('reactivated', 0),
+                "ingested": ingest_result.get('ingested', 0),
+                "scored": score_result.get('scored', 0),
+                "failed_scoring": score_result.get('failed', 0),
+                "alerts_generated": score_result.get('alerts', 0),
+                "categories_cached": score_result.get('categories_cached', 0),
+                "explanations": explain_count,
+                "scoring_date": str(score_result.get('date')) if score_result.get('date') else None,
+            }
+        except Exception as e:
+            logger.error("run-all pipeline error: %s", e, exc_info=True)
+            _last_pipeline_result = {"status": "error", "detail": str(e)}
+        finally:
+            _pipeline_running = False
+
+
 class PipelineStatusResponse(BaseModel):
     running: bool
     last_result: dict | None
@@ -257,69 +315,14 @@ async def run_full_pipeline(background_tasks: BackgroundTasks):
     Kick off the full pipeline in the background (discover → ingest → score → explain).
     Returns immediately — check /admin/status to monitor progress.
     """
-    global _pipeline_running, _last_pipeline_result
+    global _pipeline_running
     if _pipeline_running or pipeline_lock.locked():
         raise HTTPException(
             status_code=409,
             detail="Pipeline execution is already in progress."
         )
 
-    from app.services.ingestion import run_daily_ingestion
-    from app.services.scoring import run_daily_scoring
-    from app.services.explanation import enrich_top_repos_with_explanations
-    import logging
-    logger = logging.getLogger("app.admin")
-
-    async def _run():
-        global _pipeline_running, _last_pipeline_result
-        if pipeline_lock.locked():
-            _last_pipeline_result = {"status": "skipped", "detail": "Another pipeline execution is already in progress."}
-            return
-        async with pipeline_lock:
-            _pipeline_running = True
-            _last_pipeline_result = {"status": "running"}
-            try:
-                def run_heal():
-                    from app.database import SessionLocal
-                    db_heal = SessionLocal()
-                    try:
-                        deduplicate_repositories_logic(db_heal)
-                    except Exception as e:
-                        logger.warning("Auto-deduplication failed: %s", e)
-                    finally:
-                        db_heal.close()
-
-                await asyncio.to_thread(run_heal)
-
-                ingest_result = await run_daily_ingestion(force_discovery=False)
-                score_result = await asyncio.to_thread(run_daily_scoring)
-                explain_count = await asyncio.to_thread(enrich_top_repos_with_explanations, 20)
-                logger.info(
-                    "run-all complete | discovered=%s ingested=%s scored=%s explained=%s",
-                    ingest_result.get('discovered', 0),
-                    ingest_result.get('ingested', 0),
-                    score_result.get('scored', 0),
-                    explain_count,
-                )
-                _last_pipeline_result = {
-                    "status": "complete",
-                    "discovered": ingest_result.get('discovered', 0),
-                    "reactivated": ingest_result.get('reactivated', 0),
-                    "ingested": ingest_result.get('ingested', 0),
-                    "scored": score_result.get('scored', 0),
-                    "failed_scoring": score_result.get('failed', 0),
-                    "alerts_generated": score_result.get('alerts', 0),
-                    "categories_cached": score_result.get('categories_cached', 0),
-                    "explanations": explain_count,
-                    "scoring_date": str(score_result.get('date')) if score_result.get('date') else None,
-                }
-            except Exception as e:
-                logger.error("run-all pipeline error: %s", e, exc_info=True)
-                _last_pipeline_result = {"status": "error", "detail": str(e)}
-            finally:
-                _pipeline_running = False
-
-    background_tasks.add_task(_run)
+    background_tasks.add_task(_run_pipeline_background, False)
     return PipelineStatus(
         status="started",
         detail="Full pipeline is running in the background. Check /admin/status or /admin/pipeline-status for progress.",
@@ -664,12 +667,35 @@ async def run_full_pipeline_sync():
 
 @router.get("/run-all-stream")
 @router.post("/run-all-stream")
-async def run_full_pipeline_stream(force_discovery: bool = False):
+async def run_full_pipeline_stream(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    force_discovery: bool = False,
+    stream: bool | None = None
+):
     """
-    Run full pipeline synchronously and stream the progress as an event stream.
-    This prevents Render's 100-second gateway timeout and CPU throttling by
-    periodically sending keep-alive bytes while tasks run.
+    Run full pipeline synchronously and stream progress, OR trigger in the background
+    if stream=False or the client Accept header does not support event-stream (e.g. cron-job.org).
     """
+    # Auto-detect Accept header if stream parameter is not explicitly provided
+    should_stream = stream
+    if should_stream is None:
+        accept_header = request.headers.get("accept", "")
+        should_stream = "text/event-stream" in accept_header
+
+    if not should_stream:
+        global _pipeline_running
+        if _pipeline_running or pipeline_lock.locked():
+            raise HTTPException(
+                status_code=409,
+                detail="Pipeline execution is already in progress."
+            )
+        background_tasks.add_task(_run_pipeline_background, force_discovery)
+        return {
+            "status": "triggered",
+            "detail": f"Full pipeline execution triggered in the background (force_discovery={force_discovery})."
+        }
+
     from fastapi.responses import StreamingResponse
     from app.services.ingestion import run_daily_ingestion
     from app.services.scoring import run_daily_scoring
