@@ -273,7 +273,6 @@ async def lifespan(app: FastAPI):
 
     # Initialize Redis caching with fallback to in-memory caching if Redis is offline
     try:
-        import os
         from redis import asyncio as aioredis
         from fastapi_cache import FastAPICache
         from fastapi_cache.backends.redis import RedisBackend
