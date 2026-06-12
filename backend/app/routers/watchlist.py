@@ -265,7 +265,7 @@ def check_watchlist(
 
 
 @router.post("/{item_id}/test-email")
-def test_watchlist_email(
+async def test_watchlist_email(
     item_id: str,
     user_id: str = Depends(_require_user),
     db: Session = Depends(get_db),
@@ -273,7 +273,7 @@ def test_watchlist_email(
     item = db.query(WatchlistItem).filter_by(id=item_id, user_id=user_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Watchlist item not found")
-    result = send_watchlist_test_email(item_id)
+    result = await send_watchlist_test_email(item_id)
     if not result.get("sent"):
         raise HTTPException(status_code=400, detail=result.get("reason") or "Test email failed")
     return result

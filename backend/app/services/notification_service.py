@@ -32,7 +32,7 @@ def _detail_lines_for_alert(alert: TrendAlert) -> list[str]:
     return lines
 
 
-def send_watchlist_test_email(item_id: str) -> dict:
+async def send_watchlist_test_email(item_id: str) -> dict:
     db = SessionLocal()
     try:
         item = db.query(WatchlistItem).filter_by(id=item_id).first()
@@ -50,13 +50,13 @@ def send_watchlist_test_email(item_id: str) -> dict:
             f"{repo.owner}/{repo.name} test notification from Repodar",
             ["This is a verification email for your watchlist notifications."],
         )
-        sent, error = send_email(item.notify_email, f"Repodar test alert: {repo.owner}/{repo.name}", html)
+        sent, error = await send_email(item.notify_email, f"Repodar test alert: {repo.owner}/{repo.name}", html)
         return {"sent": sent, "reason": error}
     finally:
         db.close()
 
 
-def dispatch_pending_watchlist_alert_emails(lookback_hours: int = 48) -> dict:
+async def dispatch_pending_watchlist_alert_emails(lookback_hours: int = 48) -> dict:
     db = SessionLocal()
     sent_count = 0
     failed_count = 0
@@ -99,7 +99,7 @@ def dispatch_pending_watchlist_alert_emails(lookback_hours: int = 48) -> dict:
                     alert.headline,
                     _detail_lines_for_alert(alert),
                 )
-                sent, error = send_email(
+                sent, error = await send_email(
                     watcher.notify_email,
                     f"Repodar alert: {repo.owner}/{repo.name}",
                     html,
@@ -130,7 +130,7 @@ def dispatch_pending_watchlist_alert_emails(lookback_hours: int = 48) -> dict:
         db.close()
 
 
-def dispatch_digest_emails(frequency: Literal["daily", "weekly", "monthly"]) -> dict:
+async def dispatch_digest_emails(frequency: Literal["daily", "weekly", "monthly"]) -> dict:
     db = SessionLocal()
     sent_count = 0
     skipped_count = 0
@@ -200,7 +200,7 @@ def dispatch_digest_emails(frequency: Literal["daily", "weekly", "monthly"]) -> 
                 top_breakouts,
                 unsubscribe_url=f"{FRONTEND_URL}/unsubscribe?token={subscriber.unsubscribe_token}" if subscriber.unsubscribe_token else None,
             )
-            sent, error = send_email(
+            sent, error = await send_email(
                 subscriber.email,
                 f"Repodar {frequency.title()} digest",
                 html,

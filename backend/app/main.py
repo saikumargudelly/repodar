@@ -63,82 +63,89 @@ logger = logging.getLogger(__name__)
 
 # ─── Background pipeline (APScheduler — no Redis required) ───────────────────
 
+from app.utils.lock import pipeline_lock
+
 async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
     """
     Full delta-sync: ingest (upsert) → score → optionally explain.
     Called by APScheduler every 2 hours AND by the /admin/run-all-sync endpoint.
+    Guarded by an execution lock to prevent concurrent overlapping executions.
     """
     from app.services.ingestion import run_daily_ingestion
     from app.services.scoring import run_daily_scoring
     from app.services.explanation import enrich_top_repos_with_explanations
     from app.services.notification_service import dispatch_pending_watchlist_alert_emails
 
-    run_at = datetime.now(timezone.utc).isoformat()
-    logger.info(f"[pipeline] Starting delta-sync at {run_at}")
+    if pipeline_lock.locked():
+        logger.warning("[pipeline] Pipeline execution requested but another instance is already running. Skipping execution.")
+        return {"status": "skipped", "detail": "Pipeline execution already in progress."}
 
-    try:
-        ingest_result = await run_daily_ingestion()
-        logger.info(f"[pipeline] Ingestion: inserted={ingest_result.get('inserted',0)} "
-                    f"updated={ingest_result.get('updated',0)} failed={ingest_result.get('failed',0)}")
-    except Exception as e:
-        logger.error(f"[pipeline] Ingestion failed: {e}", exc_info=True)
-        return {"run_at": run_at, "status": "error", "phase": "ingestion", "detail": str(e)}
+    async with pipeline_lock:
+        run_at = datetime.now(timezone.utc).isoformat()
+        logger.info(f"[pipeline] Starting delta-sync at {run_at}")
 
-    try:
-        score_result = run_daily_scoring()
-        logger.info(f"[pipeline] Scoring: scored={score_result.get('scored',0)} "
-                    f"failed={score_result.get('failed',0)}")
-    except Exception as e:
-        logger.error(f"[pipeline] Scoring failed: {e}", exc_info=True)
-        score_result = {"scored": 0, "failed": 0, "alerts": 0, "categories_cached": 0, "date": None}
-
-    explain_count = 0
-    summary_count = 0
-    notification_result = {"sent": 0, "failed": 0, "skipped": 0}
-    if include_explanations:
         try:
-            explain_count = enrich_top_repos_with_explanations(top_n=20)
-            logger.info(f"[pipeline] Explanations: {explain_count}")
+            ingest_result = await run_daily_ingestion()
+            logger.info(f"[pipeline] Ingestion: inserted={ingest_result.get('inserted',0)} "
+                        f"updated={ingest_result.get('updated',0)} failed={ingest_result.get('failed',0)}")
         except Exception as e:
-            logger.warning(f"[pipeline] Explanation generation failed (non-fatal): {e}")
+            logger.error(f"[pipeline] Ingestion failed: {e}", exc_info=True)
+            return {"run_at": run_at, "status": "error", "phase": "ingestion", "detail": str(e)}
+
         try:
-            from app.services.explanation import enrich_repos_with_summaries
-            summary_count = enrich_repos_with_summaries(top_n=30)
-            logger.info(f"[pipeline] Summaries: {summary_count}")
+            score_result = await asyncio.to_thread(run_daily_scoring)
+            logger.info(f"[pipeline] Scoring: scored={score_result.get('scored',0)} "
+                        f"failed={score_result.get('failed',0)}")
         except Exception as e:
-            logger.warning(f"[pipeline] Summary generation failed (non-fatal): {e}")
+            logger.error(f"[pipeline] Scoring failed: {e}", exc_info=True)
+            score_result = {"scored": 0, "failed": 0, "alerts": 0, "categories_cached": 0, "date": None}
 
-    try:
-        notification_result = dispatch_pending_watchlist_alert_emails()
-        logger.info(f"[pipeline] Alert notifications: {notification_result}")
-    except Exception as e:
-        logger.warning(f"[pipeline] Alert notifications failed (non-fatal): {e}")
+        explain_count = 0
+        summary_count = 0
+        notification_result = {"sent": 0, "failed": 0, "skipped": 0}
+        if include_explanations:
+            try:
+                explain_count = await asyncio.to_thread(enrich_top_repos_with_explanations, 20)
+                logger.info(f"[pipeline] Explanations: {explain_count}")
+            except Exception as e:
+                logger.warning(f"[pipeline] Explanation generation failed (non-fatal): {e}")
+            try:
+                from app.services.explanation import enrich_repos_with_summaries
+                summary_count = await asyncio.to_thread(enrich_repos_with_summaries, 30)
+                logger.info(f"[pipeline] Summaries: {summary_count}")
+            except Exception as e:
+                logger.warning(f"[pipeline] Summary generation failed (non-fatal): {e}")
 
-    return {
-        "run_at": run_at,
-        "status": "complete",
-        "discovered": ingest_result.get("discovered", 0),
-        "reactivated": ingest_result.get("reactivated", 0),
-        "inserted": ingest_result.get("inserted", 0),
-        "updated": ingest_result.get("updated", 0),
-        "ingested": ingest_result.get("ingested", 0),
-        "failed_ingestion": ingest_result.get("failed", 0),
-        "scored": score_result.get("scored", 0),
-        "failed_scoring": score_result.get("failed", 0),
-        "alerts_generated": score_result.get("alerts", 0),
-        "categories_cached": score_result.get("categories_cached", 0),
-        "explanations": explain_count,
-        "summaries": summary_count,
-        "alert_emails_sent": notification_result.get("sent", 0),
-        "scoring_date": score_result.get("date"),
-    }
+        try:
+            notification_result = await dispatch_pending_watchlist_alert_emails()
+            logger.info(f"[pipeline] Alert notifications: {notification_result}")
+        except Exception as e:
+            logger.warning(f"[pipeline] Alert notifications failed (non-fatal): {e}")
+
+        return {
+            "run_at": run_at,
+            "status": "complete",
+            "discovered": ingest_result.get("discovered", 0),
+            "reactivated": ingest_result.get("reactivated", 0),
+            "inserted": ingest_result.get("inserted", 0),
+            "updated": ingest_result.get("updated", 0),
+            "ingested": ingest_result.get("ingested", 0),
+            "failed_ingestion": ingest_result.get("failed", 0),
+            "scored": score_result.get("scored", 0),
+            "failed_scoring": score_result.get("failed", 0),
+            "alerts_generated": score_result.get("alerts", 0),
+            "categories_cached": score_result.get("categories_cached", 0),
+            "explanations": explain_count,
+            "summaries": summary_count,
+            "alert_emails_sent": notification_result.get("sent", 0),
+            "scoring_date": score_result.get("date"),
+        }
 
 
 def _schedule_pipeline():
     """
     Set up APScheduler to run the full pipeline every 2 hours.
     APScheduler runs in-process — no Redis or separate worker needed.
-    Perfect for Railway single-dyno deployments.
     """
     try:
         from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -147,7 +154,6 @@ def _schedule_pipeline():
         scheduler = AsyncIOScheduler(timezone="UTC")
 
         async def _job():
-            # Include explanations only at the 00:00 UTC run (once per day)
             hour_utc = datetime.now(timezone.utc).hour
             include_explain = (hour_utc == 0)
             result = await _run_pipeline_sync(include_explanations=include_explain)
@@ -172,7 +178,7 @@ def _schedule_pipeline():
         async def _snapshot_job():
             from app.services.weekly_snapshots import publish_weekly_snapshot
             try:
-                result = publish_weekly_snapshot()
+                result = await asyncio.to_thread(publish_weekly_snapshot)
                 logger.info(f"[snapshot_scheduler] {result}")
             except Exception as exc:
                 logger.error(f"[snapshot_scheduler] Failed: {exc}", exc_info=True)
@@ -181,21 +187,21 @@ def _schedule_pipeline():
 
         async def _daily_digest_job():
             from app.services.notification_service import dispatch_digest_emails
-            result = dispatch_digest_emails("daily")
+            result = await dispatch_digest_emails("daily")
             logger.info(f"[digest_scheduler] Daily digest result: {result}")
 
         scheduler.add_job(_daily_digest_job, CronTrigger(hour=9, minute=0), id="daily_digest", replace_existing=True)
 
         async def _weekly_digest_job():
             from app.services.notification_service import dispatch_digest_emails
-            result = dispatch_digest_emails("weekly")
+            result = await dispatch_digest_emails("weekly")
             logger.info(f"[digest_scheduler] Weekly digest result: {result}")
 
         scheduler.add_job(_weekly_digest_job, CronTrigger(day_of_week="mon", hour=9, minute=15), id="weekly_digest", replace_existing=True)
 
         async def _monthly_digest_job():
             from app.services.notification_service import dispatch_digest_emails
-            result = dispatch_digest_emails("monthly")
+            result = await dispatch_digest_emails("monthly")
             logger.info(f"[digest_scheduler] Monthly digest result: {result}")
 
         scheduler.add_job(_monthly_digest_job, CronTrigger(day=1, hour=9, minute=30), id="monthly_digest", replace_existing=True)
@@ -221,10 +227,10 @@ def _schedule_pipeline():
         scheduler.add_job(_enrichment_job, CronTrigger(hour=3, minute=30), id="enrichment_daily", replace_existing=True)
 
         scheduler.start()
-        logger.info("APScheduler started — pipeline runs every 2 h (00/02/04/.../22 UTC)")
+        logger.info("APScheduler started")
         return scheduler
     except Exception as e:
-        logger.warning(f"APScheduler init failed (non-fatal — manual triggers still work): {e}")
+        logger.warning(f"APScheduler init failed: {e}")
         return None
 
 
@@ -257,8 +263,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Seed failed (non-fatal): {e}")
 
-    # Start in-process 2-hour scheduler
-    scheduler = _schedule_pipeline()
+    # Start in-process 2-hour scheduler (configurable via env var, defaults to false)
+    if os.getenv("ENABLE_IN_APP_SCHEDULER", "false").lower() == "true":
+        scheduler = _schedule_pipeline()
+        logger.info("In-app APScheduler started.")
+    else:
+        scheduler = None
+        logger.info("In-app APScheduler is disabled (ENABLE_IN_APP_SCHEDULER=false).")
 
     # Initialize Redis caching with fallback to in-memory caching if Redis is offline
     try:
@@ -285,7 +296,7 @@ async def lifespan(app: FastAPI):
         except Exception as fallback_err:
             logger.error(f"Failed to initialize InMemoryBackend: {fallback_err}")
 
-    logger.info("Repodar ready. Pipeline scheduled every 2 h via APScheduler.")
+    logger.info("Repodar ready.")
     yield
 
     # Graceful shutdown

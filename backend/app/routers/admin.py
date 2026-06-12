@@ -12,6 +12,7 @@ from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.database import get_db
+from app.utils.lock import pipeline_lock
 
 admin_api_key_header = APIKeyHeader(name="X-Admin-Key", auto_error=False)
 
@@ -257,7 +258,7 @@ async def run_full_pipeline(background_tasks: BackgroundTasks):
     Returns immediately — check /admin/status to monitor progress.
     """
     global _pipeline_running, _last_pipeline_result
-    if _pipeline_running:
+    if _pipeline_running or pipeline_lock.locked():
         raise HTTPException(
             status_code=409,
             detail="Pipeline execution is already in progress."
@@ -271,48 +272,52 @@ async def run_full_pipeline(background_tasks: BackgroundTasks):
 
     async def _run():
         global _pipeline_running, _last_pipeline_result
-        _pipeline_running = True
-        _last_pipeline_result = {"status": "running"}
-        try:
-            def run_heal():
-                from app.database import SessionLocal
-                db_heal = SessionLocal()
-                try:
-                    deduplicate_repositories_logic(db_heal)
-                except Exception as e:
-                    logger.warning("Auto-deduplication failed: %s", e)
-                finally:
-                    db_heal.close()
+        if pipeline_lock.locked():
+            _last_pipeline_result = {"status": "skipped", "detail": "Another pipeline execution is already in progress."}
+            return
+        async with pipeline_lock:
+            _pipeline_running = True
+            _last_pipeline_result = {"status": "running"}
+            try:
+                def run_heal():
+                    from app.database import SessionLocal
+                    db_heal = SessionLocal()
+                    try:
+                        deduplicate_repositories_logic(db_heal)
+                    except Exception as e:
+                        logger.warning("Auto-deduplication failed: %s", e)
+                    finally:
+                        db_heal.close()
 
-            await asyncio.to_thread(run_heal)
+                await asyncio.to_thread(run_heal)
 
-            ingest_result = await run_daily_ingestion(force_discovery=False)
-            score_result = await asyncio.to_thread(run_daily_scoring)
-            explain_count = await asyncio.to_thread(enrich_top_repos_with_explanations, 20)
-            logger.info(
-                "run-all complete | discovered=%s ingested=%s scored=%s explained=%s",
-                ingest_result.get('discovered', 0),
-                ingest_result.get('ingested', 0),
-                score_result.get('scored', 0),
-                explain_count,
-            )
-            _last_pipeline_result = {
-                "status": "complete",
-                "discovered": ingest_result.get('discovered', 0),
-                "reactivated": ingest_result.get('reactivated', 0),
-                "ingested": ingest_result.get('ingested', 0),
-                "scored": score_result.get('scored', 0),
-                "failed_scoring": score_result.get('failed', 0),
-                "alerts_generated": score_result.get('alerts', 0),
-                "categories_cached": score_result.get('categories_cached', 0),
-                "explanations": explain_count,
-                "scoring_date": str(score_result.get('date')) if score_result.get('date') else None,
-            }
-        except Exception as e:
-            logger.error("run-all pipeline error: %s", e, exc_info=True)
-            _last_pipeline_result = {"status": "error", "detail": str(e)}
-        finally:
-            _pipeline_running = False
+                ingest_result = await run_daily_ingestion(force_discovery=False)
+                score_result = await asyncio.to_thread(run_daily_scoring)
+                explain_count = await asyncio.to_thread(enrich_top_repos_with_explanations, 20)
+                logger.info(
+                    "run-all complete | discovered=%s ingested=%s scored=%s explained=%s",
+                    ingest_result.get('discovered', 0),
+                    ingest_result.get('ingested', 0),
+                    score_result.get('scored', 0),
+                    explain_count,
+                )
+                _last_pipeline_result = {
+                    "status": "complete",
+                    "discovered": ingest_result.get('discovered', 0),
+                    "reactivated": ingest_result.get('reactivated', 0),
+                    "ingested": ingest_result.get('ingested', 0),
+                    "scored": score_result.get('scored', 0),
+                    "failed_scoring": score_result.get('failed', 0),
+                    "alerts_generated": score_result.get('alerts', 0),
+                    "categories_cached": score_result.get('categories_cached', 0),
+                    "explanations": explain_count,
+                    "scoring_date": str(score_result.get('date')) if score_result.get('date') else None,
+                }
+            except Exception as e:
+                logger.error("run-all pipeline error: %s", e, exc_info=True)
+                _last_pipeline_result = {"status": "error", "detail": str(e)}
+            finally:
+                _pipeline_running = False
 
     background_tasks.add_task(_run)
     return PipelineStatus(
@@ -550,10 +555,10 @@ def deduplicate_repositories_logic(db: Session) -> dict:
 
 
 @router.post("/deduplicate")
-def trigger_deduplicate(db: Session = Depends(get_db)):
-    """Find and heal duplicate repositories and metric entries in the database."""
+async def trigger_deduplicate(db: Session = Depends(get_db)):
+    """Find and heal duplicate repositories and metric entries in the database without blocking the event loop."""
     try:
-        res = deduplicate_repositories_logic(db)
+        res = await asyncio.to_thread(deduplicate_repositories_logic, db)
         return {
             "status": "success",
             "detail": f"Database healed! Merged {res['repos_merged']} duplicate repositories, deleted {res['metrics_deleted']} duplicate metrics."
@@ -611,43 +616,50 @@ async def run_full_pipeline_sync():
     import logging
     _logger = logging.getLogger("app.admin")
 
-    try:
-        from app.database import SessionLocal
-        db_heal = SessionLocal()
+    if pipeline_lock.locked():
+        raise HTTPException(
+            status_code=409,
+            detail="Pipeline execution is already in progress via scheduler or another request."
+        )
+
+    async with pipeline_lock:
         try:
-            deduplicate_repositories_logic(db_heal)
+            from app.database import SessionLocal
+            db_heal = SessionLocal()
+            try:
+                await asyncio.to_thread(deduplicate_repositories_logic, db_heal)
+            except Exception as e:
+                _logger.warning("Auto-deduplication failed: %s", e)
+            finally:
+                db_heal.close()
+
+            _logger.info("run-all-sync: starting ingestion")
+            ingest_result = await run_daily_ingestion(force_discovery=False)
+            _logger.info(f"run-all-sync: ingestion done → {ingest_result}")
+
+            _logger.info("run-all-sync: starting scoring")
+            score_result = await asyncio.to_thread(run_daily_scoring)
+            _logger.info(f"run-all-sync: scoring done → {score_result}")
+
+            _logger.info("run-all-sync: generating explanations")
+            explain_count = await asyncio.to_thread(enrich_top_repos_with_explanations, 20)
+            _logger.info(f"run-all-sync: explanations done → {explain_count}")
+
+            return {
+                "status": "complete",
+                "discovered": ingest_result.get("discovered", 0),
+                "reactivated": ingest_result.get("reactivated", 0),
+                "ingested": ingest_result.get("ingested", 0),
+                "scored": score_result.get("scored", 0),
+                "failed_scoring": score_result.get("failed", 0),
+                "alerts_generated": score_result.get("alerts", 0),
+                "categories_cached": score_result.get("categories_cached", 0),
+                "explanations": explain_count,
+                "scoring_date": score_result.get("date"),
+            }
         except Exception as e:
-            _logger.warning("Auto-deduplication failed: %s", e)
-        finally:
-            db_heal.close()
-
-        _logger.info("run-all-sync: starting ingestion")
-        ingest_result = await run_daily_ingestion(force_discovery=False)
-        _logger.info(f"run-all-sync: ingestion done → {ingest_result}")
-
-        _logger.info("run-all-sync: starting scoring")
-        score_result = run_daily_scoring()
-        _logger.info(f"run-all-sync: scoring done → {score_result}")
-
-        _logger.info("run-all-sync: generating explanations")
-        explain_count = enrich_top_repos_with_explanations(top_n=20)
-        _logger.info(f"run-all-sync: explanations done → {explain_count}")
-
-        return {
-            "status": "complete",
-            "discovered": ingest_result.get("discovered", 0),
-            "reactivated": ingest_result.get("reactivated", 0),
-            "ingested": ingest_result.get("ingested", 0),
-            "scored": score_result.get("scored", 0),
-            "failed_scoring": score_result.get("failed", 0),
-            "alerts_generated": score_result.get("alerts", 0),
-            "categories_cached": score_result.get("categories_cached", 0),
-            "explanations": explain_count,
-            "scoring_date": score_result.get("date"),
-        }
-    except Exception as e:
-        _logger.error(f"run-all-sync failed: {e}", exc_info=True)
-        return {"status": "error", "detail": str(e)}
+            _logger.error(f"run-all-sync failed: {e}", exc_info=True)
+            return {"status": "error", "detail": str(e)}
 
 
 @router.get("/run-all-stream")
@@ -668,70 +680,75 @@ async def run_full_pipeline_stream(force_discovery: bool = False):
     _logger = logging.getLogger("app.admin")
 
     async def event_generator():
-        try:
-            yield "event: info\ndata: starting deduplication...\n\n"
-            from app.database import SessionLocal
-            db_heal = SessionLocal()
+        if pipeline_lock.locked():
+            yield "event: error\ndata: Pipeline execution is already in progress.\n\n"
+            return
+
+        async with pipeline_lock:
             try:
-                dedup_task = asyncio.create_task(asyncio.to_thread(deduplicate_repositories_logic, db_heal))
-                while not dedup_task.done():
+                yield "event: info\ndata: starting deduplication...\n\n"
+                from app.database import SessionLocal
+                db_heal = SessionLocal()
+                try:
+                    dedup_task = asyncio.create_task(asyncio.to_thread(deduplicate_repositories_logic, db_heal))
+                    while not dedup_task.done():
+                        yield ": keepalive\n\n"
+                        await asyncio.sleep(5)
+                    res = await dedup_task
+                    yield f"event: info\ndata: deduplication complete. merged={res.get('repos_merged',0)} deleted={res.get('metrics_deleted',0)}\n\n"
+                except Exception as e:
+                    _logger.warning("Auto-deduplication failed: %s", e)
+                    yield f"event: info\ndata: deduplication failed (non-fatal): {str(e)}\n\n"
+                finally:
+                    db_heal.close()
+
+                yield f"event: info\ndata: starting ingestion (force_discovery={force_discovery})...\n\n"
+                
+                # Ingestion has network requests; periodically yield keep-alive ticks
+                ingest_task = asyncio.create_task(run_daily_ingestion(force_discovery=force_discovery))
+                while not ingest_task.done():
                     yield ": keepalive\n\n"
                     await asyncio.sleep(5)
-                res = await dedup_task
-                yield f"event: info\ndata: deduplication complete. merged={res.get('repos_merged',0)} deleted={res.get('metrics_deleted',0)}\n\n"
+                
+                ingest_result = await ingest_task
+                yield f"event: info\ndata: ingestion complete. discovered={ingest_result.get('discovered',0)} ingested={ingest_result.get('ingested',0)} deactivated={ingest_result.get('deactivated',0)}\n\n"
+
+                yield "event: info\ndata: starting scoring...\n\n"
+                
+                # Run scoring in a thread pool since SQLAlchemy calls are blocking/sync
+                scoring_task = asyncio.create_task(asyncio.to_thread(run_daily_scoring))
+                while not scoring_task.done():
+                    yield ": keepalive\n\n"
+                    await asyncio.sleep(5)
+                    
+                score_result = await scoring_task
+                yield f"event: info\ndata: scoring complete. scored={score_result.get('scored',0)} alerts={score_result.get('alerts',0)}\n\n"
+
+                yield "event: info\ndata: generating explanations...\n\n"
+                
+                explain_task = asyncio.create_task(asyncio.to_thread(enrich_top_repos_with_explanations, 20))
+                while not explain_task.done():
+                    yield ": keepalive\n\n"
+                    await asyncio.sleep(5)
+                    
+                explain_count = await explain_task
+                yield f"event: info\ndata: explanations complete. generated={explain_count}\n\n"
+
+                summary = {
+                    "status": "complete",
+                    "discovered": ingest_result.get("discovered", 0),
+                    "reactivated": ingest_result.get("reactivated", 0),
+                    "ingested": ingest_result.get("ingested", 0),
+                    "scored": score_result.get("scored", 0),
+                    "failed_scoring": score_result.get("failed", 0),
+                    "alerts_generated": score_result.get("alerts", 0),
+                    "explanations": explain_count,
+                }
+                yield f"event: result\ndata: {json.dumps(summary)}\n\n"
+
             except Exception as e:
-                _logger.warning("Auto-deduplication failed: %s", e)
-                yield f"event: info\ndata: deduplication failed (non-fatal): {str(e)}\n\n"
-            finally:
-                db_heal.close()
-
-            yield f"event: info\ndata: starting ingestion (force_discovery={force_discovery})...\n\n"
-            
-            # Ingestion has network requests; periodically yield keep-alive ticks
-            ingest_task = asyncio.create_task(run_daily_ingestion(force_discovery=force_discovery))
-            while not ingest_task.done():
-                yield ": keepalive\n\n"
-                await asyncio.sleep(5)
-            
-            ingest_result = await ingest_task
-            yield f"event: info\ndata: ingestion complete. discovered={ingest_result.get('discovered',0)} ingested={ingest_result.get('ingested',0)} deactivated={ingest_result.get('deactivated',0)}\n\n"
-
-            yield "event: info\ndata: starting scoring...\n\n"
-            
-            # Run scoring in a thread pool since SQLAlchemy calls are blocking/sync
-            scoring_task = asyncio.create_task(asyncio.to_thread(run_daily_scoring))
-            while not scoring_task.done():
-                yield ": keepalive\n\n"
-                await asyncio.sleep(5)
-                
-            score_result = await scoring_task
-            yield f"event: info\ndata: scoring complete. scored={score_result.get('scored',0)} alerts={score_result.get('alerts',0)}\n\n"
-
-            yield "event: info\ndata: generating explanations...\n\n"
-            
-            explain_task = asyncio.create_task(asyncio.to_thread(enrich_top_repos_with_explanations, 20))
-            while not explain_task.done():
-                yield ": keepalive\n\n"
-                await asyncio.sleep(5)
-                
-            explain_count = await explain_task
-            yield f"event: info\ndata: explanations complete. generated={explain_count}\n\n"
-
-            summary = {
-                "status": "complete",
-                "discovered": ingest_result.get("discovered", 0),
-                "reactivated": ingest_result.get("reactivated", 0),
-                "ingested": ingest_result.get("ingested", 0),
-                "scored": score_result.get("scored", 0),
-                "failed_scoring": score_result.get("failed", 0),
-                "alerts_generated": score_result.get("alerts", 0),
-                "explanations": explain_count,
-            }
-            yield f"event: result\ndata: {json.dumps(summary)}\n\n"
-
-        except Exception as e:
-            _logger.error(f"run-all-stream failed: {e}", exc_info=True)
-            yield f"event: error\ndata: {str(e)}\n\n"
+                _logger.error(f"run-all-stream failed: {e}", exc_info=True)
+                yield f"event: error\ndata: {str(e)}\n\n"
 
     return StreamingResponse(
         event_generator(),

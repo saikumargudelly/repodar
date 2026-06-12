@@ -11,8 +11,8 @@ RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "alerts@repodar.vercel.app")
 
 
-def send_email(to_email: str, subject: str, html: str, text: Optional[str] = None) -> tuple[bool, Optional[str]]:
-    """Send an email via Resend if configured."""
+async def send_email(to_email: str, subject: str, html: str, text: Optional[str] = None) -> tuple[bool, Optional[str]]:
+    """Send an email asynchronously via Resend if configured."""
     if not RESEND_API_KEY:
         logger.warning("RESEND_API_KEY not set — email send skipped")
         return False, "RESEND_API_KEY not configured"
@@ -27,15 +27,16 @@ def send_email(to_email: str, subject: str, html: str, text: Optional[str] = Non
         payload["text"] = text
 
     try:
-        response = httpx.post(
-            "https://api.resend.com/emails",
-            headers={
-                "Authorization": f"Bearer {RESEND_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-            timeout=15,
-        )
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {RESEND_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                timeout=15.0,
+            )
         if response.status_code in (200, 201):
             return True, None
         return False, f"HTTP {response.status_code}: {response.text[:200]}"
