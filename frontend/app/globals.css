@@ -1553,7 +1553,20 @@ p, span, div, td, th, a, label, li {
   70%, 100% { filter: brightness(1); }
 }
 @keyframes border-flash {
-  0% { border-color: var(--color-border-secondary); }
-  50% { border-color: rgba(245, 203, 167, 0.3); }
-  100% { border-color: var(--color-border-secondary); }
+  0% {
+    border-left-color: var(--color-border-secondary);
+    border-right-color: var(--color-border-secondary);
+    border-bottom-color: var(--color-border-secondary);
+  }
+  50% {
+    border-left-color: rgba(245, 203, 167, 0.3);
+    border-right-color: rgba(245, 203, 167, 0.3);
+    border-bottom-color: rgba(245, 203, 167, 0.3);
+  }
+  100% {
+    border-left-color: var(--color-border-secondary);
+    border-right-color: var(--color-border-secondary);
+    border-bottom-color: var(--color-border-secondary);
+  }
 }
+

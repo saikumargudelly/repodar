@@ -331,7 +331,7 @@ export function Sidebar() {
 
       {/* Footer Profile Card */}
       {authLoaded && userId && (
-        <div ref={profileMenuRef} style={{ position: "relative", borderTop: "1px solid var(--border)", padding: "10px", flexShrink: 0 }}>
+        <div ref={profileMenuRef} style={{ position: "relative", borderTop: "1px solid var(--border)", padding: "10px 10px 36px 10px", flexShrink: 0 }}>
           {/* Profile Card Button */}
           <div
             onClick={() => setProfileMenuOpen((o) => !o)}
@@ -419,7 +419,7 @@ export function Sidebar() {
             <div
               style={{
                 position: "absolute",
-                bottom: collapsed && !isMobile ? "10px" : "calc(100% + 8px)",
+                bottom: collapsed && !isMobile ? "36px" : "calc(100% + 8px)",
                 left: collapsed && !isMobile ? "calc(100% + 8px)" : "8px",
                 right: collapsed && !isMobile ? "auto" : "8px",
                 minWidth: "180px",

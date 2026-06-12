@@ -159,7 +159,9 @@ function StatCard({ label, value, sub, index = 0 }: { label: string; value: stri
       style={{
         transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
         transform: isHovered ? "scale(1.02) translateY(-2px)" : "scale(1) translateY(0)",
-        borderColor: isHovered ? "var(--text-muted)" : "var(--border)",
+        borderLeftColor: isHovered ? "var(--text-muted)" : "var(--border)",
+        borderRightColor: isHovered ? "var(--text-muted)" : "var(--border)",
+        borderBottomColor: isHovered ? "var(--text-muted)" : "var(--border)",
         borderTop: `3px solid ${color}`,
         boxShadow: isHovered ? `0 8px 24px ${color}10` : "none",
         position: "relative",
