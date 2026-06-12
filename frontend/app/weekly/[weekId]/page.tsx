@@ -64,7 +64,7 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
   const secondaryRepos = snapshot?.repos?.slice(10) ?? [];
 
   return (
-    <div className="page-root" style={{ paddingBottom: "100px", maxWidth: "960px", margin: "0 auto", paddingLeft: "16px", paddingRight: "16px" }}>
+    <div className="page-root" style={{ paddingBottom: "100px" }}>
       <div>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
           <Link href="/weekly" style={{

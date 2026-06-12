@@ -12,7 +12,7 @@ export default function WeeklyIndexPage() {
   });
 
   return (
-    <div className="page-root" style={{ maxWidth: "800px", margin: "0 auto", paddingLeft: "16px", paddingRight: "16px" }}>
+    <div className="page-root">
       <div>
         <div style={{
           fontFamily: "var(--font-mono)",
