@@ -1570,3 +1570,12 @@ p, span, div, td, th, a, label, li {
   }
 }
 
+/* Link hover glow effect */
+.hover-link-glow {
+  transition: all 0.2s ease;
+}
+.hover-link-glow:hover {
+  color: var(--cyan) !important;
+  text-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+}
+
