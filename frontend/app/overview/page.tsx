@@ -1294,91 +1294,7 @@ export default function OverviewPage() {
           style={{ position: "fixed", inset: 0, zIndex: 390 }}
         />
       )}
-      <div style={{
-        position: "fixed",
-        top: "56px",
-        right: "16px",
-        width: "min(380px, calc(100vw - 32px))",
-        maxHeight: "70vh",
-        overflowY: "auto",
-        zIndex: 400,
-        background: "var(--bg-surface)",
-        border: "1px solid var(--border)",
-        borderRadius: "10px",
-        boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
-        transition: "opacity 0.15s, transform 0.15s",
-        opacity: alertsOpen ? 1 : 0,
-        pointerEvents: alertsOpen ? "auto" : "none",
-        transform: alertsOpen ? "translateY(0)" : "translateY(-6px)",
-      }}>
-        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, background: "var(--bg-surface)" }}>
-          <span style={{ fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: "13px", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "7px" }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-              <polyline points="16 7 22 7 22 13" />
-            </svg>
-            Trend Alerts
-            {unreadCount > 0 && (
-              <span style={{ background: "var(--accent-red)", color: "#fff", fontSize: "10px", fontWeight: 700, padding: "1px 5px", borderRadius: "10px" }}>
-                {unreadCount}
-              </span>
-            )}
-          </span>
-          {unreadCount > 0 && (
-            <button onClick={handleDismissAllAlerts} className="link-btn-cyber" style={{ fontSize: "11px" }}>
-              Dismiss all
-            </button>
-          )}
-        </div>
-        {alerts.length === 0 ? (
-          <p style={{ color: "var(--text-muted)", fontFamily: "var(--font-sans)", fontSize: "13px", textAlign: "center", padding: "24px 20px" }}>
-            No active alerts
-          </p>
-        ) : (
-          <div>
-            {alerts.map((alert) => {
-              const prefix = `${alert.owner}/${alert.name} `;
-              const detailText = alert.headline.startsWith(prefix)
-                ? alert.headline.slice(prefix.length)
-                : alert.headline;
-              return (
-                <div
-                  key={alert.id}
-                  onClick={() => {
-                    if (!alert.is_read) {
-                      handleMarkAlertRead(alert.id);
-                    }
-                    router.push(`/repo/${alert.owner}/${alert.name}`);
-                    setAlertsOpen(false);
-                  }}
-                  className={`alert-row-cyber${alert.is_read ? " read" : ""}`}
-                  style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "12px", width: "100%" }}
-                >
-                  <span style={{ fontSize: "16px", flexShrink: 0 }}>{ALERT_ICONS[alert.alert_type] ?? "★"}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: "var(--font-sans)", fontSize: "13px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: "2px" }}>
-                      <strong style={{ color: "var(--accent-blue)", fontWeight: 600 }}>{alert.owner}/{alert.name}</strong>
-                    </div>
-                    <div style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: "var(--text-secondary)", marginBottom: "3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {detailText}
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)" }}>
-                      <span style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--accent-blue)", padding: "1px 6px", fontSize: "11px", borderRadius: "4px" }}>{alert.category}</span>
-                      {new Date(alert.triggered_at).toLocaleDateString()}
-                    </div>
-                  </div>
-                  {!alert.is_read && (
-                    <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent-red)", flexShrink: 0 }} />
-                  )}
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.6 }}>
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+
 
       {/* Header */}
       <div className="overview-header" style={{ marginBottom: "0px" }}>
@@ -1444,68 +1360,156 @@ export default function OverviewPage() {
             </span>
           </div>
 
-          <button
-            onClick={() => setAlertsOpen((o) => !o)}
-            title="Trend Alerts"
-            onMouseEnter={(e) => {
-              if (!alertsOpen) {
-                e.currentTarget.style.color = C.text;
-                e.currentTarget.style.borderColor = C.textSub;
-                e.currentTarget.style.background = "rgba(255, 255, 255, 0.02)";
-              }
-              const svg = e.currentTarget.querySelector("svg");
-              if (svg) svg.style.transform = "translate(2px, -2px)";
-            }}
-            onMouseLeave={(e) => {
-              if (!alertsOpen) {
-                e.currentTarget.style.color = C.textSub;
-                e.currentTarget.style.borderColor = C.border;
-                e.currentTarget.style.background = "transparent";
-              }
-              const svg = e.currentTarget.querySelector("svg");
-              if (svg) svg.style.transform = "translate(0, 0)";
-            }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "6px 14px",
-              borderRadius: "6px",
-              fontSize: "12px",
-              fontWeight: 600,
-              fontFamily: "var(--font-sans)",
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-              background: "transparent",
-              border: `1px solid ${alertsOpen ? C.text : C.border}`,
-              color: alertsOpen ? C.text : C.textSub,
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.2s ease" }}>
-              <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-              <polyline points="16 7 22 7 22 13" />
-            </svg>
-            <span>Trends</span>
-            {unreadCount > 0 && (
-              <span style={{
-                background: C.red,
-                color: "#fff",
-                fontSize: "10px",
-                fontWeight: 700,
-                width: "18px",
-                height: "18px",
-                borderRadius: "50%",
-                display: "inline-flex",
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => setAlertsOpen((o) => !o)}
+              title="Trend Alerts"
+              onMouseEnter={(e) => {
+                if (!alertsOpen) {
+                  e.currentTarget.style.color = C.text;
+                  e.currentTarget.style.borderColor = C.textSub;
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.02)";
+                }
+                const svg = e.currentTarget.querySelector("svg");
+                if (svg) svg.style.transform = "translate(2px, -2px)";
+              }}
+              onMouseLeave={(e) => {
+                if (!alertsOpen) {
+                  e.currentTarget.style.color = C.textSub;
+                  e.currentTarget.style.borderColor = C.border;
+                  e.currentTarget.style.background = "transparent";
+                }
+                const svg = e.currentTarget.querySelector("svg");
+                if (svg) svg.style.transform = "translate(0, 0)";
+              }}
+              style={{
+                display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                lineHeight: 1,
-                marginLeft: "4px",
-                animation: "pulse-badge 1.8s infinite",
-              }}>
-                {unreadCount}
-              </span>
-            )}
-          </button>
+                gap: "6px",
+                padding: "6px 14px",
+                borderRadius: "6px",
+                fontSize: "12px",
+                fontWeight: 600,
+                fontFamily: "var(--font-sans)",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                background: "transparent",
+                border: `1px solid ${alertsOpen ? C.text : C.border}`,
+                color: alertsOpen ? C.text : C.textSub,
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.2s ease" }}>
+                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+                <polyline points="16 7 22 7 22 13" />
+              </svg>
+              <span>Trends</span>
+              {unreadCount > 0 && (
+                <span style={{
+                  background: C.red,
+                  color: "#fff",
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  width: "18px",
+                  height: "18px",
+                  borderRadius: "50%",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  lineHeight: 1,
+                  marginLeft: "4px",
+                  animation: "pulse-badge 1.8s infinite",
+                }}>
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
+            <div style={{
+              position: "absolute",
+              top: "calc(100% + 6px)",
+              right: 0,
+              width: "min(380px, calc(100vw - 32px))",
+              maxHeight: "70vh",
+              overflowY: "auto",
+              zIndex: 400,
+              background: "var(--bg-surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "10px",
+              boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
+              transition: "opacity 0.15s, transform 0.15s",
+              opacity: alertsOpen ? 1 : 0,
+              pointerEvents: alertsOpen ? "auto" : "none",
+              transform: alertsOpen ? "translateY(0)" : "translateY(-6px)",
+            }}>
+              <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, background: "var(--bg-surface)" }}>
+                <span style={{ fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: "13px", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "7px" }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+                    <polyline points="16 7 22 7 22 13" />
+                  </svg>
+                  Trend Alerts
+                  {unreadCount > 0 && (
+                    <span style={{ background: "var(--accent-red)", color: "#fff", fontSize: "10px", fontWeight: 700, padding: "1px 5px", borderRadius: "10px" }}>
+                      {unreadCount}
+                    </span>
+                  )}
+                </span>
+                {unreadCount > 0 && (
+                  <button onClick={handleDismissAllAlerts} className="link-btn-cyber" style={{ fontSize: "11px" }}>
+                    Dismiss all
+                  </button>
+                )}
+              </div>
+              {alerts.length === 0 ? (
+                <p style={{ color: "var(--text-muted)", fontFamily: "var(--font-sans)", fontSize: "13px", textAlign: "center", padding: "24px 20px" }}>
+                  No active alerts
+                </p>
+              ) : (
+                <div>
+                  {alerts.map((alert) => {
+                    const prefix = `${alert.owner}/${alert.name} `;
+                    const detailText = alert.headline.startsWith(prefix)
+                      ? alert.headline.slice(prefix.length)
+                      : alert.headline;
+                    return (
+                      <div
+                        key={alert.id}
+                        onClick={() => {
+                          if (!alert.is_read) {
+                            handleMarkAlertRead(alert.id);
+                          }
+                          router.push(`/repo/${alert.owner}/${alert.name}`);
+                          setAlertsOpen(false);
+                        }}
+                        className={`alert-row-cyber${alert.is_read ? " read" : ""}`}
+                        style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "12px", width: "100%" }}
+                      >
+                        <span style={{ fontSize: "16px", flexShrink: 0 }}>{ALERT_ICONS[alert.alert_type] ?? "★"}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontFamily: "var(--font-sans)", fontSize: "13px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: "2px" }}>
+                            <strong style={{ color: "var(--accent-blue)", fontWeight: 600 }}>{alert.owner}/{alert.name}</strong>
+                          </div>
+                          <div style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: "var(--text-secondary)", marginBottom: "3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {detailText}
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)" }}>
+                            <span style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--accent-blue)", padding: "1px 6px", fontSize: "11px", borderRadius: "4px" }}>{alert.category}</span>
+                            {new Date(alert.triggered_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                        {!alert.is_read && (
+                          <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent-red)", flexShrink: 0 }} />
+                        )}
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.6 }}>
+                          <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Row 3: Vertical selector — always full width */}
