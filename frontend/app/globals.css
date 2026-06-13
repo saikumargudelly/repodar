@@ -1219,17 +1219,17 @@ p, span, div, td, th, a, label, li {
 @media (max-width: 768px) {
   .main-content {
     /* Sidebar sets --sidebar-width to 0px on mobile */
-    padding: 0 16px 52px;
+    padding: 0 8px 40px;
   }
   .status-bar-cyber {
     /* Full-width status bar on mobile (no sidebar offset) */
-    padding-left: 16px !important;
+    padding-left: 8px !important;
   }
 }
 
 @media (max-width: 480px) {
   .main-content {
-    padding: 0 12px 52px;
+    padding: 0 8px 40px;
   }
 }
 
@@ -1801,35 +1801,22 @@ p, span, div, td, th, a, label, li {
     display: none !important;
   }
   .early-radar-filters-panel.open {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
+    display: flex !important;
+    flex-direction: column;
     align-items: stretch;
+    gap: 14px;
   }
   .early-radar-filters-panel.open > div {
+    width: 100% !important;
     min-width: 0 !important;
+    border-right: none !important;
+    padding-right: 0 !important;
   }
   .early-radar-filters-panel.open > button {
-    grid-column: span 2;
     width: 100%;
+    margin-top: 6px;
   }
-  .early-radar-filters-panel.open > label {
-    grid-column: span 2;
-    padding: 6px 0;
   }
-}
-
-@media (max-width: 480px) {
-  .early-radar-filters-panel.open {
-    grid-template-columns: 1fr;
-  }
-  .early-radar-filters-panel.open > button {
-    grid-column: span 1;
-  }
-  .early-radar-filters-panel.open > label {
-    grid-column: span 1;
-  }
-}
 
 /* ── Explore Page Filters ── */
 .explore-filter-toolbar {

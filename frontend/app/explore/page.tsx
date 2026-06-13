@@ -92,7 +92,7 @@ export default function ExplorePage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+    <div className="max-w-7xl mx-auto py-8 px-0 md:px-4 lg:px-8">
       {/* Title & Matched Count */}
       <div className="flex items-baseline gap-3 mb-6">
         <h1 className="text-2xl font-bold text-white tracking-tight">Explore repositories</h1>

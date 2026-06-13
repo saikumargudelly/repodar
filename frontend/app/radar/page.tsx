@@ -122,6 +122,7 @@ export default function RadarPage() {
   const [beforeMaxStars,  setBeforeMaxStars]  = useState(1000);
   const [beforeMinAccel,  setBeforeMinAccel]  = useState(0);
   const [beforePreViral,  setBeforePreViral]  = useState(false);
+  const [showFilters,     setShowFilters]     = useState(false);
 
   // Breakout radar controls
   const [newOnly,          setNewOnly]          = useState(false);
@@ -241,9 +242,20 @@ export default function RadarPage() {
         <div>
           <SectionHeader eyebrow="EARLY RADAR" title="Before it trends" subtitle="Young repos with strong momentum — catch the next breakout" />
 
+          {/* Filters Toggle for Mobile */}
+          <div className="filters-toggle-bar" style={{ display: "none" }}>
+            <button 
+              onClick={() => setShowFilters(!showFilters)} 
+              className="btn-cyber btn-cyber-cyan" 
+              style={{ width: "100%", justifyContent: "center", display: "flex", alignItems: "center", gap: "8px", padding: "8px", marginBottom: "14px" }}
+            >
+              {showFilters ? "HIDE FILTERS ▲" : "SHOW FILTERS ▼"}
+            </button>
+          </div>
+
           {/* Filters bar */}
-          <div className="panel" style={{ padding: "16px 20px", marginBottom: "16px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "20px", flexWrap: "wrap" }}>
+          <div className={`panel early-radar-filters-panel ${showFilters ? "open" : ""}`} style={{ marginBottom: "16px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "20px", flexWrap: "wrap", width: "100%" }}>
               <SliderBlock label="MAX AGE"   value={`${beforeMaxAge}D`}
                 min={7} max={365} step={7} current={beforeMaxAge} onChange={setBeforeMaxAge}
                 style={{ flex: "1 1 150px", borderRight: `1px solid ${C.border}`, paddingRight: "20px" }} />
@@ -380,8 +392,19 @@ export default function RadarPage() {
             <MetricCard label="PRE-VIRAL / BREAKOUT" value={String(earlyPreViral)} highlight={C.green} />
           </div>
 
+          {/* Filters Toggle for Mobile */}
+          <div className="filters-toggle-bar" style={{ display: "none" }}>
+            <button 
+              onClick={() => setShowFilters(!showFilters)} 
+              className="btn-cyber btn-cyber-cyan" 
+              style={{ width: "100%", justifyContent: "center", display: "flex", alignItems: "center", gap: "8px", padding: "8px", marginBottom: "14px" }}
+            >
+              {showFilters ? "HIDE FILTERS ▲" : "SHOW FILTERS ▼"}
+            </button>
+          </div>
+
           {/* Controls panel */}
-          <div className="panel" style={{ padding: "16px 20px", marginBottom: "16px" }}>
+          <div className={`panel early-radar-filters-panel ${showFilters ? "open" : ""}`} style={{ marginBottom: "16px" }}>
             {/* Sliders row */}
             <div style={{ display: "flex", gap: "20px", flexWrap: "wrap", marginBottom: "16px" }}>
               <SliderBlock label="MAX AGE" value={`${maxAge}d`}
