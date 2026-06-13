@@ -491,7 +491,7 @@ function LeaderboardAndNetworkContent() {
                         <td style={{ ...TD_STYLE, fontFamily: "var(--font-mono)", color: C.textMuted, fontSize: "11px" }}>
                           {idx + 1}
                         </td>
-                        <td style={{ ...TD_STYLE, maxWidth: "220px" }}>
+                        <td className="leaderboard-repo-cell" style={TD_STYLE}>
                           <div style={{ fontFamily: "var(--font-mono)", fontSize: "12px", fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             <span style={{ fontWeight: 400, color: C.textMuted }}>{row.owner}/</span>{row.name}
                           </div>
