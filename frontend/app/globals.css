@@ -2025,12 +2025,27 @@ p, span, div, td, th, a, label, li {
   display: grid;
   grid-template-columns: 1fr;
   gap: 16px;
+  width: 100%;
+  max-width: 100%;
+}
+.network-grid > * {
+  min-width: 0;
 }
 @media (min-width: 769px) {
   .network-grid.has-selection {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+.panel {
+  max-width: 100%;
+}
+
+.table-scroll {
+  width: 100%;
+  max-width: 100%;
+}
+
 
 /* Orgs Page */
 .org-search-row {
