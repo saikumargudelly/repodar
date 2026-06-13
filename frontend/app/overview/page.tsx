@@ -515,7 +515,7 @@ function LeaderboardTable({
   return (
     <div className="panel" style={{ display: "flex", flexDirection: "column" }}>
       <div className="panel-header" style={{ borderBottom: "1px solid var(--border)", padding: "14px 16px" }}>
-        <div style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="top-repos-title-row">
           <span style={{ fontSize: "16px", fontWeight: 700, color: "var(--text-primary)" }}>
             Top repos · {periodLabel}
           </span>
@@ -725,7 +725,7 @@ function LeaderboardTable({
 
                   {/* Repo Details */}
                   <td
-                    style={{ padding: "12px 12px", maxWidth: "340px", cursor: "pointer" }}
+                    className="repo-details-col"
                     onClick={() => router.push(`/repo/${repo.owner}/${repo.name}`)}
                   >
                     <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
@@ -1452,23 +1452,14 @@ export default function OverviewPage() {
               )}
             </button>
 
-            <div style={{
-              position: "absolute",
-              top: "calc(100% + 6px)",
-              right: 0,
-              width: "min(380px, calc(100vw - 32px))",
-              maxHeight: "70vh",
-              overflowY: "auto",
-              zIndex: 400,
-              background: "var(--bg-surface)",
-              border: "1px solid var(--border)",
-              borderRadius: "10px",
-              boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
-              transition: "opacity 0.15s, transform 0.15s",
-              opacity: alertsOpen ? 1 : 0,
-              pointerEvents: alertsOpen ? "auto" : "none",
-              transform: alertsOpen ? "translateY(0)" : "translateY(-6px)",
-            }}>
+            <div 
+              className="trends-popup"
+              style={{
+                opacity: alertsOpen ? 1 : 0,
+                pointerEvents: alertsOpen ? "auto" : "none",
+                transform: alertsOpen ? "translateY(0)" : "translateY(-6px)",
+              }}
+            >
               <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, background: "var(--bg-surface)" }}>
                 <span style={{ fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: "13px", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "7px" }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
