@@ -1965,3 +1965,124 @@ p, span, div, td, th, a, label, li {
     width: 100%;
   }
 }
+
+/* ==========================================================================
+   Mobile/Tablet Layout Fixes for Leaderboard, Orgs, and Weekly Digest Pages
+   ========================================================================== */
+
+/* Leaderboard Page */
+.leaderboard-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.leaderboard-actions-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+@media (max-width: 640px) {
+  .leaderboard-header-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .leaderboard-actions-row {
+    width: 100%;
+  }
+  .leaderboard-actions-row button {
+    flex: 1;
+    justify-content: center;
+  }
+  .leaderboard-controls-panel {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px !important;
+  }
+  .leaderboard-scroll-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    white-space: nowrap;
+    width: 100%;
+    padding: 2px 0;
+  }
+  .leaderboard-scroll-wrapper::-webkit-scrollbar {
+    display: none;
+  }
+  .leaderboard-scroll-wrapper button {
+    flex-shrink: 0;
+  }
+}
+
+/* Network Grid responsive split screen */
+.network-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+@media (min-width: 769px) {
+  .network-grid.has-selection {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Orgs Page */
+.org-search-row {
+  display: flex;
+  gap: 8px;
+}
+.org-featured-scroll {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+@media (max-width: 640px) {
+  .org-search-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .org-search-row button {
+    width: 100%;
+    justify-content: center;
+    padding: 10px !important;
+  }
+  .org-featured-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    white-space: nowrap;
+    width: 100%;
+    padding: 4px 0;
+  }
+  .org-featured-scroll::-webkit-scrollbar {
+    display: none;
+  }
+  .org-featured-scroll button {
+    flex-shrink: 0;
+  }
+}
+
+/* Weekly Digest Page */
+.weekly-metrics-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+}
+@media (max-width: 640px) {
+  .weekly-metrics-strip {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    padding: 10px 12px;
+  }
+}
+

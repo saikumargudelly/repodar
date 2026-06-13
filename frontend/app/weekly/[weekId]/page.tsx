@@ -108,9 +108,9 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
           flexWrap: "wrap"
         }}>
           <span>Published by <strong>Repodar Intelligence Bot</strong></span>
-          <span style={{ color: "var(--border)" }}>|</span>
+          <span className="col-hide-mobile" style={{ color: "var(--border)" }}>|</span>
           <span>⏱️ 5 min read</span>
-          <span style={{ color: "var(--border)" }}>|</span>
+          <span className="col-hide-mobile" style={{ color: "var(--border)" }}>|</span>
           <span>📅 {snapshot ? new Date(snapshot.published_at).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) : "LOADING"}</span>
         </div>
 
@@ -271,15 +271,7 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
                   )}
 
                   {/* Metrics Strip */}
-                  <div style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-                    gap: "12px",
-                    background: "rgba(255,255,255,0.02)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "6px",
-                    padding: "12px 16px"
-                  }}>
+                  <div className="weekly-metrics-strip">
                     <div>
                       <div style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--text-muted)" }}>★ TOTAL STARS</div>
                       <div style={{ fontFamily: "var(--font-mono)", fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", marginTop: "2px" }}>

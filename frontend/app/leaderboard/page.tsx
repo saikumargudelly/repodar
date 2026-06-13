@@ -226,7 +226,7 @@ function LeaderboardAndNetworkContent() {
   return (
     <div className="page-root" style={{ background: C.bg, minHeight: "100vh", color: C.text }}>
       {/* ─── Header ────────────────────────────────────────────── */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "16px" }}>
+      <div className="leaderboard-header-row">
         <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
           <h1 style={{ fontFamily: "var(--font-sans)", fontSize: "20px", fontWeight: 700, margin: 0 }}>
             Leaderboard & contributor network
@@ -248,7 +248,7 @@ function LeaderboardAndNetworkContent() {
           </span>
         </div>
 
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+        <div className="leaderboard-actions-row">
           <button
             onClick={() => exportCSV(activeTab === "leaderboard" ? lbExportData : networkExportData, activeTab === "leaderboard" ? "leaderboard.csv" : "contributor-network.csv")}
             style={{
@@ -362,7 +362,7 @@ function LeaderboardAndNetworkContent() {
       {activeTab === "leaderboard" && (
         <div>
           {/* Metric cards */}
-          <div className="radar-summary-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", marginBottom: "20px" }}>
+          <div className="radar-summary-grid" style={{ marginBottom: "20px" }}>
             <div className="panel" style={{ padding: "14px 18px", border: `1px solid ${C.border}` }}>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: C.textMuted, letterSpacing: "0.06em", marginBottom: "4px" }}>REPOS RANKED</div>
               <div style={{ fontFamily: "var(--font-sans)", fontSize: "22px", fontWeight: 700, color: C.text }}>
@@ -390,9 +390,9 @@ function LeaderboardAndNetworkContent() {
           </div>
 
           {/* Controls */}
-          <div className="panel" style={{ padding: "10px 16px", marginBottom: "16px", display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          <div className="panel leaderboard-controls-panel" style={{ padding: "10px 16px", marginBottom: "16px", display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
             {/* View selectors */}
-            <div style={{ display: "flex", gap: "6px" }}>
+            <div className="leaderboard-scroll-wrapper" style={{ display: "flex", gap: "6px" }}>
               {(["trending", "top_score", "sustainable"] as LeaderboardView[]).map((v) => {
                 const labels: Record<LeaderboardView, string> = {
                   trending: "Star gain",
@@ -427,8 +427,8 @@ function LeaderboardAndNetworkContent() {
 
             {view !== "sustainable" && (
               <>
-                <span style={{ width: "1px", height: "18px", background: C.border, margin: "0 6px" }} />
-                <div style={{ display: "flex", gap: "6px" }}>
+                <span className="col-hide-mobile" style={{ width: "1px", height: "18px", background: C.border, margin: "0 6px" }} />
+                <div className="leaderboard-scroll-wrapper" style={{ display: "flex", gap: "6px" }}>
                   {(["7d", "30d", "90d"] as Period[]).map((p) => {
                     const labels: Record<string, string> = { "7d": "7 days", "30d": "30 days", "90d": "90 days" };
                     const active = period === p;
@@ -473,8 +473,8 @@ function LeaderboardAndNetworkContent() {
                     <th style={{ ...TH_STYLE, width: "50px" }}>#</th>
                     <th style={TH_STYLE}>REPOSITORY</th>
                     <th style={{ ...TH_STYLE, textAlign: "right" }}>STAR GAIN</th>
-                    <th style={{ ...TH_STYLE, textAlign: "right" }}>TREND SCORE</th>
-                    <th style={{ ...TH_STYLE, textAlign: "right" }}>SUSTAIN</th>
+                    <th className="col-hide-mobile" style={{ ...TH_STYLE, textAlign: "right" }}>TREND SCORE</th>
+                    <th className="col-hide-mobile" style={{ ...TH_STYLE, textAlign: "right" }}>SUSTAIN</th>
                     <th style={{ ...TH_STYLE, textAlign: "right" }}>HEALTH</th>
                   </tr>
                 </thead>
@@ -502,10 +502,10 @@ function LeaderboardAndNetworkContent() {
                         <td style={{ ...TD_STYLE, textAlign: "right", fontFamily: "var(--font-mono)", fontWeight: 700, color: C.green }}>
                           +{row.star_gain?.toLocaleString() ?? "0"}
                         </td>
-                        <td style={{ ...TD_STYLE, textAlign: "right", fontFamily: "var(--font-mono)", color: C.amber }}>
+                        <td className="col-hide-mobile" style={{ ...TD_STYLE, textAlign: "right", fontFamily: "var(--font-mono)", color: C.amber }}>
                           {row.trend_score?.toFixed(4) ?? "—"}
                         </td>
-                        <td style={{ ...TD_STYLE, textAlign: "right", fontFamily: "var(--font-mono)", color: C.text }}>
+                        <td className="col-hide-mobile" style={{ ...TD_STYLE, textAlign: "right", fontFamily: "var(--font-mono)", color: C.text }}>
                           {row.sustainability_score ? `${(row.sustainability_score * 100).toFixed(0)}%` : "—"}
                         </td>
                         <td style={{ ...TD_STYLE, textAlign: "right", whiteSpace: "nowrap" }}>
@@ -567,7 +567,7 @@ function LeaderboardAndNetworkContent() {
       {activeTab === "network" && (
         <div>
           {/* Metric cards */}
-          <div className="radar-summary-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", marginBottom: "20px" }}>
+          <div className="radar-summary-grid" style={{ marginBottom: "20px" }}>
             <div className="panel" style={{ padding: "14px 18px", border: `1px solid ${C.border}` }}>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: C.textMuted, letterSpacing: "0.06em", marginBottom: "4px" }}>CROSS-REPO CONTRIBUTORS</div>
               <div style={{ fontFamily: "var(--font-sans)", fontSize: "22px", fontWeight: 700, color: C.text }}>
@@ -671,7 +671,7 @@ function LeaderboardAndNetworkContent() {
           </div>
 
           {/* Grid Layout (List + Detail) */}
-          <div style={{ display: "grid", gridTemplateColumns: selectedLogin ? "1fr 1fr" : "1fr", gap: "16px" }}>
+          <div className={`network-grid${selectedLogin ? " has-selection" : ""}`}>
             {/* List */}
             {networkLoading ? (
               <div style={{ fontFamily: "var(--font-mono)", color: C.textMuted, padding: "60px 0", textAlign: "center", fontSize: "12px", letterSpacing: "0.06em" }}>
@@ -685,8 +685,8 @@ function LeaderboardAndNetworkContent() {
                       <th style={{ ...TH_STYLE, width: "40px" }}>#</th>
                       <th style={TH_STYLE}>CONTRIBUTOR</th>
                       <th style={{ ...TH_STYLE, textAlign: "right" }}>REPOS</th>
-                      <th style={{ ...TH_STYLE, textAlign: "right" }}>COMMITS</th>
-                      <th style={TH_STYLE}>SAMPLE REPOS</th>
+                      <th className="col-hide-mobile" style={{ ...TH_STYLE, textAlign: "right" }}>COMMITS</th>
+                      <th className="col-hide-mobile" style={TH_STYLE}>SAMPLE REPOS</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -730,10 +730,10 @@ function LeaderboardAndNetworkContent() {
                         <td style={{ ...TD_STYLE, textAlign: "right", fontFamily: "var(--font-mono)", color: C.green, fontWeight: 700 }}>
                           {c.repo_count}
                         </td>
-                        <td style={{ ...TD_STYLE, textAlign: "right", fontFamily: "var(--font-mono)", color: C.text }}>
+                        <td className="col-hide-mobile" style={{ ...TD_STYLE, textAlign: "right", fontFamily: "var(--font-mono)", color: C.text }}>
                           {formatCommits(c.total_contributions)}
                         </td>
-                        <td style={TD_STYLE}>
+                        <td className="col-hide-mobile" style={TD_STYLE}>
                           <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
                             {c.repos.slice(0, 3).map((r, rIdx) => (
                               <span key={`${c.login}-${r.repo_id}-${rIdx}`} className="cyber-tag" style={{ fontSize: "10px" }}>

@@ -89,16 +89,21 @@ function OrgResults({ data }: { data: OrgHealthResponse }) {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", minWidth: "740px" }}>
             <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
               <tr style={{ background: "var(--bg-elevated)" }}>
-                {["REPOSITORY", "LANGUAGE", "STARS", "FORKS", "ISSUES", "AGE", "TREND", "HEALTH", ""].map((h) => (
-                  <th key={h} className="th-mono"
-                    style={{
-                      textAlign: ["STARS", "FORKS", "ISSUES", "AGE"].includes(h) ? "right" : "left",
-                      whiteSpace: "nowrap",
-                      borderBottom: "1px solid var(--border)",
-                    }}>
-                    {h}
-                  </th>
-                ))}
+                {["REPOSITORY", "LANGUAGE", "STARS", "FORKS", "ISSUES", "AGE", "TREND", "HEALTH", ""].map((h) => {
+                  let cls = "th-mono";
+                  if (["LANGUAGE", "FORKS", "ISSUES", "TREND"].includes(h)) cls += " col-hide-mobile";
+                  if (h === "AGE" || h === "") cls += " col-hide-tablet";
+                  return (
+                    <th key={h} className={cls}
+                      style={{
+                        textAlign: ["STARS", "FORKS", "ISSUES", "AGE"].includes(h) ? "right" : "left",
+                        whiteSpace: "nowrap",
+                        borderBottom: "1px solid var(--border)",
+                      }}>
+                      {h}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
@@ -130,7 +135,7 @@ function OrgResults({ data }: { data: OrgHealthResponse }) {
                       </div>
                     )}
                   </td>
-                  <td style={{
+                  <td className="col-hide-mobile" style={{
                     padding: "10px 14px", fontFamily: "var(--font-mono)",
                     fontSize: "11px", color: "var(--text-muted)",
                   }}>
@@ -143,28 +148,28 @@ function OrgResults({ data }: { data: OrgHealthResponse }) {
                   }}>
                     {repo.stars.toLocaleString()}
                   </td>
-                  <td style={{
+                  <td className="col-hide-mobile" style={{
                     padding: "10px 14px", textAlign: "right",
                     fontFamily: "var(--font-mono)", fontSize: "11px",
                     color: "var(--text-muted)",
                   }}>
                     {repo.forks.toLocaleString()}
                   </td>
-                  <td style={{
+                  <td className="col-hide-mobile" style={{
                     padding: "10px 14px", textAlign: "right",
                     fontFamily: "var(--font-mono)", fontSize: "11px",
                     color: "var(--text-muted)",
                   }}>
                     {repo.open_issues.toLocaleString()}
                   </td>
-                  <td style={{
+                  <td className="col-hide-tablet" style={{
                     padding: "10px 14px", textAlign: "right",
                     fontFamily: "var(--font-mono)", fontSize: "11px",
                     color: "var(--text-muted)",
                   }}>
                     {repo.age_days}d
                   </td>
-                  <td style={{ padding: "10px 14px", textAlign: "right" }}>
+                  <td className="col-hide-mobile" style={{ padding: "10px 14px", textAlign: "right" }}>
                     <TrendPill score={repo.trend_score} />
                   </td>
                   <td style={{ padding: "10px 14px" }}>
@@ -177,7 +182,7 @@ function OrgResults({ data }: { data: OrgHealthResponse }) {
                           {repo.is_tracked ? "—" : "untracked"}
                         </span>}
                   </td>
-                  <td style={{ padding: "10px 14px" }}>
+                  <td className="col-hide-tablet" style={{ padding: "10px 14px" }}>
                     {repo.is_tracked && (
                       <span style={{
                         fontFamily: "var(--font-mono)", fontSize: "9px",
@@ -272,7 +277,7 @@ function OrgPageInner() {
 
       {/* ── Search panel ── */}
       <div className="panel" style={{ display: "flex", flexDirection: "column", gap: "14px", padding: "18px 20px" }}>
-        <div style={{ display: "flex", gap: "8px" }}>
+        <div className="org-search-row">
           <input
             id="org-search-input"
             value={inputVal}
@@ -293,10 +298,11 @@ function OrgPageInner() {
         </div>
 
         {/* Quick-pick chips */}
-        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
+        <div className="org-featured-scroll">
           <span style={{
             fontFamily: "var(--font-mono)", fontSize: "10px",
             color: "var(--text-muted)", marginRight: "4px", letterSpacing: "0.06em",
+            flexShrink: 0
           }}>
             QUICK:
           </span>
