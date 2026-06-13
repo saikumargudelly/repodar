@@ -316,17 +316,11 @@ export function ModernCategoryTrendScore({
       </div>
 
       {/* Footer */}
-      <div style={{
-        borderTop: "1px solid var(--border)",
-        padding: "12px 16px",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-      }}>
+      <div className="trend-score-footer">
         <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>
           Hover any row for score breakdown · Updated 12 min ago
         </span>
-        <div style={{ display: "flex", gap: "8px" }}>
+        <div className="trend-score-footer-buttons">
           <button 
             onClick={() => router.push("/leaderboard")}
             style={{
@@ -374,9 +368,45 @@ export function ModernCategoryTrendScore({
           background: rgba(255, 255, 255, 0.03);
           transform: translateX(4px);
         }
+        .trend-score-footer {
+          border-top: 1px solid var(--border);
+          padding: 12px 16px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+        }
+        .trend-score-footer-buttons {
+          display: flex;
+          gap: 8px;
+        }
         /* Hide star-gain column on very narrow screens */
         @media (max-width: 480px) {
           .trend-stars-col { display: none !important; }
+        }
+        @media (max-width: 640px) {
+          .trend-score-footer {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+            padding: 12px;
+          }
+          .trend-score-footer > span {
+            text-align: center;
+            font-size: 10px !important;
+          }
+          .trend-score-footer-buttons {
+            width: 100%;
+            display: flex;
+            gap: 8px;
+          }
+          .trend-score-footer-buttons button {
+            flex: 1;
+            justify-content: center;
+            padding: 8px 12px !important;
+            font-size: 11px !important;
+            white-space: nowrap;
+          }
         }
       `}</style>
     </div>
