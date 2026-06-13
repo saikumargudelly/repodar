@@ -891,6 +891,9 @@ p, span, div, td, th, a, label, li {
 
 /* ── Tablet: 2 KPI columns ─────────────────────────────────── */
 @media (max-width: 1024px) {
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
   .stat-grid-5 {
     grid-template-columns: repeat(3, 1fr);
   }
