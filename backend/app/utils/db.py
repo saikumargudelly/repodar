@@ -31,13 +31,14 @@ def get_latest_daily_metric_subquery(db: Session):
     Returns the single most-recent DailyMetric row per repo.
     Pre-fetches the latest daily metric date to perform a direct indexed join.
     """
-    latest_date = db.query(func.max(DailyMetric.date)).scalar()
+    latest_date = db.query(func.max(DailyMetric.captured_at)).scalar()
     return (
         db.query(
             DailyMetric.repo_id.label("repo_id"),
             DailyMetric.stars.label("stars"),
         )
-        .filter(DailyMetric.date == latest_date)
+        .filter(DailyMetric.captured_at == latest_date)
         .subquery()
     )
+
 

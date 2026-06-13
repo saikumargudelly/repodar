@@ -276,15 +276,15 @@ def enrich_repos_with_summaries(top_n: int = 30, score_delta_threshold: float = 
                 db.query(DailyMetric)
                 .filter(
                     DailyMetric.repo_id == repo.id,
-                    DailyMetric.date >= thirty_days_ago,
+                    DailyMetric.captured_at >= thirty_days_ago,
                 )
-                .order_by(DailyMetric.date.asc())
+                .order_by(DailyMetric.captured_at.asc())
                 .first()
             )
             latest_dm = (
                 db.query(DailyMetric)
                 .filter_by(repo_id=repo.id)
-                .order_by(DailyMetric.date.desc())
+                .order_by(DailyMetric.captured_at.desc())
                 .first()
             )
             star_delta_30d = 0.0
@@ -292,6 +292,7 @@ def enrich_repos_with_summaries(top_n: int = 30, score_delta_threshold: float = 
             if oldest_dm and latest_dm:
                 star_delta_30d = float(latest_dm.stars - oldest_dm.stars)
                 contributors = latest_dm.contributors or 0
+
 
             summary = generate_repo_summary(
                 owner=repo.owner,
