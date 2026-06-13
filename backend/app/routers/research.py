@@ -35,7 +35,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import File, Form, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
 from app.models.research import (
@@ -72,7 +72,17 @@ def _utcnow():
 
 
 def _session_or_404(session_id: str, user_id: str, db: Session) -> ResearchSession:
-    s = db.query(ResearchSession).filter_by(id=session_id, user_id=user_id).first()
+    s = (
+        db.query(ResearchSession)
+        .options(
+            selectinload(ResearchSession.messages),
+            selectinload(ResearchSession.pins),
+            selectinload(ResearchSession.report),
+            selectinload(ResearchSession.share)
+        )
+        .filter_by(id=session_id, user_id=user_id)
+        .first()
+    )
     if not s:
         raise HTTPException(status_code=404, detail="Research session not found.")
     return s
@@ -295,6 +305,11 @@ def list_sessions(
 ):
     sessions = (
         db.query(ResearchSession)
+        .options(
+            selectinload(ResearchSession.messages),
+            selectinload(ResearchSession.pins),
+            selectinload(ResearchSession.report)
+        )
         .filter_by(user_id=user_id)
         .order_by(ResearchSession.updated_at.desc())
         .all()

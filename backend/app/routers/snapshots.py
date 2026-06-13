@@ -10,6 +10,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from fastapi_cache.decorator import cache
 
 from app.database import get_db
 from app.models.weekly_snapshot import WeeklySnapshot
@@ -30,6 +31,7 @@ class SnapshotDetail(BaseModel):
 
 
 @router.get("", response_model=List[SnapshotSummary])
+@cache(expire=900)
 def list_snapshots(db: Session = Depends(get_db)):
     """List all published weekly snapshots, newest first."""
     rows = db.query(WeeklySnapshot).order_by(WeeklySnapshot.published_at.desc()).all()
@@ -48,6 +50,7 @@ def list_snapshots(db: Session = Depends(get_db)):
 
 
 @router.get("/{week_id}", response_model=SnapshotDetail)
+@cache(expire=900)
 def get_snapshot(week_id: str, db: Session = Depends(get_db)):
     """Get the immutable top-25 snapshot for a specific ISO week (e.g. 2026-W10)."""
     row = db.query(WeeklySnapshot).filter_by(week_id=week_id).first()
