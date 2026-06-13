@@ -121,9 +121,9 @@ export function ModernCategoryTrendScore({
   return (
     <div className="panel" style={{ display: "flex", flexDirection: "column" }}>
       <div className="panel-header" style={{ borderBottom: "1px solid var(--border)", padding: "14px 16px" }}>
-        <div style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "flex-start", gap: "16px" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-            <span style={{ fontSize: "16px", fontWeight: 700, color: "var(--text-primary)" }}>
+        <div style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px", minWidth: 0 }}>
+            <span style={{ fontSize: "15px", fontWeight: 700, color: "var(--text-primary)" }}>
               Category trend score · {periodLabel}
             </span>
             <div style={{
@@ -135,20 +135,20 @@ export function ModernCategoryTrendScore({
               rowGap: "4px",
               columnGap: "10px",
             }}>
-              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#84cc16" }} />Stars 40%</span>
-              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#818cf8" }} />Acceleration 20%</span>
-              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#06b6d4" }} />Contributors 20%</span>
-              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#f59e0b" }} />Releases 10%</span>
-              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#f87171" }} />Issues 10%</span>
+              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#84cc16", flexShrink: 0 }} />Stars 40%</span>
+              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#818cf8", flexShrink: 0 }} />Acceleration 20%</span>
+              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#06b6d4", flexShrink: 0 }} />Contributors 20%</span>
+              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#f59e0b", flexShrink: 0 }} />Releases 10%</span>
+              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#f87171", flexShrink: 0 }} />Issues 10%</span>
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "14px", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
             {/* Legend */}
-            <div style={{ display: "flex", gap: "10px", fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>
-              <span style={{ display: "flex", alignItems: "center", gap: "5px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#84cc16" }} />High</span>
-              <span style={{ display: "flex", alignItems: "center", gap: "5px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#f59e0b" }} />Mid</span>
-              <span style={{ display: "flex", alignItems: "center", gap: "5px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#6e7681" }} />Low</span>
+            <div style={{ display: "flex", gap: "8px", fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#84cc16" }} />High</span>
+              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#f59e0b" }} />Mid</span>
+              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#6e7681" }} />Low</span>
             </div>
 
             {/* Toggle Sort Buttons */}
@@ -192,7 +192,7 @@ export function ModernCategoryTrendScore({
         </div>
       </div>
 
-      <div style={{ padding: "16px 20px", flex: 1, display: "flex", flexDirection: "column", gap: "14px" }}>
+      <div style={{ padding: "14px 16px", flex: 1, display: "flex", flexDirection: "column", gap: "10px" }}>
         {displayedCategories.map((item, idx) => {
           const isHovered = hoveredCategory === item.category;
           const label = getTrendLabel(item.trend_composite);
@@ -210,10 +210,11 @@ export function ModernCategoryTrendScore({
                 padding: "4px 0",
                 opacity: hoveredCategory === null || isHovered ? 1 : 0.4,
                 transition: "opacity 0.2s ease",
+                gap: "8px",
               }}
             >
               {/* Title & Repos Count */}
-              <div style={{ width: "160px", display: "flex", flexDirection: "column", flexShrink: 0, marginRight: "16px" }}>
+              <div style={{ minWidth: 0, flexBasis: "130px", flexShrink: 1, display: "flex", flexDirection: "column" }}>
                 <span style={{
                   fontWeight: 600,
                   fontSize: "13px",
@@ -228,14 +229,14 @@ export function ModernCategoryTrendScore({
                   fontSize: "10px",
                   color: "var(--text-muted)",
                   fontFamily: "var(--font-mono)",
-                  marginTop: "2px",
+                  marginTop: "1px",
                 }}>
                   {item.repo_count}r
                 </span>
               </div>
 
               {/* Thin Progress Bar */}
-              <div style={{ flex: 1, display: "flex", alignItems: "center", paddingRight: "24px" }}>
+              <div style={{ flex: 1, display: "flex", alignItems: "center", minWidth: 0 }}>
                 <div className="chakra-bar-container">
                   <div
                     className={`chakra-bar-fill ${getChakraClass(item.category)}`}
@@ -246,40 +247,40 @@ export function ModernCategoryTrendScore({
                 </div>
               </div>
 
-              {/* Right Side Values layout */}
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", width: "180px", justifyContent: "flex-end", flexShrink: 0 }}>
+              {/* Right Side Values */}
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
                 {/* Score Percentage */}
                 <span style={{
                   fontSize: "13px",
                   fontWeight: 700,
                   color: "#ffffff",
                   fontFamily: "var(--font-mono)",
-                  width: "36px",
+                  minWidth: "32px",
                   textAlign: "right",
                 }}>
                   {percentage.toFixed(0)}%
                 </span>
 
-                {/* Score Level Badge/Dot */}
+                {/* Score Level Badge */}
                 <span style={{
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: "6px",
+                  gap: "5px",
                   fontSize: "12px",
                   color: "var(--text-muted)",
-                  width: "56px",
+                  minWidth: "44px",
                 }}>
                   <SignalDot label={label} />
                   {label.toLowerCase()}
                 </span>
 
-                {/* Star Gained */}
-                <span style={{
+                {/* Star Gained — hidden on very small screens via CSS */}
+                <span className="trend-stars-col" style={{
                   fontSize: "13px",
                   fontWeight: 600,
                   color: "#2ea043",
                   fontFamily: "var(--font-mono)",
-                  width: "68px",
+                  minWidth: "54px",
                   textAlign: "right",
                 }}>
                   +{formatNumber(item.period_star_gain)}
@@ -372,6 +373,10 @@ export function ModernCategoryTrendScore({
         .trend-row:hover {
           background: rgba(255, 255, 255, 0.03);
           transform: translateX(4px);
+        }
+        /* Hide star-gain column on very narrow screens */
+        @media (max-width: 480px) {
+          .trend-stars-col { display: none !important; }
         }
       `}</style>
     </div>

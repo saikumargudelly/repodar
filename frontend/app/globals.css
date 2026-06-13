@@ -558,11 +558,11 @@ p, span, div, td, th, a, label, li {
 
 /* ── Grids ─────────────────────────────────────────────────── */
 
-/* 4-col stat grid (main dashboard) */
+/* 4-col stat grid (main dashboard) — always 4 cols including mobile */
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 2px;
 }
 .stat-grid > * {
@@ -611,9 +611,10 @@ p, span, div, td, th, a, label, li {
 .table-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  -webkit-overflow-scrolling: touch;
 }
 .table-scroll table {
-  min-width: 600px; /* prevent columns squishing below readable width */
+  min-width: 480px;
 }
 
 /* ── Cards ─────────────────────────────────────────────────── */
@@ -623,6 +624,164 @@ p, span, div, td, th, a, label, li {
   font-weight: 700;
   margin: 0;
   word-break: break-word;
+}
+
+/* ── Overview page: period selector — horizontal scroll on mobile ── */
+.period-selector-scroll {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+  flex-shrink: 0;
+}
+.period-selector-scroll::-webkit-scrollbar { display: none; }
+.period-selector-scroll button { flex-shrink: 0; }
+
+/* ── Overview leaderboard filter bar — stacks on mobile ─────── */
+.lb-filter-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.01);
+}
+.lb-filter-search { flex-shrink: 0; }
+.lb-filter-pills {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+.lb-filter-pills::-webkit-scrollbar { display: none; }
+.lb-filter-pills button { flex-shrink: 0; }
+.lb-filter-sort {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.lb-filter-sort::-webkit-scrollbar { display: none; }
+.lb-filter-sort button { flex-shrink: 0; }
+
+@media (max-width: 640px) {
+  .lb-filter-row {
+    padding: 8px 12px;
+    gap: 8px;
+    row-gap: 8px;
+  }
+  .lb-filter-search input {
+    width: 100% !important;
+    transition: none !important;
+  }
+  .lb-filter-search {
+    width: 100%;
+  }
+  .lb-filter-search > div {
+    width: 100%;
+  }
+  .lb-filter-sort {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+/* ── Overview header row (title + period) — stack on mobile ─── */
+@media (max-width: 640px) {
+  .overview-title-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+  .overview-subtitle-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+}
+
+/* ── Ecosystem map legend — stacks below title on mobile ─────── */
+.ecosystem-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  font-size: 11px;
+  justify-content: flex-end;
+  max-width: 50%;
+}
+@media (max-width: 768px) {
+  .ecosystem-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+  .ecosystem-legend {
+    max-width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+/* ── Sustainability ranking — repo names truncate on mobile ──── */
+@media (max-width: 640px) {
+  .sustain-repo-name {
+    font-size: 11px !important;
+    word-break: break-all;
+  }
+  .sustain-row {
+    padding: 8px 14px !important;
+  }
+}
+
+/* ── KPI cards: value truncates long text on mobile ─────────── */
+@media (max-width: 640px) {
+  .kpi-value {
+    font-size: 16px !important;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    line-height: 1.2 !important;
+  }
+  .kpi-label {
+    font-size: 8px !important;
+    letter-spacing: 0.04em !important;
+  }
+  .kpi-sub {
+    font-size: 10px !important;
+  }
+  .kpi-card {
+    padding: 10px 10px !important;
+  }
+}
+@media (max-width: 420px) {
+  .stat-grid {
+    gap: 6px;
+  }
+  .kpi-value {
+    font-size: 14px !important;
+  }
+  .kpi-label {
+    font-size: 7px !important;
+  }
+  .kpi-card {
+    padding: 8px 8px !important;
+  }
+  .kpi-corner { display: none !important; }
+}
+
+/* ── Leaderboard table: hide secondary columns on mobile ─────── */
+@media (max-width: 640px) {
+  .col-hide-mobile { display: none !important; }
+  .table-scroll table { min-width: 0; }
+  .table-scroll { overflow-x: auto; }
+}
+@media (max-width: 900px) {
+  .col-hide-tablet { display: none !important; }
 }
 
 /* Chart card containment — min-width: 0 ensures grid item stays within cell */
@@ -730,7 +889,7 @@ p, span, div, td, th, a, label, li {
    Breakpoints
    ════════════════════════════════════════════════════════════ */
 
-/* ── ≤ 1024px — tablet: sidebar collapses to 64px ──────────── */
+/* ── Tablet: 2 KPI columns ─────────────────────────────────── */
 @media (max-width: 1024px) {
   .stat-grid-5 {
     grid-template-columns: repeat(3, 1fr);
@@ -739,19 +898,20 @@ p, span, div, td, th, a, label, li {
     grid-template-columns: repeat(3, 1fr);
   }
   .main-content {
-    /* Sidebar collapses to 64px on tablet */
     padding-left: calc(64px + 20px);
   }
   .status-bar-cyber {
     padding-left: calc(64px + 20px);
   }
+  /* Tablet: stack chart row */
+  .chart-row-2 {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ── ≤ 900px ─────────────────────────────────────────────── */
+/* ── Breakpoints fix: remove old 2-col/1-col overrides for stat-grid ─── */
 @media (max-width: 900px) {
-  .stat-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
   .stat-grid-5 {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -759,7 +919,7 @@ p, span, div, td, th, a, label, li {
     grid-template-columns: 1fr;
   }
   .quadrant-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
 }
 
@@ -772,8 +932,7 @@ p, span, div, td, th, a, label, li {
 
 @media (max-width: 640px) {
   .stat-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    gap: 8px;
   }
   .stat-grid-5 {
     grid-template-columns: repeat(2, 1fr);
@@ -813,11 +972,8 @@ p, span, div, td, th, a, label, li {
 
 /* ── ≤ 420px ─────────────────────────────────────────────── */
 @media (max-width: 420px) {
-  .stat-grid {
-    grid-template-columns: 1fr;
-  }
   .stat-grid-5 {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
   .metric-pills-grid {
     grid-template-columns: repeat(2, 1fr);

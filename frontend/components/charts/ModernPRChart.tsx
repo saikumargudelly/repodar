@@ -126,16 +126,16 @@ export function ModernPRChart({ data, period }: ModernPRChartProps) {
               onMouseEnter={() => setHoveredCategory(item.category)}
               onMouseLeave={() => setHoveredCategory(null)}
               style={{
-                display: "grid",
-                gridTemplateColumns: "1.4fr 1.2fr 1fr",
+                display: "flex",
                 alignItems: "center",
-                padding: "8px",
+                gap: "8px",
+                padding: "7px 6px",
                 borderRadius: "8px",
                 opacity: hoveredCategory === null || isHovered ? 1 : 0.4,
               }}
             >
               {/* Category Bullet and Name */}
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: 0 }}>
                 <span
                   className="bullet-dot"
                   style={{
@@ -150,7 +150,7 @@ export function ModernPRChart({ data, period }: ModernPRChartProps) {
                 <span
                   style={{
                     fontWeight: 600,
-                    fontSize: "13px",
+                    fontSize: "12px",
                     color: "var(--text-primary)",
                     whiteSpace: "nowrap",
                     overflow: "hidden",
@@ -165,25 +165,29 @@ export function ModernPRChart({ data, period }: ModernPRChartProps) {
               {/* Merged PRs count */}
               <span
                 style={{
-                  fontSize: "13px",
+                  fontSize: "12px",
                   color: "var(--text-secondary)",
                   fontFamily: "var(--font-mono)",
                   whiteSpace: "nowrap",
                   textAlign: "right",
-                  paddingRight: "8px",
+                  flexShrink: 0,
+                  minWidth: "64px",
                 }}
               >
                 {formatNumber(item.totalPRs)} merged
               </span>
 
-              {/* Open PRs count */}
+              {/* Open PRs count — hidden on very small screens */}
               <span
+                className="pr-open-col"
                 style={{
-                  fontSize: "13px",
+                  fontSize: "12px",
                   color: "var(--text-muted)",
                   fontFamily: "var(--font-mono)",
                   whiteSpace: "nowrap",
                   textAlign: "right",
+                  flexShrink: 0,
+                  minWidth: "52px",
                 }}
               >
                 {formatNumber(item.avgOpenPRs)} open
@@ -215,6 +219,10 @@ export function ModernPRChart({ data, period }: ModernPRChartProps) {
         }
         .pr-row .bullet-dot {
           transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        /* Hide open PRs column on very narrow screens */
+        @media (max-width: 420px) {
+          .pr-open-col { display: none !important; }
         }
       `}</style>
     </div>

@@ -238,20 +238,21 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
               style={{
                 display: "flex",
                 alignItems: "center",
-                padding: "8px",
+                padding: "7px 6px",
                 borderRadius: "8px",
+                gap: "6px",
                 opacity: hoveredCategory === null || isHovered ? 1 : 0.4,
               }}
             >
               {/* Rank */}
               <span style={{
-                width: "16px",
-                fontSize: "12px",
+                width: "14px",
+                fontSize: "11px",
                 fontWeight: 600,
                 color: "var(--text-muted)",
-                marginRight: "8px",
                 textAlign: "right",
                 fontFamily: "var(--font-mono)",
+                flexShrink: 0,
               }}>
                 {idx + 1}
               </span>
@@ -260,8 +261,8 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
               <div
                 className="icon-box"
                 style={{
-                  width: "28px",
-                  height: "28px",
+                  width: "26px",
+                  height: "26px",
                   borderRadius: "6px",
                   background: "var(--bg-elevated)",
                   border: "1px solid var(--border)",
@@ -269,7 +270,6 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
                   alignItems: "center",
                   justifyContent: "center",
                   color: isHovered ? "var(--text-primary)" : "var(--text-secondary)",
-                  marginRight: "12px",
                   flexShrink: 0,
                   transition: "all 0.2s ease",
                 }}
@@ -277,24 +277,23 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
                 {icon}
               </div>
 
-              {/* Title */}
+              {/* Title — flex grows and truncates */}
               <span style={{
-                width: "100px",
+                flex: 1,
+                minWidth: 0,
                 fontWeight: 600,
-                fontSize: "13px",
+                fontSize: "12px",
                 color: "var(--text-primary)",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
-                marginRight: "12px",
-                flexShrink: 0,
               }}
               title={cat.category}>
                 {cat.category}
               </span>
 
-              {/* Progress Bar Container */}
-              <div style={{ flex: 1, height: "4px", background: "rgba(255, 255, 255, 0.05)", borderRadius: "2px", overflow: "hidden", position: "relative", marginRight: "16px" }}>
+              {/* Progress Bar */}
+              <div style={{ width: "60px", flexShrink: 0, height: "4px", background: "rgba(255, 255, 255, 0.05)", borderRadius: "2px", overflow: "hidden", position: "relative" }}>
                 <div
                   style={{
                     height: "100%",
@@ -309,8 +308,8 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
 
               {/* Value Percentage */}
               <span style={{
-                width: "45px",
-                fontSize: "13px",
+                width: "40px",
+                fontSize: "12px",
                 fontWeight: 600,
                 color: "var(--text-primary)",
                 textAlign: "right",

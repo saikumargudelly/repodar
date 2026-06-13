@@ -117,7 +117,17 @@ function useWatchlist() {
 
 function StatCard({ label, value, sub, index = 0 }: { label: string; value: string | number; sub?: string; index?: number }) {
   const [isHovered, setIsHovered] = useState(false);
-  
+  // Responsive font size via JS (CSS can't reach inline styles easily)
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 640px)");
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  const isTiny = typeof window !== "undefined" && window.innerWidth <= 420;
+
   const colors = ["#218bff", "#10b981", "#f85149", "#3fb950"];
   const color = colors[index];
 
@@ -152,6 +162,7 @@ function StatCard({ label, value, sub, index = 0 }: { label: string; value: stri
   ];
 
   const subTextColor = (index === 0 || index === 1) ? "#3fb950" : index === 2 ? "#f85149" : "var(--text-muted)";
+  const valueFontSize = isMobile ? "clamp(13px, 3.5vw, 18px)" : "clamp(16px, 2vw, 24px)";
 
   return (
     <div
@@ -170,27 +181,31 @@ function StatCard({ label, value, sub, index = 0 }: { label: string; value: stri
       }}
     >
       {/* Icon + Label */}
-      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", color: "var(--text-muted)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px", color: "var(--text-muted)" }}>
         <span style={{
           display: "inline-flex",
           alignItems: "center",
           transition: "transform 0.3s ease",
           transform: isHovered ? "scale(1.15)" : "scale(1)",
+          flexShrink: 0,
         }}>
           {svgIcons[index]}
         </span>
-        <div className="kpi-label" style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)" }}>{label}</div>
+        <div className="kpi-label" style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</div>
       </div>
 
       {/* Value */}
       <div className="kpi-value" style={{
         color: "#ffffff",
-        fontSize: "24px",
+        fontSize: valueFontSize,
         fontWeight: 700,
         fontFamily: "var(--font-sans)",
         transition: "opacity 0.2s ease",
         opacity: 0.95,
-        marginBottom: "6px",
+        marginBottom: "4px",
+        wordBreak: "break-word",
+        overflowWrap: "anywhere",
+        lineHeight: 1.2,
       }}>
         {value}
       </div>
@@ -198,7 +213,7 @@ function StatCard({ label, value, sub, index = 0 }: { label: string; value: stri
       {/* Sub text */}
       {sub && (
         <div className="kpi-sub" style={{
-          fontSize: "12px",
+          fontSize: "11px",
           fontWeight: 600,
           color: subTextColor,
           display: "flex",
@@ -206,11 +221,11 @@ function StatCard({ label, value, sub, index = 0 }: { label: string; value: stri
           gap: "4px",
         }}>
           {index === 2 && (
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
           )}
-          <span>{sub}</span>
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sub}</span>
         </div>
       )}
 
@@ -223,8 +238,8 @@ function StatCard({ label, value, sub, index = 0 }: { label: string; value: stri
         fontWeight: 700,
         color: "var(--text-muted)",
         position: "absolute",
-        right: "12px",
-        bottom: "8px",
+        right: "10px",
+        bottom: "6px",
         pointerEvents: "none",
       }}>
         {String(index + 1).padStart(2, '0')}
@@ -235,7 +250,7 @@ function StatCard({ label, value, sub, index = 0 }: { label: string; value: stri
 
 function PeriodSelector({ selected, onChange }: { selected: Period; onChange: (p: Period) => void }) {
   return (
-    <div style={{ display: "flex", gap: "6px" }}>
+    <div className="period-selector-scroll">
       {PERIODS.map(({ key, label }) => {
         const active = selected === key;
         return (
@@ -253,6 +268,7 @@ function PeriodSelector({ selected, onChange }: { selected: Period; onChange: (p
               background: "transparent",
               border: `1px solid ${active ? C.text : C.border}`,
               color: active ? C.text : C.textSub,
+              whiteSpace: "nowrap",
             }}
             onMouseEnter={(e) => {
               if (!active) {
@@ -537,46 +553,41 @@ function LeaderboardTable({
       </div>
 
       {/* Filter and Sort Row */}
-      <div style={{
-        padding: "12px 16px",
-        borderBottom: "1px solid var(--border)",
-        background: "rgba(255, 255, 255, 0.01)",
-        display: "flex",
-        alignItems: "center",
-        flexWrap: "wrap",
-        gap: "12px",
-      }}>
+      <div className="lb-filter-row">
         {/* Search */}
-        <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-          <span style={{ position: "absolute", left: "10px", color: "var(--text-muted)", display: "flex", alignItems: "center", pointerEvents: "none" }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-          </span>
-          <input
-            type="text"
-            placeholder="Filter"
-            value={filterQuery}
-            onChange={(e) => setFilterQuery(e.target.value)}
-            style={{
-              padding: "5px 10px 5px 28px",
-              background: "var(--bg-elevated)",
-              border: "1px solid var(--border)",
-              borderRadius: "6px",
-              fontSize: "12px",
-              color: "var(--text-primary)",
-              outline: "none",
-              width: "120px",
-              transition: "width 0.2s ease, border-color 0.2s ease",
-            }}
-            onFocus={(e) => { e.currentTarget.style.width = "180px"; e.currentTarget.style.borderColor = "var(--text-muted)"; }}
-            onBlur={(e) => { if (!filterQuery) { e.currentTarget.style.width = "120px"; } e.currentTarget.style.borderColor = "var(--border)"; }}
-          />
+        <div className="lb-filter-search">
+          <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+            <span style={{ position: "absolute", left: "10px", color: "var(--text-muted)", display: "flex", alignItems: "center", pointerEvents: "none" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </span>
+            <input
+              type="text"
+              placeholder="Filter repos…"
+              value={filterQuery}
+              onChange={(e) => setFilterQuery(e.target.value)}
+              style={{
+                padding: "6px 10px 6px 30px",
+                background: "var(--bg-elevated)",
+                border: "1px solid var(--border)",
+                borderRadius: "6px",
+                fontSize: "12px",
+                color: "var(--text-primary)",
+                outline: "none",
+                width: "140px",
+                minWidth: 0,
+                transition: "width 0.2s ease, border-color 0.2s ease",
+              }}
+              onFocus={(e) => { e.currentTarget.style.width = "190px"; e.currentTarget.style.borderColor = "var(--text-muted)"; }}
+              onBlur={(e) => { if (!filterQuery) { e.currentTarget.style.width = "140px"; } e.currentTarget.style.borderColor = "var(--border)"; }}
+            />
+          </div>
         </div>
 
         {/* Category Pills */}
-        <div style={{ display: "flex", gap: "6px" }}>
+        <div className="lb-filter-pills">
           {categories.map((cat: string) => (
             <button
               key={cat}
@@ -592,6 +603,7 @@ function LeaderboardTable({
                 border: "1px solid var(--border)",
                 background: selectedCategory === cat ? "#ffffff" : "transparent",
                 color: selectedCategory === cat ? "var(--bg-primary)" : "var(--text-secondary)",
+                whiteSpace: "nowrap",
               }}
             >
               {cat}
@@ -600,7 +612,7 @@ function LeaderboardTable({
         </div>
 
         {/* Sort Buttons */}
-        <div style={{ display: "flex", gap: "6px", marginLeft: "auto" }}>
+        <div className="lb-filter-sort">
           {[
             { key: "stars", label: "Stars", icon: "⭐" },
             { key: "forks", label: "Forks", icon: "🍴" },
@@ -624,6 +636,7 @@ function LeaderboardTable({
                 display: "flex",
                 alignItems: "center",
                 gap: "4px",
+                whiteSpace: "nowrap",
               }}
             >
               <span style={{ fontSize: "10px" }}>{s.icon}</span>
@@ -645,15 +658,15 @@ function LeaderboardTable({
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", fontFamily: "var(--font-sans)" }}>
           <thead>
             <tr style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
-              {["", "#", "Repo", "Category", "Stars", "Forks", "Issues", "Age", ""].map((h, i) => (
-                <th key={i} style={{
-                  padding: "9px 12px",
-                  textAlign: ["#", "Stars", "Forks", "Issues", "Age"].includes(h) ? "right" : "left",
-                  fontWeight: 600, fontSize: "11px", letterSpacing: "0.03em", whiteSpace: "nowrap", textTransform: "uppercase",
-                }}>
-                  {h}
-                </th>
-              ))}
+              {/* checkbox */ }<th style={{ padding: "9px 12px", width: "28px" }} />
+              {/* rank */}<th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 600, fontSize: "11px", letterSpacing: "0.03em", whiteSpace: "nowrap", textTransform: "uppercase" }}>#</th>
+              {/* repo */}<th style={{ padding: "9px 12px", fontWeight: 600, fontSize: "11px", letterSpacing: "0.03em", whiteSpace: "nowrap", textTransform: "uppercase" }}>Repo</th>
+              {/* category */}<th className="col-hide-mobile" style={{ padding: "9px 12px", fontWeight: 600, fontSize: "11px", letterSpacing: "0.03em", whiteSpace: "nowrap", textTransform: "uppercase" }}>Category</th>
+              {/* stars */}<th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 600, fontSize: "11px", letterSpacing: "0.03em", whiteSpace: "nowrap", textTransform: "uppercase" }}>Stars</th>
+              {/* forks */}<th className="col-hide-tablet" style={{ padding: "9px 12px", textAlign: "right", fontWeight: 600, fontSize: "11px", letterSpacing: "0.03em", whiteSpace: "nowrap", textTransform: "uppercase" }}>Forks</th>
+              {/* issues */}<th className="col-hide-tablet" style={{ padding: "9px 12px", textAlign: "right", fontWeight: 600, fontSize: "11px", letterSpacing: "0.03em", whiteSpace: "nowrap", textTransform: "uppercase" }}>Issues</th>
+              {/* age */}<th className="col-hide-tablet" style={{ padding: "9px 12px", textAlign: "right", fontWeight: 600, fontSize: "11px", letterSpacing: "0.03em", whiteSpace: "nowrap", textTransform: "uppercase" }}>Age</th>
+              {/* pin */}<th style={{ padding: "9px 12px", width: "32px" }} />
             </tr>
           </thead>
           <tbody>
@@ -759,7 +772,7 @@ function LeaderboardTable({
                   </td>
 
                   {/* Category Pill */}
-                  <td style={{ padding: "12px 12px", verticalAlign: "top" }}>
+                  <td className="col-hide-mobile" style={{ padding: "12px 12px", verticalAlign: "top" }}>
                     <span style={{
                       fontSize: "11px",
                       fontWeight: 600,
@@ -790,17 +803,17 @@ function LeaderboardTable({
                   </td>
 
                   {/* Forks */}
-                  <td style={{ padding: "12px 12px", textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "13px", color: "var(--text-secondary)", verticalAlign: "top" }}>
+                  <td className="col-hide-tablet" style={{ padding: "12px 12px", textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "13px", color: "var(--text-secondary)", verticalAlign: "top" }}>
                     {formatNum(repo.current_forks)}
                   </td>
 
                   {/* Issues */}
-                  <td style={{ padding: "12px 12px", textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "13px", color: "var(--text-secondary)", verticalAlign: "top" }}>
+                  <td className="col-hide-tablet" style={{ padding: "12px 12px", textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "13px", color: "var(--text-secondary)", verticalAlign: "top" }}>
                     {repo.open_issues != null ? repo.open_issues.toLocaleString() : "—"}
                   </td>
 
                   {/* Age relative bar */}
-                  <td style={{ padding: "12px 12px", textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "13px", color: "var(--text-secondary)", verticalAlign: "top" }}>
+                  <td className="col-hide-tablet" style={{ padding: "12px 12px", textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "13px", color: "var(--text-secondary)", verticalAlign: "top" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "6px", justifyContent: "flex-end" }}>
                       <span>{years}y</span>
                       <div style={{ width: "24px", height: "3px", background: "rgba(255,255,255,0.06)", borderRadius: "1.5px", overflow: "hidden", flexShrink: 0 }}>
@@ -874,19 +887,20 @@ function SustainabilityRanking({ repos }: { repos: SustainabilityEntry[] }) {
         ) : repos.slice(0, 10).map((repo, i) => (
           <div
             key={repo.repo_id}
+            className="sustain-row"
             style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px", cursor: "pointer", minWidth: 0, borderBottom: "1px solid var(--border)", transition: "background 0.15s" }}
             onClick={() => router.push(`/repo/${repo.repo_id}`)}
             onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
             onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, overflow: "hidden", flex: 1 }}>
               <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "10px", width: "22px", textAlign: "right", flexShrink: 0 }}>{i + 1}</span>
-              <div>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--text-primary)" }}>{repo.owner}/{repo.name}</span>
-                <span style={{ marginLeft: "8px", fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", letterSpacing: "0.06em" }}>{repo.category}</span>
+              <div style={{ minWidth: 0 }}>
+                <span className="sustain-repo-name" style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--text-primary)", wordBreak: "break-word" }}>{repo.owner}/{repo.name}</span>
+                <span style={{ marginLeft: "6px", fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", letterSpacing: "0.06em" }}>{repo.category}</span>
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
               <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--amber)" }}>
                 {(repo.sustainability_score * 100).toFixed(0)}%
               </span>
@@ -901,6 +915,19 @@ function SustainabilityRanking({ repos }: { repos: SustainabilityEntry[] }) {
 
 // ─── Ecosystem Map Chart (scatter: trend vs sustainability) ─────────────────
 function EcosystemMapChart({ repos, title = "AI Ecosystem Map" }: { repos: RadarRepo[]; title?: string }) {
+  const [chartHeight, setChartHeight] = useState(320);
+
+  useEffect(() => {
+    const update = () => {
+      if (window.innerWidth <= 480) setChartHeight(200);
+      else if (window.innerWidth <= 768) setChartHeight(250);
+      else setChartHeight(320);
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
   // Group by category for multi-series scatter
   const byCategory = repos.reduce<Record<string, { x: number; y: number; name: string; owner: string; category: string }[]>>(
     (acc, r) => {
@@ -923,24 +950,24 @@ function EcosystemMapChart({ repos, title = "AI Ecosystem Map" }: { repos: Radar
 
   return (
     <div className="panel">
-      <div className="panel-header">
-        <div>
+      <div className="panel-header ecosystem-header" style={{ flexWrap: "wrap", gap: "10px" }}>
+        <div style={{ minWidth: 0 }}>
           <div className="panel-title">{title}</div>
           <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)", marginTop: "3px" }}>
             X-axis: Trend Score · Y-axis: Sustainability Score · Each dot = one repo
           </div>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 10px", fontSize: "11px", maxWidth: "50%", justifyContent: "flex-end" }}>
+        <div className="ecosystem-legend">
           {categories.map((c) => (
             <span key={c} style={{ display: "flex", alignItems: "center", gap: "4px", fontFamily: "var(--font-sans)", color: "var(--text-muted)" }}>
-              <span style={{ width: 7, height: 7, background: CATEGORY_COLORS[c] ?? "#888", display: "inline-block", borderRadius: "50%" }} />
+              <span style={{ width: 7, height: 7, background: CATEGORY_COLORS[c] ?? "#888", display: "inline-block", borderRadius: "50%", flexShrink: 0 }} />
               {c}
             </span>
           ))}
         </div>
       </div>
-      <div style={{ padding: "16px 24px" }}>
-      <ResponsiveContainer width="100%" height={320}>
+      <div style={{ padding: "14px 16px" }}>
+      <ResponsiveContainer width="100%" height={chartHeight}>
         <ScatterChart margin={{ top: 10, right: 10, bottom: 30, left: 10 }}>
           <XAxis
             type="number" dataKey="x" name="Trend"
@@ -1309,9 +1336,9 @@ export default function OverviewPage() {
         `}</style>
 
         {/* Row 1: Title + Period Selector */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", marginBottom: "6px" }}>
+        <div className="overview-title-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", marginBottom: "6px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <h1 style={{ fontFamily: "var(--font-sans)", fontSize: "28px", fontWeight: 700, color: C.text, margin: 0, letterSpacing: "-0.02em" }}>
+            <h1 style={{ fontFamily: "var(--font-sans)", fontSize: "clamp(20px, 5vw, 28px)", fontWeight: 700, color: C.text, margin: 0, letterSpacing: "-0.02em" }}>
               Ecosystem overview
             </h1>
             <svg
@@ -1323,7 +1350,7 @@ export default function OverviewPage() {
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
-              style={{ cursor: "pointer", opacity: 0.8, marginTop: "4px", transition: "transform 0.2s ease, stroke 0.2s ease" }}
+              style={{ cursor: "pointer", opacity: 0.8, marginTop: "4px", transition: "transform 0.2s ease, stroke 0.2s ease", flexShrink: 0 }}
               onMouseEnter={(e) => { e.currentTarget.style.transform = "rotate(15deg)"; e.currentTarget.style.stroke = C.text; }}
               onMouseLeave={(e) => { e.currentTarget.style.transform = "rotate(0deg)"; e.currentTarget.style.stroke = C.textSub; }}
             >
@@ -1336,7 +1363,7 @@ export default function OverviewPage() {
         </div>
 
         {/* Row 2: Subtitle & Badge + Trends button */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", marginBottom: "6px" }}>
+        <div className="overview-subtitle-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", marginBottom: "6px" }}>
           <div style={{
             fontFamily: "var(--font-sans)", fontSize: "13px",
             color: C.textSub,
