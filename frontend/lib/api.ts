@@ -27,7 +27,9 @@ async function apiFetch<T>(path: string, options?: RequestInit, retries = 3): Pr
     path.startsWith("/dashboard/") ||
     path.startsWith("/topics") ||
     path.startsWith("/contributors") ||
-    path.startsWith("/repo")
+    path.startsWith("/repo") ||
+    path.startsWith("/snapshots") ||
+    path.startsWith("/reports")
   );
 
   const cacheKey = `repodar_api_cache:${path}`;

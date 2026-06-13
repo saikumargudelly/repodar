@@ -620,7 +620,15 @@ def get_breakout_radar(
 
     query = (
         db.query(
-            Repository,
+            Repository.id,
+            Repository.owner,
+            Repository.name,
+            Repository.category,
+            Repository.github_url,
+            Repository.age_days,
+            Repository.stars_snapshot,
+            Repository.topics,
+            Repository.primary_language,
             subq.c.trend_score,
             subq.c.acceleration,
             subq.c.star_velocity_7d,
@@ -668,24 +676,25 @@ def get_breakout_radar(
 
     # Dedupe by canonical owner/name to avoid duplicate rows from legacy data.
     deduped: dict[str, dict] = {}
-    for repo, ts, accel, vel, ss, sl in rows:
+    for (id, owner, name, cat, github_url, age_days, stars, topics_raw, primary_language,
+         ts, accel, vel, ss, sl) in rows:
         candidate = RadarRepo(
-            repo_id=repo.id,
-            owner=repo.owner,
-            name=repo.name,
-            category=repo.category,
-            github_url=repo.github_url,
+            repo_id=id,
+            owner=owner,
+            name=name,
+            category=cat,
+            github_url=github_url,
             trend_score=ts or 0,
             acceleration=accel or 0,
             star_velocity_7d=vel or 0,
             sustainability_label=sl or "YELLOW",
             sustainability_score=ss or 0,
-            age_days=repo.age_days,
-            stars=repo.stars_snapshot or 0,
-            topics=_parse_topics(repo.topics),
-            primary_language=repo.primary_language,
+            age_days=age_days or 0,
+            stars=stars or 0,
+            topics=_parse_topics(topics_raw),
+            primary_language=primary_language,
         )
-        key = _repo_key(repo.owner, repo.name)
+        key = _repo_key(owner, name)
         score_val = float(getattr(candidate, sort_by, candidate.trend_score) or 0.0)
         existing = deduped.get(key)
         if not existing or (sort_dir == "desc" and score_val > existing["score"]) or (sort_dir == "asc" and score_val < existing["score"]):
@@ -880,7 +889,15 @@ async def get_early_radar(
 
     q = (
         db.query(
-            Repository,
+            Repository.id,
+            Repository.owner,
+            Repository.name,
+            Repository.category,
+            Repository.github_url,
+            Repository.primary_language,
+            Repository.topics,
+            Repository.age_days,
+            Repository.stars_snapshot,
             subq.c.trend_score,
             subq.c.acceleration,
             subq.c.star_velocity_7d,
@@ -930,14 +947,15 @@ async def get_early_radar(
 
     deduped: dict[str, dict] = {}
 
-    for repo, ts, accel, vel7, vel30, contrib_growth, ss, sl in rows:
+    for (repo_id, owner, name, category_val, github_url, primary_language, topics_raw, age_days_val, stars_snapshot_val,
+         ts, accel, vel7, vel30, contrib_growth, ss, sl) in rows:
         ts = float(ts or 0.0)
         accel = float(accel or 0.0)
         vel7 = float(vel7 or 0.0)
         vel30 = float(vel30 or 0.0)
         contrib_growth = float(contrib_growth or 0.0)
         ss = float(ss or 0.0)
-        stars = repo.stars_snapshot or 0
+        stars = stars_snapshot_val or 0
 
         if accel < min_acceleration:
             continue
@@ -952,11 +970,11 @@ async def get_early_radar(
         if vel7 <= 0 and accel <= 0:
             continue
 
-        consistency_score, _avg_daily_gain, is_sustained = _compute_velocity_consistency(repo.id, db, days=7)
+        consistency_score, _avg_daily_gain, is_sustained = _compute_velocity_consistency(repo_id, db, days=7)
         if require_consistent_growth and not is_sustained:
             continue
 
-        repo_topics = _parse_topics(repo.topics)
+        repo_topics = _parse_topics(topics_raw)
         if topic_keywords:
             repo_topics_lc = [topic.lower() for topic in repo_topics]
             if not any(any(keyword in topic for topic in repo_topics_lc) for keyword in topic_keywords):
@@ -976,7 +994,7 @@ async def get_early_radar(
             vel30=vel30,
             trend_score=ts,
             contrib_growth=contrib_growth,
-            age_days=repo.age_days,
+            age_days=age_days_val,
             stars=stars,
             max_age_days=max_age_days,
             max_stars=max_stars,
@@ -994,20 +1012,20 @@ async def get_early_radar(
         if momentum_stage and stage != momentum_stage:
             continue
 
-        category_velocity_avg = cat_velocity_map.get(repo.category, 0.0)
+        category_velocity_avg = cat_velocity_map.get(category_val, 0.0)
         outpaces_category = vel7 > category_velocity_avg and category_velocity_avg > 0
         if outpaces_category and BreakoutSignal.CATEGORY_OUTPACE not in signals:
             signals.append(BreakoutSignal.CATEGORY_OUTPACE)
 
         candidate = EarlyRadarRepo(
-            repo_id=repo.id,
-            owner=repo.owner,
-            name=repo.name,
-            category=_map_to_early_category(repo.category),
-            github_url=repo.github_url,
-            primary_language=repo.primary_language,
+            repo_id=repo_id,
+            owner=owner,
+            name=name,
+            category=_map_to_early_category(category_val),
+            github_url=github_url,
+            primary_language=primary_language,
             topics=repo_topics,
-            age_days=repo.age_days,
+            age_days=age_days_val,
             stars=stars,
             trend_score=ts,
             acceleration=accel,
@@ -1027,7 +1045,7 @@ async def get_early_radar(
             outpaces_category=outpaces_category,
         )
 
-        key = _repo_key(repo.owner, repo.name)
+        key = _repo_key(owner, name)
         existing = deduped.get(key)
         if not existing or breakout_score > existing["score"]:
             deduped[key] = {"repo": candidate, "score": breakout_score}

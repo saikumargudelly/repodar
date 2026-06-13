@@ -176,3 +176,10 @@ def build_df(
             "daily_commit_delta": daily_commit_delta,
         })
     return rows
+
+
+@pytest.fixture(scope="session", autouse=True)
+def init_cache():
+    from fastapi_cache import FastAPICache
+    from fastapi_cache.backends.inmemory import InMemoryBackend
+    FastAPICache.init(InMemoryBackend(), prefix="fastapi-cache-test")

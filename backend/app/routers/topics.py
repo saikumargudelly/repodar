@@ -68,37 +68,52 @@ def get_topic_momentum(
     # Build score map: repo_id → (trend_score, star_velocity_7d, acceleration)
     score_map: dict[str, tuple] = {}
     if latest_date:
-        for cm in db.query(ComputedMetric).filter_by(date=latest_date).all():
-            score_map[cm.repo_id] = (
-                cm.trend_score or 0,
-                cm.star_velocity_7d or 0,
-                cm.acceleration or 0,
+        for repo_id, trend_score, star_velocity_7d, acceleration in (
+            db.query(
+                ComputedMetric.repo_id,
+                ComputedMetric.trend_score,
+                ComputedMetric.star_velocity_7d,
+                ComputedMetric.acceleration
+            )
+            .filter_by(date=latest_date)
+            .all()
+        ):
+            score_map[repo_id] = (
+                trend_score or 0,
+                star_velocity_7d or 0,
+                acceleration or 0,
             )
 
     # Aggregate by topic
     topic_buckets: dict[str, list] = defaultdict(list)
 
-    q = db.query(Repository).filter(
+    q = db.query(
+        Repository.id,
+        Repository.topics,
+        Repository.owner,
+        Repository.name,
+        Repository.stars_snapshot
+    ).filter(
         Repository.is_active == True,  # noqa: E712
         Repository.topics.isnot(None),
     )
     if category:
         q = q.filter(Repository.category == category)
 
-    for repo in q.all():
+    for repo_id, topics_raw, owner, name, stars_snapshot in q.all():
         try:
-            topics = json.loads(repo.topics or "[]")
+            topics = json.loads(topics_raw or "[]")
         except Exception:
             continue
-        ts, vel, accel = score_map.get(repo.id, (0, 0, 0))
+        ts, vel, accel = score_map.get(repo_id, (0, 0, 0))
         for topic in topics:
             topic_buckets[topic].append({
-                "owner": repo.owner,
-                "name": repo.name,
+                "owner": owner,
+                "name": name,
                 "trend_score": ts,
                 "star_velocity_7d": vel,
                 "acceleration": accel,
-                "stars": repo.stars_snapshot or 0,
+                "stars": stars_snapshot or 0,
             })
 
     results = []
@@ -142,36 +157,64 @@ def get_repos_by_topic(
 
     score_map: dict[str, tuple] = {}
     if latest_date:
-        for cm in db.query(ComputedMetric).filter_by(date=latest_date).all():
-            score_map[cm.repo_id] = (
-                cm.trend_score or 0,
-                cm.star_velocity_7d or 0,
-                cm.acceleration or 0,
-                cm.sustainability_label or "YELLOW",
+        for repo_id, trend_score, star_velocity_7d, acceleration, sustainability_label in (
+            db.query(
+                ComputedMetric.repo_id,
+                ComputedMetric.trend_score,
+                ComputedMetric.star_velocity_7d,
+                ComputedMetric.acceleration,
+                ComputedMetric.sustainability_label
+            )
+            .filter_by(date=latest_date)
+            .all()
+        ):
+            score_map[repo_id] = (
+                trend_score or 0,
+                star_velocity_7d or 0,
+                acceleration or 0,
+                sustainability_label or "YELLOW",
             )
 
     results = []
-    for repo in db.query(Repository).filter(
-        Repository.is_active == True,  # noqa: E712
-        Repository.topics.isnot(None),
-    ).all():
+    # Filter in SQL first, and select only needed columns
+    q = (
+        db.query(
+            Repository.id,
+            Repository.owner,
+            Repository.name,
+            Repository.category,
+            Repository.github_url,
+            Repository.primary_language,
+            Repository.age_days,
+            Repository.stars_snapshot,
+            Repository.topics,
+        )
+        .filter(
+            Repository.is_active == True,  # noqa: E712
+            Repository.topics.isnot(None),
+            func.lower(Repository.topics).like(f'%"{topic.lower()}"%'),
+        )
+    )
+
+    for repo_id, owner, name, category, github_url, primary_language, age_days, stars_snapshot, topics_raw in q.all():
         try:
-            topics = json.loads(repo.topics or "[]")
+            topics = json.loads(topics_raw or "[]")
         except Exception:
             continue
+        # Double check topic to ensure exact match
         if topic.lower() not in [t.lower() for t in topics]:
             continue
 
-        ts, vel, accel, sl = score_map.get(repo.id, (0, 0, 0, "YELLOW"))
+        ts, vel, accel, sl = score_map.get(repo_id, (0, 0, 0, "YELLOW"))
         results.append(TopicRepo(
-            repo_id=repo.id,
-            owner=repo.owner,
-            name=repo.name,
-            category=repo.category,
-            github_url=repo.github_url,
-            primary_language=repo.primary_language,
-            age_days=repo.age_days,
-            stars=repo.stars_snapshot or 0,
+            repo_id=repo_id,
+            owner=owner,
+            name=name,
+            category=category,
+            github_url=github_url,
+            primary_language=primary_language,
+            age_days=age_days or 0,
+            stars=stars_snapshot or 0,
             trend_score=ts,
             acceleration=accel,
             sustainability_label=sl,

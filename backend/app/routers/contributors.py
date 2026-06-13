@@ -217,19 +217,28 @@ def get_repos_with_top_contributors(
     # 2. Fetch the top 10 contributors using a window function partitioned by repo id
     # (or simply fetch all contributors for these few repos and slice in Python)
     repo_contributors = (
-        db.query(RepoContributor)
+        db.query(
+            RepoContributor.repo_id,
+            RepoContributor.login,
+            RepoContributor.contributions,
+            RepoContributor.avatar_url
+        )
         .filter(RepoContributor.repo_id.in_(repo_ids))
         .all()
     )
 
     contribs_by_repo = defaultdict(list)
-    for c in repo_contributors:
-        contribs_by_repo[c.repo_id].append(c)
+    for repo_id, login, contributions, avatar_url in repo_contributors:
+        contribs_by_repo[repo_id].append({
+            "login": login,
+            "contributions": contributions,
+            "avatar_url": avatar_url
+        })
 
     results = []
     for r in top_repos:
         # Sort and take top 10 for this repo
-        repo_contribs = sorted(contribs_by_repo[r.id], key=lambda x: x.contributions, reverse=True)[:10]
+        repo_contribs = sorted(contribs_by_repo[r.id], key=lambda x: x["contributions"], reverse=True)[:10]
 
         results.append(RepoWithContributors(
             repo_id=r.id,
@@ -239,7 +248,7 @@ def get_repos_with_top_contributors(
             trend_score=round(float(r.trend_score), 2) if r.trend_score is not None else 0.0,
             contributor_count=len(contribs_by_repo[r.id]),  # Total un-sliced count
             top_contributors=[
-                {"login": c.login, "contributions": c.contributions, "avatar_url": c.avatar_url}
+                {"login": c["login"], "contributions": c["contributions"], "avatar_url": c["avatar_url"]}
                 for c in repo_contribs
             ],
         ))
