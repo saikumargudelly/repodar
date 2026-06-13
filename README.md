@@ -1,161 +1,109 @@
 # 📡 Repodar
 
-**GitHub's trending page shows you what already peaked. Repodar shows you what's about to.**
+**GitHub's trending page shows you what has already peaked. Repodar shows you what is about to.**
 
-It tracks hundreds of repos across AI/ML, infra, devtools, and more — scoring them on momentum and health every few hours. So when something starts exploding, you see it first.
+Repodar tracks hundreds of repositories across AI/ML, developer tools, databases, and infrastructure. It scores them daily on momentum and community health to help you discover breakout open-source projects before they go viral.
 
-🚀 **[Live demo](https://repodar.vercel.app/)** &nbsp;·&nbsp; ⚡ [Run locally](#run-locally) &nbsp;·&nbsp; 📖 [API docs](#api)
-
----
-
-## What it does
-
-- **Scores every repo on two things** — how hot it is *right now* (TrendScore) and whether it'll survive long-term (SustainabilityScore)
-- **Runs every 2 hours** — auto-discovers new repos from GitHub Trending + keyword search, scores everything fresh, fires alerts on momentum spikes
-- **30+ pages of tooling** — leaderboard, radar, deep-dives, org health, side-by-side compare, NL search, topic momentum, contributor network, AI research workspace
-- **No stale data** — delta-sync means re-runs never inflate numbers; each repo gets one data point per day
+🚀 **[Live Demo](https://repodar.vercel.app/)** &nbsp;·&nbsp; ⚡ [Local Setup](#local-setup) &nbsp;·&nbsp; 📖 [API Endpoints](#api-endpoints)
 
 ---
 
-## The two scores
+## How It Works
 
-**TrendScore** — momentum right now
-- 7-day star velocity (40%) · 30-day acceleration (20%) · contributor growth (20%) · release activity (10%) · issue spike (10%)
+Repodar scores and tracks repositories using two composite indicators:
 
-**SustainabilityScore** — will it still be alive in 6 months?
-- Issue close rate · fork-to-star ratio · release cadence · contributor trajectory · fork growth
-
-🟢 Top tier &nbsp;·&nbsp; 🟡 Watch it &nbsp;·&nbsp; 🔴 Declining
-
----
-
-## Pages at a glance
-
-| Page | What it shows |
-|---|---|
-| `/overview` | Ecosystem KPIs, category heatmap, sustainability rankings |
-| `/radar` + `/early-radar` | All tracked repos sortable by any signal |
-| `/leaderboard` | Period-based rankings across verticals |
-| `/topics` | Topic momentum + drill-down repo lists |
-| `/compare` | Side-by-side repo scorecards and star history |
-| `/orgs` | Portfolio health for any GitHub org |
-| `/search` | Natural-language query → filtered results |
-| `/research` | Multi-session AI research workspace with streaming |
-| `/repo/{owner}/{name}` | Full deep-dive: history, velocity, commits, releases, mentions |
-| `/watchlist` + `/alerts` | Pin repos, get notified on momentum spikes |
-| `/collections` | Community-curated repo sets with voting |
+1. **TrendScore (Current Momentum)**: Measures short-term trajectory.
+   * *Weights*: 7-day star velocity (40%), 30-day star acceleration (20%), contributor growth (20%), release activity (10%), and issue delta (10%).
+2. **SustainabilityScore (Project Health)**: Measures likelihood of long-term survival.
+   * *Signals*: Issue resolution rate, fork-to-star ratio, release cadence, contributor retention, and fork velocity.
+   * *Labels*: 🟢 Healthy &nbsp;·&nbsp; 🟡 Caution &nbsp;·&nbsp; 🔴 Critical
 
 ---
 
-## Run locally
+## Features
 
-**You'll need:** Python 3.11+, Node 20+, a [GitHub token](https://github.com/settings/tokens), a [Groq API key](https://console.groq.com), and a [Clerk](https://clerk.com) account.
+* **Breakout Radar**: Sort and filter early-stage projects (e.g., `< 1,000` stars) projects projecting viral growth.
+* **Ecosystem overview**: Visualizes growth heatmap metrics and sustainability rankings.
+* **Ecosystem Leaderboard**: Sort and filter trending repos across 9 major tech verticals.
+* **Natural-Language Search**: Search the internal DB and GitHub API using natural language (e.g., *"fast Go security scanners under 1 year old"*).
+* **AI Research Workspace**: Stream responses, pin telemetry cards, and compile markdown intelligence digests.
+* **Watchlist & Alerts**: Monitor repositories and trigger notifications on sudden star or activity surges.
+* **Ecosystem Reports**: Automatically generates editorial weekly newsletters of ecosystem shifts.
+
+---
+
+## Tech Stack
+
+* **Frontend**: Next.js 16 (Turbopack) · React 19 · Recharts · TanStack Query
+* **Backend**: FastAPI · SQLAlchemy 2.0 · Alembic · Pydantic v2
+* **Database**: PostgreSQL (Production) / SQLite (Local) · DuckDB for analytical telemetry
+* **AI/LLM**: Groq (Llama 3.3) for search intent parsing, analytical summaries, and research agent
+* **Auth**: Clerk
+* **Deployment**: Vercel (Frontend) · Railway (Backend)
+
+---
+
+## Local Setup
+
+### 1. Spin up the Backend
+You'll need Python 3.11+, a GitHub Personal Access Token (PAT), and a Groq API Key.
 
 ```bash
-# Backend
-git clone https://github.com/saikumargudelly/repodar.git
-cd repodar/backend
-python -m venv .venv && source .venv/bin/activate
+cd backend
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Create `backend/.env`:
+Create a `backend/.env` file:
 ```env
-GITHUB_TOKEN=github_pat_...
-GROQ_API_KEY=gsk_...
+GITHUB_TOKEN=your_github_pat
+GROQ_API_KEY=your_groq_key
 DATABASE_URL=sqlite:///./repodar.db
-ALLOWED_ORIGINS=http://localhost:3000
 FRONTEND_URL=http://localhost:3000
 ```
 
+Initialize the database and run the FastAPI server:
 ```bash
 alembic upgrade head
 uvicorn app.main:app --reload --port 8000
+```
 
-# Seed data (first run takes 2–5 min)
+Seed the database (takes 2–3 minutes for initial ingestion and scoring):
+```bash
 curl -X POST http://localhost:8000/admin/run-all-sync
 ```
 
+### 2. Run the Frontend
+You'll need Node 20+ and a Clerk account.
+
 ```bash
-# Frontend (new terminal)
 cd ../frontend
-cp .env.example .env.local   # fill in Clerk keys + NEXT_PUBLIC_API_URL
-npm install && npm run dev
+cp .env.example .env.local
+npm install
+npm run dev
 ```
 
-Open **http://localhost:3000**, sign up, and you're in.
+Configure your Clerk API keys in `frontend/.env.local` and open **http://localhost:3000**.
 
 ---
 
-## Stack
+## API Endpoints
 
-| | |
-|---|---|
-| Frontend | Next.js · React 19 · Recharts · TanStack Query |
-| Backend | FastAPI · SQLAlchemy 2.0 · Alembic · Pydantic v2 |
-| Database | PostgreSQL (prod) / SQLite (local) · DuckDB for analytics |
-| AI | Groq — search parsing, summaries, research assistant, STT |
-| Auth | Clerk |
-| Scheduling | APScheduler embedded in FastAPI (no separate worker) |
-| Deploy | Vercel (frontend) · Railway (backend) |
-
----
-
-## Key env variables
-
-**Backend** — `backend/.env`
-
-| Variable | Notes |
-|---|---|
-| `GITHUB_TOKEN` | Required. PAT with `repo` + `read:user` |
-| `DATABASE_URL` | SQLite locally, PostgreSQL in prod |
-| `GROQ_API_KEY` | Needed for search, summaries, research |
-| `ADMIN_SECRET_KEY` | Protects `/admin/*` endpoints in prod |
-| `REDIS_URL` | Optional — enables response caching |
-| `RESEND_API_KEY` | Optional — for email digests |
-
-**Frontend** — `frontend/.env.local`
-
-| Variable | Notes |
-|---|---|
-| `NEXT_PUBLIC_API_URL` | Backend URL |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | From Clerk dashboard |
-| `CLERK_SECRET_KEY` | From Clerk dashboard |
-
----
-
-## Common issues
-
-| Problem | Fix |
-|---|---|
-| Empty dashboard | Run `POST /admin/run-all-sync` — first seed takes ~5 min |
-| GitHub 403 errors | Check token scopes at `GET /admin/github-status` |
-| NL search not working | `GROQ_API_KEY` must be set in the backend |
-| Auth keeps redirecting | Check both Clerk keys are in `frontend/.env.local` |
-| Charts broken after deploy | Clear cache: `rm -rf frontend/.next` |
-
----
-
-## API
-
-Full interactive docs at `/docs`. A few highlights:
+Interactive documentation is available at `http://localhost:8000/docs`. Major endpoints:
 
 ```bash
-GET  /dashboard/overview
-GET  /dashboard/leaderboard?period=7d&vertical=ai_ml
-GET  /repos/{owner}/{name}
-GET  /search?query=fast+inference+engines
-GET  /topics/momentum
-POST /admin/run-all          # async trigger
-POST /admin/run-all-sync     # wait for completion
+GET  /dashboard/overview                     # Main ecosystem metrics and heatmaps
+GET  /dashboard/radar?vertical=ai_ml        # Breakout radar feed
+GET  /dashboard/leaderboard?period=30d       # Leaderboard by time window
+GET  /search?query=agent+frameworks          # NL LLM-parsed query
+GET  /topics/momentum                        # Topic velocity and trending tags
+GET  /repos/{owner}/{name}                   # Full historical charts and AI summary
+POST /admin/run-all                          # Run daily ingestion & scoring pipeline
 ```
 
 ---
 
 ## License
 
-AGPL-3.0 — free for personal and open-source use. If you run it as a public service, open-source your changes too.
-
----
-
-*Built because GitHub Trending is always a week late.*
+AGPL-3.0. Built because GitHub Trending is always a week late.
