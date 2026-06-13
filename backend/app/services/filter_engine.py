@@ -122,25 +122,16 @@ class QueryBuilder:
 
         from sqlalchemy import func as _func
 
-        # ── Latest computed metric subquery ─────────────────────────────────
-        latest_cm_sub = (
-            db.query(
-                Repository.id.label("repo_id"),
-                _func.max(ComputedMetric.date).label("max_date"),
-            )
-            .outerjoin(ComputedMetric, Repository.id == ComputedMetric.repo_id)
-            .group_by(Repository.id)
-            .subquery()
-        )
+        # ── Latest computed metric join ─────────────────────────────────────
+        latest_date = db.query(_func.max(ComputedMetric.date)).scalar()
 
         q = (
             db.query(Repository, ComputedMetric)
-            .outerjoin(latest_cm_sub, Repository.id == latest_cm_sub.c.repo_id)
             .outerjoin(
                 ComputedMetric,
                 and_(
                     Repository.id == ComputedMetric.repo_id,
-                    ComputedMetric.date == latest_cm_sub.c.max_date,
+                    ComputedMetric.date == latest_date,
                 ),
             )
         )

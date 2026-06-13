@@ -87,22 +87,13 @@ def list_repos(
         count_query = count_query.filter(Repository.category == category)
     total_count = count_query.count()
 
-    latest_cm_subq = (
-        db.query(
-            Repository.id.label('repo_id'),
-            func.max(ComputedMetric.date).label('max_date')
-        )
-        .outerjoin(ComputedMetric, Repository.id == ComputedMetric.repo_id)
-        .group_by(Repository.id)
-        .subquery()
-    )
+    latest_date = db.query(func.max(ComputedMetric.date)).scalar()
 
     query = (
         db.query(Repository, ComputedMetric)
-        .outerjoin(latest_cm_subq, Repository.id == latest_cm_subq.c.repo_id)
         .outerjoin(ComputedMetric, and_(
             Repository.id == ComputedMetric.repo_id,
-            ComputedMetric.date == latest_cm_subq.c.max_date
+            ComputedMetric.date == latest_date
         ))
     )
 
