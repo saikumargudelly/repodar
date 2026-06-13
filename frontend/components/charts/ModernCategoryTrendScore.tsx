@@ -143,7 +143,7 @@ export function ModernCategoryTrendScore({
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
+          <div className="trend-header-controls">
             {/* Legend */}
             <div style={{ display: "flex", gap: "8px", fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>
               <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#84cc16" }} />High</span>
@@ -368,6 +368,12 @@ export function ModernCategoryTrendScore({
           background: rgba(255, 255, 255, 0.03);
           transform: translateX(4px);
         }
+        .trend-header-controls {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-shrink: 0;
+        }
         .trend-score-footer {
           border-top: 1px solid var(--border);
           padding: 12px 16px;
@@ -384,6 +390,16 @@ export function ModernCategoryTrendScore({
         @media (max-width: 480px) {
           .trend-stars-col { display: none !important; }
         }
+        @media (max-width: 768px) {
+          .trend-header-controls {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 6px;
+          }
+        }
+
         @media (max-width: 640px) {
           .trend-score-footer {
             flex-direction: column;
