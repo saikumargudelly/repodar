@@ -1790,9 +1790,9 @@ p, span, div, td, th, a, label, li {
 /* ── Early Radar Filters Panel Collapsible & Grid layout ── */
 .early-radar-filters-panel {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
   gap: 20px;
-  align-items: flex-end;
   padding: 16px;
   margin-bottom: 16px;
 }
@@ -2172,6 +2172,19 @@ p, span, div, td, th, a, label, li {
     padding: 8px !important;
   }
 }
+
+/* Early Radar Slider Block Overrides for Mobile/Tablet */
+@media (max-width: 768px) {
+  .early-radar-filters-panel > div:first-child > div {
+    border-right: none !important;
+    padding-right: 0 !important;
+    margin-bottom: 12px;
+  }
+  .early-radar-filters-panel > div:first-child > div:last-child {
+    margin-bottom: 0;
+  }
+}
+
 
 
 
