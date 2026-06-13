@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api, EarlyRadarRepo, RadarRepo } from "@/lib/api";
 import { NinjaRankPill } from "@/components/NinjaRankPill";
@@ -94,6 +94,28 @@ export default function RadarPage() {
   const [activeTab, setActiveTab] = useState<RadarTab>(
     tabParam === "breakout" ? "breakout" : tabParam === "early" ? "early" : "before"
   );
+  const queryClient = useQueryClient();
+
+  // Pre-fetch adjacent sub-radar tabs on mount/idle to make tab switches instant
+  useEffect(() => {
+    // 1. Pre-fetch Breakout Radar
+    queryClient.prefetchQuery({
+      queryKey: ["radar-breakout", false, "trend_score"],
+      queryFn: () => api.getRadar(false, "All", undefined, "trend_score", "desc", 100),
+    });
+
+    // 2. Pre-fetch Early Insights
+    queryClient.prefetchQuery({
+      queryKey: ["radar-early", 180, 50000, 0, "breakout_score", "all", {
+        preViral: false, consistentGrowth: false, forkMomentum: false, sustainedVelocity: false,
+      }],
+      queryFn: () => api.getEarlyRadar({
+        max_age_days: 180, max_stars: 50000, min_acceleration: 0,
+        sort_by: "breakout_score",
+      }),
+    });
+  }, [queryClient]);
+
 
   // Before it trends controls
   const [beforeMaxAge,    setBeforeMaxAge]    = useState(90);

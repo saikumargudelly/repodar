@@ -14,6 +14,7 @@ from typing import List, Optional
 
 import aiohttp
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi_cache.decorator import cache
 from pydantic import BaseModel
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -550,6 +551,7 @@ def parse_query(query: str = Query(..., description="Natural language query")):
 
 
 @router.get("", response_model=SearchResult)
+@cache(expire=300)
 async def natural_language_search(
     query: str = Query(..., description="Natural language query"),
     limit: int = Query(30, le=100),
