@@ -374,12 +374,16 @@ p, span, div, td, th, a, label, li {
   padding: 0 20px 0 calc(var(--sidebar-width) + 20px);
   gap: 20px;
   z-index: 500;
+  flex-wrap: nowrap !important;
+  overflow: hidden;
 }
 .status-bar-cyber span {
   font-size: 11px;
   color: var(--text-muted);
   font-family: var(--font-sans);
   letter-spacing: 0.02em;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .status-bar-cyber .sep { color: var(--border); }
 
@@ -1219,7 +1223,7 @@ p, span, div, td, th, a, label, li {
 @media (max-width: 768px) {
   .main-content {
     /* Sidebar sets --sidebar-width to 0px on mobile */
-    padding: 0 8px 40px;
+    padding: 0 8px 72px;
   }
   .status-bar-cyber {
     /* Full-width status bar on mobile (no sidebar offset) */
@@ -1229,7 +1233,7 @@ p, span, div, td, th, a, label, li {
 
 @media (max-width: 480px) {
   .main-content {
-    padding: 0 8px 40px;
+    padding: 0 8px 72px;
   }
 }
 

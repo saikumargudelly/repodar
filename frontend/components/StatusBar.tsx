@@ -37,17 +37,17 @@ export function StatusBar() {
         LIVE
       </span>
       <span className="sep">|</span>
-      <span>{overview?.total_repos ?? "—"} REPOS TRACKED</span>
-      <span className="sep">|</span>
-      <span>AI/ML ECOSYSTEM</span>
+      <span>{overview?.total_repos ?? "—"} REPOS</span>
+      <span className="sep col-hide-mobile">|</span>
+      <span className="col-hide-mobile">AI/ML ECOSYSTEM</span>
       {unread > 0 && (
         <>
           <span className="sep">|</span>
           <span>{unread} ALERTS</span>
         </>
       )}
-      <span className="sep">|</span>
-      <span>REPODAR v2.0 — GITHUB AI RADAR</span>
+      <span className="sep col-hide-tablet">|</span>
+      <span className="col-hide-tablet">REPODAR v2.0 — GITHUB AI RADAR</span>
     </div>
   );
 }
