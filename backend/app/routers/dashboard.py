@@ -601,6 +601,7 @@ def get_overview(db: Session = Depends(get_db)):
 
 
 @router.get("/radar", response_model=List[RadarRepo])
+@cache(expire=300)
 def get_breakout_radar(
     new_only: bool = Query(False, description="Only repos younger than 180 days"),
     category: Optional[str] = Query(None, description="Filter by category"),
@@ -741,6 +742,7 @@ def _map_to_early_category(db_cat: str) -> str:
 
 
 @router.get("/early-radar", response_model=List[EarlyRadarRepo])
+@cache(expire=300)
 async def get_early_radar(
     max_age_days: int = Query(
         180,
@@ -1233,6 +1235,7 @@ class LeaderboardResponse(BaseModel):
 
 
 @router.get("/leaderboard", response_model=LeaderboardResponse)
+@cache(expire=300)
 async def get_leaderboard(
     period: str = Query("7d", description="1d | 7d | 30d | 90d | 365d | 3y | 5y"),
     category: Optional[str] = Query(None, description="Filter by AI/ML sub-category"),
@@ -1287,6 +1290,7 @@ class LanguageStat(BaseModel):
 
 
 @router.get("/languages", response_model=List[LanguageStat])
+@cache(expire=300)
 def get_language_radar(
     min_repos: int = Query(2, description="Only languages with at least N repos"),
     db: Session = Depends(get_db),

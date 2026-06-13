@@ -5,65 +5,118 @@
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes client-side session cache
+
 async function apiFetch<T>(path: string, options?: RequestInit, retries = 3): Promise<T> {
+  const method = options?.method ?? "GET";
+  
+  // Clear cache on any mutation request (POST, PATCH, PUT, DELETE)
+  if (method !== "GET" && typeof window !== "undefined") {
+    try {
+      const keys = Object.keys(sessionStorage);
+      for (const key of keys) {
+        if (key.startsWith("repodar_api_cache:")) {
+          sessionStorage.removeItem(key);
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  // Check cache for GET requests
+  const isCacheable = method === "GET" && (
+    path.startsWith("/dashboard/") ||
+    path.startsWith("/topics") ||
+    path.startsWith("/contributors") ||
+    path.startsWith("/repo")
+  );
+
+  const cacheKey = `repodar_api_cache:${path}`;
+
+  if (isCacheable && typeof window !== "undefined") {
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const { value, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < CACHE_TTL_MS) {
+          return value as T;
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
   const headers = {
     "Content-Type": "application/json",
     ...(options?.headers as Record<string, string> | undefined),
   };
   
-  let attempt = 0;
-  while (attempt < retries) {
-    try {
-      const res = await fetch(`${BASE}${path}`, {
-        ...options,
-        headers,
-      });
-      
-      if (!res.ok) {
-        // Retry on 5XX errors if we haven't maxed out attempts
-        if (res.status >= 500 && attempt < retries - 1) {
+  const performFetch = async (): Promise<T> => {
+    let attempt = 0;
+    while (attempt < retries) {
+      try {
+        const res = await fetch(`${BASE}${path}`, {
+          ...options,
+          headers,
+        });
+        
+        if (!res.ok) {
+          // Retry on 5XX errors if we haven't maxed out attempts
+          if (res.status >= 500 && attempt < retries - 1) {
+            attempt++;
+            await new Promise(r => setTimeout(r, 1000 * attempt));
+            continue;
+          }
+
+          let detail = `API ${res.status}: ${path}`;
+          try {
+            const body = await res.json();
+            if (typeof body?.detail === "string") {
+              detail = body.detail;
+            } else if (Array.isArray(body?.detail)) {
+              // Pydantic validation errors come back as an array of {msg, loc}
+              detail = body.detail.map((d: { msg?: string }) => d.msg ?? JSON.stringify(d)).join("; ");
+            } else if (typeof body?.message === "string") {
+              detail = body.message;
+            } else if (typeof body?.error === "string") {
+              detail = body.error;
+            }
+          } catch {
+            // response body is not JSON — keep the generic message
+          }
+          throw new Error(detail);
+        }
+        
+        if (res.status === 204) {
+          return {} as T;
+        }
+        const contentType = res.headers.get("content-type") ?? "";
+        if (!contentType.includes("application/json")) {
+          return {} as T;
+        }
+        return await res.json() as T;
+      } catch (error) {
+        if (attempt < retries - 1 && !(error instanceof Error && error.message.startsWith("API "))) {
           attempt++;
           await new Promise(r => setTimeout(r, 1000 * attempt));
           continue;
         }
-
-        let detail = `API ${res.status}: ${path}`;
-        try {
-          const body = await res.json();
-          if (typeof body?.detail === "string") {
-            detail = body.detail;
-          } else if (Array.isArray(body?.detail)) {
-            // Pydantic validation errors come back as an array of {msg, loc}
-            detail = body.detail.map((d: { msg?: string }) => d.msg ?? JSON.stringify(d)).join("; ");
-          } else if (typeof body?.message === "string") {
-            detail = body.message;
-          } else if (typeof body?.error === "string") {
-            detail = body.error;
-          }
-        } catch {
-          // response body is not JSON — keep the generic message
-        }
-        throw new Error(detail);
+        throw error;
       }
-      
-      if (res.status === 204) {
-        return {} as T;
-      }
-      const contentType = res.headers.get("content-type") ?? "";
-      if (!contentType.includes("application/json")) {
-        return {} as T;
-      }
-      return await res.json() as T;
-    } catch (error) {
-      if (attempt < retries - 1 && !(error instanceof Error && error.message.startsWith("API "))) {
-        attempt++;
-        await new Promise(r => setTimeout(r, 1000 * attempt));
-        continue;
-      }
-      throw error;
     }
+    throw new Error("Max retries exceeded");
+  };
+
+  const result = await performFetch();
+
+  if (isCacheable && typeof window !== "undefined") {
+    try {
+      sessionStorage.setItem(cacheKey, JSON.stringify({
+        value: result,
+        timestamp: Date.now()
+      }));
+    } catch { /* ignore */ }
   }
-  throw new Error("Max retries exceeded");
+
+  return result;
 }
 
 // ─── Types ───────────────────────────────────────────────────────────────────

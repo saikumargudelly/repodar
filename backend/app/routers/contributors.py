@@ -8,6 +8,7 @@ from typing import List, Optional
 from collections import defaultdict
 
 from fastapi import APIRouter, Depends, Query, Path
+from fastapi_cache.decorator import cache
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -51,6 +52,7 @@ class ContributorRepo(BaseModel):
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
 @router.get("/network", response_model=List[CrossRepoContributor])
+@cache(expire=300)
 def get_contributor_network(
     min_repos: int = Query(2, description="Min repos a contributor must appear in to be listed"),
     limit: int = Query(50, le=200),
@@ -136,6 +138,7 @@ def get_contributor_network(
 
 
 @router.get("/repos-by-contributor/{login}", response_model=List[ContributorRepo])
+@cache(expire=300)
 def get_repos_by_contributor(
     login: str = Path(..., description="GitHub username"),
     db: Session = Depends(get_db),
@@ -177,6 +180,7 @@ def get_repos_by_contributor(
 
 
 @router.get("/top-repos", response_model=List[RepoWithContributors])
+@cache(expire=300)
 def get_repos_with_top_contributors(
     limit: int = Query(20, le=100),
     db: Session = Depends(get_db),

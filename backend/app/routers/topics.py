@@ -10,6 +10,7 @@ from collections import defaultdict
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
+from fastapi_cache.decorator import cache
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from pydantic import BaseModel
@@ -50,6 +51,7 @@ class TopicRepo(BaseModel):
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
 @router.get("/momentum", response_model=List[TopicMomentum])
+@cache(expire=300)
 def get_topic_momentum(
     min_repos: int = Query(2, description="Minimum repos per topic to be shown"),
     limit: int = Query(30, le=100),
@@ -129,6 +131,7 @@ def get_topic_momentum(
 
 
 @router.get("/{topic}/repos", response_model=List[TopicRepo])
+@cache(expire=300)
 def get_repos_by_topic(
     topic: str,
     limit: int = Query(30, le=100),
