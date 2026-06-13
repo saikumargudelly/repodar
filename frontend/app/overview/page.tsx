@@ -17,6 +17,8 @@ import { SustainBadge } from "@/components/Nav";
 import { ModernCategoryCards } from "@/components/charts/ModernCategoryCards";
 import { ModernPRChart } from "@/components/charts/ModernPRChart";
 import { ModernCategoryTrendScore } from "@/components/charts/ModernCategoryTrendScore";
+import { ProfessionalLoader } from "@/components/ProfessionalLoader";
+
 
 const C = {
   bg: "#0d1117",
@@ -1227,12 +1229,11 @@ export default function OverviewPage() {
   if (overviewLoading) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
-        <p style={{ fontFamily: "var(--font-sans)", color: "var(--text-muted)", fontSize: "13px" }}>
-          Channeling chakra…
-        </p>
+        <ProfessionalLoader size={45} text="Channeling chakra..." />
       </div>
     );
   }
+
 
   if (error || !overview) {
     return (

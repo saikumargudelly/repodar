@@ -473,7 +473,19 @@ def get_overview(db: Session = Depends(get_db)):
 
     # Top 10 breakout repos (trend_score > 0)
     breakout_rows = (
-        db.query(Repository, ComputedMetric)
+        db.query(
+            Repository.id,
+            Repository.owner,
+            Repository.name,
+            Repository.category,
+            Repository.github_url,
+            Repository.age_days,
+            Repository.primary_language,
+            ComputedMetric.trend_score,
+            ComputedMetric.acceleration,
+            ComputedMetric.star_velocity_7d,
+            ComputedMetric.sustainability_label,
+        )
         .join(ComputedMetric, Repository.id == ComputedMetric.repo_id)
         .filter(Repository.is_active == True)  # noqa: E712
         .filter(ComputedMetric.date == latest_date)
@@ -484,24 +496,33 @@ def get_overview(db: Session = Depends(get_db)):
     )
 
     breakout_detected = []
-    for repo, metric in breakout_rows:
+    for (id, owner, name, cat, github_url, age_days, primary_language,
+         ts, accel, vel, sl) in breakout_rows:
         breakout_detected.append(BreakoutRepo(
-            repo_id=repo.id,
-            owner=repo.owner,
-            name=repo.name,
-            category=repo.category,
-            github_url=repo.github_url,
-            trend_score=metric.trend_score or 0,
-            acceleration=metric.acceleration or 0,
-            star_velocity_7d=metric.star_velocity_7d or 0,
-            sustainability_label=metric.sustainability_label or "YELLOW",
-            age_days=repo.age_days,
-            primary_language=repo.primary_language,
+            repo_id=id,
+            owner=owner,
+            name=name,
+            category=cat,
+            github_url=github_url,
+            trend_score=ts or 0.0,
+            acceleration=accel or 0.0,
+            star_velocity_7d=vel or 0.0,
+            sustainability_label=sl or "YELLOW",
+            age_days=age_days,
+            primary_language=primary_language,
         ))
 
     # Top 20 sustainability repos (sustainability_score > 0)
     sustain_rows = (
-        db.query(Repository, ComputedMetric)
+        db.query(
+            Repository.id,
+            Repository.owner,
+            Repository.name,
+            Repository.category,
+            ComputedMetric.sustainability_score,
+            ComputedMetric.sustainability_label,
+            ComputedMetric.trend_score,
+        )
         .join(ComputedMetric, Repository.id == ComputedMetric.repo_id)
         .filter(Repository.is_active == True)  # noqa: E712
         .filter(ComputedMetric.date == latest_date)
@@ -512,15 +533,15 @@ def get_overview(db: Session = Depends(get_db)):
     )
 
     sustain_scored = []
-    for repo, metric in sustain_rows:
+    for (id, owner, name, cat, ss, sl, ts) in sustain_rows:
         sustain_scored.append(SustainabilityEntry(
-            repo_id=repo.id,
-            owner=repo.owner,
-            name=repo.name,
-            category=repo.category,
-            sustainability_score=metric.sustainability_score or 0,
-            sustainability_label=metric.sustainability_label or "YELLOW",
-            trend_score=metric.trend_score or 0,
+            repo_id=id,
+            owner=owner,
+            name=name,
+            category=cat,
+            sustainability_score=ss or 0.0,
+            sustainability_label=sl or "YELLOW",
+            trend_score=ts or 0.0,
         ))
 
     # Category growth: use today's pre-aggregated cache first (fast), fall back to live compute.
@@ -560,14 +581,15 @@ def get_overview(db: Session = Depends(get_db)):
         .filter(Repository.is_active == True, Repository.source == "auto_discovered")  # noqa: E712
         .count()
     )
-    subq = _latest_metric_subquery(db, latest_date)
     healthy_repos = (
-        db.query(Repository)
-        .join(subq, Repository.id == subq.c.repo_id)
+        db.query(ComputedMetric.repo_id)
+        .join(Repository, Repository.id == ComputedMetric.repo_id)
         .filter(Repository.is_active == True)  # noqa: E712
-        .filter(subq.c.sustainability_label == "GREEN")
+        .filter(ComputedMetric.date == latest_date)
+        .filter(ComputedMetric.sustainability_label == "GREEN")
         .count()
     )
+
 
     return OverviewResponse(
         as_of=latest_date.isoformat(),
@@ -1096,6 +1118,7 @@ def get_category_metrics(
 
 
 @router.get("/alerts", response_model=List[AlertResponse])
+@cache(expire=60)
 def get_alerts(
     unread_only: bool = Query(False, description="Return only unread alerts"),
     limit: int = Query(20, le=100),
