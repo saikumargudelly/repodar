@@ -126,7 +126,7 @@ export default function TopicsPage() {
 
         {/* Summary chips */}
         {topics && (
-          <div className="flex items-center gap-5 px-5 py-3 border border-[#2d2d34] rounded-lg bg-[#16161a]">
+          <div className="topics-summary-chips">
             <div>
               <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono block">Topics</span>
               <span className="text-sm font-bold text-white font-mono">{filtered.length}</span>
@@ -237,7 +237,7 @@ export default function TopicsPage() {
       {/* ── Table Section Controls ── */}
       <div className="bg-[#1f1f23] border border-[#2d2d34] rounded-xl overflow-hidden shadow-sm">
         {/* Toolbar */}
-        <div className="p-4 border-b border-[#2d2d34]/80 flex flex-wrap items-center gap-3">
+        <div className="topics-table-toolbar">
           {/* Search Input */}
           <div className="relative flex-1 min-w-[200px] max-w-[260px]">
             <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
@@ -310,11 +310,11 @@ export default function TopicsPage() {
               <tr className="border-b border-[#2d2d34]">
                 <th className="py-3 px-4 text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono w-12">#</th>
                 <th className="py-3 px-4 text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono">Topic</th>
-                <th className="py-3 px-4 text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono text-center w-20">Repos</th>
-                <th className="py-3 px-4 text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono text-right w-24">Avg score</th>
-                <th className="py-3 px-4 text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono w-44">Score bar</th>
+                <th className="col-hide-mobile py-3 px-4 text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono text-center w-20">Repos</th>
+                <th className="col-hide-tablet py-3 px-4 text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono text-right w-24">Avg score</th>
+                <th className="col-hide-mobile py-3 px-4 text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono w-44">Score bar</th>
                 <th className="py-3 px-4 text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono text-right w-28">Vel / day</th>
-                <th className="py-3 px-4 text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono text-center w-24">Accel</th>
+                <th className="col-hide-tablet py-3 px-4 text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono text-center w-24">Accel</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#2d2d34]/60">
@@ -340,11 +340,11 @@ export default function TopicsPage() {
                     <div className="text-[10px] text-gray-500 font-medium font-sans mt-0.5">{t.repo_count} repos</div>
                   </td>
                   {/* Repos count */}
-                  <td className="py-3 px-4 text-center font-mono text-xs text-gray-200 font-bold">{t.repo_count}</td>
+                  <td className="col-hide-mobile py-3 px-4 text-center font-mono text-xs text-gray-200 font-bold">{t.repo_count}</td>
                   {/* Avg Trend Score */}
-                  <td className="py-3 px-4 text-right font-mono text-xs text-gray-400">{t.avg_trend_score.toFixed(4)}</td>
+                  <td className="col-hide-tablet py-3 px-4 text-right font-mono text-xs text-gray-400">{t.avg_trend_score.toFixed(4)}</td>
                   {/* Score bar */}
-                  <td className="py-3 px-4 min-w-[150px]">
+                  <td className="col-hide-mobile py-3 px-4 min-w-[150px]">
                     <ScoreBar value={t.avg_trend_score} max={maxScore} />
                   </td>
                   {/* Total star velocity per day */}
@@ -352,7 +352,7 @@ export default function TopicsPage() {
                     {formatTableVelocity(t.total_star_velocity)}
                   </td>
                   {/* Acceleration pill */}
-                  <td className="py-3 px-4 text-center">
+                  <td className="col-hide-tablet py-3 px-4 text-center">
                     {t.avg_acceleration > 0 ? (
                       <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
                         +{t.avg_acceleration.toFixed(2)}
@@ -407,7 +407,7 @@ export default function TopicsPage() {
             onClick={() => setSelectedTopic(null)}
           />
           
-          <div className="absolute inset-y-0 right-0 pl-10 max-w-full flex">
+          <div className="topics-drawer-container">
             <div className="w-screen max-w-md bg-[#16161a] border-l border-[#2d2d34] shadow-2xl flex flex-col">
               {/* Drawer Header */}
               <div className="px-6 py-5 border-b border-[#2d2d34] flex items-center justify-between">

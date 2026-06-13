@@ -31,6 +31,7 @@ export default function EarlyRadarPage() {
   >("breakout_score");
   const [momentumStage, setMomentumStage] = useState<"all" | "dormant" | "emerging" | "accelerating" | "pre_viral" | "breakout">("all");
   const [preViralOnly, setPreViralOnly] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["early-radar", maxAge, maxStars, minAccel, category, sortBy, momentumStage, preViralOnly],
@@ -59,12 +60,23 @@ export default function EarlyRadarPage() {
           color: "var(--cyan)", border: "1px solid var(--cyan)", padding: "2px 8px",
           letterSpacing: "0.1em" }}>EARLY RADAR</span>
       </div>
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)" }}>
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)", marginBottom: "14px" }}>
         {"// Young repos with strong momentum - catch the next breakout"}
       </div>
 
+      {/* Filters Toggle for Mobile */}
+      <div className="filters-toggle-bar" style={{ display: "none" }}>
+        <button 
+          onClick={() => setShowFilters(!showFilters)} 
+          className="btn-cyber btn-cyber-cyan" 
+          style={{ width: "100%", justifyContent: "center", display: "flex", alignItems: "center", gap: "8px", padding: "8px" }}
+        >
+          {showFilters ? "HIDE FILTERS ▲" : "SHOW FILTERS ▼"}
+        </button>
+      </div>
+
       {/* Filters */}
-      <div className="panel" style={{ display: "flex", flexWrap: "wrap", gap: "24px", alignItems: "flex-end" }}>
+      <div className={`panel early-radar-filters-panel ${showFilters ? "open" : ""}`}>
         <div style={{ display: "flex", flexDirection: "column", gap: "6px", minWidth: "180px" }}>
           <label style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)",
             textTransform: "uppercase", letterSpacing: "0.06em" }}>
@@ -144,7 +156,7 @@ export default function EarlyRadarPage() {
         </div>
 
         <label style={{ display: "flex", gap: "8px", alignItems: "center", fontFamily: "var(--font-mono)",
-          fontSize: "10px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          fontSize: "10px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", cursor: "pointer" }}>
           <input type="checkbox" checked={preViralOnly} onChange={(e) => setPreViralOnly(e.target.checked)}
             style={{ accentColor: "var(--cyan)", cursor: "pointer" }} />
           PRE-VIRAL ONLY
@@ -157,7 +169,7 @@ export default function EarlyRadarPage() {
 
       {!isLoading && (
         <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)",
-          letterSpacing: "0.06em" }}>
+          letterSpacing: "0.06em", marginBottom: "14px" }}>
           {`// ${repos.length} REPOS MATCHED`}
         </div>
       )}
@@ -170,7 +182,7 @@ export default function EarlyRadarPage() {
       )}
 
       {error && (
-        <div className="panel" style={{ border: "1px solid var(--pink)", textAlign: "center" }}>
+        <div className="panel" style={{ border: "1px solid var(--pink)", textAlign: "center", marginBottom: "14px" }}>
           <span style={{ fontFamily: "var(--font-mono)", color: "var(--pink)", fontSize: "12px" }}>
             ✕ FAILED TO LOAD — backend may still be indexing
           </span>
@@ -179,7 +191,7 @@ export default function EarlyRadarPage() {
 
       {/* Grid */}
       {!isLoading && repos.length > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "16px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
           {repos.map((repo) => {
             const isHot = repo.acceleration > 3;
             const stage = repo.momentum_stage ?? "emerging";

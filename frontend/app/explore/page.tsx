@@ -102,7 +102,7 @@ export default function ExplorePage() {
       </div>
 
       {/* Filter Toolbar (Search, Categories, Sort) */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
+      <div className="explore-filter-toolbar">
         {/* Search Input */}
         <div className="relative flex-1 min-w-[220px] max-w-[280px]">
           <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
@@ -120,7 +120,7 @@ export default function ExplorePage() {
         </div>
 
         {/* Category Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto py-1">
+        <div className="explore-categories-scroll">
           {CATEGORIES.map((cat) => (
             <button
               key={cat.id}
@@ -154,7 +154,7 @@ export default function ExplorePage() {
       </div>
 
       {/* Languages Filters Row */}
-      <div className="flex flex-wrap items-center gap-2 mb-6 py-1.5 border-t border-b border-gray-800/40">
+      <div className="explore-languages-row border-t border-b border-gray-800/40">
         {LANGUAGES.map((lang) => (
           <button
             key={lang.id}
