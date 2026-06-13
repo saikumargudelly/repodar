@@ -1905,6 +1905,13 @@ p, span, div, td, th, a, label, li {
   max-width: 100%;
 }
 
+.topics-filter-inputs {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
 @media (max-width: 640px) {
   .topics-summary-chips {
     width: 100%;
@@ -1919,6 +1926,19 @@ p, span, div, td, th, a, label, li {
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
+  }
+  .topics-filter-inputs {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+  .topics-filter-inputs > div:first-child {
+    flex: 1;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+  .topics-filter-inputs > div:last-child {
+    flex-shrink: 0;
   }
   .topics-table-toolbar > div:first-child {
     width: 100% !important;

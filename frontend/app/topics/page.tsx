@@ -238,32 +238,34 @@ export default function TopicsPage() {
       <div className="bg-[#1f1f23] border border-[#2d2d34] rounded-xl overflow-hidden shadow-sm">
         {/* Toolbar */}
         <div className="topics-table-toolbar">
-          {/* Search Input */}
-          <div className="relative flex-1 min-w-[200px] max-w-[260px]">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </span>
-            <input
-              type="text"
-              placeholder="Search topics…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 bg-[#18181b] border border-[#2d2d34] rounded-md text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-gray-500 transition-all font-semibold"
-            />
-          </div>
+          <div className="topics-filter-inputs">
+            {/* Search Input */}
+            <div className="relative flex-1 min-w-[200px] max-w-[260px]">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                placeholder="Search topics…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 bg-[#18181b] border border-[#2d2d34] rounded-md text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-gray-500 transition-all font-semibold"
+              />
+            </div>
 
-          {/* Min Repos input */}
-          <div className="flex items-center gap-2 bg-[#18181b] border border-[#2d2d34] rounded-md px-3 py-1.5">
-            <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider font-mono whitespace-nowrap">Min repos</span>
-            <input
-              type="number"
-              min={1}
-              value={minRepos}
-              onChange={(e) => setMinRepos(Math.max(1, parseInt(e.target.value) || 1))}
-              className="w-8 bg-transparent text-white font-bold font-mono text-xs focus:outline-none text-center"
-            />
+            {/* Min Repos input */}
+            <div className="flex items-center gap-2 bg-[#18181b] border border-[#2d2d34] rounded-md px-3 py-1.5">
+              <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider font-mono whitespace-nowrap">Min repos</span>
+              <input
+                type="number"
+                min={1}
+                value={minRepos}
+                onChange={(e) => setMinRepos(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-8 bg-transparent text-white font-bold font-mono text-xs focus:outline-none text-center"
+              />
+            </div>
           </div>
 
           {/* Sort selection buttons */}
