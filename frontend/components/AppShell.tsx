@@ -92,7 +92,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         style={{
           marginLeft: "var(--sidebar-width, 220px)",
           maxWidth: "100%",
-          marginTop: isMobile ? "56px" : "0px",
+          marginTop: "0px",
           overflowX: "hidden",
           transition: "margin-left 0.3s ease, margin-top 0.3s ease",
         }}
