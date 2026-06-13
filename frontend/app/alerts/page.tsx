@@ -314,14 +314,14 @@ export default function AlertsPage() {
       </div>
 
       {/* Controls */}
-      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+      <div className="alerts-controls-row">
         <button
           onClick={() => setUnreadOnly(!unreadOnly)}
           className={`filter-btn-cyber${unreadOnly ? " active" : ""}`}
         >
           ● Unread only
         </button>
-        <span style={{ width: "1px", height: "20px", background: "var(--border)", margin: "0 4px", alignSelf: "center" }} />
+        <span className="alerts-controls-divider" />
         <button
           onClick={() => setCategoryFilter("all")}
           className={`filter-btn-cyber${categoryFilter === "all" ? " active" : ""}`}

@@ -1937,3 +1937,27 @@ p, span, div, td, th, a, label, li {
     max-width: 100vw !important;
   }
 }
+
+/* ── Alerts Page Controls ── */
+.alerts-controls-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.alerts-controls-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 4px;
+  align-self: center;
+}
+@media (max-width: 640px) {
+  .alerts-controls-divider {
+    display: none;
+  }
+  .alerts-controls-row button:last-child {
+    margin-left: 0 !important;
+    width: 100%;
+  }
+}
