@@ -2108,4 +2108,68 @@ p, span, div, td, th, a, label, li {
   }
 }
 
+/* Radar Breakout Tab Filters */
+.radar-filter-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.radar-filter-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.radar-sort-select-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.radar-filter-right {
+  display: flex;
+  gap: 8px;
+}
+@media (max-width: 640px) {
+  .radar-filter-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px !important;
+    padding: 12px !important;
+  }
+  .radar-filter-left {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 10px;
+  }
+  .radar-filter-left > label {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .radar-sort-select-wrapper {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .radar-sort-select-wrapper > div {
+    flex: 1;
+    max-width: 200px;
+  }
+  .radar-sort-select-wrapper button {
+    width: 100%;
+  }
+  .radar-filter-right {
+    width: 100%;
+    margin-left: 0 !important;
+    display: flex;
+    gap: 8px;
+  }
+  .radar-filter-right button {
+    flex: 1;
+    justify-content: center;
+    padding: 8px !important;
+  }
+}
+
+
 

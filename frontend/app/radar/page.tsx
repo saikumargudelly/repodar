@@ -312,39 +312,43 @@ export default function RadarPage() {
           </div>
 
           {/* Controls bar */}
-          <div className="panel" style={{ padding: "12px 16px", marginBottom: "12px", display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: "7px", fontFamily: "var(--font-sans)", fontSize: "13px", color: C.text, cursor: "pointer", whiteSpace: "nowrap" }}>
-              <CheckBox checked={newOnly} onChange={setNewOnly} />
-              New only (&lt;180D)
-            </label>
-            <span style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: C.textMuted }}>Sort by</span>
-            <div style={{ position: "relative" }}>
-              <button onClick={() => setShowSortDrop((p) => !p)} style={{
-                display: "flex", alignItems: "center", gap: "8px",
-                fontFamily: "var(--font-sans)", fontSize: "13px", color: C.text,
-                background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: "6px",
-                padding: "6px 12px", cursor: "pointer", minWidth: "160px", justifyContent: "space-between",
-              }}>
-                {SORT_LABEL[establishedSort]}
-                <span style={{ fontSize: "9px", color: C.textMuted }}>▼</span>
-              </button>
-              {showSortDrop && (
-                <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: "6px", zIndex: 50, minWidth: "190px", overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
-                  {(Object.keys(SORT_LABEL) as EstablishedSortKey[]).map((key) => (
-                    <button key={key} onClick={() => { setEstablishedSort(key); setShowSortDrop(false); }} style={{
-                      display: "block", width: "100%", textAlign: "left", padding: "8px 14px",
-                      fontFamily: "var(--font-sans)", fontSize: "13px",
-                      color: key === establishedSort ? C.text : C.textMuted,
-                      background: key === establishedSort ? C.bgHover : "transparent",
-                      border: "none", cursor: "pointer",
-                    }}>
-                      {SORT_LABEL[key]}
-                    </button>
-                  ))}
+          <div className="panel radar-filter-toolbar" style={{ marginBottom: "12px" }}>
+            <div className="radar-filter-left">
+              <label style={{ display: "flex", alignItems: "center", gap: "7px", fontFamily: "var(--font-sans)", fontSize: "13px", color: C.text, cursor: "pointer", whiteSpace: "nowrap" }}>
+                <CheckBox checked={newOnly} onChange={setNewOnly} />
+                New only (&lt;180D)
+              </label>
+              <div className="radar-sort-select-wrapper">
+                <span style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: C.textMuted }}>Sort by</span>
+                <div style={{ position: "relative" }}>
+                  <button onClick={() => setShowSortDrop((p) => !p)} style={{
+                    display: "flex", alignItems: "center", gap: "8px",
+                    fontFamily: "var(--font-sans)", fontSize: "13px", color: C.text,
+                    background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: "6px",
+                    padding: "6px 12px", cursor: "pointer", minWidth: "160px", justifyContent: "space-between",
+                  }}>
+                    {SORT_LABEL[establishedSort]}
+                    <span style={{ fontSize: "9px", color: C.textMuted }}>▼</span>
+                  </button>
+                  {showSortDrop && (
+                    <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: "6px", zIndex: 50, minWidth: "190px", overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
+                      {(Object.keys(SORT_LABEL) as EstablishedSortKey[]).map((key) => (
+                        <button key={key} onClick={() => { setEstablishedSort(key); setShowSortDrop(false); }} style={{
+                          display: "block", width: "100%", textAlign: "left", padding: "8px 14px",
+                          fontFamily: "var(--font-sans)", fontSize: "13px",
+                          color: key === establishedSort ? C.text : C.textMuted,
+                          background: key === establishedSort ? C.bgHover : "transparent",
+                          border: "none", cursor: "pointer",
+                        }}>
+                          {SORT_LABEL[key]}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
-            <div style={{ marginLeft: "auto", display: "flex", gap: "8px" }}>
+            <div className="radar-filter-right">
               <GhostBtn onClick={() => exportCSV(breakoutExport, "radar-breakout.csv")}>⬇ CSV</GhostBtn>
               <GhostBtn onClick={() => exportJSON(breakoutExport, "radar-breakout.json")}>⬇ JSON</GhostBtn>
             </div>
