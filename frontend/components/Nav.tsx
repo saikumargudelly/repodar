@@ -18,10 +18,10 @@ export function Nav() {
     <nav
       style={{
         borderBottom: "1px solid var(--border)",
-        background: "var(--bg-surface)",
+        backgroundColor: "var(--bg-surface)",
         position: "sticky",
         top: 0,
-        zIndex: 40,
+        zIndex: 100,
         height: "56px",
         display: "flex",
         alignItems: "center",
