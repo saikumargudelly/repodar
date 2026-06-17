@@ -640,7 +640,7 @@ export default function RepoDeepDive() {
   return (
     <div className="page-root" style={{ display: "flex", flexDirection: "column", gap: "14px", paddingBottom: "40px" }}>
       {/* 1. Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "20px" }}>
+      <div className="repo-header-container">
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <span style={{ fontSize: "24px", fontWeight: "bold", color: "var(--text-primary)", fontFamily: "var(--font-sans)" }}>
@@ -672,7 +672,7 @@ export default function RepoDeepDive() {
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
+        <div className="repo-header-actions" style={{ display: "inline-flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
           <button
             onClick={toggleWatch}
             style={{
