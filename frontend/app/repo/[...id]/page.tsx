@@ -128,7 +128,7 @@ function StarHistoryChart({ data, mentions }: {
   );
 
   return (
-    <div className="panel card-pad" style={{ marginTop: "24px" }}>
+    <div className="panel card-pad">
       <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><path d="M3 3v18h18"></path><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"></path></svg>
@@ -170,7 +170,7 @@ function StarHistoryChart({ data, mentions }: {
 
 function DailyDeltaChart({ data }: { data: DailyMetricPoint[] }) {
   return (
-    <div className="panel card-pad" style={{ marginTop: "24px" }}>
+    <div className="panel card-pad">
       <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0 }}>
         <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><rect x="18" y="3" width="4" height="18"></rect><rect x="10" y="8" width="4" height="13"></rect><rect x="2" y="13" width="4" height="8"></rect></svg>
@@ -192,7 +192,7 @@ function DailyDeltaChart({ data }: { data: DailyMetricPoint[] }) {
 
 function ContributorChart({ data }: { data: DailyMetricPoint[] }) {
   return (
-    <div className="panel card-pad" style={{ marginTop: "24px" }}>
+    <div className="panel card-pad">
       <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0 }}>
         <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
@@ -220,7 +220,7 @@ function ContributorChart({ data }: { data: DailyMetricPoint[] }) {
 
 function VelocityChart({ data }: { data: ComputedMetricPoint[] }) {
   return (
-    <div className="panel card-pad" style={{ marginTop: "24px" }}>
+    <div className="panel card-pad">
       <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0 }}>
         <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
@@ -248,7 +248,7 @@ function VelocityChart({ data }: { data: ComputedMetricPoint[] }) {
 
 function ScoreTimeline({ data }: { data: ComputedMetricPoint[] }) {
   return (
-    <div className="panel card-pad" style={{ marginTop: "24px" }}>
+    <div className="panel card-pad">
       <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0 }}>
         <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
@@ -376,7 +376,7 @@ function CommitHeatmap({ data }: { data: CommitActivityPoint[] }) {
   };
 
   return (
-    <div className="panel card-pad" style={{ overflowX: "auto", marginTop: "24px" }}>
+    <div className="panel card-pad" style={{ overflowX: "auto" }}>
       <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0 }}>
         <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="13" y2="17"></line></svg>
@@ -418,7 +418,7 @@ function ReleaseChangelog({ releases, owner, name }: { releases: ReleaseItem[]; 
   if (!releases || releases.length === 0) return null;
 
   return (
-    <div className="panel card-pad" style={{ marginTop: "24px" }}>
+    <div className="panel card-pad">
       <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 12 }}>
         <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
@@ -470,7 +470,7 @@ function SocialMentionsFeed({ mentions }: { mentions: SocialMentionItem[] }) {
     p === "hn" ? "Hacker News" : sub ? `r/${sub}` : "Reddit";
 
   return (
-    <div className="panel card-pad" style={{ marginTop: "24px" }}>
+    <div className="panel card-pad">
       <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 12 }}>
         <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
@@ -638,9 +638,9 @@ export default function RepoDeepDive() {
   }
 
   return (
-    <div className="page-root" style={{ paddingBottom: "40px" }}>
+    <div className="page-root" style={{ display: "flex", flexDirection: "column", gap: "14px", paddingBottom: "40px" }}>
       {/* 1. Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "20px", marginBottom: "24px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "20px" }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <span style={{ fontSize: "24px", fontWeight: "bold", color: "var(--text-primary)", fontFamily: "var(--font-sans)" }}>
@@ -763,7 +763,7 @@ export default function RepoDeepDive() {
       </div>
 
       {/* 2. 6-Column Metric Grid */}
-      <div className="metric-pills-grid" style={{ marginBottom: "24px" }}>
+      <div className="metric-pills-grid">
         <MetricCard
           label="Trend score"
           value={repo.trend_score?.toFixed(4) ?? "—"}
@@ -806,7 +806,7 @@ export default function RepoDeepDive() {
 
       {/* 3. AI Deep Analysis Panel */}
       {deepLoading && (
-        <div className="panel card-pad" style={{ borderLeft: "3px solid var(--cyan)", marginBottom: "24px" }}>
+        <div className="panel card-pad" style={{ borderLeft: "3px solid var(--cyan)" }}>
           <div className="panel-header" style={{ marginBottom: "10px" }}>
             <span className="panel-title">◈ AI DEEP ANALYSIS</span>
           </div>
@@ -816,7 +816,7 @@ export default function RepoDeepDive() {
 
       {deepSummary && (
         <>
-          <div className="panel card-pad" style={{ borderLeft: "3px solid var(--cyan)", marginBottom: "24px" }}>
+          <div className="panel card-pad" style={{ borderLeft: "3px solid var(--cyan)" }}>
             <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
                 ✨ AI deep analysis
@@ -854,7 +854,7 @@ export default function RepoDeepDive() {
           </div>
 
           {/* 4. Tech Stack & Use Cases */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px", marginBottom: "24px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
             {deepSummary.tech_stack.length > 0 && (
               <div className="panel card-pad">
                 <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 12px 0", marginBottom: 0 }}>
@@ -907,7 +907,7 @@ export default function RepoDeepDive() {
           </div>
 
           {/* 5. Language Breakdown & Signal Explainer */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px", marginBottom: "24px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
             {Object.keys(deepSummary.languages).length > 0 && (
               <div className="panel card-pad">
                 <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 12px 0", marginBottom: 0 }}>
@@ -950,7 +950,7 @@ export default function RepoDeepDive() {
 
           {/* 6. Top Contributors */}
           {deepSummary.contributors.length > 0 && (
-            <div className="panel card-pad" style={{ marginBottom: "24px" }}>
+            <div className="panel card-pad">
               <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span className="panel-title" style={{ fontSize: "14px" }}>
                   <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
@@ -979,7 +979,7 @@ export default function RepoDeepDive() {
 
       {/* Fallback AI Summary */}
       {!deepSummary && !deepLoading && repo.repo_summary && (
-        <div className="panel card-pad" style={{ borderLeft: "3px solid var(--cyan)", marginBottom: "24px" }}>
+        <div className="panel card-pad" style={{ borderLeft: "3px solid var(--cyan)" }}>
           <div className="panel-header" style={{ marginBottom: "10px" }}>
             <span className="panel-title">◈ AI SUMMARY</span>
           </div>
@@ -1003,9 +1003,7 @@ export default function RepoDeepDive() {
       )}
 
       {/* 9. Star Forecast (90 days) */}
-      <div style={{ marginTop: "24px" }}>
-        <ForecastChart owner={repo.owner} name={repo.name} />
-      </div>
+      <ForecastChart owner={repo.owner} name={repo.name} />
 
       {/* 10. Velocity vs Acceleration & Trend Score Timeline side by side */}
       {scores && scores.length > 0 && (
@@ -1027,13 +1025,11 @@ export default function RepoDeepDive() {
       <ReleaseChangelog releases={releases || []} owner={repo.owner} name={repo.name} />
 
       {/* 11. Similar Repositories */}
-      <div style={{ marginTop: "24px" }}>
-        <RecommendationsPanel repoOwner={repo.owner} repoName={repo.name} />
-      </div>
+      <RecommendationsPanel repoOwner={repo.owner} repoName={repo.name} />
 
       {/* 12. Raw Metrics snapshots table */}
       {dailyMetrics && dailyMetrics.length > 0 && (
-        <div className="panel table-scroll" style={{ marginTop: "24px" }}>
+        <div className="panel table-scroll">
           <div className="panel-header" style={{ borderBottom: "none", padding: "16px 20px" }}>
             <span className="panel-title" style={{ fontSize: "14px" }}>
               <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
