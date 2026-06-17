@@ -26,11 +26,13 @@ export function ForecastChart({ owner, name }: Props) {
 
   const today = new Date();
   const data = [
-    { date: "Today",             stars: forecast.current_stars,  isForecast: false },
-    { date: format(addDays(today, 15), "MMM d"), stars: Math.round(forecast.current_stars + (forecast.forecast_30d - forecast.current_stars) / 2), isForecast: true },
-    { date: "+30d",              stars: forecast.forecast_30d,   isForecast: true },
-    { date: format(addDays(today, 60), "MMM d"), stars: Math.round(forecast.forecast_30d + (forecast.forecast_90d - forecast.forecast_30d) / 2), isForecast: true },
-    { date: "+90d",              stars: forecast.forecast_90d,   isForecast: true },
+    { date: "Today", stars: forecast.current_stars },
+    { date: "+15d",  stars: Math.round(forecast.current_stars + (forecast.forecast_30d - forecast.current_stars) * 0.5) },
+    { date: "+30d",  stars: Math.round(forecast.forecast_30d) },
+    { date: "+45d",  stars: Math.round(forecast.forecast_30d + (forecast.forecast_90d - forecast.forecast_30d) * 0.25) },
+    { date: "+60d",  stars: Math.round(forecast.forecast_30d + (forecast.forecast_90d - forecast.forecast_30d) * 0.5) },
+    { date: "+75d",  stars: Math.round(forecast.forecast_30d + (forecast.forecast_90d - forecast.forecast_30d) * 0.75) },
+    { date: "+90d",  stars: Math.round(forecast.forecast_90d) },
   ];
 
   const growthLabelColors: Record<string, string> = {
@@ -43,73 +45,78 @@ export function ForecastChart({ owner, name }: Props) {
   const labelClass = growthLabelColors[forecast.growth_label] ?? "text-space-300 bg-space-800";
 
   return (
-    <div className="bg-space-900 border border-space-800 rounded-lg p-5">
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <h3 className="text-space-100 font-medium text-sm tracking-wide">⭐ Star Forecast (90 Days)</h3>
-          <p className="text-xs text-space-400 mt-0.5">Linear regression projection based on recent star velocity</p>
-        </div>
-        <div className="flex items-center gap-4 text-right">
-          <div>
-            <div className="text-xs text-space-400 mb-1 uppercase tracking-wider">Breakout Prob.</div>
-            <div className="text-lg font-semibold text-accent-400">
-              {Math.round(forecast.breakout_probability * 100)}%
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-space-400 mb-1 uppercase tracking-wider">Trajectory</div>
-            <span className={`px-2 py-1 rounded text-xs font-medium ${labelClass}`}>
-              {forecast.growth_label}
-            </span>
-          </div>
-        </div>
+    <div className="panel card-pad" style={{ marginTop: "24px" }}>
+      <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+          Star forecast (90 days)
+        </span>
+        <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+          Linear regression · {Math.round(forecast.breakout_probability * 100)}% breakout probability · {forecast.growth_label}
+        </span>
       </div>
 
-      {/* Star milestone badges */}
-      <div className="flex gap-4 mb-4 text-xs font-mono">
-        <div className="flex flex-col">
-          <span className="text-space-500">Now</span>
-          <span className="text-space-200 font-semibold">{forecast.current_stars.toLocaleString()}</span>
+      {/* KPI Box */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px", padding: "12px 16px", background: "rgba(255, 255, 255, 0.01)", border: "1px solid var(--border)", borderRadius: "6px", marginBottom: "16px" }}>
+        <div>
+          <div style={{ fontSize: "10px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "4px" }}>Now</div>
+          <div style={{ fontSize: "18px", fontWeight: "bold", fontFamily: "var(--font-mono)", color: "var(--text-primary)" }}>{forecast.current_stars.toLocaleString()}</div>
         </div>
-        <div className="flex flex-col">
-          <span className="text-space-500">+30d</span>
-          <span className="text-emerald-400 font-semibold">+{(forecast.forecast_30d - forecast.current_stars).toLocaleString()}</span>
+        <div>
+          <div style={{ fontSize: "10px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "4px" }}>+30d estimate</div>
+          <div style={{ fontSize: "18px", fontWeight: "bold", fontFamily: "var(--font-mono)", color: "var(--green)" }}>~{Math.round(forecast.forecast_30d).toLocaleString()}</div>
         </div>
-        <div className="flex flex-col">
-          <span className="text-space-500">+90d</span>
-          <span className="text-emerald-300 font-semibold">+{(forecast.forecast_90d - forecast.current_stars).toLocaleString()}</span>
+        <div>
+          <div style={{ fontSize: "10px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "4px" }}>+90d estimate</div>
+          <div style={{ fontSize: "18px", fontWeight: "bold", fontFamily: "var(--font-mono)", color: "var(--green)" }}>~{Math.round(forecast.forecast_90d).toLocaleString()}</div>
         </div>
       </div>
 
       <div className="h-48">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+          <AreaChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
             <defs>
               <linearGradient id="fcGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor="#818cf8" stopOpacity={0.28} />
-                <stop offset="95%" stopColor="#818cf8" stopOpacity={0} />
+                <stop offset="5%"  stopColor="var(--green)" stopOpacity={0.25} />
+                <stop offset="95%" stopColor="var(--green)" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
-            <XAxis dataKey="date" stroke="#4B5563" fontSize={11} tickLine={false} axisLine={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+            <XAxis dataKey="date" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
             <YAxis
-              stroke="#4B5563" fontSize={11} tickLine={false} axisLine={false} width={45}
-              tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}
+              stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} width={45}
+              tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}
               domain={["auto", "auto"]}
             />
             <Tooltip
-              contentStyle={{ backgroundColor: "#111827", borderColor: "#374151", borderRadius: 6, fontSize: 12 }}
-              itemStyle={{ color: "#E5E7EB" }}
-              labelStyle={{ color: "#9CA3AF" }}
+              contentStyle={{ backgroundColor: "var(--bg-elevated)", borderColor: "var(--border)", borderRadius: 6, fontSize: 12 }}
+              itemStyle={{ color: "var(--text-primary)" }}
+              labelStyle={{ color: "var(--text-muted)" }}
               formatter={(value: any) => [value.toLocaleString(), "Stars"]}
             />
-            <ReferenceLine x="Today" stroke="#374151" strokeDasharray="3 3" label={{ value: "Now", fill: "#6B7280", fontSize: 10 }} />
+            <ReferenceLine x="Today" stroke="var(--border)" strokeDasharray="3 3" label={{ value: "Now", fill: "var(--text-muted)", fontSize: 10, position: "top" }} />
             <Area
-              type="monotone" dataKey="stars" stroke="#818cf8" strokeWidth={2}
-              fillOpacity={1} fill="url(#fcGrad)" strokeDasharray="5 5"
+              type="monotone" dataKey="stars" stroke="var(--green)" strokeWidth={2}
+              fillOpacity={1} fill="url(#fcGrad)"
             />
           </AreaChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* Metadata Row */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "24px", marginTop: "16px", fontFamily: "var(--font-sans)", fontSize: "12px" }}>
+        <div>
+          <span style={{ color: "var(--text-muted)", marginRight: "6px" }}>Breakout prob.</span>
+          <span style={{ fontWeight: 600, color: "var(--amber)", fontFamily: "var(--font-mono)" }}>{Math.round(forecast.breakout_probability * 100)}%</span>
+        </div>
+        <div>
+          <span style={{ color: "var(--text-muted)", marginRight: "6px" }}>Trajectory</span>
+          <span style={{ fontWeight: 600, color: "var(--green)" }}>{forecast.growth_label}</span>
+        </div>
+        <div>
+          <span style={{ color: "var(--text-muted)", marginRight: "6px" }}>Based on</span>
+          <span style={{ color: "var(--text-primary)", fontFamily: "var(--font-mono)" }}>7d velocity avg</span>
+        </div>
       </div>
     </div>
   );

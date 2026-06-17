@@ -200,6 +200,9 @@ p, span, div, td, th, a, label, li {
   position: relative;
   overflow: hidden;
 }
+.card-pad {
+  padding: 20px 24px;
+}
 .panel::before {
   display: none;
 }
@@ -2204,6 +2207,53 @@ p, span, div, td, th, a, label, li {
     margin-bottom: 0;
   }
 }
+
+/* Repo Details Page Responsiveness */
+.repo-header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.deep-analysis-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.chart-card-content {
+  padding: 0 20px 20px;
+}
+
+@media (max-width: 640px) {
+  .repo-header-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .repo-header-actions {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    justify-content: space-between !important;
+  }
+  .repo-header-actions > * {
+    flex: 1;
+    text-align: center;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px !important;
+  }
+  .deep-analysis-row {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .chart-card-content {
+    padding: 0 10px 10px !important;
+  }
+}
+
 
 
 

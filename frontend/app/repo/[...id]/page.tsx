@@ -4,63 +4,153 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@clerk/nextjs";
 import {
-  AreaChart, Area, LineChart, Line, XAxis, YAxis, Tooltip,
+  AreaChart, Area, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, ComposedChart, Bar, ReferenceLine,
 } from "recharts";
 import {
   api, DailyMetricPoint, ComputedMetricPoint, ReleaseItem, SocialMentionItem, CommitActivityPoint, DeepSummary,
 } from "@/lib/api";
-import { SustainBadge } from "@/components/Nav";
 import { ForecastChart } from "@/components/forecast/ForecastChart";
 import { RecommendationsPanel } from "@/components/recommendations/RecommendationsPanel";
-
-function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="panel">
-      <div className="panel-header"><span className="panel-title">{title}</span></div>
-      <div style={{ padding: "0 20px 20px" }}>{children}</div>
-    </div>
-  );
-}
 
 const tooltipStyle = {
   contentStyle: { background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "6px", fontSize: "12px" },
   labelStyle: { color: "var(--text-muted)" },
 };
 
-function StarHistoryChart({ data, releases, mentions }: {
+function formatDateShort(dateStr: string) {
+  try {
+    const parts = dateStr.split("-");
+    if (parts.length < 3) return dateStr;
+    const monthIndex = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    if (monthIndex >= 0 && monthIndex < 12) {
+      return `${months[monthIndex]} ${day}`;
+    }
+    return dateStr;
+  } catch (e) {
+    return dateStr;
+  }
+}
+
+function formatDateFriendly(dateStr: string) {
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `Generated ${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  } catch (e) {
+    return `Generated ${dateStr}`;
+  }
+}
+
+function HealthBadge({ label }: { label: string | null }) {
+  if (!label) return null;
+  const norm = label.toUpperCase().trim();
+  let text = "Caution";
+  let color = "var(--accent-yellow)";
+  let bg = "rgba(210, 153, 34, 0.12)";
+  
+  if (norm === "GREEN" || norm === "HEALTHY") {
+    text = "Healthy";
+    color = "var(--accent-green)";
+    bg = "rgba(63, 185, 80, 0.12)";
+  } else if (norm === "RED" || norm === "CRITICAL" || norm === "LOW") {
+    text = "Critical";
+    color = "var(--accent-red)";
+    bg = "rgba(248, 81, 73, 0.12)";
+  }
+  
+  return (
+    <span style={{
+      fontFamily: "var(--font-sans)",
+      fontSize: "10px",
+      fontWeight: 700,
+      color,
+      backgroundColor: bg,
+      border: `1px solid ${color}`,
+      padding: "2px 8px",
+      borderRadius: "12px",
+      textTransform: "uppercase",
+      letterSpacing: "0.04em",
+    }}>
+      {text}
+    </span>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  valueColor,
+  subLabel,
+  subColor,
+}: {
+  label: string;
+  value: string | number;
+  valueColor?: string;
+  subLabel?: string;
+  subColor?: string;
+}) {
+  return (
+    <div className="kpi-card" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%", padding: "14px 16px" }}>
+      <div>
+        <div className="kpi-label" style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "none", fontWeight: 500, marginBottom: "4px", letterSpacing: "normal" }}>
+          {label}
+        </div>
+        <div className="kpi-value" style={{ fontSize: "24px", fontWeight: "bold", fontFamily: "var(--font-mono)", color: valueColor || "var(--text-primary)", marginBottom: "4px", letterSpacing: "-0.02em" }}>
+          {value}
+        </div>
+      </div>
+      {subLabel && (
+        <div style={{ fontSize: "11px", color: subColor || "var(--text-muted)", fontFamily: "var(--font-sans)", fontWeight: 500 }}>
+          {subLabel}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StarHistoryChart({ data, mentions }: {
   data: DailyMetricPoint[];
-  releases: number[];
   mentions?: SocialMentionItem[];
 }) {
-  // Mark dates where releases increased
   const enriched = data.map((d, i) => ({
     ...d,
     release_bump: i > 0 && data[i].releases > data[i - 1].releases ? d.stars : null,
   }));
 
-  // Build a set of dates with social mentions for ReferenceLine markers
   const mentionDates = new Set(
     (mentions || []).map((m) => m.posted_at.slice(0, 10))
   );
 
   return (
-    <ChartCard title="Star History">
-      <ResponsiveContainer width="100%" height={200}>
-        <AreaChart data={enriched}>
+    <div className="panel card-pad" style={{ marginTop: "24px" }}>
+      <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><path d="M3 3v18h18"></path><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"></path></svg>
+          Star history
+        </span>
+        <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+          total cumulative stars
+        </span>
+      </div>
+      <ResponsiveContainer width="100%" height={220}>
+        <AreaChart data={enriched} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
           <defs>
             <linearGradient id="starGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--cyan)" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="var(--cyan)" stopOpacity={0} />
+              <stop offset="5%" stopColor="#818cf8" stopOpacity={0.25} />
+              <stop offset="95%" stopColor="#818cf8" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={(v) => v.slice(5)} />
-          <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={42} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={formatDateShort} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={42} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} tickLine={false} axisLine={false} />
           <Tooltip {...tooltipStyle} formatter={(v: any) => [v != null ? v.toLocaleString() : "—", "Stars"]} />
-          <Area type="monotone" dataKey="stars" stroke="var(--cyan)" fill="url(#starGrad)" strokeWidth={2} dot={false} />
-          {/* Social mention markers */}
+          <Area type="monotone" dataKey="stars" stroke="#818cf8" fill="url(#starGrad)" strokeWidth={2} dot={false} />
           {data.map((d) =>
             mentionDates.has(d.date) ? (
               <ReferenceLine
@@ -74,196 +164,189 @@ function StarHistoryChart({ data, releases, mentions }: {
           )}
         </AreaChart>
       </ResponsiveContainer>
-      {mentions && mentions.length > 0 && (
-        <div style={{ padding: "6px 0 0", fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-          <span style={{ color: "var(--amber)" }}>▌</span> Dashed lines = HN / Reddit posts
-        </div>
-      )}
-    </ChartCard>
-  );
-}
-
-function VelocityChart({ data }: { data: ComputedMetricPoint[] }) {
-  return (
-    <ChartCard title="Velocity vs Acceleration">
-      <ResponsiveContainer width="100%" height={200}>
-        <ComposedChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={(v) => v.slice(5)} />
-          <YAxis yAxisId="vel" tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={36} />
-          <YAxis yAxisId="accel" orientation="right" tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={36} />
-          <Tooltip {...tooltipStyle} />
-          <Area yAxisId="vel" type="monotone" dataKey="star_velocity_7d" name="Velocity 7d" stroke="var(--cyan)" fill="rgba(0,229,255,0.1)" strokeWidth={2} dot={false} />
-          <Bar yAxisId="accel" dataKey="acceleration" name="Acceleration" fill="rgba(57,255,20,0.35)" />
-        </ComposedChart>
-      </ResponsiveContainer>
-    </ChartCard>
-  );
-}
-
-function ContributorChart({ data }: { data: DailyMetricPoint[] }) {
-  return (
-    <ChartCard title="Contributor Growth">
-      <ResponsiveContainer width="100%" height={180}>
-        <LineChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={(v) => v.slice(5)} />
-          <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={36} />
-          <Tooltip {...tooltipStyle} />
-          <Line type="monotone" dataKey="contributors" name="Contributors" stroke="var(--amber)" strokeWidth={2} dot={false} />
-        </LineChart>
-      </ResponsiveContainer>
-    </ChartCard>
+    </div>
   );
 }
 
 function DailyDeltaChart({ data }: { data: DailyMetricPoint[] }) {
   return (
-    <ChartCard title="Daily Star Delta">
-      <ResponsiveContainer width="100%" height={180}>
-        <ComposedChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={(v) => v.slice(5)} />
-          <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={36} />
+    <div className="panel card-pad" style={{ marginTop: "24px" }}>
+      <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0 }}>
+        <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><rect x="18" y="3" width="4" height="18"></rect><rect x="10" y="8" width="4" height="13"></rect><rect x="2" y="13" width="4" height="8"></rect></svg>
+          Daily star delta
+        </span>
+      </div>
+      <ResponsiveContainer width="100%" height={200}>
+        <ComposedChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={formatDateShort} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={36} tickLine={false} axisLine={false} />
           <Tooltip {...tooltipStyle} />
-          <Bar dataKey="daily_star_delta" name="Stars Added" fill="rgba(0,229,255,0.5)" />
+          <Bar dataKey="daily_star_delta" name="Stars Added" fill="rgba(52, 211, 153, 0.7)" radius={[2, 2, 0, 0]} />
         </ComposedChart>
       </ResponsiveContainer>
-    </ChartCard>
+    </div>
+  );
+}
+
+function ContributorChart({ data }: { data: DailyMetricPoint[] }) {
+  return (
+    <div className="panel card-pad" style={{ marginTop: "24px" }}>
+      <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0 }}>
+        <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          Contributor growth
+        </span>
+      </div>
+      <ResponsiveContainer width="100%" height={200}>
+        <AreaChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
+          <defs>
+            <linearGradient id="contribGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#ff9f43" stopOpacity={0.2} />
+              <stop offset="95%" stopColor="#ff9f43" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={formatDateShort} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={36} tickLine={false} axisLine={false} />
+          <Tooltip {...tooltipStyle} />
+          <Area type="monotone" dataKey="contributors" name="Contributors" stroke="#ff9f43" fill="url(#contribGrad)" strokeWidth={2} dot={false} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function VelocityChart({ data }: { data: ComputedMetricPoint[] }) {
+  return (
+    <div className="panel card-pad" style={{ marginTop: "24px" }}>
+      <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0 }}>
+        <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+          Velocity vs acceleration
+        </span>
+      </div>
+      <ResponsiveContainer width="100%" height={200}>
+        <AreaChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
+          <defs>
+            <linearGradient id="velGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.2} />
+              <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={formatDateShort} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={36} tickLine={false} axisLine={false} />
+          <Tooltip {...tooltipStyle} />
+          <Area type="monotone" dataKey="star_velocity_7d" name="Velocity 7d" stroke="#38bdf8" fill="url(#velGrad)" strokeWidth={2} dot={false} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 
 function ScoreTimeline({ data }: { data: ComputedMetricPoint[] }) {
   return (
-    <ChartCard title="Trend Score Timeline">
-      <ResponsiveContainer width="100%" height={180}>
-        <AreaChart data={data}>
+    <div className="panel card-pad" style={{ marginTop: "24px" }}>
+      <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0 }}>
+        <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          Trend score timeline
+        </span>
+      </div>
+      <ResponsiveContainer width="100%" height={200}>
+        <AreaChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
           <defs>
             <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--amber)" stopOpacity={0.3} />
+              <stop offset="5%" stopColor="var(--amber)" stopOpacity={0.25} />
               <stop offset="95%" stopColor="var(--amber)" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={(v) => v.slice(5)} />
-          <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={52} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={formatDateShort} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={52} tickLine={false} axisLine={false} />
           <Tooltip {...tooltipStyle} formatter={(v: any) => [typeof v === "number" && v != null ? v.toFixed(6) : "—", "Trend Score"]} />
           <Area type="monotone" dataKey="trend_score" stroke="var(--amber)" fill="url(#trendGrad)" strokeWidth={2} dot={false} />
         </AreaChart>
       </ResponsiveContainer>
-    </ChartCard>
+    </div>
   );
 }
 
-function SignalExplainer({ scores, dailyMetrics }: { scores: ComputedMetricPoint[]; dailyMetrics: DailyMetricPoint[] }) {
+function SignalExplainer({ scores }: { scores: ComputedMetricPoint[] }) {
   if (scores.length < 1) return null;
   const latest = scores[scores.length - 1];
   const prior = scores.length >= 2 ? scores[scores.length - 2] : null;
-  const latestDaily = dailyMetrics[dailyMetrics.length - 1] ?? null;
-  const priorDaily = dailyMetrics.length >= 8 ? dailyMetrics[dailyMetrics.length - 8] : null;
 
-  const signals: { icon: string; label: string; value: string; detail?: string; positive?: boolean }[] = [];
-
-  // Star velocity + pct change vs prior week
-  if (latest.star_velocity_7d != null) {
-    const vel = latest.star_velocity_7d;
-    let pctStr = "";
-    if (prior?.star_velocity_7d && prior.star_velocity_7d > 0) {
-      const pct = ((vel - prior.star_velocity_7d) / prior.star_velocity_7d) * 100;
-      pctStr = ` (${pct >= 0 ? "+" : ""}${pct.toFixed(0)}% vs prior week)`;
-    }
-    signals.push({
-      icon: "⭐",
-      label: "7-day star velocity",
-      value: `+${vel.toFixed(1)}/day`,
-      detail: pctStr,
-      positive: vel > 0,
-    });
+  let trendChangePct = 0;
+  if (latest.trend_score && prior?.trend_score && prior.trend_score > 0) {
+    trendChangePct = ((latest.trend_score - prior.trend_score) / prior.trend_score) * 100;
   }
 
-  // Acceleration
-  if (latest.acceleration != null) {
-    const acc = latest.acceleration;
-    signals.push({
-      icon: acc > 0 ? "🚀" : "📉",
-      label: "Momentum",
-      value: acc > 0 ? "Accelerating" : acc < 0 ? "Decelerating" : "Flat",
-      detail: ` (accel: ${acc > 0 ? "+" : ""}${acc.toFixed(4)})`,
-      positive: acc > 0,
-    });
+  let velChangePct = 0;
+  if (latest.star_velocity_7d && prior?.star_velocity_7d && prior.star_velocity_7d > 0) {
+    velChangePct = ((latest.star_velocity_7d - prior.star_velocity_7d) / prior.star_velocity_7d) * 100;
   }
 
-  // Contributor growth (daily metric comparison)
-  if (latestDaily && priorDaily && priorDaily.contributors > 0) {
-    const delta = latestDaily.contributors - priorDaily.contributors;
-    const pct = (delta / priorDaily.contributors) * 100;
-    if (delta !== 0) {
-      signals.push({
-        icon: "👥",
-        label: "Contributor growth (7d)",
-        value: `${delta > 0 ? "+" : ""}${delta} new devs`,
-        detail: ` (${pct >= 0 ? "+" : ""}${pct.toFixed(0)}% change)`,
-        positive: delta > 0,
-      });
-    }
-  }
-
-  // Release boost
-  if (latestDaily && priorDaily && latestDaily.releases > priorDaily.releases) {
-    const newReleases = latestDaily.releases - priorDaily.releases;
-    signals.push({
-      icon: "🏷️",
-      label: "Release boost",
-      value: `${newReleases} release${newReleases > 1 ? "s" : ""} in last 7 days`,
-      positive: true,
-    });
-  }
-
-  // Trend score change
-  if (prior?.trend_score && latest.trend_score! > 0) {
-    const delta = ((latest.trend_score! - prior.trend_score) / prior.trend_score) * 100;
-    signals.push({
-      icon: "📊",
-      label: "Trend score",
-      value: latest.trend_score!.toFixed(6),
-      detail: ` (${delta >= 0 ? "+" : ""}${delta.toFixed(1)}% vs prior snapshot)`,
-      positive: delta > 0,
-    });
-  }
-
-  if (signals.length === 0) return null;
+  const accel = latest.acceleration ?? 0;
+  const accelStatus = accel > 0.001 ? "Accelerating" : accel < -0.001 ? "Decelerating" : "Flat";
 
   return (
-    <div className="panel" style={{ padding: "20px 24px" }}>
-      <div className="panel-header" style={{ marginBottom: "12px" }}>
-        <span className="panel-title">◈ SIGNAL EXPLAINER — WHY THIS SCORE?</span>
+    <div className="panel card-pad" style={{ height: "100%" }}>
+      <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0 }}>
+        <span className="panel-title" style={{ fontSize: "14px" }}>
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+          Signal explainer
+        </span>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-        {signals.map((s) => (
-          <div key={s.label} className="signal-row">
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "12px",
-              color: "var(--text-muted)", flexShrink: 0 }}>{s.icon}</span>
-            <span className="signal-label">{s.label}:</span>
-            <span style={{ fontWeight: 700,
-              color: s.positive ? "var(--green)" : s.positive === false ? "var(--pink)" : "var(--text-primary)",
-              fontFamily: "var(--font-mono)", fontSize: "12px" }}>
-              {s.value}
-            </span>
-            {s.detail && <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)",
-              fontSize: "10px" }}>{s.detail}</span>}
-          </div>
-        ))}
+      <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "8px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <span style={{ fontSize: "16px", color: "var(--text-muted)", display: "inline-flex" }}>
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          </span>
+          <span style={{ fontSize: "13px", color: "var(--text-primary)", minWidth: "120px" }}>7d star velocity</span>
+          <span style={{ fontSize: "13px", fontWeight: "bold", color: "var(--green)", minWidth: "90px", fontFamily: "var(--font-mono)" }}>
+            +{latest.star_velocity_7d?.toFixed(1)}/day
+          </span>
+          <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+            {velChangePct >= 0 ? "+" : ""}{velChangePct.toFixed(0)}% vs prior week
+          </span>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <span style={{ fontSize: "16px", color: "var(--text-muted)", display: "inline-flex" }}>
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none"><path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3z"></path><path d="M6 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3z"></path></svg>
+          </span>
+          <span style={{ fontSize: "13px", color: "var(--text-primary)", minWidth: "120px" }}>Momentum</span>
+          <span style={{ fontSize: "13px", fontWeight: "bold", color: "var(--text-primary)", minWidth: "90px" }}>
+            {accelStatus}
+          </span>
+          <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+            accel: {accel.toFixed(4)}
+          </span>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <span style={{ fontSize: "16px", color: "var(--text-muted)", display: "inline-flex" }}>
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+          </span>
+          <span style={{ fontSize: "13px", color: "var(--text-primary)", minWidth: "120px" }}>Trend score</span>
+          <span style={{ fontSize: "13px", fontWeight: "bold", color: "var(--amber)", minWidth: "90px", fontFamily: "var(--font-mono)" }}>
+            {latest.trend_score?.toFixed(4)}
+          </span>
+          <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+            {trendChangePct >= 0 ? "+" : ""}{trendChangePct.toFixed(1)}% vs prior snapshot
+          </span>
+        </div>
       </div>
     </div>
   );
 }
 
-// ─── Feature 8: Commit Frequency Heatmap ─────────────────────────────────────
-
 function CommitHeatmap({ data }: { data: CommitActivityPoint[] }) {
   if (!data || data.length === 0) return null;
 
-  // Build a map of date→count
   const countMap: Record<string, number> = {};
   let maxCount = 1;
   for (const p of data) {
@@ -271,7 +354,6 @@ function CommitHeatmap({ data }: { data: CommitActivityPoint[] }) {
     if (p.count > maxCount) maxCount = p.count;
   }
 
-  // Build 52 weeks × 7 days grid starting from the earliest entry
   const sorted = [...data].sort((a, b) => a.date.localeCompare(b.date));
   const weeks: CommitActivityPoint[][] = [];
   let week: CommitActivityPoint[] = [];
@@ -294,11 +376,14 @@ function CommitHeatmap({ data }: { data: CommitActivityPoint[] }) {
   };
 
   return (
-    <div className="panel" style={{ padding: "20px 24px", overflowX: "auto" }}>
-      <div className="panel-header" style={{ marginBottom: "12px" }}>
-        <span className="panel-title">◈ COMMIT ACTIVITY — LAST 52 WEEKS</span>
+    <div className="panel card-pad" style={{ overflowX: "auto", marginTop: "24px" }}>
+      <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0 }}>
+        <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="13" y2="17"></line></svg>
+          Commit activity — last 52 weeks
+        </span>
       </div>
-      <div style={{ display: "flex", gap: "3px" }}>
+      <div style={{ display: "flex", gap: "3px", marginTop: "8px" }}>
         {weeks.map((w, wi) => (
           <div key={wi} style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
             {w.map((day) => (
@@ -310,7 +395,7 @@ function CommitHeatmap({ data }: { data: CommitActivityPoint[] }) {
                   height: "12px",
                   borderRadius: "2px",
                   background: intensity(day.count),
-                  border: "1px solid rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.02)",
                   cursor: "default",
                 }}
               />
@@ -318,7 +403,7 @@ function CommitHeatmap({ data }: { data: CommitActivityPoint[] }) {
           </div>
         ))}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "8px", fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "12px", fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
         Less
         {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => (
           <div key={i} style={{ width: "10px", height: "10px", borderRadius: "2px", background: intensity(Math.round(pct * maxCount)) }} />
@@ -329,15 +414,16 @@ function CommitHeatmap({ data }: { data: CommitActivityPoint[] }) {
   );
 }
 
-// ─── Feature 7: Release Changelog ─────────────────────────────────────────────
-
 function ReleaseChangelog({ releases, owner, name }: { releases: ReleaseItem[]; owner: string; name: string }) {
   if (!releases || releases.length === 0) return null;
 
   return (
-    <div className="panel" style={{ padding: "20px 24px" }}>
-      <div className="panel-header" style={{ marginBottom: "12px" }}>
-        <span className="panel-title">◈ RECENT RELEASES</span>
+    <div className="panel card-pad" style={{ marginTop: "24px" }}>
+      <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 12 }}>
+        <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+          Recent releases
+        </span>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
         {releases.map((r) => (
@@ -347,12 +433,12 @@ function ReleaseChangelog({ releases, owner, name }: { releases: ReleaseItem[]; 
                 href={r.html_url || `https://github.com/${owner}/${name}/releases/tag/${r.tag_name}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ fontFamily: "var(--font-mono)", fontSize: "12px", fontWeight: 700, color: "var(--cyan)", textDecoration: "none" }}
+                style={{ fontFamily: "var(--font-mono)", fontSize: "12px", fontWeight: 700, color: "#58a6ff", textDecoration: "none" }}
               >
                 {r.tag_name}
               </a>
               {r.is_prerelease && (
-                <span style={{ fontSize: "10px", background: "rgba(255,193,7,0.15)", color: "var(--amber)", padding: "2px 7px", borderRadius: "3px", fontFamily: "var(--font-mono)" }}>
+                <span style={{ fontSize: "10px", background: "rgba(255,193,7,0.1)", color: "var(--amber)", padding: "1px 6px", borderRadius: "3px", fontFamily: "var(--font-mono)" }}>
                   PRE-RELEASE
                 </span>
               )}
@@ -364,7 +450,7 @@ function ReleaseChangelog({ releases, owner, name }: { releases: ReleaseItem[]; 
               )}
             </div>
             {r.body_truncated && (
-              <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: 0, lineHeight: "1.5", whiteSpace: "pre-wrap" }}>
+              <p style={{ fontSize: "12px", color: "var(--text-secondary)", margin: 0, lineHeight: "1.5", whiteSpace: "pre-wrap" }}>
                 {r.body_truncated}
                 {r.body_truncated.length >= 500 ? "…" : ""}
               </p>
@@ -376,8 +462,6 @@ function ReleaseChangelog({ releases, owner, name }: { releases: ReleaseItem[]; 
   );
 }
 
-// ─── Feature 6: Social Mentions Feed ─────────────────────────────────────────
-
 function SocialMentionsFeed({ mentions }: { mentions: SocialMentionItem[] }) {
   if (!mentions || mentions.length === 0) return null;
 
@@ -386,24 +470,28 @@ function SocialMentionsFeed({ mentions }: { mentions: SocialMentionItem[] }) {
     p === "hn" ? "Hacker News" : sub ? `r/${sub}` : "Reddit";
 
   return (
-    <div className="panel" style={{ padding: "20px 24px" }}>
-      <div className="panel-header" style={{ marginBottom: "12px" }}>
-        <span className="panel-title">◈ COMMUNITY MENTIONS — HN &amp; REDDIT</span>
+    <div className="panel card-pad" style={{ marginTop: "24px" }}>
+      <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 12 }}>
+        <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+          Community mentions — HN &amp; Reddit
+        </span>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-        {mentions.slice(0, 10).map((m) => (
-          <div key={m.id} style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+        {mentions.slice(0, 5).map((m) => (
+          <div key={m.id} style={{ display: "flex", alignItems: "flex-start", gap: "10px", borderBottom: "1px solid var(--border)", paddingBottom: "10px" }}>
             <span style={{ fontSize: "16px", flexShrink: 0 }}>{platformIcon(m.platform)}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <a
                 href={m.post_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ fontSize: "12px", color: "var(--cyan)", textDecoration: "none", display: "block", marginBottom: "2px" }}
+                style={{ fontSize: "13px", fontWeight: 500, color: "#58a6ff", textDecoration: "none", display: "block", marginBottom: "2px" }}
+                className="hover:underline"
               >
                 {m.post_title || "(no title)"}
               </a>
-              <span style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+              <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
                 {platformLabel(m.platform, m.subreddit)} · {m.upvotes} pts · {m.posted_at.slice(0, 10)}
               </span>
             </div>
@@ -414,18 +502,13 @@ function SocialMentionsFeed({ mentions }: { mentions: SocialMentionItem[] }) {
   );
 }
 
-function MetricPill({ label, value, mono = false }: { label: string; value: string | number; mono?: boolean }) {
-  return (
-    <div className="kpi-card">
-      <div className="kpi-label">{label}</div>
-      <div className="kpi-value" style={{ fontFamily: mono ? "var(--font-mono)" : undefined }}>{value}</div>
-    </div>
-  );
-}
-
 export default function RepoDeepDive() {
   const params = useParams<{ id: string[] }>();
   const repoId = Array.isArray(params.id) ? params.id.join("/") : params.id;
+
+  const { userId } = useAuth();
+  const queryClient = useQueryClient();
+  const [pinned, setPinned] = useState(false);
 
   const { data: repo, isLoading: repoLoading } = useQuery({
     queryKey: ["repo", repoId],
@@ -445,16 +528,15 @@ export default function RepoDeepDive() {
     enabled: !!repoId,
   });
 
-  // Feature 7: Releases
   const { data: releases } = useQuery({
     queryKey: ["releases", repoId],
     queryFn: () => api.getReleases(repoId, 10),
     enabled: !!repoId,
   });
 
-  // Deep Summary: what/why/how/tech-stack/contributors/languages
   const owner = repoId.split("/")[0] ?? "";
   const repoName = repoId.split("/").slice(1).join("/") ?? "";
+  
   const { data: deepSummary, isLoading: deepLoading } = useQuery<DeepSummary>({
     queryKey: ["deep-summary", repoId],
     queryFn: () => api.getDeepSummary(owner, repoName),
@@ -462,22 +544,42 @@ export default function RepoDeepDive() {
     staleTime: 1000 * 60 * 30, // 30 min cache
   });
 
-  // Feature 6: Social Mentions
   const { data: mentions } = useQuery({
     queryKey: ["mentions", repoId],
     queryFn: () => api.getSocialMentions(repoId, 20),
     enabled: !!repoId,
   });
 
-  // Feature 8: Commit Activity
   const { data: commitActivity } = useQuery({
     queryKey: ["commit-activity", repoId],
     queryFn: () => api.getCommitActivity(repoId),
     enabled: !!repoId,
   });
 
-  // ── Delta-run: auto-trigger when repo is untracked (not yet in DB) ──────────
-  const queryClient = useQueryClient();
+  const { data: watchStatus, refetch: refetchWatchStatus } = useQuery({
+    queryKey: ["watch-status", userId, repoId],
+    queryFn: () => api.checkWatchlist(userId!, repoId),
+    enabled: !!userId && !!repoId,
+  });
+
+  const toggleWatch = async () => {
+    if (!userId) {
+      alert("Please sign in to watch repositories.");
+      return;
+    }
+    try {
+      if (watchStatus?.watching && watchStatus.item) {
+        await api.removeFromWatchlist(userId, watchStatus.item.id);
+      } else {
+        await api.addToWatchlist(userId, { repo_id: repoId });
+      }
+      refetchWatchStatus();
+      queryClient.invalidateQueries({ queryKey: ["watchlist", userId] });
+    } catch (err) {
+      console.error("Failed to toggle watchlist:", err);
+    }
+  };
+
   const [deltaRunState, setDeltaRunState] = useState<"idle"|"running"|"done"|"error">("idle");
 
   useEffect(() => {
@@ -490,7 +592,6 @@ export default function RepoDeepDive() {
     api.deltaRun(runOwner, runName)
       .then(() => {
         setDeltaRunState("done");
-        // Invalidate all cached queries for this repo so everything re-fetches
         queryClient.invalidateQueries({ queryKey: ["repo", repoId] });
         queryClient.invalidateQueries({ queryKey: ["daily-metrics", repoId, 60] });
         queryClient.invalidateQueries({ queryKey: ["computed-scores", repoId, 60] });
@@ -502,8 +603,7 @@ export default function RepoDeepDive() {
   if (repoLoading) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
-        <p style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "12px",
-          letterSpacing: "0.06em" }}>
+        <p style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "12px", letterSpacing: "0.06em" }}>
           // LOADING REPO DATA<span className="terminal-cursor" />
         </p>
       </div>
@@ -511,203 +611,364 @@ export default function RepoDeepDive() {
   }
 
   if (!repo) {
-    return <p style={{ fontFamily: "var(--font-mono)", color: "var(--pink)",
-      paddingTop: "40px", fontSize: "12px" }}>✕ REPOSITORY NOT FOUND</p>;
+    return <p style={{ fontFamily: "var(--font-mono)", color: "var(--pink)", paddingTop: "40px", fontSize: "12px" }}>✕ REPOSITORY NOT FOUND</p>;
   }
 
   const latest = dailyMetrics?.[dailyMetrics.length - 1];
 
+  const latestScore = scores?.[scores.length - 1];
+  const priorScore = scores && scores.length >= 2 ? scores[scores.length - 2] : null;
+
+  let trendChangePct = 0;
+  if (latestScore?.trend_score && priorScore?.trend_score) {
+    const lVal = latestScore.trend_score;
+    const pVal = priorScore.trend_score;
+    if (pVal > 0) {
+      trendChangePct = ((lVal - pVal) / pVal) * 100;
+    }
+  }
+
+  let velChangePct = 0;
+  if (latestScore?.star_velocity_7d && priorScore?.star_velocity_7d) {
+    const lVal = latestScore.star_velocity_7d;
+    const pVal = priorScore.star_velocity_7d;
+    if (pVal > 0) {
+      velChangePct = ((lVal - pVal) / pVal) * 100;
+    }
+  }
+
   return (
-    <div className="page-root">
-      {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start",
-        flexWrap: "wrap", gap: "12px" }}>
+    <div className="page-root" style={{ paddingBottom: "40px" }}>
+      {/* 1. Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "20px", marginBottom: "24px" }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "6px",
-            flexWrap: "wrap" }}>
-            <div className="section-title-cyber" style={{ fontSize: "16px", letterSpacing: "0.06em" }}>
-              {repo.owner}/<span style={{ color: "var(--cyan)" }}>{repo.name}</span>
-              <span className="terminal-cursor" />
-            </div>
-            {repo.sustainability_label && <SustainBadge label={repo.sustainability_label} />}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "24px", fontWeight: "bold", color: "var(--text-primary)", fontFamily: "var(--font-sans)" }}>
+              {repo.owner}/<span style={{ color: "var(--text-secondary)" }}>{repo.name}</span>
+            </span>
+            {repo.sustainability_label && <HealthBadge label={repo.sustainability_label} />}
           </div>
-          <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px",
-            marginBottom: repo.description ? "4px" : 0 }}>
-            // {repo.category} · {repo.age_days}d old{repo.primary_language ? ` · ${repo.primary_language}` : ""}
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px", fontFamily: "var(--font-sans)", color: "var(--text-muted)", fontSize: "12px", marginTop: "8px" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+              {repo.category}
+            </span>
+            <span>·</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              {repo.age_days.toLocaleString()}d old
+            </span>
+            <span>·</span>
+            {repo.primary_language && (
+              <>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                  {repo.primary_language}
+                </span>
+                <span>·</span>
+              </>
+            )}
+            <span style={{ color: "var(--text-secondary)" }}>{repo.description}</span>
           </div>
-
-          {!deepLoading && deepSummary && (
-            <div style={{ color: "var(--text-secondary)", fontSize: "12px", maxWidth: "600px" }}>
-              {repo.description}
-            </div>
-          )}
         </div>
-        <div className="repo-header-actions">
-          <Link href={`/widget/repo/${repo.owner}/${repo.name}`}
-            style={{ padding: "7px 14px", border: "1px solid var(--border)", fontSize: "11px",
-              fontFamily: "var(--font-mono)", color: "var(--text-muted)", textDecoration: "none",
-              letterSpacing: "0.06em" }}>
-            WIDGET ⧉
-          </Link>
-          <a href={repo.github_url} target="_blank" rel="noopener noreferrer"
-            style={{ padding: "7px 14px", border: "1px solid var(--cyan)", fontSize: "11px",
-              fontFamily: "var(--font-mono)", color: "var(--cyan)", textDecoration: "none",
-              letterSpacing: "0.06em" }}>
-            GITHUB ↗
+
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
+          <button
+            onClick={toggleWatch}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "6px 14px",
+              borderRadius: "6px",
+              border: "1px solid var(--border)",
+              background: watchStatus?.watching ? "rgba(63, 185, 80, 0.15)" : "rgba(255, 255, 255, 0.02)",
+              color: watchStatus?.watching ? "var(--green)" : "var(--text-primary)",
+              fontFamily: "var(--font-sans)",
+              fontSize: "12px",
+              fontWeight: 500,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            {watchStatus?.watching ? "Watching" : "Watch"}
+          </button>
+
+          <button
+            onClick={() => setPinned(!pinned)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "6px 14px",
+              borderRadius: "6px",
+              border: "1px solid var(--border)",
+              background: pinned ? "rgba(210, 153, 34, 0.15)" : "rgba(255, 255, 255, 0.02)",
+              color: pinned ? "var(--amber)" : "var(--text-primary)",
+              fontFamily: "var(--font-sans)",
+              fontSize: "12px",
+              fontWeight: 500,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="8" x2="22" y2="12"></line><line x1="12" y1="2" x2="22" y2="12"></line><path d="M12 2L2 12h10L12 2z"></path></svg>
+            {pinned ? "Pinned" : "Pin"}
+          </button>
+
+          <a
+            href={repo.github_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "6px 14px",
+              borderRadius: "6px",
+              border: "1px solid var(--border)",
+              background: "rgba(255, 255, 255, 0.02)",
+              color: "var(--text-primary)",
+              fontFamily: "var(--font-sans)",
+              fontSize: "12px",
+              fontWeight: 500,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              textDecoration: "none",
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            GitHub
           </a>
+
+          <button
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "30px",
+              height: "30px",
+              borderRadius: "6px",
+              border: "1px solid var(--border)",
+              background: "rgba(255, 255, 255, 0.02)",
+              color: "var(--text-primary)",
+              cursor: "pointer",
+              fontSize: "14px",
+            }}
+          >
+            •••
+          </button>
         </div>
       </div>
 
-      {/* Score pills */}
-      <div className="metric-pills-grid">
-        <MetricPill label="Trend Score" value={repo.trend_score?.toFixed(4) ?? "—"} mono />
-        <MetricPill label="Stars/Day (7d)" value={repo.star_velocity_7d?.toFixed(1) ?? "—"} mono />
-        <MetricPill label="Acceleration" value={repo.acceleration?.toFixed(3) ?? "—"} mono />
-        <MetricPill label="Sustainability" value={repo.sustainability_score != null ? `${(repo.sustainability_score * 100).toFixed(0)}%` : "—"} mono />
-        <MetricPill label="Fork/Star Ratio" value={repo.fork_to_star_ratio?.toFixed(3) ?? "—"} mono />
-        <MetricPill label="Total Stars" value={latest?.stars?.toLocaleString() ?? "—"} />
+      {/* 2. 6-Column Metric Grid */}
+      <div className="metric-pills-grid" style={{ marginBottom: "24px" }}>
+        <MetricCard
+          label="Trend score"
+          value={repo.trend_score?.toFixed(4) ?? "—"}
+          valueColor="var(--amber)"
+          subLabel={`${trendChangePct >= 0 ? "+" : ""}${trendChangePct.toFixed(1)}% vs prior`}
+          subColor={trendChangePct >= 0 ? "var(--green)" : "var(--pink)"}
+        />
+        <MetricCard
+          label="Stars / day (7d)"
+          value={Math.round(repo.star_velocity_7d ?? 0).toLocaleString()}
+          subLabel={`${velChangePct >= 0 ? "+" : ""}${velChangePct.toFixed(0)}% vs prior week`}
+          subColor={velChangePct >= 0 ? "var(--green)" : "var(--pink)"}
+        />
+        <MetricCard
+          label="Acceleration"
+          value={repo.acceleration?.toFixed(3) ?? "—"}
+          subLabel={repo.acceleration && repo.acceleration > 0.001 ? "accelerating momentum" : repo.acceleration && repo.acceleration < -0.001 ? "decelerating momentum" : "flat momentum"}
+          subColor="var(--text-muted)"
+        />
+        <MetricCard
+          label="Sustainability"
+          value={repo.sustainability_score != null ? `${(repo.sustainability_score * 100).toFixed(0)}%` : "—"}
+          subLabel={repo.sustainability_score && repo.sustainability_score < 0.4 ? "low retention" : repo.sustainability_score && repo.sustainability_score < 0.7 ? "medium retention" : "high retention"}
+          subColor="var(--text-muted)"
+        />
+        <MetricCard
+          label="Fork / star ratio"
+          value={repo.fork_to_star_ratio?.toFixed(3) ?? "—"}
+          subLabel={`${(latest?.forks ?? repo.forks ?? 0).toLocaleString()} forks`}
+          subColor="var(--text-muted)"
+        />
+        <MetricCard
+          label="Total stars"
+          value={(latest?.stars ?? repo.stars ?? 0).toLocaleString()}
+          valueColor="var(--green)"
+          subLabel={`+${(latest?.daily_star_delta ?? 0).toLocaleString()} today`}
+          subColor="var(--green)"
+        />
       </div>
 
-      {/* ── Deep Repo Analysis ─────────────────────────────────────────── */}
+      {/* 3. AI Deep Analysis Panel */}
       {deepLoading && (
-        <div className="panel" style={{ padding: "20px 24px", borderLeft: "3px solid var(--cyan)" }}>
+        <div className="panel card-pad" style={{ borderLeft: "3px solid var(--cyan)", marginBottom: "24px" }}>
           <div className="panel-header" style={{ marginBottom: "10px" }}>
             <span className="panel-title">◈ AI DEEP ANALYSIS</span>
           </div>
-          <p style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px",
-            letterSpacing: "0.06em" }}>// GENERATING ANALYSIS…<span className="terminal-cursor" /></p>
+          <p style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px", letterSpacing: "0.06em" }}>// GENERATING ANALYSIS…<span className="terminal-cursor" /></p>
         </div>
       )}
 
       {deepSummary && (
         <>
-          {/* What / Why / How */}
-          <div className="panel" style={{ padding: "20px 24px", borderLeft: "3px solid var(--cyan)" }}>
-            <div className="panel-header" style={{ marginBottom: "16px" }}>
-              <span className="panel-title">◈ AI DEEP ANALYSIS</span>
-              <span style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginLeft: "12px" }}>
-                generated {deepSummary.generated_at.slice(0, 10)}
+          <div className="panel card-pad" style={{ borderLeft: "3px solid var(--cyan)", marginBottom: "24px" }}>
+            <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
+                ✨ AI deep analysis
+              </span>
+              <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                {formatDateFriendly(deepSummary.generated_at)}
               </span>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginTop: "12px" }}>
               {[
-                { key: "WHAT", label: "What it is", value: deepSummary.what, color: "var(--cyan)" },
-                { key: "WHY", label: "Why it exists", value: deepSummary.why, color: "var(--amber)" },
-                { key: "HOW", label: "How it works", value: deepSummary.how, color: "var(--green)" },
-              ].map(({ key, label, value, color }) => value && (
+                { key: "What", value: deepSummary.what, badgeBg: "rgba(129, 140, 248, 0.15)", badgeColor: "#818cf8" },
+                { key: "Why", value: deepSummary.why, badgeBg: "rgba(52, 211, 153, 0.15)", badgeColor: "#34d399" },
+                { key: "How", value: deepSummary.how, badgeBg: "rgba(210, 153, 34, 0.15)", badgeColor: "#d29922" },
+              ].map(({ key, value, badgeBg, badgeColor }) => value && (
                 <div key={key} style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", fontWeight: 700,
-                    color, minWidth: "36px", paddingTop: "2px", letterSpacing: "0.08em" }}>{key}</span>
-                  <div>
-                    <div style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--text-muted)",
-                      marginBottom: "3px", letterSpacing: "0.06em" }}>{label}</div>
-                    <p style={{ color: "var(--text-secondary)", lineHeight: "1.7", fontSize: "13px", margin: 0 }}>
-                      {value}
-                    </p>
-                  </div>
+                  <span style={{
+                    display: "inline-block",
+                    padding: "2px 10px",
+                    borderRadius: "12px",
+                    fontSize: "11px",
+                    fontWeight: "bold",
+                    fontFamily: "var(--font-sans)",
+                    background: badgeBg,
+                    color: badgeColor,
+                    minWidth: "50px",
+                    textAlign: "center",
+                    flexShrink: 0
+                  }}>{key}</span>
+                  <span style={{ color: "var(--text-secondary)", fontSize: "13px", lineHeight: "1.5" }}>
+                    {value}
+                  </span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Tech Stack + Use Cases side by side */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
+          {/* 4. Tech Stack & Use Cases */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px", marginBottom: "24px" }}>
             {deepSummary.tech_stack.length > 0 && (
-              <div className="panel" style={{ padding: "20px 24px" }}>
-                <div className="panel-header" style={{ marginBottom: "12px" }}>
-                  <span className="panel-title">◈ TECH STACK</span>
+              <div className="panel card-pad">
+                <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 12px 0", marginBottom: 0 }}>
+                  <span className="panel-title" style={{ fontSize: "14px" }}>
+                    🛠️ Tech stack
+                  </span>
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                  {deepSummary.tech_stack.map((tech) => (
-                    <span key={tech} style={{ fontFamily: "var(--font-mono)", fontSize: "11px",
-                      padding: "4px 10px", borderRadius: "4px",
-                      background: "rgba(0,229,255,0.1)", color: "var(--cyan)",
-                      border: "1px solid rgba(0,229,255,0.25)" }}>
-                      {tech}
-                    </span>
-                  ))}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "8px" }}>
+                  {deepSummary.tech_stack.map((tech) => {
+                    const isTS = tech.toLowerCase() === "typescript";
+                    const isJS = tech.toLowerCase() === "javascript";
+                    const bg = isTS ? "rgba(129, 140, 248, 0.15)" : isJS ? "rgba(210, 153, 34, 0.15)" : "rgba(255,255,255,0.03)";
+                    const color = isTS ? "#818cf8" : isJS ? "#d29922" : "var(--text-secondary)";
+                    const border = isTS ? "1px solid rgba(129,140,248,0.25)" : isJS ? "1px solid rgba(210,153,34,0.25)" : "1px solid var(--border)";
+                    return (
+                      <span key={tech} style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "11px",
+                        padding: "3px 10px",
+                        borderRadius: "4px",
+                        background: bg,
+                        color: color,
+                        border: border
+                      }}>
+                        {tech}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
             {deepSummary.use_cases.length > 0 && (
-              <div className="panel" style={{ padding: "20px 24px" }}>
-                <div className="panel-header" style={{ marginBottom: "12px" }}>
-                  <span className="panel-title">◈ USE CASES</span>
+              <div className="panel card-pad">
+                <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 12px 0", marginBottom: 0 }}>
+                  <span className="panel-title" style={{ fontSize: "14px" }}>
+                    📋 Use cases
+                  </span>
                 </div>
-                <ul style={{ margin: 0, paddingLeft: "16px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" }}>
                   {deepSummary.use_cases.map((uc) => (
-                    <li key={uc} style={{ color: "var(--text-secondary)", fontSize: "12px", lineHeight: "1.5" }}>
-                      {uc}
-                    </li>
+                    <div key={uc} style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
+                      <span style={{ color: "var(--green)", fontWeight: "bold" }}>✓</span>
+                      <span style={{ color: "var(--text-secondary)", fontSize: "13px" }}>{uc}</span>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
             )}
           </div>
 
-          {/* Languages breakdown */}
-          {Object.keys(deepSummary.languages).length > 0 && (
-            <div className="panel" style={{ padding: "20px 24px" }}>
-              <div className="panel-header" style={{ marginBottom: "14px" }}>
-                <span className="panel-title">◈ LANGUAGE BREAKDOWN</span>
+          {/* 5. Language Breakdown & Signal Explainer */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px", marginBottom: "24px" }}>
+            {Object.keys(deepSummary.languages).length > 0 && (
+              <div className="panel card-pad">
+                <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 12px 0", marginBottom: 0 }}>
+                  <span className="panel-title" style={{ fontSize: "14px" }}>
+                    &lt;/ &gt; Language breakdown
+                  </span>
+                </div>
+                {(() => {
+                  const total = Object.values(deepSummary.languages).reduce((a, b) => a + b, 0);
+                  const sorted = Object.entries(deepSummary.languages).sort(([, a], [, b]) => b - a);
+                  const COLORS = ["#818cf8", "#ff9f43", "var(--green)", "var(--pink)", "#9d7fff", "#ff9944", "#44aaff", "#ff44aa"];
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", marginTop: "8px" }}>
+                      <div style={{ display: "flex", height: "10px", borderRadius: "5px", overflow: "hidden", width: "100%" }}>
+                        {sorted.map(([lang, bytes], i) => (
+                          <div key={lang} title={`${lang}: ${((bytes / total) * 100).toFixed(1)}%`}
+                            style={{ width: `${(bytes / total) * 100}%`, background: COLORS[i % COLORS.length], minWidth: "2px" }} />
+                        ))}
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 16px", marginTop: "12px" }}>
+                        {sorted.slice(0, 6).map(([lang, bytes], i) => (
+                          <div key={lang} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", fontFamily: "var(--font-sans)" }}>
+                            <span style={{ color: COLORS[i % COLORS.length], fontSize: "14px" }}>●</span>
+                            <span style={{ color: "var(--text-secondary)" }}>
+                              {lang} <span style={{ color: "var(--text-muted)", marginLeft: "4px" }}>{((bytes / total) * 100).toFixed(1)}%</span>
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
-              {(() => {
-                const total = Object.values(deepSummary.languages).reduce((a, b) => a + b, 0);
-                const sorted = Object.entries(deepSummary.languages).sort(([, a], [, b]) => b - a);
-                const COLORS = ["var(--cyan)", "var(--amber)", "var(--green)", "var(--pink)",
-                  "#9d7fff", "#ff9944", "#44aaff", "#ff44aa"];
-                return (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                    <div style={{ display: "flex", height: "10px", borderRadius: "5px", overflow: "hidden", width: "100%" }}>
-                      {sorted.map(([lang, bytes], i) => (
-                        <div key={lang} title={`${lang}: ${((bytes / total) * 100).toFixed(1)}%`}
-                          style={{ width: `${(bytes / total) * 100}%`, background: COLORS[i % COLORS.length],
-                            minWidth: "2px", transition: "width 0.3s" }} />
-                      ))}
-                    </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "10px 16px" }}>
-                      {sorted.slice(0, 8).map(([lang, bytes], i) => (
-                        <div key={lang} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                          <div style={{ width: "8px", height: "8px", borderRadius: "50%",
-                            background: COLORS[i % COLORS.length], flexShrink: 0 }} />
-                          <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px",
-                            color: "var(--text-secondary)" }}>
-                            {lang}
-                          </span>
-                          <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px",
-                            color: "var(--text-muted)" }}>
-                            {((bytes / total) * 100).toFixed(1)}%
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
+            )}
 
-          {/* Top Contributors */}
+            {scores && scores.length > 0 && (
+              <SignalExplainer scores={scores} />
+            )}
+          </div>
+
+          {/* 6. Top Contributors */}
           {deepSummary.contributors.length > 0 && (
-            <div className="panel" style={{ padding: "20px 24px" }}>
-              <div className="panel-header" style={{ marginBottom: "14px" }}>
-                <span className="panel-title">◈ TOP CONTRIBUTORS</span>
+            <div className="panel card-pad" style={{ marginBottom: "24px" }}>
+              <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span className="panel-title" style={{ fontSize: "14px" }}>
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                  Top contributors
+                </span>
+                <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                  by commit count
+                </span>
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "12px" }}>
-                {deepSummary.contributors.map((c) => (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", marginTop: "12px" }}>
+                {deepSummary.contributors.slice(0, 10).map((c) => (
                   <a key={c.login} href={c.profile_url} target="_blank" rel="noopener noreferrer"
-                    style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px",
-                      textDecoration: "none", width: "72px" }}>
-                    <img src={c.avatar_url} alt={c.login}
-                      style={{ width: "44px", height: "44px", borderRadius: "50%",
-                        border: "2px solid var(--border)" }} />
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-secondary)",
-                      textAlign: "center", overflow: "hidden", textOverflow: "ellipsis",
-                      whiteSpace: "nowrap", width: "100%" }}>{c.login}</span>
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)" }}>
-                      {c.contributions.toLocaleString()} commits
-                    </span>
+                    style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "20px", background: "rgba(255,255,255,0.01)", textDecoration: "none", transition: "all 0.2s" }}
+                    className="hover:bg-space-800"
+                  >
+                    <img src={c.avatar_url} alt={c.login} style={{ width: "20px", height: "20px", borderRadius: "50%" }} />
+                    <span style={{ fontSize: "12px", color: "var(--text-secondary)", fontWeight: 500 }}>{c.login}</span>
+                    <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{c.contributions} commits</span>
                   </a>
                 ))}
               </div>
@@ -716,120 +977,92 @@ export default function RepoDeepDive() {
         </>
       )}
 
-      {/* Fallback: show old 3-sentence summary only if deep analysis not available/loaded */}
+      {/* Fallback AI Summary */}
       {!deepSummary && !deepLoading && repo.repo_summary && (
-        <div className="panel" style={{ padding: "20px 24px", borderLeft: "3px solid var(--cyan)" }}>
+        <div className="panel card-pad" style={{ borderLeft: "3px solid var(--cyan)", marginBottom: "24px" }}>
           <div className="panel-header" style={{ marginBottom: "10px" }}>
             <span className="panel-title">◈ AI SUMMARY</span>
-            {repo.repo_summary_generated_at && (
-              <span style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginLeft: "12px" }}>
-                generated {repo.repo_summary_generated_at.slice(0, 10)}
-              </span>
-            )}
           </div>
-          <p style={{ color: "var(--text-secondary)", lineHeight: "1.75", fontSize: "13px", margin: 0 }}>
+          <p style={{ color: "var(--text-secondary)", lineHeight: "1.7", fontSize: "13px", margin: 0 }}>
             {repo.repo_summary}
           </p>
         </div>
       )}
 
-      {/* LLM Explanation */}
-      {repo.explanation && (
-        <div className="panel" style={{ padding: "20px 24px" }}>
-          <div className="panel-header" style={{ marginBottom: "10px" }}>
-            <span className="panel-title">▲ ANALYST INSIGHT</span>
-          </div>
-          <p style={{ color: "var(--text-secondary)", lineHeight: "1.7", fontSize: "13px", margin: 0 }}>
-            {repo.explanation}
-          </p>
+      {/* 7. Star History */}
+      {dailyMetrics && dailyMetrics.length > 0 && (
+        <StarHistoryChart data={dailyMetrics} mentions={mentions} />
+      )}
+
+      {/* 8. Daily Star Delta & Contributor Growth side by side */}
+      {dailyMetrics && dailyMetrics.length > 0 && (
+        <div className="chart-row-2">
+          <DailyDeltaChart data={dailyMetrics} />
+          <ContributorChart data={dailyMetrics} />
         </div>
       )}
 
-      {/* Charts grid */}
-      {dailyMetrics && dailyMetrics.length > 0 ? (
-        <>
-          {scores && scores.length > 0 && (
-            <SignalExplainer scores={scores} dailyMetrics={dailyMetrics} />
-          )}
-          <StarHistoryChart data={dailyMetrics} releases={[]} mentions={mentions} />
-          <div className="chart-row-2">
-            <DailyDeltaChart data={dailyMetrics} />
-            <ContributorChart data={dailyMetrics} />
-          </div>
-          <div className="mt-8">
-            <ForecastChart owner={repo.owner} name={repo.name} />
-          </div>
-          {scores && scores.length > 0 && (
-            <div className="chart-row-2">
-              <VelocityChart data={scores} />
-              <ScoreTimeline data={scores} />
-            </div>
-          )}
-        </>
-      ) : (
-        <div className="panel" style={{ padding: "40px", textAlign: "center" }}>
-          {deltaRunState === "running" ? (
-            <p style={{ fontFamily: "var(--font-mono)", color: "var(--cyan)", fontSize: "11px", letterSpacing: "0.06em" }}>
-              ⚡ Fetching live metrics from GitHub<span className="terminal-cursor" />
-            </p>
-          ) : deltaRunState === "error" ? (
-            <p style={{ fontFamily: "var(--font-mono)", color: "var(--pink)", fontSize: "11px", letterSpacing: "0.06em" }}>
-              ✕ Could not fetch live metrics — try refreshing
-            </p>
-          ) : (
-            <p style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px", letterSpacing: "0.06em" }}>
-              // NO METRIC HISTORY YET — run <span style={{ color: "var(--cyan)" }}>POST /admin/run-all</span>
-            </p>
-          )}
+      {/* 9. Star Forecast (90 days) */}
+      <div style={{ marginTop: "24px" }}>
+        <ForecastChart owner={repo.owner} name={repo.name} />
+      </div>
+
+      {/* 10. Velocity vs Acceleration & Trend Score Timeline side by side */}
+      {scores && scores.length > 0 && (
+        <div className="chart-row-2">
+          <VelocityChart data={scores} />
+          <ScoreTimeline data={scores} />
         </div>
       )}
 
-      {/* Feature 8: Commit Frequency Heatmap */}
+      {/* Commit activity */}
       {commitActivity && commitActivity.length > 0 && (
         <CommitHeatmap data={commitActivity} />
       )}
 
-      {/* Feature 6: Social Mentions Feed */}
+      {/* Social Mentions */}
       <SocialMentionsFeed mentions={mentions || []} />
 
-      {/* Feature 7: Release Changelog */}
-      {repo && (
-        <ReleaseChangelog releases={releases || []} owner={repo.owner} name={repo.name} />
-      )}
+      {/* Recent Releases */}
+      <ReleaseChangelog releases={releases || []} owner={repo.owner} name={repo.name} />
 
-      {/* Similar repositories powered by AI recommendations */}
-      <div className="mt-6">
+      {/* 11. Similar Repositories */}
+      <div style={{ marginTop: "24px" }}>
         <RecommendationsPanel repoOwner={repo.owner} repoName={repo.name} />
       </div>
 
-      {/* Raw metrics table */}
+      {/* 12. Raw Metrics snapshots table */}
       {dailyMetrics && dailyMetrics.length > 0 && (
-        <div className="panel table-scroll">
-          <div className="panel-header"><span className="panel-title">▣ RAW METRICS — LAST 7 SNAPSHOTS</span></div>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
+        <div className="panel table-scroll" style={{ marginTop: "24px" }}>
+          <div className="panel-header" style={{ borderBottom: "none", padding: "16px 20px" }}>
+            <span className="panel-title" style={{ fontSize: "14px" }}>
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+              Raw metrics — last 7 snapshots
+            </span>
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
             <thead>
-              <tr>
-                {["DATE", "STARS", "+STARS", "FORKS", "CONTRIBUTORS", "OPEN ISSUES", "RELEASES"].map((h) => (
-                  <th key={h} className="th-mono">{h}</th>
-                ))}
+              <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                {["DATE", "STARS", "+STARS", "FORKS", "CONTRIBUTORS", "OPEN ISSUES", "RELEASES"].map((h) => {
+                  let cls = "th-mono";
+                  if (["FORKS", "CONTRIBUTORS", "OPEN ISSUES"].includes(h)) cls += " col-hide-mobile";
+                  if (h === "RELEASES") cls += " col-hide-tablet";
+                  return <th key={h} className={cls} style={{ textAlign: "left", padding: "10px 16px", color: "var(--text-muted)", fontSize: "11px", fontWeight: 600 }}>{h}</th>;
+                })}
               </tr>
             </thead>
             <tbody>
               {dailyMetrics.slice(-7).reverse().map((m) => (
                 <tr key={m.date} className="tr-cyber" style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td style={{ padding: "9px 16px", fontFamily: "var(--font-mono)",
-                    fontSize: "11px", color: "var(--text-muted)" }}>{m.date}</td>
-                  <td style={{ padding: "9px 16px", fontFamily: "var(--font-mono)" }}>
-                    {m.stars.toLocaleString()}</td>
-                  <td style={{ padding: "9px 16px", fontFamily: "var(--font-mono)",
-                    color: m.daily_star_delta > 0 ? "var(--green)" : "var(--text-muted)" }}>
+                  <td style={{ padding: "12px 16px", fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)" }}>{m.date}</td>
+                  <td style={{ padding: "12px 16px", fontFamily: "var(--font-mono)", color: "var(--text-primary)" }}>{m.stars.toLocaleString()}</td>
+                  <td style={{ padding: "12px 16px", fontFamily: "var(--font-mono)", color: m.daily_star_delta > 0 ? "var(--green)" : "var(--text-muted)" }}>
                     {m.daily_star_delta > 0 ? `+${m.daily_star_delta}` : m.daily_star_delta}
                   </td>
-                  <td style={{ padding: "9px 16px", fontFamily: "var(--font-mono)" }}>
-                    {m.forks.toLocaleString()}</td>
-                  <td style={{ padding: "9px 16px", fontFamily: "var(--font-mono)" }}>{m.contributors}</td>
-                  <td style={{ padding: "9px 16px", fontFamily: "var(--font-mono)" }}>{m.open_issues}</td>
-                  <td style={{ padding: "9px 16px", fontFamily: "var(--font-mono)" }}>{m.releases}</td>
+                  <td className="col-hide-mobile" style={{ padding: "12px 16px", fontFamily: "var(--font-mono)" }}>{m.forks.toLocaleString()}</td>
+                  <td className="col-hide-mobile" style={{ padding: "12px 16px", fontFamily: "var(--font-mono)" }}>{m.contributors}</td>
+                  <td className="col-hide-mobile" style={{ padding: "12px 16px", fontFamily: "var(--font-mono)" }}>{m.open_issues}</td>
+                  <td className="col-hide-tablet" style={{ padding: "12px 16px", fontFamily: "var(--font-mono)" }}>{m.releases}</td>
                 </tr>
               ))}
             </tbody>

@@ -35,64 +35,82 @@ export function RecommendationsPanel({ repoOwner, repoName }: Props) {
   if (!recommendations || recommendations.length === 0) return null;
 
   return (
-    <div className="bg-space-900 border border-space-800 rounded-lg p-5">
-      <h3 className="text-space-100 font-semibold tracking-wide mb-4 text-sm uppercase">
-        {isSimilar ? "🔀 Similar Repositories" : "✨ Recommended for You"}
-      </h3>
+    <div className="panel card-pad" style={{ marginTop: "24px" }}>
+      <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          {isSimilar ? "Similar repositories" : "Recommended for You"}
+        </span>
+        <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+          {isSimilar ? "based on tech stack & category" : "personalized recommendations"}
+        </span>
+      </div>
 
-      <div className="space-y-3">
-        {recommendations.map((rec) => {
-          // Recommendations from /recommendations return RecommendedRepo shape
-          // The backend returns full_name + core fields, not nested repo object
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        {recommendations.slice(0, 4).map((rec, index) => {
           const fullName = (rec as any).full_name || (rec.repo ? `${rec.repo.owner}/${rec.repo.name}` : "");
           const [owner, ...nameParts] = fullName.split("/");
           const name = nameParts.join("/");
           const stars: number = (rec as any).stars ?? rec.repo?.stars ?? 0;
           const description: string = (rec as any).description ?? rec.repo?.description ?? "";
           const language: string = (rec as any).primary_language ?? rec.repo?.primary_language ?? "";
-          const pushedAt: string | null = rec.repo?.pushed_at ?? null;
-          const reasons: string[] = rec.reasons ?? [];
 
           if (!fullName) return null;
+
+          const langColors: Record<string, string> = {
+            TypeScript: "#3178c6",
+            JavaScript: "#f1e05a",
+            Python: "#3572A5",
+            Go: "#00ADD8",
+            HTML: "#e34c26",
+            CSS: "#563d7c",
+            Rust: "#dea584",
+          };
+          const dotColor = langColors[language] || "var(--text-muted)";
 
           return (
             <div
               key={(rec as any).repo_id || fullName}
-              className="group relative block p-3 rounded-md bg-space-950/50 hover:bg-space-800 border border-transparent hover:border-space-700 transition-colors"
+              style={{
+                padding: "16px 0",
+                borderBottom: index === Math.min(recommendations.length, 4) - 1 ? "none" : "1px solid var(--border)",
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+              }}
             >
-              <Link href={`/repo/${owner}/${name}`} className="absolute inset-0 z-10">
-                <span className="sr-only">View {name}</span>
-              </Link>
-
-              <div className="flex justify-between items-start mb-1">
-                <div className="font-mono text-sm font-medium text-cyan-400 truncate pr-4">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <Link
+                  href={`/repo/${owner}/${name}`}
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: 600,
+                    color: "#58a6ff",
+                    textDecoration: "none",
+                    fontFamily: "var(--font-sans)",
+                  }}
+                  className="hover:underline"
+                >
                   {fullName}
-                </div>
-                <div className="flex items-center gap-1 text-xs text-amber-400 font-mono shrink-0">
-                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                  {stars.toLocaleString()}
+                </Link>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "12px", color: "var(--accent-yellow)", fontFamily: "var(--font-mono)" }}>
+                  <span>★</span>
+                  <span>{stars.toLocaleString()}</span>
                 </div>
               </div>
 
               {description && (
-                <p className="text-xs text-space-400 line-clamp-2 mb-2">{description}</p>
+                <p style={{ fontSize: "12px", color: "var(--text-secondary)", margin: 0, lineHeight: "1.4" }}>
+                  {description}
+                </p>
               )}
 
-              <div className="flex flex-wrap gap-1.5 items-center text-[10px] font-mono mt-2">
-                {reasons.slice(0, 2).map((r, i) => (
-                  <span key={i} className="px-1.5 py-0.5 rounded bg-space-800/80 text-space-300 uppercase">
-                    {r}
-                  </span>
-                ))}
-                {language && <span className="text-space-500">• {language}</span>}
-                {pushedAt && (
-                  <span className="text-space-500 ml-auto lowercase">
-                    {formatDistanceToNow(new Date(pushedAt), { addSuffix: true })}
-                  </span>
-                )}
-              </div>
+              {language && (
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>
+                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: dotColor, display: "inline-block" }} />
+                  <span>{language}</span>
+                </div>
+              )}
             </div>
           );
         })}
