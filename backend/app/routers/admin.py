@@ -796,3 +796,20 @@ async def trigger_publish_weekly_snapshot():
         raise HTTPException(status_code=500, detail=res.get("detail"))
     return res
 
+
+@router.post("/dispatch-digest", response_model=PipelineStatus)
+async def trigger_dispatch_digest(frequency: str = "weekly"):
+    """Manually/externally trigger dispatching of digest emails (daily/weekly/monthly)."""
+    if frequency not in ["daily", "weekly", "monthly"]:
+        raise HTTPException(status_code=400, detail="Invalid frequency. Must be daily, weekly, or monthly.")
+    from app.services.notification_service import dispatch_digest_emails
+    try:
+        res = await dispatch_digest_emails(frequency)
+        return PipelineStatus(
+            status="complete",
+            detail=f"Digest emails dispatched: sent={res.get('sent', 0)} skipped={res.get('skipped', 0)}"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Digest dispatch failed: {str(e)}")
+
+
