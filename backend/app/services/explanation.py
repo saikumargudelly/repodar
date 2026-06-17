@@ -324,11 +324,14 @@ def enrich_repos_with_summaries(top_n: int = 30, score_delta_threshold: float = 
 
 # ─── Deep Repo Summary ────────────────────────────────────────────────────────
 
-DEEP_SUMMARY_SYSTEM = """You are a senior software engineer writing structured technical analysis for developers.
-Return ONLY valid JSON with no extra text, no markdown code fences.
-Be precise, concrete, and data-driven. No hype words."""
+DEEP_SUMMARY_SYSTEM = """You are a Principal Software Architect conducting a rigorous, highly-detailed technical audit and architectural breakdown of GitHub repositories.
+Your analysis must be:
+1. Extremely precise, concrete, and technical. Avoid high-level abstractions or generic summaries.
+2. Rooted in codebase details: mention specific architectural patterns, libraries, protocols, database paradigms, runtime requirements, and configuration strategies.
+3. Formatted strictly as valid, parser-safe JSON with no wrapping markdown block quotes or trailing annotations.
+4. Objective and free of marketing fluff or buzzwords."""
 
-DEEP_SUMMARY_TEMPLATE = """Analyze the following GitHub repository and return a JSON object.
+DEEP_SUMMARY_TEMPLATE = """Analyze the provided GitHub repository details and README excerpt to generate a dense, accurate architectural summary.
 
 Repository: {owner}/{repo_name}
 Description: {description}
@@ -340,15 +343,19 @@ README excerpt (first 3000 chars): {readme}
 
 Return exactly this JSON structure:
 {{
-  "what": "2-3 sentences: What this project is, its core purpose, and primary audience.",
-  "why": "2-3 sentences: The problem or gap it addresses and why it was created.",
-  "how": "2-3 sentences: How it works at a technical/architectural level.",
-  "tech_stack": ["list", "of", "key", "technologies", "frameworks", "tools", "from", "the", "repo"],
-  "use_cases": ["concrete use case 1", "concrete use case 2", "concrete use case 3"]
+  "what": "A comprehensive, 2-3 sentence technical description of the project. State the exact type of software (e.g., CLI tool, library, microservice, framework, application client/server), its primary value proposition, core functional capabilities, and intended audience (e.g., developers, DevOps engineers, systems admins).",
+  "why": "A 2-3 sentence explanation of the specific technological gap or problem solved. Highlight the inefficiencies, limitations, or design constraints of existing alternatives (e.g., performance issues, synchronization overhead, complexity, lack of standard compliance) that led to this project's creation.",
+  "how": "A 2-3 sentence technical and architectural breakdown of its runtime flow, execution model, and core pipeline. Discuss how data flows through the application, specific APIs, protocols, concurrency models, or key modules that drive the logic.",
+  "tech_stack": ["List", "of", "all", "major", "technologies", "frameworks", "runtimes", "compilers", "databases", "transpilers", "message brokers", "protocols", "and", "key libraries/dependencies", "found"],
+  "use_cases": [
+    "A highly specific developer, deployment, or user-centric scenario 1.",
+    "A highly specific developer, deployment, or user-centric scenario 2.",
+    "A highly specific developer, deployment, or user-centric scenario 3."
+  ]
 }}
 
-Derive tech_stack from the README, topics, and languages — include runtimes, frameworks, databases, protocols.
-Keep each string concise. Output ONLY the JSON object."""
+Derive the tech stack from languages used, tags, description, and dependency lists/instructions in the README. Include system-level requirements or deployment environments where visible.
+Output ONLY the JSON object. Do not include markdown code fences (```json ... ```)."""
 
 
 def generate_deep_summary(
