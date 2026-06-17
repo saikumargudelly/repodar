@@ -89,7 +89,6 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
     if (!node) return;
     setExporting(true);
     try {
-      // 3.2 pixelRatio transforms our 1200x1600 styled poster container into 3840x5120 (4K+ resolution)
       const dataUrl = await toPng(node, {
         pixelRatio: 3.2,
         quality: 1.0,
@@ -107,7 +106,7 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
   };
 
   return (
-    <div className="page-root" style={{ paddingBottom: "120px" }}>
+    <div className="page-root" style={{ paddingBottom: "100px", maxWidth: "1200px", margin: "0 auto" }}>
       {/* Off-screen Poster Container (Used only for generating the 4K poster image) */}
       <div 
         ref={posterRef}
@@ -248,10 +247,10 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
       </div>
 
       {/* Main page content */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
         
-        {/* Navigation / Breadcrumbs */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        {/* Navigation / Breadcrumbs / Actions */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--border)", paddingBottom: "12px", marginBottom: "8px" }}>
           <Link href="/weekly" style={{
             fontFamily: "var(--font-mono)",
             fontSize: "11px",
@@ -263,130 +262,51 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
           }} className="hover-link-glow">
             ← BACK TO ARCHIVES
           </Link>
-          <span style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: "11px",
-            color: "var(--text-muted)",
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid var(--border)",
-            padding: "3px 8px",
-            borderRadius: "4px"
-          }}>
-            SYSTEM: OK
-          </span>
-        </div>
-
-        {/* Editorial News Header / Hero */}
-        <div style={{
-          background: "linear-gradient(135deg, rgba(22, 27, 34, 0.6) 0%, rgba(13, 17, 23, 0.8) 100%)",
-          border: "1px solid var(--border)",
-          borderRadius: "12px",
-          padding: "36px",
-          position: "relative",
-          overflow: "hidden"
-        }}>
-          {/* Neon corner accent */}
-          <div style={{ position: "absolute", top: 0, right: 0, width: "120px", height: "120px", background: "radial-gradient(circle at 100% 0%, rgba(0, 240, 255, 0.08) 0%, transparent 70%)" }} />
-
-          <div style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: "11px",
-            letterSpacing: "0.15em",
-            color: "var(--cyan)",
-            fontWeight: 800,
-            textTransform: "uppercase"
-          }}>
-            // REPODAR BRIEFING SYSTEM
-          </div>
-
-          <h1 style={{
-            fontFamily: "var(--font-sans)",
-            fontSize: "36px",
-            fontWeight: 900,
-            letterSpacing: "-0.03em",
-            color: "var(--text-primary)",
-            marginTop: "8px",
-            marginBottom: "12px",
-            lineHeight: "1.15"
-          }}>
-            AI/ML Ecosystem Radar: Weekly Intel <span style={{ color: "var(--cyan)" }}>{weekId}</span>
-          </h1>
-
-          {/* Publisher Metadata Strip */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px", borderTop: "1px solid var(--border)", paddingTop: "20px", marginTop: "20px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <div style={{
-                width: "40px",
-                height: "40px",
-                borderRadius: "50%",
-                background: "linear-gradient(135deg, var(--cyan) 0%, var(--border) 100%)",
-                display: "flex",
+          
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              style={{
+                display: "inline-flex",
                 alignItems: "center",
-                justifyContent: "center",
-                color: "var(--bg-primary)",
-                fontFamily: "var(--font-mono)",
-                fontWeight: 900,
-                fontSize: "13px"
-              }}>
-                R
-              </div>
-              <div>
-                <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-primary)" }}>Repodar Editorial Engine</div>
-                <div style={{ fontSize: "12px", color: "var(--text-secondary)", display: "flex", gap: "8px" }}>
-                  <span>📅 {snapshot ? new Date(snapshot.published_at).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) : "Loading..."}</span>
-                  <span>•</span>
-                  <span>⏱️ 5 min read</span>
-                </div>
-              </div>
-            </div>
+                gap: "6px",
+                fontSize: "11px",
+                padding: "6px 12px",
+                cursor: "pointer",
+                borderRadius: "4px",
+                border: "1px solid var(--border)",
+                fontFamily: "var(--font-sans)",
+                fontWeight: 600,
+                background: "var(--bg-surface)",
+                color: "var(--text-primary)"
+              }}
+            >
+              {/* Export Icon */}
+              <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Export Poster
+            </button>
 
-            {/* Action Buttons */}
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-              <button 
-                onClick={() => setIsModalOpen(true)}
-                className="btn-cyber btn-cyber-cyan" 
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  fontSize: "12px",
-                  padding: "6px 14px",
-                  cursor: "pointer",
-                  borderRadius: "6px",
-                  border: "1px solid var(--border)",
-                  fontFamily: "var(--font-sans)",
-                  fontWeight: 600,
-                  background: "var(--bg-elevated)",
-                  color: "var(--text-primary)"
-                }}
-              >
-                {/* Export Icon */}
-                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                Export Poster
-              </button>
-
-              <button 
-                onClick={handleCopyLink}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  fontSize: "12px",
-                  padding: "6px 14px",
-                  cursor: "pointer",
-                  borderRadius: "6px",
-                  border: "1px solid var(--border)",
-                  fontFamily: "var(--font-sans)",
-                  fontWeight: 600,
-                  background: "transparent",
-                  color: copied ? "var(--accent-green)" : "var(--text-secondary)"
-                }}
-              >
-                {copied ? "✓ Copied" : "Copy Link"}
-              </button>
-            </div>
+            <button 
+              onClick={handleCopyLink}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                fontSize: "11px",
+                padding: "6px 12px",
+                cursor: "pointer",
+                borderRadius: "4px",
+                border: "1px solid var(--border)",
+                fontFamily: "var(--font-sans)",
+                fontWeight: 600,
+                background: "transparent",
+                color: copied ? "var(--accent-green)" : "var(--text-secondary)"
+              }}
+            >
+              {copied ? "✓ Link Copied" : "Copy Link"}
+            </button>
           </div>
         </div>
 
@@ -407,126 +327,131 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
             // ERROR: Failed to retrieve Weekly Snapshot {weekId}. Please verify the identifier and try again.
           </div>
         ) : snapshot ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: "48px" }}>
-            
-            {/* Key Ecosystem Stats Strip */}
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "16px"
-            }}>
-              <div className="kpi-card">
-                <div className="kpi-label">Cohorts Analyzed</div>
-                <div className="kpi-value">{snapshot.repos?.length || 25}</div>
-                <div className="kpi-sub">Total repositories tracked this week</div>
-              </div>
-              <div className="kpi-card">
-                <div className="kpi-label">Peak Velocity</div>
-                <div className="kpi-value" style={{ color: "var(--amber)" }}>+{maxVelocity.toFixed(0)}</div>
-                <div className="kpi-sub">Stars added/day (leading breakout)</div>
-              </div>
-              <div className="kpi-card">
-                <div className="kpi-label">Average Acceleration</div>
-                <div className="kpi-value" style={{ color: "var(--cyan)" }}>{avgAccel.toFixed(2)}x</div>
-                <div className="kpi-sub">Speedup against typical baseline</div>
-              </div>
-              <div className="kpi-card">
-                <div className="kpi-label">Jonin-Tier Health</div>
-                <div className="kpi-value" style={{ color: "var(--accent-green)" }}>{healthyCount}</div>
-                <div className="kpi-sub">Repos with robust maintenance hygiene</div>
-              </div>
-            </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "40px" }} className="weekly-layout-grid">
+            <style>{`
+              @media (min-width: 992px) {
+                .weekly-layout-grid {
+                  grid-template-columns: 2.2fr 1fr !important;
+                }
+              }
+              .news-article-card {
+                border-bottom: 1px solid var(--border);
+                padding-bottom: 24px;
+                margin-bottom: 24px;
+              }
+              .news-article-card:last-child {
+                border-bottom: none;
+                margin-bottom: 0;
+                padding-bottom: 0;
+              }
+              .trend-item-row {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 10px 0;
+                border-bottom: 1px dashed rgba(255,255,255,0.06);
+              }
+              .trend-item-row:last-child {
+                border-bottom: none;
+              }
+            `}</style>
 
-            {/* SECTION 1: TOP 10 FEATURED REPOS */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
-              <h2 style={{
+            {/* Left Column: News / Editorial feed */}
+            <div>
+              {/* Editorial Headline */}
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--cyan)", letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 800 }}>
+                // REPODAR WEEKLY ANALYTICAL REPORT
+              </span>
+              <h1 style={{
                 fontFamily: "var(--font-sans)",
-                fontSize: "20px",
+                fontSize: "30px",
                 fontWeight: 800,
                 color: "var(--text-primary)",
-                borderBottom: "1px solid var(--border)",
-                paddingBottom: "12px",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                margin: 0
+                marginTop: "4px",
+                marginBottom: "12px",
+                lineHeight: "1.2",
+                letterSpacing: "-0.02em"
               }}>
-                <span style={{ color: "var(--cyan)", fontSize: "20px" }}>✦</span> Top 10 Featured Highlights
-              </h2>
+                AI/ML Ecosystem Radar: Weekly Intelligence Briefing
+              </h1>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+              {/* Publisher Metadata Strip */}
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "12px", color: "var(--text-secondary)", marginBottom: "20px" }}>
+                <span>Published by <strong>Repodar Editorial Engine</strong></span>
+                <span>•</span>
+                <span>📅 {new Date(snapshot.published_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
+                <span>•</span>
+                <span>⏱️ 5 min read</span>
+              </div>
+
+              {/* Lead/Executive Intro Paragraph */}
+              <p style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "14px",
+                lineHeight: "1.6",
+                color: "var(--text-secondary)",
+                marginBottom: "32px",
+                borderLeft: "2px solid var(--cyan)",
+                paddingLeft: "16px"
+              }}>
+                A curated weekly analytical digest of the top-performing AI and Machine Learning open-source projects.
+                Using our multi-dimensional ranking model, we evaluate velocity delta, breakout acceleration, and project community health.
+                Below is our focused breakdown of the <strong>Top 10 Featured Highlights</strong>, followed by notable secondary breakouts in the sidebar.
+              </p>
+
+              {/* Featured highlights (Ranks 1 to 10) */}
+              <div style={{ display: "flex", flexDirection: "column" }}>
                 {featuredRepos.map((repo) => {
-                  const borderLeftColor =
-                    repo.sustainability_label === "GREEN"
-                      ? "var(--accent-green)"
-                      : repo.sustainability_label === "YELLOW"
-                      ? "var(--accent-yellow)"
-                      : "var(--accent-red)";
+                  const healthColor =
+                    repo.sustainability_label === "GREEN" ? "var(--accent-green)" :
+                    repo.sustainability_label === "YELLOW" ? "var(--accent-yellow)" : "var(--accent-red)";
 
                   return (
-                    <div
-                      key={repo.repo_id}
-                      className="panel"
-                      style={{
-                        borderLeft: `4px solid ${borderLeftColor}`,
-                        display: "flex",
-                        flexDirection: "column",
-                        padding: "28px",
-                        gap: "20px",
-                        borderRadius: "8px",
-                        background: "var(--bg-surface)",
-                        border: "1px solid var(--border)",
-                        borderLeftWidth: "4px"
-                      }}
-                    >
-                      {/* Repo Header */}
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", flexWrap: "wrap" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                    <div key={repo.repo_id} className="news-article-card">
+                      {/* Header row */}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
+                        <div style={{ display: "flex", gap: "10px", alignItems: "baseline" }}>
                           <span style={{
                             fontFamily: "var(--font-mono)",
-                            fontSize: "28px",
-                            fontWeight: 900,
+                            fontSize: "15px",
+                            fontWeight: 800,
                             color: "var(--cyan)",
-                            opacity: 0.8
+                            minWidth: "24px"
                           }}>
-                            #{String(repo.rank).padStart(2, "0")}
+                            {String(repo.rank).padStart(2, "0")}.
                           </span>
                           <div>
                             <Link href={`/repo/${repo.repo_id}`} style={{
                               fontFamily: "var(--font-sans)",
-                              fontSize: "20px",
-                              fontWeight: 800,
+                              fontSize: "17px",
+                              fontWeight: 700,
                               color: "var(--text-primary)",
                               textDecoration: "none"
                             }} className="hover-link-glow">
                               {repo.owner}/<span style={{ color: "var(--cyan)" }}>{repo.name}</span>
                             </Link>
-                            
-                            <div style={{ display: "flex", gap: "6px", marginTop: "6px", flexWrap: "wrap" }}>
+                            <div style={{ display: "inline-flex", gap: "6px", marginLeft: "12px" }}>
                               {repo.category && (
                                 <span style={{
-                                  fontFamily: "var(--font-mono)",
                                   fontSize: "9px",
-                                  padding: "2px 8px",
-                                  background: "rgba(255,255,255,0.04)",
-                                  borderRadius: "4px",
                                   color: "var(--text-secondary)",
-                                  textTransform: "uppercase",
-                                  letterSpacing: "0.05em",
-                                  border: "1px solid rgba(255,255,255,0.03)"
+                                  background: "rgba(255,255,255,0.04)",
+                                  padding: "1px 5px",
+                                  borderRadius: "3px",
+                                  fontFamily: "var(--font-mono)",
+                                  textTransform: "uppercase"
                                 }}>
                                   {repo.category}
                                 </span>
                               )}
                               {repo.primary_language && (
                                 <span style={{
-                                  fontFamily: "var(--font-mono)",
                                   fontSize: "9px",
-                                  padding: "2px 8px",
-                                  background: "rgba(255,255,255,0.04)",
-                                  borderRadius: "4px",
                                   color: "var(--text-secondary)",
-                                  border: "1px solid rgba(255,255,255,0.03)"
+                                  background: "rgba(255,255,255,0.04)",
+                                  padding: "1px 5px",
+                                  borderRadius: "3px",
+                                  fontFamily: "var(--font-mono)"
                                 }}>
                                   {repo.primary_language}
                                 </span>
@@ -534,22 +459,17 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
                             </div>
                           </div>
                         </div>
-
-                        <a
-                          href={repo.github_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="btn-cyber btn-cyber-cyan"
+                        <a 
+                          href={repo.github_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
                           style={{
-                            padding: "6px 12px",
                             fontSize: "11px",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "6px",
-                            textDecoration: "none",
-                            borderRadius: "4px",
-                            fontFamily: "var(--font-mono)"
-                          }}
+                            fontFamily: "var(--font-mono)",
+                            color: "var(--cyan)",
+                            textDecoration: "none"
+                          }} 
+                          className="hover-link-glow"
                         >
                           GitHub ↗
                         </a>
@@ -559,239 +479,177 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
                       {repo.description && (
                         <p style={{
                           fontFamily: "var(--font-sans)",
-                          fontSize: "14.5px",
-                          color: "var(--text-primary)",
-                          lineHeight: "1.6",
-                          margin: 0,
-                          maxWidth: "800px"
+                          fontSize: "13.5px",
+                          lineHeight: "1.5",
+                          color: "var(--text-secondary)",
+                          margin: "8px 0 10px 34px"
                         }}>
                           {repo.description}
                         </p>
                       )}
 
-                      {/* Dashboard Metrics Strip */}
-                      <div className="weekly-metrics-strip" style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
-                        gap: "16px",
-                        background: "rgba(0,0,0,0.15)",
-                        padding: "16px",
-                        borderRadius: "8px",
-                        border: "1px solid var(--border)"
-                      }}>
-                        <div style={{ display: "flex", flexDirection: "column" }}>
-                          <span style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", display: "flex", alignItems: "center", gap: "4px" }}>
-                            {/* Star Icon */}
-                            <svg width="12" height="12" fill="currentColor" viewBox="0 0 20 20">
-                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                            </svg>
-                            Total Stars
-                          </span>
-                          <span style={{ fontSize: "15px", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--text-primary)", marginTop: "4px" }}>
-                            {repo.stars?.toLocaleString() ?? "—"}
-                          </span>
-                        </div>
-                        <div style={{ display: "flex", flexDirection: "column" }}>
-                          <span style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", display: "flex", alignItems: "center", gap: "4px" }}>
-                            {/* Lightning icon */}
-                            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                            7D Velocity
-                          </span>
-                          <span style={{ fontSize: "15px", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--amber)", marginTop: "4px" }}>
-                            +{repo.star_velocity_7d?.toFixed(1) ?? "—"} <span style={{ fontSize: "10px", fontWeight: 400, color: "var(--text-muted)" }}>/day</span>
-                          </span>
-                        </div>
-                        <div style={{ display: "flex", flexDirection: "column" }}>
-                          <span style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", display: "flex", alignItems: "center", gap: "4px" }}>
-                            {/* Accel icon */}
-                            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                            </svg>
-                            Acceleration
-                          </span>
-                          <span style={{ fontSize: "15px", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--cyan)", marginTop: "4px" }}>
-                            {repo.acceleration?.toFixed(2) ?? "—"}x
-                          </span>
-                        </div>
-                        <div style={{ display: "flex", flexDirection: "column" }}>
-                          <span style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginBottom: "4px", display: "flex", alignItems: "center", gap: "4px" }}>
-                            {/* Shield icon */}
-                            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                            </svg>
-                            Eco-Health
-                          </span>
-                          <NinjaRankPill label={repo.sustainability_label} />
-                        </div>
-                      </div>
-
-                      {/* Editorial Commentary Quote Box */}
+                      {/* Clean Single-line Metrics Strip */}
                       <div style={{
-                        background: "rgba(0, 229, 255, 0.01)",
-                        borderLeft: "2px solid var(--cyan)",
-                        padding: "16px 20px",
-                        borderRadius: "0 8px 8px 0",
                         display: "flex",
-                        gap: "12px",
-                        alignItems: "flex-start",
-                        border: "1px solid rgba(0,240,255,0.04)",
-                        borderLeftWidth: "3px"
+                        gap: "16px",
+                        flexWrap: "wrap",
+                        fontSize: "11.5px",
+                        fontFamily: "var(--font-mono)",
+                        color: "var(--text-muted)",
+                        margin: "0 0 12px 34px",
+                        background: "rgba(255,255,255,0.015)",
+                        border: "1px solid rgba(255,255,255,0.02)",
+                        padding: "6px 12px",
+                        borderRadius: "4px"
                       }}>
-                        <div style={{ color: "var(--cyan)", marginTop: "2px", flexShrink: 0 }}>
-                          {/* Spark/Brain icon */}
-                          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                            <path d="M12,4 C7.58,4 4,7.58 4,12 C4,16.42 7.58,20 12,20 C14,20 15.8,19.2 17.2,17.8 L18.5,19.1 C16.8,20.9 14.5,22 12,22 C6.48,22 2,17.52 2,12 C2,6.48 6.48,2 12,2 C17,2 20.5,5 21,5.5 L18,8.5 L22,9 L21.5,5 L19.5,7 C18.2,5.2 15.2,4 12,4 Z" />
-                          </svg>
-                        </div>
-                        <div style={{
-                          fontFamily: "var(--font-sans)",
-                          fontSize: "13.5px",
-                          lineHeight: "1.6",
-                          color: "var(--text-secondary)",
-                          fontStyle: "italic",
-                          margin: 0
-                        }}>
-                          {generateInsightCommentary(repo)}
-                        </div>
+                        <span>★ {repo.stars?.toLocaleString() || "—"} total stars</span>
+                        <span>•</span>
+                        <span style={{ color: "var(--amber)" }}>⚡ +{repo.star_velocity_7d?.toFixed(0)}/day velocity</span>
+                        <span>•</span>
+                        <span style={{ color: "var(--cyan)" }}>📈 {repo.acceleration?.toFixed(1)}x accel</span>
+                        <span>•</span>
+                        <span style={{ color: healthColor, fontWeight: 600 }}>🛡️ {repo.sustainability_label === "GREEN" ? "JONIN" : repo.sustainability_label === "YELLOW" ? "CHUNIN" : "GENIN"} health</span>
                       </div>
 
+                      {/* Inline Analyst Take Commentary */}
+                      <p style={{
+                        fontFamily: "var(--font-sans)",
+                        fontSize: "13px",
+                        lineHeight: "1.55",
+                        color: "var(--text-secondary)",
+                        margin: "0 0 0 34px",
+                        paddingLeft: "12px",
+                        borderLeft: "2px solid rgba(255,255,255,0.08)",
+                        fontStyle: "italic"
+                      }}>
+                        <strong>Analyst Note:</strong> {generateInsightCommentary(repo)}
+                      </p>
                     </div>
                   );
                 })}
               </div>
             </div>
 
-            {/* SECTION 2: REMAINING RADAR (11-25) */}
-            {secondaryRepos.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-                <h2 style={{
-                  fontFamily: "var(--font-sans)",
-                  fontSize: "20px",
-                  fontWeight: 800,
-                  color: "var(--text-primary)",
+            {/* Right Column: Sidebar (Ecosystem widgets) */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
+              {/* Stats Summary Widget */}
+              <div style={{
+                border: "1px solid var(--border)",
+                borderRadius: "8px",
+                padding: "16px",
+                background: "rgba(255,255,255,0.01)"
+              }}>
+                <h3 style={{
+                  fontSize: "11px",
+                  fontFamily: "var(--font-mono)",
+                  color: "var(--cyan)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
                   borderBottom: "1px solid var(--border)",
-                  paddingBottom: "12px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  margin: 0
+                  paddingBottom: "8px",
+                  marginTop: 0,
+                  marginBottom: "14px",
+                  fontWeight: 700
                 }}>
-                  <span style={{ color: "var(--text-muted)" }}>⬡</span> Ranks 11-25: Notable Breakouts
-                </h2>
+                  Weekly Intel Summary
+                </h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  <div>
+                    <div style={{ fontSize: "10.5px", color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>Tracked Repositories</div>
+                    <div style={{ fontSize: "16px", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--text-primary)", marginTop: "2px" }}>
+                      {snapshot.repos?.length || 25} projects
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "10.5px", color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>Peak Star Velocity</div>
+                    <div style={{ fontSize: "16px", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--amber)", marginTop: "2px" }}>
+                      +{maxVelocity.toFixed(0)} stars/day
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "10.5px", color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>Average Acceleration</div>
+                    <div style={{ fontSize: "16px", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--cyan)", marginTop: "2px" }}>
+                      {avgAccel.toFixed(2)}x speedup
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "10.5px", color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>Jonin-Tier Health</div>
+                    <div style={{ fontSize: "16px", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--accent-green)", marginTop: "2px" }}>
+                      {healthyCount} healthy communities
+                    </div>
+                  </div>
+                </div>
+              </div>
 
+              {/* Notable Breakouts widget (Ranks 11-25) */}
+              {secondaryRepos.length > 0 && (
                 <div style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-                  gap: "16px"
+                  border: "1px solid var(--border)",
+                  borderRadius: "8px",
+                  padding: "16px",
+                  background: "rgba(255,255,255,0.01)"
                 }}>
-                  {secondaryRepos.map((repo) => (
-                    <div
-                      key={repo.repo_id}
-                      className="panel hover-link-glow"
-                      style={{
-                        padding: "20px",
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "space-between",
-                        gap: "16px",
-                        borderRadius: "8px",
-                        background: "var(--bg-surface)",
-                        border: "1px solid var(--border)",
-                        transition: "transform 0.2s ease, border-color 0.2s ease",
-                      }}
-                    >
-                      <div>
-                        {/* Top identity */}
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
+                  <h3 style={{
+                    fontSize: "11px",
+                    fontFamily: "var(--font-mono)",
+                    color: "var(--text-primary)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    borderBottom: "1px solid var(--border)",
+                    paddingBottom: "8px",
+                    marginTop: 0,
+                    marginBottom: "8px",
+                    fontWeight: 700
+                  }}>
+                    Notable Breakouts (11-25)
+                  </h3>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    {secondaryRepos.map((repo) => {
+                      const healthColor =
+                        repo.sustainability_label === "GREEN" ? "var(--accent-green)" :
+                        repo.sustainability_label === "YELLOW" ? "var(--accent-yellow)" : "var(--accent-red)";
+                      return (
+                        <div key={repo.repo_id} className="trend-item-row">
                           <span style={{
+                            fontSize: "11px",
                             fontFamily: "var(--font-mono)",
-                            fontSize: "14px",
-                            fontWeight: 800,
-                            color: "var(--cyan)"
+                            color: "var(--text-muted)",
+                            minWidth: "20px"
                           }}>
                             #{repo.rank}
                           </span>
-                          
-                          <NinjaRankPill label={repo.sustainability_label} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <Link href={`/repo/${repo.repo_id}`} style={{
+                              fontSize: "12.5px",
+                              fontWeight: 600,
+                              color: "var(--text-primary)",
+                              textDecoration: "none",
+                              display: "block",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap"
+                            }} className="hover-link-glow">
+                              {repo.owner}/{repo.name}
+                            </Link>
+                            <div style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "1px", display: "flex", gap: "6px" }}>
+                              <span>{repo.primary_language || "Other"}</span>
+                              <span>•</span>
+                              <span style={{ color: "var(--amber)" }}>+{repo.star_velocity_7d?.toFixed(0)}/d</span>
+                            </div>
+                          </div>
+                          <span style={{
+                            width: "6px",
+                            height: "6px",
+                            borderRadius: "50%",
+                            background: healthColor,
+                            flexShrink: 0
+                          }} />
                         </div>
-
-                        <div style={{ marginTop: "12px" }}>
-                          <Link href={`/repo/${repo.repo_id}`} style={{
-                            fontFamily: "var(--font-sans)",
-                            fontSize: "15px",
-                            fontWeight: 700,
-                            color: "var(--text-primary)",
-                            textDecoration: "none",
-                            wordBreak: "break-all"
-                          }} className="hover-link-glow">
-                            {repo.owner}/<span style={{ color: "var(--cyan)" }}>{repo.name}</span>
-                          </Link>
-                        </div>
-
-                        {repo.description && (
-                          <p style={{
-                            fontFamily: "var(--font-sans)",
-                            fontSize: "12px",
-                            color: "var(--text-secondary)",
-                            lineHeight: "1.5",
-                            marginTop: "8px",
-                            display: "-webkit-box",
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: "vertical",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            height: "36px",
-                            margin: "8px 0 0 0"
-                          }}>
-                            {repo.description}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Bottom metrics row */}
-                      <div style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        borderTop: "1px solid var(--border)",
-                        paddingTop: "12px",
-                        fontSize: "12px",
-                        fontFamily: "var(--font-mono)"
-                      }}>
-                        <span style={{ color: "var(--text-muted)" }}>
-                          {repo.primary_language ?? "Other"}
-                        </span>
-                        <span style={{ color: "var(--amber)", fontWeight: 700 }}>
-                          +{repo.star_velocity_7d?.toFixed(0) ?? "—"} <span style={{ color: "var(--text-muted)", fontSize: "10px", fontWeight: 400 }}>/day</span>
-                        </span>
-                        <span style={{ color: "var(--cyan)", fontWeight: 700 }}>
-                          {repo.acceleration?.toFixed(1) ?? "—"}x
-                        </span>
-                      </div>
-
-                    </div>
-                  ))}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
-
-            {/* Footer metadata */}
-            <div style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: "11px",
-              color: "var(--text-muted)",
-              borderTop: "1px solid var(--border)",
-              paddingTop: "24px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: "12px"
-            }}>
-              <span>© Repodar Automated Telemetry Engine</span>
-              <span>All snapshots are static records of github.com at the time of execution.</span>
+              )}
             </div>
 
           </div>
