@@ -122,6 +122,18 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
         except Exception as e:
             logger.warning(f"[pipeline] Alert notifications failed (non-fatal): {e}")
 
+        # Invalidate specific cache namespaces to avoid database load spikes and stampedes
+        try:
+            from fastapi_cache import FastAPICache
+            backend = FastAPICache.get_backend()
+            if backend:
+                namespaces_to_clear = ["repo", "dashboard", "forecast", "recommendation", "fork", "feed"]
+                for ns in namespaces_to_clear:
+                    await backend.clear(namespace=ns)
+                logger.info(f"[pipeline] Targeted cache namespaces invalidated successfully post-sync: {namespaces_to_clear}")
+        except Exception as e:
+            logger.warning(f"[pipeline] Targeted cache invalidation failed: {e}")
+
         return {
             "run_at": run_at,
             "status": "complete",

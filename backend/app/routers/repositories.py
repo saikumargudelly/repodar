@@ -68,7 +68,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
 from fastapi_cache.decorator import cache
 
 @router.get("", response_model=PaginatedResponse[RepoSummary])
-@cache(expire=300)
+@cache(expire=300, namespace="repo")
 def list_repos(
     category: Optional[str] = Query(None, description="Filter by ecosystem category"),
     sort_by: str = Query("trend_score", description="trend_score | sustainability_score | stars"),
@@ -168,6 +168,7 @@ _GH_HEADERS = {
 
 
 @router.get("/compare", response_model=List[CompareEntry])
+@cache(expire=300, namespace="repo")
 async def compare_repos(
     ids: str = Query(
         ...,
@@ -284,6 +285,7 @@ class RepoHistory(BaseModel):
 
 
 @router.get("/compare/history", response_model=List[RepoHistory])
+@cache(expire=300, namespace="repo")
 async def compare_history(
     ids: str = Query(
         ...,
@@ -370,6 +372,7 @@ class DeepSummaryResponse(BaseModel):
 from fastapi import Path
 
 @router.get("/{owner}/{name}/deep-summary", response_model=DeepSummaryResponse)
+@cache(expire=900, namespace="repo")
 async def get_deep_summary(
     owner: str = Path(..., pattern=r"^[A-Za-z0-9_.-]+$"),
     name: str = Path(..., pattern=r"^[A-Za-z0-9_.-]+$"),
@@ -500,6 +503,7 @@ async def get_deep_summary(
 # ─── Repo Detail (must be last — uses :path which matches anything) ───────────
 
 @router.get("/{repo_id:path}", response_model=RepoDetail)
+@cache(expire=300, namespace="repo")
 async def get_repo(repo_id: str, db: Session = Depends(get_db)):
     """Get full repo detail. Checks DB first; falls back to live GitHub API for untracked repos."""
     # Try by UUID id first

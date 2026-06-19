@@ -463,7 +463,7 @@ def _build_category_velocity_map_uncached(db: Session, scored_date: date) -> dic
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
 @router.get("/overview", response_model=OverviewResponse)
-@cache(expire=300)  # pyright: ignore[reportArgumentType]
+@cache(expire=300, namespace="dashboard")  # pyright: ignore[reportArgumentType]
 def get_overview(db: Session = Depends(get_db)):
     """
     Ecosystem overview: category heatmap data, top-10 breakout repos,
@@ -603,7 +603,7 @@ def get_overview(db: Session = Depends(get_db)):
 
 
 @router.get("/radar", response_model=List[RadarRepo])
-@cache(expire=300)
+@cache(expire=300, namespace="dashboard")
 def get_breakout_radar(
     new_only: bool = Query(False, description="Only repos younger than 180 days"),
     category: Optional[str] = Query(None, description="Filter by category"),
@@ -753,7 +753,7 @@ def _map_to_early_category(db_cat: str) -> str:
 
 
 @router.get("/early-radar", response_model=List[EarlyRadarRepo])
-@cache(expire=300)
+@cache(expire=300, namespace="dashboard")
 async def get_early_radar(
     max_age_days: int = Query(
         180,
@@ -1071,7 +1071,7 @@ async def get_early_radar(
 
 
 @router.get("/categories", response_model=List[CategoryMetrics])
-@cache(expire=900)  # pyright: ignore[reportArgumentType]
+@cache(expire=900, namespace="dashboard")  # pyright: ignore[reportArgumentType]
 def get_category_metrics(
     period: str = Query("7d", description="1d | 7d | 30d | 90d | 365d | 3y | 5y"),
     db: Session = Depends(get_db),
@@ -1118,7 +1118,7 @@ def get_category_metrics(
 
 
 @router.get("/alerts", response_model=List[AlertResponse])
-@cache(expire=60)
+@cache(expire=60, namespace="dashboard")
 def get_alerts(
     unread_only: bool = Query(False, description="Return only unread alerts"),
     limit: int = Query(20, le=100),
@@ -1256,7 +1256,7 @@ class LeaderboardResponse(BaseModel):
 
 
 @router.get("/leaderboard", response_model=LeaderboardResponse)
-@cache(expire=300)
+@cache(expire=300, namespace="dashboard")
 async def get_leaderboard(
     period: str = Query("7d", description="1d | 7d | 30d | 90d | 365d | 3y | 5y"),
     category: Optional[str] = Query(None, description="Filter by AI/ML sub-category"),
@@ -1311,7 +1311,7 @@ class LanguageStat(BaseModel):
 
 
 @router.get("/languages", response_model=List[LanguageStat])
-@cache(expire=300)
+@cache(expire=300, namespace="dashboard")
 def get_language_radar(
     min_repos: int = Query(2, description="Only languages with at least N repos"),
     db: Session = Depends(get_db),

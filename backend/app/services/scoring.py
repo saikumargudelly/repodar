@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 SPIKE_Z_THRESHOLD = float(os.getenv("SPIKE_Z_THRESHOLD", "1.8"))
 SPIKE_MIN_HISTORY_DAYS = int(os.getenv("SPIKE_MIN_HISTORY_DAYS", "7"))
 SPIKE_SUSTAINED_Z_THRESHOLD = float(os.getenv("SPIKE_SUSTAINED_Z_THRESHOLD", "1.5"))
+INGEST_BATCH_SIZE = int(os.getenv("INGEST_BATCH_SIZE", "100"))
 
 
 def _today() -> date:
@@ -967,6 +968,8 @@ def run_daily_scoring() -> dict:
                         logger.warning(f"Failed to evaluate custom alert rules for {repo.id}: {e}")
 
                 scored += 1
+                if scored % INGEST_BATCH_SIZE == 0:
+                    db.commit()
 
             except Exception as e:
                 logger.error(f"Scoring failed for {repo.owner}/{repo.name}: {e}")

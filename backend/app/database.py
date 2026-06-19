@@ -61,8 +61,8 @@ elif DATABASE_URL.startswith("postgresql"):  # includes normalized postgres:// U
     # PostgreSQL: Production on Railway
     # Optimized connection pooling for async workloads with Celery
     engine_kwargs.update({
-        "pool_size": 10,          # Maintain 10 persistent connections
-        "max_overflow": 20,       # Allow 20 additional overflow connections
+        "pool_size": 5,           # Maintain 5 persistent connections (conservative for OCI Always Free)
+        "max_overflow": 10,       # Allow 10 additional overflow connections
         "pool_pre_ping": True,    # Test connections before using (prevents stale connections)
         "pool_recycle": 60,       # Recycle connections every 1 minute (safeguard against Neon aggressive dropping)
         "connect_args": {"connect_timeout": 10, "keepalives": 1, "keepalives_idle": 30}

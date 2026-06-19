@@ -36,7 +36,19 @@ class LoggingMiddleware:
         async def send_wrapper(message):
             if message["type"] == "http.response.start":
                 process_time = time.time() - start_time
-                logger.info(f"HTTP {scope['method']} {scope['path']} - {message['status']} - {process_time:.4f}s")
+                duration_ms = process_time * 1000
+                if duration_ms < 100:
+                    category = "Excellent"
+                elif duration_ms < 300:
+                    category = "Good"
+                elif duration_ms < 1000:
+                    category = "Investigate"
+                else:
+                    category = "Optimize"
+                logger.info(
+                    f"HTTP {scope['method']} {scope['path']} - {message['status']} - "
+                    f"{duration_ms:.1f}ms [{category}]"
+                )
             await send(message)
 
         await self.app(scope, receive, send_wrapper)

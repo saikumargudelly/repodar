@@ -11,11 +11,14 @@ Auto-discovery:
   Seed repos are NEVER deactivated.
 """
 
+import os
 import uuid
 import json
 import logging
 import asyncio
 from datetime import datetime, timezone, date, timedelta
+
+INGEST_BATCH_SIZE = int(os.getenv("INGEST_BATCH_SIZE", "100"))
 
 from app.database import SessionLocal
 from app.models import Repository, DailyMetric
@@ -559,7 +562,7 @@ async def run_daily_ingestion(force_discovery: bool = False) -> dict:
                 failed += 1
 
         # Perform chunked bulk database operations
-        chunk_size = 200
+        chunk_size = INGEST_BATCH_SIZE
         if new_metrics:
             for idx in range(0, len(new_metrics), chunk_size):
                 db.bulk_save_objects(new_metrics[idx:idx + chunk_size])
@@ -749,7 +752,7 @@ async def _enrich_contributors_and_forks(repos: list, today) -> None:
                     fork_map[(repo_id, f["fork_full_name"])] = new_fork
 
         # Execute chunked bulk database operations
-        chunk_size = 200
+        chunk_size = INGEST_BATCH_SIZE
         if new_contribs:
             for idx in range(0, len(new_contribs), chunk_size):
                 db.bulk_save_objects(new_contribs[idx:idx + chunk_size])

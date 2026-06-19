@@ -9,6 +9,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, Query, Path
 from sqlalchemy.orm import Session
+from fastapi_cache.decorator import cache
 from pydantic import BaseModel
 
 from app.database import get_db
@@ -49,6 +50,7 @@ class ForkLeaderboardEntry(BaseModel):
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
 @router.get("/repo/{owner}/{name}", response_model=List[NotableFork])
+@cache(expire=900, namespace="fork")
 def get_notable_forks_for_repo(
     owner: str = Path(...),
     name: str = Path(...),
@@ -115,6 +117,7 @@ def get_notable_forks_for_repo(
 
 
 @router.get("/leaderboard", response_model=List[ForkLeaderboardEntry])
+@cache(expire=900, namespace="fork")
 def get_fork_leaderboard(
     min_stars: int = Query(50, description="Minimum star count for a fork to appear"),
     limit: int = Query(30, le=100),

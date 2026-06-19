@@ -12,6 +12,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
+from fastapi_cache.decorator import cache
 
 from app.database import get_db
 from app.models import TrendAlert, Repository
@@ -88,6 +89,7 @@ def _build_items(alerts: list, repos: dict) -> list[dict]:
 
 
 @router.get("/feed.xml", include_in_schema=False)
+@cache(expire=3600, namespace="feed")
 def rss_feed_all(limit: int = 50, db: Session = Depends(get_db)):
     """RSS 2.0 feed of all recent breakout alerts."""
     alerts = (
@@ -106,6 +108,7 @@ def rss_feed_all(limit: int = 50, db: Session = Depends(get_db)):
 
 
 @router.get("/feed/{vertical}.xml", include_in_schema=False)
+@cache(expire=3600, namespace="feed")
 def rss_feed_vertical(vertical: str, limit: int = 50, db: Session = Depends(get_db)):
     """RSS 2.0 feed filtered by ecosystem vertical/category."""
     # Map common vertical slugs to category strings stored in the DB

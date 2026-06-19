@@ -13,6 +13,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from fastapi_cache.decorator import cache
 
 from app.database import get_db
 from app.models import Repository, DailyMetric
@@ -53,6 +54,7 @@ def _load_and_forecast(owner: str, name: str, db: Session, days: int = 90) -> Fo
 
 
 @router.get("/{owner}/{name}", response_model=ForecastResult)
+@cache(expire=900, namespace="forecast")
 def get_repo_forecast(
     owner: str,
     name: str,
@@ -67,6 +69,7 @@ def get_repo_forecast(
 
 
 @router.get("/bulk/batch", response_model=list[ForecastResult])
+@cache(expire=900, namespace="forecast")
 def get_bulk_forecast(
     ids: str = Query(..., description="Comma-separated owner/name pairs, max 20"),
     days: int = Query(90, ge=7, le=365),

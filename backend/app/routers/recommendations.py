@@ -14,6 +14,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
+from fastapi_cache.decorator import cache
 
 from app.database import get_db
 from app.models import Repository
@@ -88,6 +89,7 @@ def get_recommendations(
 
 
 @router.get("/similar/{owner}/{name}", response_model=list[RecommendedRepo])
+@cache(expire=900, namespace="recommendation")
 def get_similar_repos(
     owner: str,
     name:  str,
