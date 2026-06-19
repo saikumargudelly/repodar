@@ -5,7 +5,7 @@ from typing import Optional, List
 
 import aiohttp
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
+from sqlalchemy import func, or_, and_
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -187,26 +187,59 @@ async def compare_repos(
 
     results: list[CompareEntry] = []
 
+    from app.models import DailyMetric
+    # Fetch tracked DB entries in batches to prevent N+1 query loop
+    def _fetch_tracked_repos():
+        repos = db.query(Repository).filter(Repository.id.in_(repo_ids)).all()
+        repo_map = {r.id: r for r in repos}
+        
+        # Latest ComputedMetric per repo_id
+        latest_date = db.query(func.max(ComputedMetric.date)).scalar()
+        cms = []
+        if latest_date and repos:
+            cms = db.query(ComputedMetric).filter(
+                ComputedMetric.repo_id.in_(repo_map.keys()),
+                ComputedMetric.date == latest_date
+            ).all()
+        cm_map = {cm.repo_id: cm for cm in cms}
+
+        # Latest DailyMetric per repo_id
+        dms = []
+        if repos:
+            latest_dm_subq = (
+                db.query(
+                    DailyMetric.repo_id,
+                    func.max(DailyMetric.captured_at).label("max_captured")
+                )
+                .filter(DailyMetric.repo_id.in_(repo_map.keys()))
+                .group_by(DailyMetric.repo_id)
+                .subquery()
+            )
+            dms = (
+                db.query(DailyMetric)
+                .filter(DailyMetric.repo_id.in_(repo_map.keys()))
+                .join(
+                    latest_dm_subq,
+                    (DailyMetric.repo_id == latest_dm_subq.c.repo_id) &
+                    (DailyMetric.captured_at == latest_dm_subq.c.max_captured)
+                )
+                .all()
+            )
+        dm_map = {dm.repo_id: dm for dm in dms}
+        
+        return repo_map, cm_map, dm_map
+
+    repo_map, cm_map, dm_map = await asyncio.to_thread(_fetch_tracked_repos)
+
     async with aiohttp.ClientSession() as session:
         for repo_id in repo_ids:
             owner, name = repo_id.split("/", 1)
 
-            # Check tracked DB first
-            repo = db.query(Repository).filter_by(id=repo_id).first()
+            # Check if we have this repo tracked in DB
+            repo = repo_map.get(repo_id)
             if repo:
-                cm = (
-                    db.query(ComputedMetric)
-                    .filter_by(repo_id=repo_id)
-                    .order_by(ComputedMetric.date.desc())
-                    .first()
-                )
-                from app.models import DailyMetric
-                dm = (
-                    db.query(DailyMetric)
-                    .filter_by(repo_id=repo_id)
-                    .order_by(DailyMetric.captured_at.desc())
-                    .first()
-                )
+                cm = cm_map.get(repo_id)
+                dm = dm_map.get(repo_id)
                 results.append(CompareEntry(
                     repo_id=repo_id,
                     owner=owner,
@@ -300,39 +333,64 @@ async def compare_history(
     Only Repodar-tracked repos will have non-empty history arrays.
     """
     from app.models import DailyMetric as DM
+    from collections import defaultdict
 
     repo_ids = [i.strip() for i in ids.split(",") if "/" in i.strip()][:5]
     if not repo_ids:
         raise HTTPException(status_code=422, detail="Provide at least one valid owner/name id")
 
-    from sqlalchemy import func
-    latest_dt = db.query(func.max(DM.captured_at)).scalar()
-    if not latest_dt:
-        latest_dt = datetime.now(timezone.utc)
-    since = latest_dt.date() - timedelta(days=days)
-    results: list[RepoHistory] = []
+    # Split owner/name
+    repo_tuples = [repo_id.split("/", 1) for repo_id in repo_ids]
 
+    def _fetch_history_data():
+        latest_dt = db.query(func.max(DM.captured_at)).scalar()
+        if not latest_dt:
+            latest_dt = datetime.now(timezone.utc)
+        since = latest_dt.date() - timedelta(days=days)
+
+        # Build OR condition for owners/names to fetch repositories in a single trip
+        conds = [
+            and_(
+                func.lower(Repository.owner) == o.lower(),
+                func.lower(Repository.name) == n.lower()
+            )
+            for o, n in repo_tuples
+        ]
+        repos = db.query(Repository).filter(or_(*conds)).all()
+        repo_by_key = {f"{r.owner.lower()}/{r.name.lower()}": r for r in repos}
+
+        # Query DailyMetric for all matched repositories in one trip
+        repo_ids_found = [r.id for r in repos]
+        metrics = []
+        if repo_ids_found:
+            metrics = (
+                db.query(DM)
+                .filter(
+                    DM.repo_id.in_(repo_ids_found),
+                    DM.captured_at >= datetime.combine(since, datetime.min.time())
+                )
+                .order_by(DM.captured_at.asc())
+                .all()
+            )
+
+        metrics_by_repo = defaultdict(list)
+        for m in metrics:
+            metrics_by_repo[m.repo_id].append(m)
+
+        return repo_by_key, metrics_by_repo
+
+    repo_by_key, metrics_by_repo = await asyncio.to_thread(_fetch_history_data)
+
+    results: list[RepoHistory] = []
     for idx, repo_id in enumerate(repo_ids):
         owner, name = repo_id.split("/", 1)
-        repo = (
-            db.query(Repository)
-            .filter(
-                func.lower(Repository.owner) == owner.lower(),
-                func.lower(Repository.name) == name.lower()
-            )
-            .first()
-        )
+        key = f"{owner.lower()}/{name.lower()}"
+        repo = repo_by_key.get(key)
         if not repo:
             results.append(RepoHistory(repo_id=repo_id, owner=owner, name=name, color_index=idx, history=[]))
             continue
 
-        metrics = (
-            db.query(DM)
-            .filter(DM.repo_id == repo.id, DM.captured_at >= datetime.combine(since, datetime.min.time()))
-            .order_by(DM.captured_at.asc())
-            .all()
-        )
-
+        repo_metrics = metrics_by_repo.get(repo.id, [])
         history = [
             RepoHistoryPoint(
                 date=m.captured_at.strftime("%Y-%m-%d"),

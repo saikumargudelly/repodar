@@ -156,7 +156,8 @@ class QueryBuilder:
             )
 
         if dto.categories:
-            q = q.filter(Repository.category.in_([c.lower() for c in dto.categories]))
+            cats = list(set(dto.categories + [c.lower() for c in dto.categories]))
+            q = q.filter(Repository.category.in_(cats))
 
         if dto.sources:
             q = q.filter(Repository.source.in_(dto.sources))

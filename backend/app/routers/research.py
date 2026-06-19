@@ -26,6 +26,7 @@ Endpoints:
 import os
 import json
 import logging
+import asyncio
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
@@ -284,46 +285,51 @@ async def transcribe_audio(
 # ─── Session CRUD ─────────────────────────────────────────────────────────────
 
 @router.post("/sessions", status_code=201)
-def create_session(body: CreateSessionRequest, db: Session = Depends(get_db)):
-    s = ResearchSession(
-        user_id=body.user_id,
-        title=body.title.strip() or "Untitled Research",
-        description=body.description,
-        verticals_json=json.dumps(body.verticals) if body.verticals else None,
-    )
-    db.add(s)
-    db.commit()
-    db.refresh(s)
+async def create_session(body: CreateSessionRequest, db: Session = Depends(get_db)):
+    def _create():
+        s = ResearchSession(
+            user_id=body.user_id,
+            title=body.title.strip() or "Untitled Research",
+            description=body.description,
+            verticals_json=json.dumps(body.verticals) if body.verticals else None,
+        )
+        db.add(s)
+        db.commit()
+        db.refresh(s)
+        return s
+    s = await asyncio.to_thread(_create)
     logger.info(f"[research] Created session {s.id} for user {s.user_id}")
     return _serialize_session(s)
 
 
 @router.get("/sessions")
-def list_sessions(
+async def list_sessions(
     user_id: str = Query(..., description="Clerk user ID"),
     db: Session = Depends(get_db),
 ):
-    sessions = (
-        db.query(ResearchSession)
-        .options(
-            selectinload(ResearchSession.messages),
-            selectinload(ResearchSession.pins),
-            selectinload(ResearchSession.report)
+    def _list():
+        return (
+            db.query(ResearchSession)
+            .options(
+                selectinload(ResearchSession.messages),
+                selectinload(ResearchSession.pins),
+                selectinload(ResearchSession.report)
+            )
+            .filter_by(user_id=user_id)
+            .order_by(ResearchSession.updated_at.desc())
+            .all()
         )
-        .filter_by(user_id=user_id)
-        .order_by(ResearchSession.updated_at.desc())
-        .all()
-    )
+    sessions = await asyncio.to_thread(_list)
     return [_serialize_session(s) for s in sessions]
 
 
 @router.get("/sessions/{session_id}")
-def get_session(
+async def get_session(
     session_id: str,
     user_id: str = Query(...),
     db: Session = Depends(get_db),
 ):
-    s = _session_or_404(session_id, user_id, db)
+    s = await asyncio.to_thread(_session_or_404, session_id, user_id, db)
     return {
         **_serialize_session(s),
         "messages": [_serialize_message(m) for m in s.messages],
@@ -337,33 +343,34 @@ def get_session(
 
 
 @router.patch("/sessions/{session_id}")
-def update_session(
+async def update_session(
     session_id: str,
     body: UpdateSessionRequest,
     user_id: str = Query(...),
     db: Session = Depends(get_db),
 ):
-    s = _session_or_404(session_id, user_id, db)
-    if body.title is not None:
-        s.title = body.title.strip() or s.title
-    if body.description is not None:
-        s.description = body.description
-    if body.verticals is not None:
-        s.verticals_json = json.dumps(body.verticals)
-    s.updated_at = _utcnow()
-    db.commit()
+    s = await asyncio.to_thread(_session_or_404, session_id, user_id, db)
+    def _update():
+        if body.title is not None:
+            s.title = body.title.strip() or s.title
+        if body.description is not None:
+            s.description = body.description
+        if body.verticals is not None:
+            s.verticals_json = json.dumps(body.verticals)
+        s.updated_at = _utcnow()
+        db.commit()
+    await asyncio.to_thread(_update)
     return _serialize_session(s)
 
 
 @router.delete("/sessions/{session_id}", status_code=204)
-def delete_session(
+async def delete_session(
     session_id: str,
     user_id: str = Query(...),
     db: Session = Depends(get_db),
 ):
-    s = _session_or_404(session_id, user_id, db)
-    db.delete(s)
-    db.commit()
+    s = await asyncio.to_thread(_session_or_404, session_id, user_id, db)
+    await asyncio.to_thread(lambda: (db.delete(s), db.commit()))
 
 
 # ─── Messaging — REST (non-streaming) ─────────────────────────────────────────

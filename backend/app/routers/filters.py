@@ -9,9 +9,11 @@ DELETE /filters/presets/{id} → delete a preset
 
 import json
 import logging
-from typing import Optional
+import asyncio
+from typing import Optional, Callable
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Query
+from fastapi_cache.decorator import cache
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -64,10 +66,24 @@ class PresetResponse(BaseModel):
     created_at:  str
 
 
+def _filter_cache_key_builder(
+    func: Callable,
+    namespace: str = "",
+    request = None,
+    response = None,
+    *args,
+    **kwargs
+):
+    dto = kwargs.get("dto")
+    dto_key = dto.model_dump_json() if dto else ""
+    return f"{namespace}:filter-repos:{dto_key}"
+
+
 # ─── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.post("/repos", response_model=FilteredResponse)
-def filter_repos(
+@cache(expire=120, namespace="explore", key_builder=_filter_cache_key_builder)
+async def filter_repos(
     dto: RepoFilterDTO,
     db: Session = Depends(get_db),
 ):
@@ -76,7 +92,7 @@ def filter_repos(
     Supports: languages, categories, topics, star range, age range, score ranges,
     star velocity range, sort, pagination.
     """
-    rows, total = QueryBuilder(db, dto).build()
+    rows, total = await asyncio.to_thread(QueryBuilder(db, dto).build)
 
     items = []
     for repo, cm in rows:
@@ -113,7 +129,7 @@ def filter_repos(
 
 
 @router.get("/repos", response_model=FilteredResponse)
-def filter_repos_get(
+async def filter_repos_get(
     languages:    str = Query(""),
     categories:   str = Query(""),
     topics:       str = Query(""),
@@ -143,7 +159,7 @@ def filter_repos_get(
         "sort_by": sort_by, "sort_dir": sort_dir,
         "page": page, "per_page": per_page,
     })
-    rows, total = QueryBuilder(db, dto).build()
+    rows, total = await asyncio.to_thread(QueryBuilder(db, dto).build)
 
     items = []
     for repo, cm in rows:

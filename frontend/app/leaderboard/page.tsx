@@ -74,18 +74,21 @@ function LeaderboardAndNetworkContent() {
   const { data: lbData, isLoading: lbLoading } = useQuery({
     queryKey: ["leaderboard", period],
     queryFn: () => api.getLeaderboard(period, undefined, 100),
+    enabled: activeTab === "leaderboard",
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: overviewData } = useQuery({
     queryKey: ["overview"],
     queryFn: api.getOverview,
+    enabled: activeTab === "leaderboard",
     staleTime: 10 * 60 * 1000,
   });
 
   const { data: networkData, isLoading: networkLoading } = useQuery({
     queryKey: ["contributor-network", minRepos],
     queryFn: () => api.getContributorNetwork(minRepos),
+    enabled: activeTab === "network",
     staleTime: 10 * 60 * 1000,
   });
 

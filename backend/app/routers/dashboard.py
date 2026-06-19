@@ -1371,7 +1371,7 @@ class LanguageStat(BaseModel):
 
 @router.get("/languages", response_model=List[LanguageStat])
 @cache(expire=300, namespace="dashboard")
-def get_language_radar(
+async def get_language_radar(
     min_repos: int = Query(2, description="Only languages with at least N repos"),
     db: Session = Depends(get_db),
 ):
@@ -1385,47 +1385,62 @@ def get_language_radar(
     """
     import json as _json
 
-    latest_date = _latest_scored_date(db)
+    def _fetch_radar_data():
+        latest_date = _latest_scored_date(db)
 
-    # Get all active repos with their latest computed metrics
-    subq = (
-        db.query(
-            ComputedMetric.repo_id,
-            ComputedMetric.trend_score,
-            ComputedMetric.star_velocity_7d,
-            ComputedMetric.sustainability_score,
-        )
-        .filter(ComputedMetric.date == latest_date)
-        .subquery()
-    )
+        # Get active repo IDs first to scope queries and use index seeks/scans
+        active_repos = db.query(Repository.id).filter(Repository.is_active == True).all()  # noqa: E712
+        active_repo_ids = [r[0] for r in active_repos]
+        if not active_repo_ids:
+            return [], []
 
-    rows = (
-        db.query(Repository, subq)
-        .filter(Repository.is_active == True)  # noqa: E712
-        .outerjoin(subq, Repository.id == subq.c.repo_id)
-        .all()
-    )
+        # Get all active repos with their latest computed metrics
+        subq = (
+            db.query(
+                ComputedMetric.repo_id,
+                ComputedMetric.trend_score,
+                ComputedMetric.star_velocity_7d,
+                ComputedMetric.sustainability_score,
+            )
+            .filter(
+                ComputedMetric.repo_id.in_(active_repo_ids),
+                ComputedMetric.date == latest_date
+            )
+            .subquery()
+        )
 
-    # Also pull latest DailyMetric for language_breakdown JSON
-    from app.models import DailyMetric
-    # Build a map: repo_id → latest language_breakdown JSON
-    latest_dm_subq = (
-        db.query(
-            DailyMetric.repo_id,
-            func.max(DailyMetric.captured_at).label("max_captured"),
+        rows = (
+            db.query(Repository, subq)
+            .filter(Repository.is_active == True)  # noqa: E712
+            .outerjoin(subq, Repository.id == subq.c.repo_id)
+            .all()
         )
-        .group_by(DailyMetric.repo_id)
-        .subquery()
-    )
-    dm_rows = (
-        db.query(DailyMetric.repo_id, DailyMetric.language_breakdown)
-        .join(
-            latest_dm_subq,
-            (DailyMetric.repo_id == latest_dm_subq.c.repo_id) &
-            (DailyMetric.captured_at == latest_dm_subq.c.max_captured),
+
+        # Also pull latest DailyMetric for language_breakdown JSON
+        from app.models import DailyMetric
+        # Build a map: repo_id → latest language_breakdown JSON
+        latest_dm_subq = (
+            db.query(
+                DailyMetric.repo_id,
+                func.max(DailyMetric.captured_at).label("max_captured"),
+            )
+            .filter(DailyMetric.repo_id.in_(active_repo_ids))
+            .group_by(DailyMetric.repo_id)
+            .subquery()
         )
-        .all()
-    )
+        dm_rows = (
+            db.query(DailyMetric.repo_id, DailyMetric.language_breakdown)
+            .filter(DailyMetric.repo_id.in_(active_repo_ids))
+            .join(
+                latest_dm_subq,
+                (DailyMetric.repo_id == latest_dm_subq.c.repo_id) &
+                (DailyMetric.captured_at == latest_dm_subq.c.max_captured),
+            )
+            .all()
+        )
+        return rows, dm_rows
+
+    rows, dm_rows = await asyncio.to_thread(_fetch_radar_data)
     lang_breakdown_map: dict[str, dict] = {}
     for repo_id, lb_json in dm_rows:
         if lb_json:

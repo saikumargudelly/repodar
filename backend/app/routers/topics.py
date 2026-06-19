@@ -8,6 +8,7 @@ import json
 import logging
 from collections import defaultdict
 from typing import List, Optional
+import asyncio
 
 from fastapi import APIRouter, Depends, Query
 from fastapi_cache.decorator import cache
@@ -51,8 +52,8 @@ class TopicRepo(BaseModel):
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
 @router.get("/momentum", response_model=List[TopicMomentum])
-@cache(expire=300)
-def get_topic_momentum(
+@cache(expire=300, namespace="topic")
+async def get_topic_momentum(
     min_repos: int = Query(2, description="Minimum repos per topic to be shown"),
     limit: int = Query(30, le=100),
     category: Optional[str] = Query(None, description="Filter by ecosystem category"),
@@ -63,44 +64,49 @@ def get_topic_momentum(
     Each topic shows how many repos carry it, their combined star velocity,
     average TrendScore, and average acceleration.
     """
-    latest_date = db.query(func.max(ComputedMetric.date)).scalar()
+    def _fetch_data():
+        latest_date = db.query(func.max(ComputedMetric.date)).scalar()
 
-    # Build score map: repo_id → (trend_score, star_velocity_7d, acceleration)
-    score_map: dict[str, tuple] = {}
-    if latest_date:
-        for repo_id, trend_score, star_velocity_7d, acceleration in (
-            db.query(
-                ComputedMetric.repo_id,
-                ComputedMetric.trend_score,
-                ComputedMetric.star_velocity_7d,
-                ComputedMetric.acceleration
-            )
-            .filter_by(date=latest_date)
-            .all()
-        ):
-            score_map[repo_id] = (
-                trend_score or 0,
-                star_velocity_7d or 0,
-                acceleration or 0,
-            )
+        # Build score map: repo_id → (trend_score, star_velocity_7d, acceleration)
+        score_map: dict[str, tuple] = {}
+        if latest_date:
+            for repo_id, trend_score, star_velocity_7d, acceleration in (
+                db.query(
+                    ComputedMetric.repo_id,
+                    ComputedMetric.trend_score,
+                    ComputedMetric.star_velocity_7d,
+                    ComputedMetric.acceleration
+                )
+                .filter_by(date=latest_date)
+                .all()
+            ):
+                score_map[repo_id] = (
+                    trend_score or 0,
+                    star_velocity_7d or 0,
+                    acceleration or 0,
+                )
+
+        q = db.query(
+            Repository.id,
+            Repository.topics,
+            Repository.owner,
+            Repository.name,
+            Repository.stars_snapshot
+        ).filter(
+            Repository.is_active == True,  # noqa: E712
+            Repository.topics.isnot(None),
+        )
+        if category:
+            q = q.filter(Repository.category == category)
+            
+        return score_map, q.all()
+
+    score_map, repos_rows = await asyncio.to_thread(_fetch_data)
 
     # Aggregate by topic
     topic_buckets: dict[str, list] = defaultdict(list)
 
-    q = db.query(
-        Repository.id,
-        Repository.topics,
-        Repository.owner,
-        Repository.name,
-        Repository.stars_snapshot
-    ).filter(
-        Repository.is_active == True,  # noqa: E712
-        Repository.topics.isnot(None),
-    )
-    if category:
-        q = q.filter(Repository.category == category)
-
-    for repo_id, topics_raw, owner, name, stars_snapshot in q.all():
+    for repo_id, topics_raw, owner, name, stars_snapshot in repos_rows:
         try:
             topics = json.loads(topics_raw or "[]")
         except Exception:
@@ -146,57 +152,61 @@ def get_topic_momentum(
 
 
 @router.get("/{topic}/repos", response_model=List[TopicRepo])
-@cache(expire=300)
-def get_repos_by_topic(
+@cache(expire=300, namespace="topic")
+async def get_repos_by_topic(
     topic: str,
     limit: int = Query(30, le=100),
     db: Session = Depends(get_db),
 ):
     """Return all repos that carry a specific GitHub topic tag, sorted by TrendScore."""
-    latest_date = db.query(func.max(ComputedMetric.date)).scalar()
+    def _fetch_data():
+        latest_date = db.query(func.max(ComputedMetric.date)).scalar()
 
-    score_map: dict[str, tuple] = {}
-    if latest_date:
-        for repo_id, trend_score, star_velocity_7d, acceleration, sustainability_label in (
+        score_map: dict[str, tuple] = {}
+        if latest_date:
+            for repo_id, trend_score, star_velocity_7d, acceleration, sustainability_label in (
+                db.query(
+                    ComputedMetric.repo_id,
+                    ComputedMetric.trend_score,
+                    ComputedMetric.star_velocity_7d,
+                    ComputedMetric.acceleration,
+                    ComputedMetric.sustainability_label
+                )
+                .filter_by(date=latest_date)
+                .all()
+            ):
+                score_map[repo_id] = (
+                    trend_score or 0,
+                    star_velocity_7d or 0,
+                    acceleration or 0,
+                    sustainability_label or "YELLOW",
+                )
+
+        # Filter in SQL first, and select only needed columns
+        q = (
             db.query(
-                ComputedMetric.repo_id,
-                ComputedMetric.trend_score,
-                ComputedMetric.star_velocity_7d,
-                ComputedMetric.acceleration,
-                ComputedMetric.sustainability_label
+                Repository.id,
+                Repository.owner,
+                Repository.name,
+                Repository.category,
+                Repository.github_url,
+                Repository.primary_language,
+                Repository.age_days,
+                Repository.stars_snapshot,
+                Repository.topics,
             )
-            .filter_by(date=latest_date)
-            .all()
-        ):
-            score_map[repo_id] = (
-                trend_score or 0,
-                star_velocity_7d or 0,
-                acceleration or 0,
-                sustainability_label or "YELLOW",
+            .filter(
+                Repository.is_active == True,  # noqa: E712
+                Repository.topics.isnot(None),
+                func.lower(Repository.topics).like(f'%"{topic.lower()}"%'),
             )
+        )
+        return score_map, q.all()
+
+    score_map, repos_rows = await asyncio.to_thread(_fetch_data)
 
     results = []
-    # Filter in SQL first, and select only needed columns
-    q = (
-        db.query(
-            Repository.id,
-            Repository.owner,
-            Repository.name,
-            Repository.category,
-            Repository.github_url,
-            Repository.primary_language,
-            Repository.age_days,
-            Repository.stars_snapshot,
-            Repository.topics,
-        )
-        .filter(
-            Repository.is_active == True,  # noqa: E712
-            Repository.topics.isnot(None),
-            func.lower(Repository.topics).like(f'%"{topic.lower()}"%'),
-        )
-    )
-
-    for repo_id, owner, name, category, github_url, primary_language, age_days, stars_snapshot, topics_raw in q.all():
+    for repo_id, owner, name, category, github_url, primary_language, age_days, stars_snapshot, topics_raw in repos_rows:
         try:
             topics = json.loads(topics_raw or "[]")
         except Exception:

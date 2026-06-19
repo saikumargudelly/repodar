@@ -6,6 +6,7 @@ or are more active than the parent repo. (Feature 6)
 
 from typing import List, Optional
 from datetime import date
+import asyncio
 
 from fastapi import APIRouter, Depends, Query, Path
 from sqlalchemy.orm import Session
@@ -51,7 +52,7 @@ class ForkLeaderboardEntry(BaseModel):
 
 @router.get("/repo/{owner}/{name}", response_model=List[NotableFork])
 @cache(expire=900, namespace="fork")
-def get_notable_forks_for_repo(
+async def get_notable_forks_for_repo(
     owner: str = Path(...),
     name: str = Path(...),
     min_stars: int = Query(20, description="Minimum fork star count"),
@@ -64,37 +65,45 @@ def get_notable_forks_for_repo(
     """
     from sqlalchemy import func
 
-    repo = db.query(Repository).filter_by(owner=owner, name=name).first()
+    repo = await asyncio.to_thread(
+        db.query(Repository).filter_by(owner=owner, name=name).first
+    )
     if not repo:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail=f"{owner}/{name} not tracked")
 
-    latest_date = (
-        db.query(func.max(ForkSnapshot.snapshot_date))
-        .filter(ForkSnapshot.parent_repo_id == repo.id)
-        .scalar()
-    )
+    def _fetch_data():
+        latest_date = (
+            db.query(func.max(ForkSnapshot.snapshot_date))
+            .filter(ForkSnapshot.parent_repo_id == repo.id)
+            .scalar()
+        )
+        if not latest_date:
+            return None, None, []
+
+        latest_score = (
+            db.query(ComputedMetric)
+            .filter_by(repo_id=repo.id)
+            .order_by(ComputedMetric.date.desc())
+            .first()
+        )
+
+        forks = (
+            db.query(ForkSnapshot)
+            .filter(
+                ForkSnapshot.parent_repo_id == repo.id,
+                ForkSnapshot.snapshot_date == latest_date,
+                ForkSnapshot.stars >= min_stars,
+            )
+            .order_by(ForkSnapshot.stars.desc())
+            .limit(limit)
+            .all()
+        )
+        return latest_date, latest_score, forks
+
+    latest_date, latest_score, forks = await asyncio.to_thread(_fetch_data)
     if not latest_date:
         return []
-
-    latest_score = (
-        db.query(ComputedMetric)
-        .filter_by(repo_id=repo.id)
-        .order_by(ComputedMetric.date.desc())
-        .first()
-    )
-
-    forks = (
-        db.query(ForkSnapshot)
-        .filter(
-            ForkSnapshot.parent_repo_id == repo.id,
-            ForkSnapshot.snapshot_date == latest_date,
-            ForkSnapshot.stars >= min_stars,
-        )
-        .order_by(ForkSnapshot.stars.desc())
-        .limit(limit)
-        .all()
-    )
 
     return [
         NotableFork(
@@ -118,7 +127,7 @@ def get_notable_forks_for_repo(
 
 @router.get("/leaderboard", response_model=List[ForkLeaderboardEntry])
 @cache(expire=900, namespace="fork")
-def get_fork_leaderboard(
+async def get_fork_leaderboard(
     min_stars: int = Query(50, description="Minimum star count for a fork to appear"),
     limit: int = Query(30, le=100),
     db: Session = Depends(get_db),
@@ -130,23 +139,33 @@ def get_fork_leaderboard(
     """
     from sqlalchemy import func
 
-    # Get latest snapshot date per parent repo
-    latest_date = db.query(func.max(ForkSnapshot.snapshot_date)).scalar()
-    if not latest_date:
-        return []
+    def _fetch_leaderboard():
+        latest_date = db.query(func.max(ForkSnapshot.snapshot_date)).scalar()
+        if not latest_date:
+            return [], {}
 
-    forks = (
-        db.query(ForkSnapshot)
-        .filter(
-            ForkSnapshot.snapshot_date == latest_date,
-            ForkSnapshot.stars >= min_stars,
+        forks = (
+            db.query(ForkSnapshot)
+            .filter(
+                ForkSnapshot.snapshot_date == latest_date,
+                ForkSnapshot.stars >= min_stars,
+            )
+            .order_by(ForkSnapshot.stars.desc())
+            .limit(limit)
+            .all()
         )
-        .order_by(ForkSnapshot.stars.desc())
-        .limit(limit)
-        .all()
-    )
+        
+        parent_ids = [f.parent_repo_id for f in forks]
+        if parent_ids:
+            repos = db.query(Repository).filter(Repository.id.in_(parent_ids)).all()
+            repo_map = {r.id: r for r in repos}
+        else:
+            repo_map = {}
+            
+        return forks, repo_map
 
-    repo_map = {r.id: r for r in db.query(Repository).all()}
+    forks, repo_map = await asyncio.to_thread(_fetch_leaderboard)
+
     results = []
     for f in forks:
         parent = repo_map.get(f.parent_repo_id)

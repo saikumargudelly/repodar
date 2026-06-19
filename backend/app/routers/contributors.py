@@ -6,6 +6,7 @@ and which repos share the most contributors.
 
 from typing import List, Optional
 from collections import defaultdict
+import asyncio
 
 from fastapi import APIRouter, Depends, Query, Path
 from fastapi_cache.decorator import cache
@@ -52,8 +53,8 @@ class ContributorRepo(BaseModel):
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
 @router.get("/network", response_model=List[CrossRepoContributor])
-@cache(expire=300)
-def get_contributor_network(
+@cache(expire=300, namespace="contributor")
+async def get_contributor_network(
     min_repos: int = Query(2, description="Min repos a contributor must appear in to be listed"),
     limit: int = Query(50, le=200),
     db: Session = Depends(get_db),
@@ -87,7 +88,7 @@ def get_contributor_network(
         .limit(limit)
     )
 
-    top_contributors = top_logins_q.all()
+    top_contributors = await asyncio.to_thread(top_logins_q.all)
     if not top_contributors:
         return []
 
@@ -110,7 +111,7 @@ def get_contributor_network(
         )
     )
 
-    repo_details = repo_details_q.all()
+    repo_details = await asyncio.to_thread(repo_details_q.all)
 
     # Bucket them into the final response shape
     repos_by_login = defaultdict(list)
@@ -138,15 +139,15 @@ def get_contributor_network(
 
 
 @router.get("/repos-by-contributor/{login}", response_model=List[ContributorRepo])
-@cache(expire=300)
-def get_repos_by_contributor(
+@cache(expire=300, namespace="contributor")
+async def get_repos_by_contributor(
     login: str = Path(..., description="GitHub username"),
     db: Session = Depends(get_db),
 ):
     """Return all tracked repos a given contributor is active in, sorted by TrendScore."""
     cm_subq = get_latest_metric_subquery(db)
 
-    rows = (
+    q = (
         db.query(
             RepoContributor.contributions,
             Repository.owner,
@@ -161,8 +162,8 @@ def get_repos_by_contributor(
             RepoContributor.login == login,
             Repository.is_active == True  # noqa: E712
         )
-        .all()
     )
+    rows = await asyncio.to_thread(q.all)
 
     results = [
         ContributorRepo(
@@ -180,8 +181,8 @@ def get_repos_by_contributor(
 
 
 @router.get("/top-repos", response_model=List[RepoWithContributors])
-@cache(expire=300)
-def get_repos_with_top_contributors(
+@cache(expire=300, namespace="contributor")
+async def get_repos_with_top_contributors(
     limit: int = Query(20, le=100),
     db: Session = Depends(get_db),
 ):
@@ -208,7 +209,7 @@ def get_repos_with_top_contributors(
         .limit(limit)
     )
 
-    top_repos = top_repos_q.all()
+    top_repos = await asyncio.to_thread(top_repos_q.all)
     if not top_repos:
         return []
 
@@ -216,7 +217,7 @@ def get_repos_with_top_contributors(
 
     # 2. Fetch the top 10 contributors using a window function partitioned by repo id
     # (or simply fetch all contributors for these few repos and slice in Python)
-    repo_contributors = (
+    repo_contributors_q = (
         db.query(
             RepoContributor.repo_id,
             RepoContributor.login,
@@ -224,8 +225,8 @@ def get_repos_with_top_contributors(
             RepoContributor.avatar_url
         )
         .filter(RepoContributor.repo_id.in_(repo_ids))
-        .all()
     )
+    repo_contributors = await asyncio.to_thread(repo_contributors_q.all)
 
     contribs_by_repo = defaultdict(list)
     for repo_id, login, contributions, avatar_url in repo_contributors:
