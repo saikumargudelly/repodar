@@ -637,7 +637,7 @@ def get_overview(db: Session = Depends(get_db)):
 
 @router.get("/radar", response_model=List[RadarRepo])
 @cache(expire=300, namespace="dashboard")
-def get_breakout_radar(
+async def get_breakout_radar(
     new_only: bool = Query(False, description="Only repos younger than 180 days"),
     category: Optional[str] = Query(None, description="Filter by category"),
     vertical: Optional[str] = Query(None, description="Filter by vertical"),
@@ -649,7 +649,7 @@ def get_breakout_radar(
     """
     Breakout Radar — repos ranked by selected sort field and filtered by vertical/category.
     """
-    latest_date = _latest_scored_date(db)
+    latest_date = await asyncio.to_thread(_latest_scored_date, db)
 
     subq = _latest_metric_subquery(db, latest_date)
 
@@ -707,7 +707,7 @@ def get_breakout_radar(
     )
 
     # Fetch a slightly larger batch to allow for safe python-side deduplication
-    rows = query.limit(limit * 2).all()
+    rows = await asyncio.to_thread(query.limit(limit * 2).all)
 
     # Dedupe by canonical owner/name to avoid duplicate rows from legacy data.
     deduped: dict[str, dict] = {}
@@ -976,15 +976,21 @@ async def get_early_radar(
 
     rows = await asyncio.to_thread(q.all)
 
-    # Pre-load recent daily metrics (last 8 days) for all active repos in one query
+    # Pre-load recent daily metrics (last 8 days) only for the filtered repos in one query
     # to avoid the N+1 query loop when computing velocity consistency. Run in thread.
     from collections import defaultdict
     cutoff_date = datetime.now(timezone.utc) - timedelta(days=9)
+    repo_ids = [row[0] for row in rows]
     
     def _run_metrics_query():
+        if not repo_ids:
+            return []
         return (
             db.query(DailyMetric.repo_id, DailyMetric.captured_at, DailyMetric.stars)
-            .filter(DailyMetric.captured_at >= cutoff_date.replace(tzinfo=None))
+            .filter(
+                DailyMetric.repo_id.in_(repo_ids),
+                DailyMetric.captured_at >= cutoff_date.replace(tzinfo=None)
+            )
             .order_by(DailyMetric.captured_at.desc())
             .all()
         )

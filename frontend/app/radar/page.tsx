@@ -96,24 +96,48 @@ export default function RadarPage() {
   );
   const queryClient = useQueryClient();
 
-  // Pre-fetch adjacent sub-radar tabs on mount/idle to make tab switches instant
-  useEffect(() => {
-    // 1. Pre-fetch Breakout Radar
-    queryClient.prefetchQuery({
-      queryKey: ["radar-breakout", false, "trend_score"],
-      queryFn: () => api.getRadar(false, "All", undefined, "trend_score", "desc", 100),
-    });
+  // Helper for hover prefetching to optimize DB query spikes
+  const handleTabMouseEnter = (tab: RadarTab) => {
+    if (tab === "breakout") {
+      queryClient.prefetchQuery({
+        queryKey: ["radar-breakout", false, "trend_score"],
+        queryFn: () => api.getRadar(false, "All", undefined, "trend_score", "desc", 100),
+      });
+    } else if (tab === "early") {
+      queryClient.prefetchQuery({
+        queryKey: ["radar-early", 180, 50000, 0, "breakout_score", "all", {
+          preViral: false, consistentGrowth: false, forkMomentum: false, sustainedVelocity: false,
+        }],
+        queryFn: () => api.getEarlyRadar({
+          max_age_days: 180, max_stars: 50000, min_acceleration: 0,
+          sort_by: "breakout_score",
+        }),
+      });
+    }
+  };
 
-    // 2. Pre-fetch Early Insights
-    queryClient.prefetchQuery({
-      queryKey: ["radar-early", 180, 50000, 0, "breakout_score", "all", {
-        preViral: false, consistentGrowth: false, forkMomentum: false, sustainedVelocity: false,
-      }],
-      queryFn: () => api.getEarlyRadar({
-        max_age_days: 180, max_stars: 50000, min_acceleration: 0,
-        sort_by: "breakout_score",
-      }),
-    });
+  // Pre-fetch adjacent sub-radar tabs after initial load to make tab switches instant without thundering herd
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // 1. Pre-fetch Breakout Radar
+      queryClient.prefetchQuery({
+        queryKey: ["radar-breakout", false, "trend_score"],
+        queryFn: () => api.getRadar(false, "All", undefined, "trend_score", "desc", 100),
+      });
+
+      // 2. Pre-fetch Early Insights
+      queryClient.prefetchQuery({
+        queryKey: ["radar-early", 180, 50000, 0, "breakout_score", "all", {
+          preViral: false, consistentGrowth: false, forkMomentum: false, sustainedVelocity: false,
+        }],
+        queryFn: () => api.getEarlyRadar({
+          max_age_days: 180, max_stars: 50000, min_acceleration: 0,
+          sort_by: "breakout_score",
+        }),
+      });
+    }, 2000);
+
+    return () => clearTimeout(timer);
   }, [queryClient]);
 
 
@@ -220,15 +244,20 @@ export default function RadarPage() {
           const labels: Record<RadarTab, string> = { before: "Before it trends", breakout: "Breakout radar", early: "Early insight radar" };
           const active = activeTab === tab;
           return (
-            <button key={tab} onClick={() => switchTab(tab)} style={{
-              padding: "10px 20px", fontFamily: "var(--font-sans)", fontSize: "13px",
-              fontWeight: active ? 700 : 400,
-              color: active ? C.text : C.textMuted,
-              background: "transparent", border: "none",
-              borderBottom: active ? `2px solid ${C.text}` : "2px solid transparent",
-              borderRight: i < 2 ? `1px solid ${C.border}` : "none",
-              cursor: "pointer", transition: "color 0.15s",
-            }}>
+            <button
+              key={tab}
+              onClick={() => switchTab(tab)}
+              onMouseEnter={() => handleTabMouseEnter(tab)}
+              style={{
+                padding: "10px 20px", fontFamily: "var(--font-sans)", fontSize: "13px",
+                fontWeight: active ? 700 : 400,
+                color: active ? C.text : C.textMuted,
+                background: "transparent", border: "none",
+                borderBottom: active ? `2px solid ${C.text}` : "2px solid transparent",
+                borderRight: i < 2 ? `1px solid ${C.border}` : "none",
+                cursor: "pointer", transition: "color 0.15s",
+              }}
+            >
               {labels[tab]}
             </button>
           );
