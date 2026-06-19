@@ -507,20 +507,22 @@ async def get_deep_summary(
 async def get_repo(repo_id: str, db: Session = Depends(get_db)):
     """Get full repo detail. Checks DB first; falls back to live GitHub API for untracked repos."""
     # Try by UUID id first
-    repo = db.query(Repository).filter_by(id=repo_id).first()
+    repo = await asyncio.to_thread(db.query(Repository).filter_by(id=repo_id).first)
 
     # Try by owner/name (frontend navigates via /repo/owner/name, but DB id is a UUID)
     if not repo and "/" in repo_id:
         parts = repo_id.split("/", 1)
-        repo = db.query(Repository).filter_by(owner=parts[0], name=parts[1]).first()
+        repo = await asyncio.to_thread(db.query(Repository).filter_by(owner=parts[0], name=parts[1]).first)
 
     if repo:
-        latest_cm = (
-            db.query(ComputedMetric)
-            .filter_by(repo_id=repo.id)
-            .order_by(ComputedMetric.date.desc())
-            .first()
-        )
+        def _get_latest_cm():
+            return (
+                db.query(ComputedMetric)
+                .filter_by(repo_id=repo.id)
+                .order_by(ComputedMetric.date.desc())
+                .first()
+            )
+        latest_cm = await asyncio.to_thread(_get_latest_cm)
         return RepoDetail(
             id=repo.id,
             owner=repo.owner,

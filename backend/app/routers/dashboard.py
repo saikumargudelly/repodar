@@ -1,6 +1,7 @@
 import json
 import math
 import logging
+import asyncio
 from enum import Enum
 from typing import Callable, List, Optional
 from datetime import date, datetime, timedelta, timezone
@@ -316,6 +317,38 @@ def _compute_velocity_consistency(repo_id: str, db: Session, days: int = 7) -> t
     return consistency_score, avg_daily_gain, is_sustained
 
 
+def _compute_velocity_consistency_preloaded(metrics: list[tuple], days: int = 7) -> tuple[float, float, bool]:
+    """Measure whether stars are climbing steadily over the recent N-day window using preloaded metrics."""
+    window_days = max(int(days or 1), 1)
+
+    # metrics are sorted descending by captured_at
+    chunk = metrics[:window_days + 1]
+    if len(chunk) < 2:
+        return 0.0, 0.0, False
+
+    ordered = list(reversed(chunk))
+    gains: list[int] = []
+    for (_, prev_stars), (_, curr_stars) in zip(ordered, ordered[1:]):
+        prev = max(int(prev_stars or 0), 0)
+        curr = max(int(curr_stars or 0), 0)
+        gains.append(curr - prev)
+
+    if not gains:
+        return 0.0, 0.0, False
+
+    positive_days = sum(1 for gain in gains if gain > 0)
+    consistency_score = positive_days / len(gains)
+    avg_daily_gain = sum(gains) / len(gains)
+
+    if window_days >= 7:
+        is_sustained = positive_days >= 5
+    else:
+        required_positive_days = max(1, math.ceil(window_days * 0.7))
+        is_sustained = positive_days >= required_positive_days
+
+    return consistency_score, avg_daily_gain, is_sustained
+
+
 def _compute_breakout(
     accel: float,
     vel7: float,
@@ -441,7 +474,7 @@ def _category_velocity_cache_key_builder(
 
 @cache(expire=3600, namespace="dashboard", key_builder=_category_velocity_cache_key_builder)  # pyright: ignore[reportArgumentType]
 async def _build_category_velocity_map(db: Session, scored_date: date) -> dict[str, float]:
-    return _build_category_velocity_map_uncached(db, scored_date)
+    return await asyncio.to_thread(_build_category_velocity_map_uncached, db, scored_date)
 
 
 def _build_category_velocity_map_uncached(db: Session, scored_date: date) -> dict[str, float]:
@@ -941,7 +974,25 @@ async def get_early_radar(
     if language:
         q = q.filter(func.lower(Repository.primary_language) == language.strip().lower())
 
-    rows = q.all()
+    rows = await asyncio.to_thread(q.all)
+
+    # Pre-load recent daily metrics (last 8 days) for all active repos in one query
+    # to avoid the N+1 query loop when computing velocity consistency. Run in thread.
+    from collections import defaultdict
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=9)
+    
+    def _run_metrics_query():
+        return (
+            db.query(DailyMetric.repo_id, DailyMetric.captured_at, DailyMetric.stars)
+            .filter(DailyMetric.captured_at >= cutoff_date.replace(tzinfo=None))
+            .order_by(DailyMetric.captured_at.desc())
+            .all()
+        )
+        
+    daily_metrics_rows = await asyncio.to_thread(_run_metrics_query)
+    daily_metrics_by_repo = defaultdict(list)
+    for row in daily_metrics_rows:
+        daily_metrics_by_repo[row.repo_id].append((row.captured_at, row.stars))
 
     topic_keywords: List[str] = []
     if topics:
@@ -972,7 +1023,9 @@ async def get_early_radar(
         if vel7 <= 0 and accel <= 0:
             continue
 
-        consistency_score, _avg_daily_gain, is_sustained = _compute_velocity_consistency(repo_id, db, days=7)
+        consistency_score, _avg_daily_gain, is_sustained = _compute_velocity_consistency_preloaded(
+            daily_metrics_by_repo.get(repo_id, []), days=7
+        )
         if require_consistent_growth and not is_sustained:
             continue
 
