@@ -179,3 +179,53 @@ class APIKeyMiddleware:
             await send(message)
 
         await self.app(scope, receive, send_wrapper)
+
+
+class CacheControlMiddleware:
+    """
+    Sets Cache-Control: public, s-maxage=300 header on eligible read-only paths:
+    /dashboard, /topics, /radar, /feed, /forecast.
+    Handles both direct and /api prefixed routes (used in production proxies).
+    """
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        method = scope["method"]
+        path = scope["path"]
+
+        # Only cache GET requests
+        if method == "GET":
+            clean_path = path.lower()
+            if clean_path.endswith("/") and len(clean_path) > 1:
+                clean_path = clean_path[:-1]
+
+            is_cacheable = False
+            # Check prefixes for cache candidates
+            for cand in ["/dashboard", "/topics", "/radar", "/feed", "/forecast",
+                         "/api/dashboard", "/api/topics", "/api/radar", "/api/feed", "/api/forecast"]:
+                if clean_path == cand or clean_path.startswith(cand + "/"):
+                    # Exclude admin and internal actions
+                    if "/admin" not in clean_path and "/run-all-sync" not in clean_path:
+                        is_cacheable = True
+                        break
+
+            if is_cacheable:
+                async def send_wrapper(message):
+                    if message["type"] == "http.response.start":
+                        headers_list = list(message.get("headers", []))
+                        # Remove existing Cache-Control header if any
+                        headers_list = [h for h in headers_list if h[0].lower() != b"cache-control"]
+                        headers_list.append((b"cache-control", b"public, s-maxage=300"))
+                        message["headers"] = headers_list
+                    await send(message)
+
+                await self.app(scope, receive, send_wrapper)
+                return
+
+        await self.app(scope, receive, send)
+

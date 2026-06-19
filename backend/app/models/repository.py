@@ -50,9 +50,11 @@ class Repository(Base):
     discovered_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
     last_seen_trending: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
 
-    # GitHub topic tags — JSON array of strings, e.g. '["llm","rag","langchain"]'
+    # GitHub topic tags — JSON array of strings
     # Populated from GitHub's repositoryTopics API; refreshed on each ingestion run.
-    topics: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
+    from sqlalchemy import JSON
+    from sqlalchemy.dialects.postgresql import JSONB
+    topics: Mapped[Optional[list[str]]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True, default=None)
 
     # Current total stars snapshot — denormalised here for fast Early-Radar
     # queries without joining daily_metrics. Updated by the ingestion pipeline.

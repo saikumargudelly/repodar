@@ -1385,6 +1385,36 @@ async def get_language_radar(
     """
     import json as _json
 
+    if db.bind.dialect.name == "postgresql":
+        def _fetch_from_mv():
+            from sqlalchemy import text
+            sql = """
+                SELECT language, repo_count, total_stars, avg_trend_score,
+                       avg_sustainability_score, weekly_star_velocity, top_repo, categories
+                FROM mv_language_radar
+            """
+            return db.execute(text(sql)).all()
+
+        mv_rows = await asyncio.to_thread(_fetch_from_mv)
+        result = []
+        filtered_mv = [r for r in mv_rows if r.repo_count >= min_repos and r.language and r.language.strip()]
+        filtered_mv.sort(key=lambda x: x.weekly_star_velocity, reverse=True)
+
+        for rank, r in enumerate(filtered_mv, start=1):
+            cats = [c.strip() for c in r.categories.split(",") if c.strip()] if r.categories else []
+            result.append(LanguageStat(
+                language=r.language,
+                repo_count=r.repo_count,
+                total_stars=r.total_stars or 0,
+                avg_trend_score=round(r.avg_trend_score or 0.0, 6),
+                avg_sustainability_score=round(r.avg_sustainability_score or 0.0, 4),
+                weekly_star_velocity=round(r.weekly_star_velocity or 0.0, 2),
+                growth_rank=rank,
+                categories=sorted(list(set(cats))),
+                top_repo=r.top_repo,
+            ))
+        return result
+
     def _fetch_radar_data():
         latest_date = _latest_scored_date(db)
 
@@ -1444,10 +1474,13 @@ async def get_language_radar(
     lang_breakdown_map: dict[str, dict] = {}
     for repo_id, lb_json in dm_rows:
         if lb_json:
-            try:
-                lang_breakdown_map[repo_id] = _json.loads(lb_json)
-            except Exception:
-                pass
+            if isinstance(lb_json, dict):
+                lang_breakdown_map[repo_id] = lb_json
+            else:
+                try:
+                    lang_breakdown_map[repo_id] = _json.loads(lb_json)
+                except Exception:
+                    pass
 
     # Aggregate per language
     lang_data: dict[str, dict] = {}

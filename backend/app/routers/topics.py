@@ -64,6 +64,45 @@ async def get_topic_momentum(
     Each topic shows how many repos carry it, their combined star velocity,
     average TrendScore, and average acceleration.
     """
+    if db.bind.dialect.name == "postgresql" and not category:
+        def _fetch_from_mv():
+            from sqlalchemy import text
+            sql = """
+                SELECT topic, repo_count, avg_trend_score, total_star_velocity,
+                       avg_acceleration, top_repos
+                FROM mv_topic_momentum
+            """
+            return db.execute(text(sql)).all()
+
+        mv_rows = await asyncio.to_thread(_fetch_from_mv)
+        results = []
+        for r in mv_rows:
+            if r.repo_count < min_repos:
+                continue
+
+            top_repos_list = r.top_repos
+            if isinstance(top_repos_list, str):
+                top_repos_list = json.loads(top_repos_list)
+
+            results.append(TopicMomentum(
+                topic=r.topic,
+                repo_count=r.repo_count,
+                avg_trend_score=round(r.avg_trend_score or 0.0, 2),
+                total_star_velocity=round(r.total_star_velocity or 0.0, 2),
+                avg_acceleration=round(r.avg_acceleration or 0.0, 4),
+                top_repos=[
+                    {
+                        "owner": tr.get("owner", ""),
+                        "name": tr.get("name", ""),
+                        "trend_score": round(tr.get("trend_score", 0.0), 2),
+                        "stars": tr.get("stars", 0)
+                    }
+                    for tr in (top_repos_list or [])
+                ]
+            ))
+        results.sort(key=lambda x: x.avg_trend_score * 0.6 + x.avg_acceleration * 40, reverse=True)
+        return results[:limit]
+
     def _fetch_data():
         latest_date = db.query(func.max(ComputedMetric.date)).scalar()
 
@@ -107,10 +146,13 @@ async def get_topic_momentum(
     topic_buckets: dict[str, list] = defaultdict(list)
 
     for repo_id, topics_raw, owner, name, stars_snapshot in repos_rows:
-        try:
-            topics = json.loads(topics_raw or "[]")
-        except Exception:
-            continue
+        if isinstance(topics_raw, list):
+            topics = topics_raw
+        else:
+            try:
+                topics = json.loads(topics_raw or "[]")
+            except Exception:
+                continue
         ts, vel, accel = score_map.get(repo_id, (0, 0, 0))
         for topic in topics:
             topic_buckets[topic].append({
@@ -183,34 +225,40 @@ async def get_repos_by_topic(
                 )
 
         # Filter in SQL first, and select only needed columns
-        q = (
-            db.query(
-                Repository.id,
-                Repository.owner,
-                Repository.name,
-                Repository.category,
-                Repository.github_url,
-                Repository.primary_language,
-                Repository.age_days,
-                Repository.stars_snapshot,
-                Repository.topics,
-            )
-            .filter(
-                Repository.is_active == True,  # noqa: E712
-                Repository.topics.isnot(None),
-                func.lower(Repository.topics).like(f'%"{topic.lower()}"%'),
-            )
+        q = db.query(
+            Repository.id,
+            Repository.owner,
+            Repository.name,
+            Repository.category,
+            Repository.github_url,
+            Repository.primary_language,
+            Repository.age_days,
+            Repository.stars_snapshot,
+            Repository.topics,
+        ).filter(
+            Repository.is_active == True,  # noqa: E712
+            Repository.topics.isnot(None),
         )
+
+        if db.bind.dialect.name == "postgresql":
+            # PostgreSQL optimized GIN search
+            q = q.filter(Repository.topics.contains([topic]))
+        else:
+            q = q.filter(func.lower(Repository.topics).like(f'%"{topic.lower()}"%'))
+
         return score_map, q.all()
 
     score_map, repos_rows = await asyncio.to_thread(_fetch_data)
 
     results = []
     for repo_id, owner, name, category, github_url, primary_language, age_days, stars_snapshot, topics_raw in repos_rows:
-        try:
-            topics = json.loads(topics_raw or "[]")
-        except Exception:
-            continue
+        if isinstance(topics_raw, list):
+            topics = topics_raw
+        else:
+            try:
+                topics = json.loads(topics_raw or "[]")
+            except Exception:
+                continue
         # Double check topic to ensure exact match
         if topic.lower() not in [t.lower() for t in topics]:
             continue

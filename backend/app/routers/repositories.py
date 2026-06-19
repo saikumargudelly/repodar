@@ -523,12 +523,16 @@ async def get_deep_summary(
     # Parse topics
     github_topics: list = []
     if topics_str:
-        try:
-            import json as _j
-            parsed = _j.loads(topics_str)
-            github_topics = parsed if isinstance(parsed, list) else []
-        except Exception:
-            github_topics = [t.strip() for t in topics_str.split(",") if t.strip()]
+        if isinstance(topics_str, list):
+            github_topics = topics_str
+            topics_str = ", ".join(topics_str)
+        else:
+            try:
+                import json as _j
+                parsed = _j.loads(topics_str)
+                github_topics = parsed if isinstance(parsed, list) else []
+            except Exception:
+                github_topics = [t.strip() for t in topics_str.split(",") if t.strip()]
 
     # Generate deep summary via LLM
     from app.services.explanation import generate_deep_summary
@@ -750,7 +754,7 @@ async def delta_run_repo(
             last_seen_trending=now,
         )
         if topics_list:
-            repo.topics = _json.dumps(topics_list)
+            repo.topics = topics_list
         db.add(repo)
         db.flush()  # get repo.id assigned
     else:
@@ -780,7 +784,7 @@ async def delta_run_repo(
     if m.get("primary_language"):
         repo.primary_language = m["primary_language"]
     if m.get("topics"):
-        repo.topics = _json.dumps(m["topics"])
+        repo.topics = m["topics"]
     repo.stars_snapshot = stars
     repo.last_fetched_at = now
 
@@ -811,7 +815,7 @@ async def delta_run_repo(
         existing_dm.releases = releases
         existing_dm.commit_count = commit_count
         existing_dm.daily_star_delta = daily_star_delta
-        existing_dm.language_breakdown = _json.dumps(lang_breakdown)
+        existing_dm.language_breakdown = lang_breakdown
     else:
         new_dm = DailyMetric(
             repo_id=repo.id,
@@ -829,7 +833,7 @@ async def delta_run_repo(
             daily_fork_delta=0,
             daily_pr_delta=0,
             daily_commit_delta=0,
-            language_breakdown=_json.dumps(lang_breakdown),
+            language_breakdown=lang_breakdown,
         )
         db.add(new_dm)
 

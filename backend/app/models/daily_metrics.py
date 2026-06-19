@@ -42,8 +42,10 @@ class DailyMetric(Base):
     daily_fork_delta: Mapped[int] = mapped_column(Integer, default=0)
     daily_pr_delta: Mapped[int] = mapped_column(Integer, default=0)   # new merged PRs since last snapshot
 
-    # Language snapshot (JSON string)
-    language_breakdown: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
+    # Language snapshot
+    from sqlalchemy import JSON
+    from sqlalchemy.dialects.postgresql import JSONB
+    language_breakdown: Mapped[Optional[dict[str, int]]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
 
     repository: Mapped["Repository"] = relationship("Repository", back_populates="daily_metrics")
 

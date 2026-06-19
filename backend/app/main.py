@@ -122,6 +122,28 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
         except Exception as e:
             logger.warning(f"[pipeline] Alert notifications failed (non-fatal): {e}")
 
+        # Refresh materialized views concurrently on PostgreSQL
+        def _refresh_views():
+            from app.database import SessionLocal
+            from sqlalchemy import text
+            db_session = SessionLocal()
+            try:
+                if db_session.bind.dialect.name == "postgresql":
+                    logger.info("[pipeline] Refreshing materialized views concurrently...")
+                    db_session.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_language_radar"))
+                    db_session.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_topic_momentum"))
+                    db_session.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_leaderboard"))
+                    db_session.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_org_health"))
+                    db_session.commit()
+                    logger.info("[pipeline] Materialized views refreshed successfully.")
+            finally:
+                db_session.close()
+
+        try:
+            await asyncio.to_thread(_refresh_views)
+        except Exception as e:
+            logger.warning(f"[pipeline] Failed to refresh materialized views: {e}")
+
         # Invalidate specific cache namespaces to avoid database load spikes and stampedes
         try:
             from fastapi_cache import FastAPICache
@@ -133,6 +155,13 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
                 logger.info(f"[pipeline] Targeted cache namespaces invalidated successfully post-sync: {namespaces_to_clear}")
         except Exception as e:
             logger.warning(f"[pipeline] Targeted cache invalidation failed: {e}")
+
+        # Purge Cloudflare Edge Cache if configured
+        try:
+            from app.utils.cloudflare import purge_cloudflare_cache
+            await purge_cloudflare_cache()
+        except Exception as e:
+            logger.warning(f"[pipeline] Cloudflare Edge Cache purge failed: {e}")
 
         return {
             "run_at": run_at,
@@ -364,6 +393,10 @@ app.add_middleware(LoggingMiddleware)
 
 # API Key middleware — validates X-API-Key for /api/v1/* routes
 app.add_middleware(APIKeyMiddleware)
+
+# Edge Cache Control middleware — sets Cache-Control header for Cloudflare/browsers
+from app.middleware import CacheControlMiddleware
+app.add_middleware(CacheControlMiddleware)
 
 # ─── Routers ─────────────────────────────────────────────────────────────────
 

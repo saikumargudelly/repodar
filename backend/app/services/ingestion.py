@@ -514,7 +514,7 @@ async def run_daily_ingestion(force_discovery: bool = False) -> dict:
                         "daily_fork_delta": daily_fork_delta,
                         "daily_pr_delta": daily_pr_delta,
                         "daily_commit_delta": daily_commit_delta,
-                        "language_breakdown": json.dumps(m.get("language_breakdown", {}))
+                        "language_breakdown": m.get("language_breakdown", {})
                     })
                     updated += 1
                 else:
@@ -537,7 +537,7 @@ async def run_daily_ingestion(force_discovery: bool = False) -> dict:
                         daily_fork_delta=daily_fork_delta,
                         daily_pr_delta=daily_pr_delta,
                         daily_commit_delta=daily_commit_delta,
-                        language_breakdown=json.dumps(m.get("language_breakdown", {})),
+                        language_breakdown=m.get("language_breakdown", {}),
                     )
                     new_metrics.append(metric)
                     # Track for potential subsequent upserts in this same run
@@ -552,7 +552,7 @@ async def run_daily_ingestion(force_discovery: bool = False) -> dict:
                         "id": repo.id,
                         "age_days": _calc_age_days(m.get("repo_created_at", "")),
                         "primary_language": m.get("primary_language") or repo.primary_language,
-                        "topics": json.dumps(m["topics"]) if m.get("topics") is not None else repo.topics,
+                        "topics": m["topics"] if m.get("topics") is not None else repo.topics,
                         "stars_snapshot": m.get("stars", 0),
                         "last_fetched_at": now
                     })

@@ -36,23 +36,36 @@ def upgrade() -> None:
         batch_op.drop_index(batch_op.f('ix_research_pins_session_repo'))
 
     op.drop_table('research_pins')
+    with op.batch_alter_table('research_reports', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_research_reports_session_id'))
+
+    op.drop_table('research_reports')
     with op.batch_alter_table('research_sessions', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_research_sessions_created_at'))
         batch_op.drop_index(batch_op.f('ix_research_sessions_user_id'))
         batch_op.drop_index(batch_op.f('ix_research_sessions_user_updated'))
 
     op.drop_table('research_sessions')
-    with op.batch_alter_table('research_reports', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_research_reports_session_id'))
+    bind = op.get_bind()
+    if bind.dialect.name == "postgresql":
+        op.execute("DROP INDEX IF EXISTS ix_api_keys_hash")
+        op.execute("ALTER TABLE api_keys DROP CONSTRAINT IF EXISTS uq_api_keys_hash")
+        op.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_api_keys_key_hash ON api_keys (key_hash)")
 
-    op.drop_table('research_reports')
     with op.batch_alter_table('api_keys', schema=None) as batch_op:
         batch_op.alter_column('created_at',
                existing_type=sa.DATETIME(),
                nullable=False)
-        batch_op.drop_index(batch_op.f('ix_api_keys_hash'))
-        batch_op.drop_constraint(batch_op.f('uq_api_keys_hash'), type_='unique')
-        batch_op.create_index(batch_op.f('ix_api_keys_key_hash'), ['key_hash'], unique=True)
+        if bind.dialect.name != "postgresql":
+            try:
+                batch_op.drop_index('ix_api_keys_hash')
+            except Exception:
+                pass
+            try:
+                batch_op.drop_constraint('uq_api_keys_hash', type_='unique')
+            except Exception:
+                pass
+            batch_op.create_index(batch_op.f('ix_api_keys_key_hash'), ['key_hash'], unique=True)
 
     with op.batch_alter_table('category_metrics_daily', schema=None) as batch_op:
         batch_op.alter_column('total_stars',
@@ -96,36 +109,73 @@ def upgrade() -> None:
                nullable=False,
                existing_server_default=sa.text("'0'"))
 
-    with op.batch_alter_table('computed_metrics', schema=None) as batch_op:
-        batch_op.create_index('ix_computed_metrics_date_sust', ['date', 'sustainability_score'], unique=False)
-        batch_op.create_index('ix_computed_metrics_date_trend', ['date', 'trend_score'], unique=False)
+    if bind.dialect.name == "postgresql":
+        op.execute("CREATE INDEX IF NOT EXISTS ix_computed_metrics_date_sust ON computed_metrics (date, sustainability_score)")
+        op.execute("CREATE INDEX IF NOT EXISTS ix_computed_metrics_date_trend ON computed_metrics (date, trend_score)")
+    else:
+        with op.batch_alter_table('computed_metrics', schema=None) as batch_op:
+            batch_op.create_index('ix_computed_metrics_date_sust', ['date', 'sustainability_score'], unique=False)
+            batch_op.create_index('ix_computed_metrics_date_trend', ['date', 'trend_score'], unique=False)
+
+    if bind.dialect.name == "postgresql":
+        op.execute("DROP INDEX IF EXISTS ix_er_generated_at")
+        op.execute("DROP INDEX IF EXISTS ix_er_period_type")
 
     with op.batch_alter_table('ecosystem_reports', schema=None) as batch_op:
         batch_op.alter_column('generated_at',
                existing_type=sa.DATETIME(),
                nullable=False)
-        batch_op.drop_index(batch_op.f('ix_er_generated_at'))
-        batch_op.drop_index(batch_op.f('ix_er_period_type'))
-        batch_op.create_index(batch_op.f('ix_ecosystem_reports_generated_at'), ['generated_at'], unique=False)
-        batch_op.create_index(batch_op.f('ix_ecosystem_reports_period_type'), ['period_type'], unique=False)
+        if bind.dialect.name != "postgresql":
+            try:
+                batch_op.drop_index('ix_er_generated_at')
+            except Exception:
+                pass
+            try:
+                batch_op.drop_index('ix_er_period_type')
+            except Exception:
+                pass
+            batch_op.create_index(batch_op.f('ix_ecosystem_reports_generated_at'), ['generated_at'], unique=False)
+            batch_op.create_index(batch_op.f('ix_ecosystem_reports_period_type'), ['period_type'], unique=False)
+
+    if bind.dialect.name == "postgresql":
+        op.execute("DROP INDEX IF EXISTS ix_fs_parent_repo_id")
+        op.execute("DROP INDEX IF EXISTS ix_fs_snapshot_date")
 
     with op.batch_alter_table('fork_snapshots', schema=None) as batch_op:
         batch_op.alter_column('captured_at',
                existing_type=sa.DATETIME(),
                nullable=False)
-        batch_op.drop_index(batch_op.f('ix_fs_parent_repo_id'))
-        batch_op.drop_index(batch_op.f('ix_fs_snapshot_date'))
-        batch_op.create_index(batch_op.f('ix_fork_snapshots_parent_repo_id'), ['parent_repo_id'], unique=False)
-        batch_op.create_index(batch_op.f('ix_fork_snapshots_snapshot_date'), ['snapshot_date'], unique=False)
+        if bind.dialect.name != "postgresql":
+            try:
+                batch_op.drop_index('ix_fs_parent_repo_id')
+            except Exception:
+                pass
+            try:
+                batch_op.drop_index('ix_fs_snapshot_date')
+            except Exception:
+                pass
+            batch_op.create_index(batch_op.f('ix_fork_snapshots_parent_repo_id'), ['parent_repo_id'], unique=False)
+            batch_op.create_index(batch_op.f('ix_fork_snapshots_snapshot_date'), ['snapshot_date'], unique=False)
+
+    if bind.dialect.name == "postgresql":
+        op.execute("DROP INDEX IF EXISTS ix_rc_login")
+        op.execute("DROP INDEX IF EXISTS ix_rc_repo_id")
 
     with op.batch_alter_table('repo_contributors', schema=None) as batch_op:
         batch_op.alter_column('updated_at',
                existing_type=sa.DATETIME(),
                nullable=False)
-        batch_op.drop_index(batch_op.f('ix_rc_login'))
-        batch_op.drop_index(batch_op.f('ix_rc_repo_id'))
-        batch_op.create_index(batch_op.f('ix_repo_contributors_login'), ['login'], unique=False)
-        batch_op.create_index(batch_op.f('ix_repo_contributors_repo_id'), ['repo_id'], unique=False)
+        if bind.dialect.name != "postgresql":
+            try:
+                batch_op.drop_index('ix_rc_login')
+            except Exception:
+                pass
+            try:
+                batch_op.drop_index('ix_rc_repo_id')
+            except Exception:
+                pass
+            batch_op.create_index(batch_op.f('ix_repo_contributors_login'), ['login'], unique=False)
+            batch_op.create_index(batch_op.f('ix_repo_contributors_repo_id'), ['repo_id'], unique=False)
 
     with op.batch_alter_table('repo_releases', schema=None) as batch_op:
         batch_op.alter_column('is_prerelease',
@@ -140,12 +190,23 @@ def upgrade() -> None:
                existing_type=sa.INTEGER(),
                nullable=False)
 
+    if bind.dialect.name == "postgresql":
+        op.execute("DROP INDEX IF EXISTS ix_subscribers_confirm_token")
+        op.execute("DROP INDEX IF EXISTS ix_subscribers_unsub_token")
+
     with op.batch_alter_table('subscribers', schema=None) as batch_op:
         batch_op.alter_column('is_confirmed',
                existing_type=sa.BOOLEAN(),
                nullable=False)
-        batch_op.drop_index(batch_op.f('ix_subscribers_confirm_token'))
-        batch_op.drop_index(batch_op.f('ix_subscribers_unsub_token'))
+        if bind.dialect.name != "postgresql":
+            try:
+                batch_op.drop_index('ix_subscribers_confirm_token')
+            except Exception:
+                pass
+            try:
+                batch_op.drop_index('ix_subscribers_unsub_token')
+            except Exception:
+                pass
 
     with op.batch_alter_table('trend_alerts', schema=None) as batch_op:
         batch_op.alter_column('metric_value',
@@ -157,14 +218,25 @@ def upgrade() -> None:
                nullable=False,
                existing_server_default=sa.text("'0'"))
 
+    if bind.dialect.name == "postgresql":
+        op.execute("DROP INDEX IF EXISTS ix_watchlist_repo_id")
+        op.execute("DROP INDEX IF EXISTS ix_watchlist_user_id")
+
     with op.batch_alter_table('watchlist_items', schema=None) as batch_op:
         batch_op.alter_column('created_at',
                existing_type=sa.DATETIME(),
                nullable=False)
-        batch_op.drop_index(batch_op.f('ix_watchlist_repo_id'))
-        batch_op.drop_index(batch_op.f('ix_watchlist_user_id'))
-        batch_op.create_index(batch_op.f('ix_watchlist_items_repo_id'), ['repo_id'], unique=False)
-        batch_op.create_index(batch_op.f('ix_watchlist_items_user_id'), ['user_id'], unique=False)
+        if bind.dialect.name != "postgresql":
+            try:
+                batch_op.drop_index('ix_watchlist_repo_id')
+            except Exception:
+                pass
+            try:
+                batch_op.drop_index('ix_watchlist_user_id')
+            except Exception:
+                pass
+            batch_op.create_index(batch_op.f('ix_watchlist_items_repo_id'), ['repo_id'], unique=False)
+            batch_op.create_index(batch_op.f('ix_watchlist_items_user_id'), ['user_id'], unique=False)
 
     # ### end Alembic commands ###
 

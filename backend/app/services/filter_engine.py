@@ -173,11 +173,18 @@ class QueryBuilder:
             q = q.filter(Repository.age_days <= dto.max_age_days)
 
         if dto.topics:
-            # Topic is JSON array text — use LIKE matching
-            topic_conditions = [
-                Repository.topics.like(f'%"{t}"%') for t in dto.topics
-            ]
-            q = q.filter(or_(*topic_conditions))
+            if db.bind.dialect.name == "postgresql":
+                # PostgreSQL GIN-indexed JSONB contains check
+                topic_conditions = [
+                    Repository.topics.contains([t]) for t in dto.topics
+                ]
+                q = q.filter(or_(*topic_conditions))
+            else:
+                # SQLite fallback
+                topic_conditions = [
+                    Repository.topics.like(f'%"{t}"%') for t in dto.topics
+                ]
+                q = q.filter(or_(*topic_conditions))
 
         # Score filters (only applies if ComputedMetric exists)
         if dto.min_trend_score is not None:
