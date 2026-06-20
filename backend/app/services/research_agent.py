@@ -164,6 +164,12 @@ GUARDRAIL -- query building rules:
 - For `landscape` intent, output 2-3 queries mapping different subsets of the domain.
 - If confidence < 0.7, set needs_clarification=true
 
+CONTEXTUAL REFINEMENT & FOLLOW-UP RULES:
+- If the USER MESSAGE is a follow-up, refinement, or continuation of the previous conversation (e.g. "only active", "show python ones", "compare them", "what about rust?"), you MUST merge topics, languages, and search constraints from the CONTEXT with the USER MESSAGE to generate self-contained, fully resolved `github_queries` and entities. Do not treat the user's message in isolation.
+- Resolve all pronouns/references (e.g. "them", "these", "it", "those", "the first one") to the specific repository names, topics, or languages mentioned in the CONTEXT.
+- If the user asks to compare repositories from the context (e.g. "compare them", "vs"), extract the repo names (e.g. "owner/name") from the context, populate the `repos` entity list in the JSON response, and set the intent to `compare`.
+- Never treat a short refinement/follow-up message in isolation. The generated `github_queries` must always represent the combined search intent of the entire conversation.
+
 CURRENT DATE: {current_date}
 
 CONTEXT (last 3 turns for pronoun resolution):

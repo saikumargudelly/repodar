@@ -765,6 +765,22 @@ export default function ResearchSessionPage() {
           es.close();
           esRef.current = null;
 
+          // Auto-name title on frontend if it is default
+          const queryExp = (doneMeta.query_explanation as string) ?? streamQueryExp;
+          if (title === "Untitled Research" && queryExp) {
+            let cleaned = queryExp.replace(/^(searching for|search for|comparing|compare|landscape mapping of|landscape of)\s+/i, '');
+            cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+            cleaned = cleaned.substring(0, 50);
+            setTitle(cleaned);
+
+            // Persist the auto-named title to the backend database and update the sessions list (sidebar)
+            api.research.updateSession(sessionId, effectiveUserId, { title: cleaned })
+              .then(() => {
+                setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, title: cleaned } : s));
+              })
+              .catch(console.error);
+          }
+
           // Persist streamed message in UI
           const agentMsg: ResearchMessage = {
             id: `streamed-${Date.now()}`,
@@ -772,7 +788,7 @@ export default function ResearchSessionPage() {
             content: accText || (typeof data === "string" ? data : ""),
             intent: (doneMeta.intent as string) ?? null,
             github_query: (doneMeta.github_query as string) ?? null,
-            query_explanation: (doneMeta.query_explanation as string) ?? streamQueryExp,
+            query_explanation: queryExp,
             repos: accRepos,
             confidence: (doneMeta.confidence as number) ?? null,
             created_at: new Date().toISOString(),

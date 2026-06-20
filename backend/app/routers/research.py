@@ -421,6 +421,13 @@ async def send_message(
         intent_profile=profile,
     )
 
+    # Auto-name session title if it is default
+    if s.title == "Untitled Research" and result.query_explanation:
+        import re
+        cleaned_title = re.sub(r'^(searching for|search for|comparing|compare|landscape mapping of|landscape of)\s+', '', result.query_explanation, flags=re.IGNORECASE)
+        cleaned_title = cleaned_title[0].upper() + cleaned_title[1:] if cleaned_title else ""
+        s.title = cleaned_title[:50]
+
     # Save agent message
     agent_msg = ResearchMessage(
         session_id=session_id,
@@ -524,22 +531,35 @@ async def stream_message(
         finally:
             # Persist agent message to DB after streaming completes
             try:
-                full_content = "".join(collected_content)
-                if not full_content:
-                    full_content = collected_meta.get("text", "")
-                agent_msg = ResearchMessage(
-                    session_id=session_id,
-                    role="agent",
-                    content=full_content or "(empty response)",
-                    intent=collected_meta.get("intent"),
-                    github_query=collected_meta.get("github_query"),
-                    query_explanation=collected_meta.get("query_explanation"),
-                    repos_json=json.dumps(collected_repos) if collected_repos else None,
-                    confidence=collected_meta.get("confidence"),
-                )
-                db.add(agent_msg)
-                s.updated_at = _utcnow()
-                db.commit()
+                from app.database import SessionLocal
+                with SessionLocal() as db_session:
+                    # Reload the research session within the fresh session context to prevent DetachedInstanceError
+                    fresh_s = db_session.query(ResearchSession).filter_by(id=session_id).first()
+                    if fresh_s:
+                        full_content = "".join(collected_content)
+                        if not full_content:
+                            full_content = collected_meta.get("text", "")
+                        
+                        query_exp = collected_meta.get("query_explanation")
+                        if fresh_s.title == "Untitled Research" and query_exp:
+                            import re
+                            cleaned_title = re.sub(r'^(searching for|search for|comparing|compare|landscape mapping of|landscape of)\s+', '', query_exp, flags=re.IGNORECASE)
+                            cleaned_title = cleaned_title[0].upper() + cleaned_title[1:] if cleaned_title else ""
+                            fresh_s.title = cleaned_title[:50]
+
+                        agent_msg = ResearchMessage(
+                            session_id=session_id,
+                            role="agent",
+                            content=full_content or "(empty response)",
+                            intent=collected_meta.get("intent"),
+                            github_query=collected_meta.get("github_query"),
+                            query_explanation=query_exp,
+                            repos_json=json.dumps(collected_repos) if collected_repos else None,
+                            confidence=collected_meta.get("confidence"),
+                        )
+                        db_session.add(agent_msg)
+                        fresh_s.updated_at = _utcnow()
+                        db_session.commit()
             except Exception as exc:
                 logger.warning(f"[research] Failed to persist agent message: {exc}")
 

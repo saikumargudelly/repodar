@@ -106,3 +106,57 @@ def test_process_message_rescues_ai_ml_clarify_prompt(monkeypatch):
     assert result.content == "AI/ML search executed"
     assert captured_queries["queries"]
     assert "topic:machine-learning" in captured_queries["queries"][0]
+
+
+def test_parse_intent_passes_context_and_rules_to_llm(monkeypatch):
+    captured_messages = []
+
+    async def _fake_chat_completion(messages, temperature, max_tokens, response_format=None):
+        captured_messages.extend(messages)
+        return """{
+            "intent": "search",
+            "confidence": 0.95,
+            "entities": {
+                "repos": [],
+                "topics": ["home-automation"],
+                "languages": ["python"],
+                "verticals": [],
+                "time_period": "30d",
+                "min_stars": null,
+                "exclude_forks": null,
+                "exclude_archived": null
+            },
+            "github_queries": ["home-automation language:python pushed:>=2026-05-21"],
+            "query_explanation": "Searching for active Python home automation projects",
+            "needs_clarification": false,
+            "clarification_prompt": null,
+            "rejection_reason": null
+        }"""
+
+    monkeypatch.setattr(research_agent, "async_chat_completion", _fake_chat_completion)
+    monkeypatch.setattr(research_agent, "GROQ_API_KEY", "fake-key")
+
+    context = [
+        {"role": "user", "content": "search for home automation"},
+        {"role": "agent", "content": "Here are 30 home automation projects..."},
+    ]
+
+    result = asyncio.run(
+        research_agent.parse_intent(
+            message="only active python ones",
+            context_turns=context
+        )
+    )
+
+    assert result.intent == "search"
+    assert "home-automation language:python" in result.github_queries[0]
+
+    prompt_found = False
+    for msg in captured_messages:
+        if "only active python ones" in msg["content"]:
+            prompt_found = True
+            assert "CONTEXT (last 3 turns for pronoun resolution):" in msg["content"]
+            assert "USER: search for home automation" in msg["content"]
+            assert "AGENT: Here are 30 home automation projects..." in msg["content"]
+            assert "CONTEXTUAL REFINEMENT & FOLLOW-UP RULES:" in msg["content"]
+    assert prompt_found
