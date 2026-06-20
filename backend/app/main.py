@@ -81,8 +81,10 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
         return {"status": "skipped", "detail": "Pipeline execution already in progress."}
 
     async with pipeline_lock:
+        from app.utils.pipeline_state import pipeline_tracker
         run_at = datetime.now(timezone.utc).isoformat()
         logger.info(f"[pipeline] Starting delta-sync at {run_at}")
+        pipeline_tracker.start("ingestion")
 
         try:
             ingest_result = await run_daily_ingestion()
@@ -90,10 +92,14 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
                         f"updated={ingest_result.get('updated',0)} failed={ingest_result.get('failed',0)}")
         except Exception as e:
             logger.error(f"[pipeline] Ingestion failed: {e}", exc_info=True)
+            pipeline_tracker.end(success=False)
             return {"run_at": run_at, "status": "error", "phase": "ingestion", "detail": str(e)}
 
+        from app.utils.executor import run_in_pipeline_thread
+
         try:
-            score_result = await asyncio.to_thread(run_daily_scoring)
+            pipeline_tracker.update_stage("scoring")
+            score_result = await run_in_pipeline_thread(run_daily_scoring)
             logger.info(f"[pipeline] Scoring: scored={score_result.get('scored',0)} "
                         f"failed={score_result.get('failed',0)}")
         except Exception as e:
@@ -105,18 +111,20 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
         notification_result = {"sent": 0, "failed": 0, "skipped": 0}
         if include_explanations:
             try:
-                explain_count = await asyncio.to_thread(enrich_top_repos_with_explanations, 20)
+                pipeline_tracker.update_stage("explanations")
+                explain_count = await run_in_pipeline_thread(enrich_top_repos_with_explanations, 20)
                 logger.info(f"[pipeline] Explanations: {explain_count}")
             except Exception as e:
                 logger.warning(f"[pipeline] Explanation generation failed (non-fatal): {e}")
             try:
                 from app.services.explanation import enrich_repos_with_summaries
-                summary_count = await asyncio.to_thread(enrich_repos_with_summaries, 30)
+                summary_count = await run_in_pipeline_thread(enrich_repos_with_summaries, 30)
                 logger.info(f"[pipeline] Summaries: {summary_count}")
             except Exception as e:
                 logger.warning(f"[pipeline] Summary generation failed (non-fatal): {e}")
 
         try:
+            pipeline_tracker.update_stage("notifications")
             notification_result = await dispatch_pending_watchlist_alert_emails()
             logger.info(f"[pipeline] Alert notifications: {notification_result}")
         except Exception as e:
@@ -140,12 +148,14 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
                 db_session.close()
 
         try:
-            await asyncio.to_thread(_refresh_views)
+            pipeline_tracker.update_stage("materialized_view_refresh")
+            await run_in_pipeline_thread(_refresh_views)
         except Exception as e:
             logger.warning(f"[pipeline] Failed to refresh materialized views: {e}")
 
         # Invalidate specific cache namespaces to avoid database load spikes and stampedes
         try:
+            pipeline_tracker.update_stage("cache_invalidation")
             from fastapi_cache import FastAPICache
             backend = FastAPICache.get_backend()
             if backend:
@@ -162,6 +172,8 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
             await purge_cloudflare_cache()
         except Exception as e:
             logger.warning(f"[pipeline] Cloudflare Edge Cache purge failed: {e}")
+
+        pipeline_tracker.end(success=True)
 
         return {
             "run_at": run_at,
@@ -217,9 +229,10 @@ def _schedule_pipeline():
 
         # Weekly snapshot — Monday 06:00 UTC
         async def _snapshot_job():
+            from app.utils.executor import run_in_pipeline_thread
             from app.services.weekly_snapshots import publish_weekly_snapshot
             try:
-                result = await asyncio.to_thread(publish_weekly_snapshot)
+                result = await run_in_pipeline_thread(publish_weekly_snapshot)
                 logger.info(f"[snapshot_scheduler] {result}")
             except Exception as exc:
                 logger.error(f"[snapshot_scheduler] Failed: {exc}", exc_info=True)
@@ -343,6 +356,10 @@ async def lifespan(app: FastAPI):
     if scheduler:
         scheduler.shutdown(wait=False)
         logger.info("APScheduler stopped.")
+    
+    from app.utils.executor import pipeline_executor
+    pipeline_executor.shutdown(wait=False)
+    logger.info("Pipeline ThreadPoolExecutor stopped.")
     logger.info("Repodar shutting down.")
 
 

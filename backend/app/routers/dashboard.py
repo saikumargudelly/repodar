@@ -913,7 +913,7 @@ async def get_early_radar(
     if not isinstance(require_pre_viral, bool):
         require_pre_viral = False
 
-    latest_date = _latest_scored_date(db)
+    latest_date = await asyncio.to_thread(_latest_scored_date, db)
     cat_velocity_map_raw = await _build_category_velocity_map(db, latest_date)
     if isinstance(cat_velocity_map_raw, dict):
         cat_velocity_map: dict[str, float] = cat_velocity_map_raw

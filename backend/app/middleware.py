@@ -36,6 +36,14 @@ class LoggingMiddleware:
         async def send_wrapper(message):
             if message["type"] == "http.response.start":
                 process_time = time.time() - start_time
+                if process_time > 2.0:
+                    import os
+                    logger.warning(
+                        f"[SLOW REQUEST]\n"
+                        f"{scope['method']} {scope['path']}\n"
+                        f"Duration: {process_time:.2f}s\n"
+                        f"Worker PID: {os.getpid()}"
+                    )
                 duration_ms = process_time * 1000
                 if duration_ms < 100:
                     category = "Excellent"

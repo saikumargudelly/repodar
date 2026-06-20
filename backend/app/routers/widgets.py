@@ -125,12 +125,12 @@ async def widget_json(
     # Untracked repo — live GitHub REST fallback
     async with aiohttp.ClientSession() as session:
         async with session.get(
-            f"https://api.github.com/repos/{repo_id}",
+            f"https://api.github.com/repos/{owner}/{name}",
             headers=API_HEADERS,
             timeout=aiohttp.ClientTimeout(total=10),
         ) as resp:
             if resp.status == 404:
-                raise HTTPException(status_code=404, detail=f"Repo {repo_id} not found on GitHub")
+                raise HTTPException(status_code=404, detail=f"Repo {owner}/{name} not found on GitHub")
             if resp.status != 200:
                 raise HTTPException(status_code=502, detail="GitHub API error")
             data = await resp.json()

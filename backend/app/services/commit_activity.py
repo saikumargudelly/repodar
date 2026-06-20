@@ -69,7 +69,7 @@ async def run_commit_activity_pipeline(top_n: int = 100) -> dict:
     from datetime import date as date_type
 
     db = SessionLocal()
-    updated = 0
+    repos_to_fetch = []
 
     try:
         today = date_type.today()
@@ -81,23 +81,46 @@ async def run_commit_activity_pipeline(top_n: int = 100) -> dict:
             .limit(top_n)
             .all()
         )
+        for cm, repo in top:
+            repos_to_fetch.append({
+                "id": repo.id,
+                "owner": repo.owner,
+                "name": repo.name
+            })
+    except Exception as e:
+        logger.error(f"Commit activity pipeline query failed: {e}")
+        return {"updated": 0, "error": str(e)}
+    finally:
+        db.close()
 
-        async with aiohttp.ClientSession() as session:
-            for cm, repo in top:
-                daily_points = await fetch_commit_activity(session, repo.owner, repo.name)
-                if daily_points is None:
-                    continue
+    # Fetch commit activity without holding database connections during network I/O
+    all_commit_data = {}
+    async with aiohttp.ClientSession() as session:
+        for repo in repos_to_fetch:
+            daily_points = await fetch_commit_activity(session, repo["owner"], repo["name"])
+            if daily_points is not None:
+                all_commit_data[repo["id"]] = daily_points
+
+    if not all_commit_data:
+        return {"updated": 0}
+
+    # Save to database in a new short-lived session
+    db = SessionLocal()
+    updated = 0
+    try:
+        now = _utcnow()
+        for repo_id, daily_points in all_commit_data.items():
+            repo = db.query(Repository).filter_by(id=repo_id).first()
+            if repo:
                 repo.commit_activity_json = json.dumps(daily_points)
-                repo.commit_activity_updated_at = _utcnow()
+                repo.commit_activity_updated_at = now
                 updated += 1
-
         db.commit()
         logger.info(f"Commit activity pipeline: {updated} repos updated")
         return {"updated": updated}
-
     except Exception as e:
         db.rollback()
-        logger.error(f"Commit activity pipeline failed: {e}")
+        logger.error(f"Commit activity pipeline save failed: {e}")
         return {"updated": 0, "error": str(e)}
     finally:
         db.close()

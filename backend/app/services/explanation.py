@@ -100,7 +100,7 @@ def enrich_top_repos_with_explanations(top_n: int = 20) -> int:
 
     db = SessionLocal()
     today = date.today()
-    written = 0
+    targets = []
 
     try:
         top_repos = (
@@ -114,13 +114,14 @@ def enrich_top_repos_with_explanations(top_n: int = 20) -> int:
             .limit(top_n)
             .all()
         )
-
         for cm, repo in top_repos:
-            explanation = generate_explanation(
-                owner=repo.owner,
-                repo_name=repo.name,
-                category=repo.category,
-                metrics={
+            targets.append({
+                "repo_id": repo.id,
+                "owner": repo.owner,
+                "name": repo.name,
+                "category": repo.category,
+                "primary_language": repo.primary_language,
+                "metrics": {
                     "star_velocity_7d": cm.star_velocity_7d,
                     "star_velocity_30d": cm.star_velocity_30d,
                     "acceleration": cm.acceleration,
@@ -128,21 +129,46 @@ def enrich_top_repos_with_explanations(top_n: int = 20) -> int:
                     "trend_score": cm.trend_score,
                     "sustainability_score": cm.sustainability_score,
                     "sustainability_label": cm.sustainability_label,
-                },
-                primary_language=repo.primary_language,
-            )
-            if explanation:
+                }
+            })
+    except Exception as e:
+        logger.error(f"Failed to query top repos for explanations: {e}")
+        return 0
+    finally:
+        db.close()
+
+    # Generate explanations without holding database connections during network I/O
+    explanations = {}
+    for target in targets:
+        explanation = generate_explanation(
+            owner=target["owner"],
+            repo_name=target["name"],
+            category=target["category"],
+            metrics=target["metrics"],
+            primary_language=target["primary_language"],
+        )
+        if explanation:
+            explanations[target["repo_id"]] = explanation
+
+    if not explanations:
+        return 0
+
+    # Save to database in a new short-lived session
+    db = SessionLocal()
+    written = 0
+    try:
+        for repo_id, explanation in explanations.items():
+            cm = db.query(ComputedMetric).filter_by(repo_id=repo_id, date=today).first()
+            if cm:
                 cm.explanation = explanation
                 cm.computed_at = datetime.now(timezone.utc).replace(tzinfo=None)
                 written += 1
-
         db.commit()
-        logger.info(f"Explanations written: {written}/{len(top_repos)}")
+        logger.info(f"Explanations written: {written}/{len(targets)}")
         return written
-
     except Exception as e:
         db.rollback()
-        logger.error(f"Explanation enrichment failed: {e}")
+        logger.error(f"Failed to save explanations to DB: {e}")
         return 0
     finally:
         db.close()
@@ -229,10 +255,10 @@ def enrich_repos_with_summaries(top_n: int = 30, score_delta_threshold: float = 
     from datetime import date, datetime, timezone, timedelta
 
     db = SessionLocal()
-    written = 0
+    targets = []
+    today = date.today()
 
     try:
-        today = date.today()
         week_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=7)
 
         # Get top repos by trend score
@@ -293,30 +319,60 @@ def enrich_repos_with_summaries(top_n: int = 30, score_delta_threshold: float = 
                 star_delta_30d = float(latest_dm.stars - oldest_dm.stars)
                 contributors = latest_dm.contributors or 0
 
+            targets.append({
+                "repo_id": repo.id,
+                "owner": repo.owner,
+                "name": repo.name,
+                "category": repo.category,
+                "description": repo.description,
+                "primary_language": repo.primary_language,
+                "topics": repo.topics,
+                "trend_score": cm.trend_score,
+                "star_delta_30d": star_delta_30d,
+                "contributors": contributors,
+            })
+    except Exception as e:
+        logger.error(f"Failed to query top repos for summaries: {e}")
+        return 0
+    finally:
+        db.close()
 
-            summary = generate_repo_summary(
-                owner=repo.owner,
-                repo_name=repo.name,
-                category=repo.category,
-                description=repo.description,
-                primary_language=repo.primary_language,
-                topics=repo.topics,
-                trend_score=cm.trend_score,
-                star_delta_30d=star_delta_30d,
-                contributors=contributors,
-            )
-            if summary:
+    # Generate summaries without holding database connections during network I/O
+    summaries = {}
+    for target in targets:
+        summary = generate_repo_summary(
+            owner=target["owner"],
+            repo_name=target["name"],
+            category=target["category"],
+            description=target["description"],
+            primary_language=target["primary_language"],
+            topics=target["topics"],
+            trend_score=target["trend_score"],
+            star_delta_30d=target["star_delta_30d"],
+            contributors=target["contributors"],
+        )
+        if summary:
+            summaries[target["repo_id"]] = summary
+
+    if not summaries:
+        return 0
+
+    # Save to database in a new short-lived session
+    db = SessionLocal()
+    written = 0
+    try:
+        for repo_id, summary in summaries.items():
+            repo = db.query(Repository).filter_by(id=repo_id).first()
+            if repo:
                 repo.repo_summary = summary
                 repo.repo_summary_generated_at = datetime.now(timezone.utc).replace(tzinfo=None)
                 written += 1
-
         db.commit()
-        logger.info(f"Repo summaries written: {written}/{len(top_cms)}")
+        logger.info(f"Repo summaries written: {written}/{len(targets)}")
         return written
-
     except Exception as e:
         db.rollback()
-        logger.error(f"Summary enrichment failed: {e}")
+        logger.error(f"Failed to save repo summaries to DB: {e}")
         return 0
     finally:
         db.close()

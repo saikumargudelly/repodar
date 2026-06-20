@@ -241,6 +241,7 @@ async def _run_pipeline_background(force_discovery: bool):
     from app.services.ingestion import run_daily_ingestion
     from app.services.scoring import run_daily_scoring
     from app.services.explanation import enrich_top_repos_with_explanations
+    from app.utils.pipeline_state import pipeline_tracker
     import logging
     logger = logging.getLogger("app.admin")
 
@@ -251,6 +252,8 @@ async def _run_pipeline_background(force_discovery: bool):
     async with pipeline_lock:
         _pipeline_running = True
         _last_pipeline_result = {"status": "running"}
+        from app.utils.executor import run_in_pipeline_thread
+        pipeline_tracker.start("deduplication")
         try:
             def run_heal():
                 from app.database import SessionLocal
@@ -262,11 +265,16 @@ async def _run_pipeline_background(force_discovery: bool):
                 finally:
                     db_heal.close()
 
-            await asyncio.to_thread(run_heal)
+            await run_in_pipeline_thread(run_heal)
 
+            pipeline_tracker.update_stage("ingestion")
             ingest_result = await run_daily_ingestion(force_discovery=force_discovery)
-            score_result = await asyncio.to_thread(run_daily_scoring)
-            explain_count = await asyncio.to_thread(enrich_top_repos_with_explanations, 20)
+
+            pipeline_tracker.update_stage("scoring")
+            score_result = await run_in_pipeline_thread(run_daily_scoring)
+
+            pipeline_tracker.update_stage("explanations")
+            explain_count = await run_in_pipeline_thread(enrich_top_repos_with_explanations, 20)
             logger.info(
                 "run-all complete | force_discovery=%s discovered=%s ingested=%s scored=%s explained=%s",
                 force_discovery,
@@ -287,9 +295,11 @@ async def _run_pipeline_background(force_discovery: bool):
                 "explanations": explain_count,
                 "scoring_date": str(score_result.get('date')) if score_result.get('date') else None,
             }
+            pipeline_tracker.end(success=True)
         except Exception as e:
             logger.error("run-all pipeline error: %s", e, exc_info=True)
             _last_pipeline_result = {"status": "error", "detail": str(e)}
+            pipeline_tracker.end(success=False)
         finally:
             _pipeline_running = False
 
@@ -556,12 +566,12 @@ def deduplicate_repositories_logic(db: Session) -> dict:
     db.commit()
     return {"repos_merged": repos_merged, "metrics_deleted": metrics_deleted}
 
-
 @router.post("/deduplicate")
 async def trigger_deduplicate(db: Session = Depends(get_db)):
     """Find and heal duplicate repositories and metric entries in the database without blocking the event loop."""
+    from app.utils.executor import run_in_pipeline_thread
     try:
-        res = await asyncio.to_thread(deduplicate_repositories_logic, db)
+        res = await run_in_pipeline_thread(deduplicate_repositories_logic, db)
         return {
             "status": "success",
             "detail": f"Database healed! Merged {res['repos_merged']} duplicate repositories, deleted {res['metrics_deleted']} duplicate metrics."
@@ -626,28 +636,35 @@ async def run_full_pipeline_sync():
         )
 
     async with pipeline_lock:
+        from app.utils.pipeline_state import pipeline_tracker
+        pipeline_tracker.start("deduplication")
         try:
+            from app.utils.executor import run_in_pipeline_thread
             from app.database import SessionLocal
             db_heal = SessionLocal()
             try:
-                await asyncio.to_thread(deduplicate_repositories_logic, db_heal)
+                await run_in_pipeline_thread(deduplicate_repositories_logic, db_heal)
             except Exception as e:
                 _logger.warning("Auto-deduplication failed: %s", e)
             finally:
                 db_heal.close()
 
             _logger.info("run-all-sync: starting ingestion")
+            pipeline_tracker.update_stage("ingestion")
             ingest_result = await run_daily_ingestion(force_discovery=False)
             _logger.info(f"run-all-sync: ingestion done → {ingest_result}")
 
             _logger.info("run-all-sync: starting scoring")
-            score_result = await asyncio.to_thread(run_daily_scoring)
+            pipeline_tracker.update_stage("scoring")
+            score_result = await run_in_pipeline_thread(run_daily_scoring)
             _logger.info(f"run-all-sync: scoring done → {score_result}")
 
             _logger.info("run-all-sync: generating explanations")
-            explain_count = await asyncio.to_thread(enrich_top_repos_with_explanations, 20)
+            pipeline_tracker.update_stage("explanations")
+            explain_count = await run_in_pipeline_thread(enrich_top_repos_with_explanations, 20)
             _logger.info(f"run-all-sync: explanations done → {explain_count}")
 
+            pipeline_tracker.end(success=True)
             return {
                 "status": "complete",
                 "discovered": ingest_result.get("discovered", 0),
@@ -662,6 +679,7 @@ async def run_full_pipeline_sync():
             }
         except Exception as e:
             _logger.error(f"run-all-sync failed: {e}", exc_info=True)
+            pipeline_tracker.end(success=False)
             return {"status": "error", "detail": str(e)}
 
 
@@ -711,12 +729,15 @@ async def run_full_pipeline_stream(
             return
 
         async with pipeline_lock:
+            from app.utils.pipeline_state import pipeline_tracker
+            pipeline_tracker.start("deduplication")
             try:
+                from app.utils.executor import run_in_pipeline_thread
                 yield "event: info\ndata: starting deduplication...\n\n"
                 from app.database import SessionLocal
                 db_heal = SessionLocal()
                 try:
-                    dedup_task = asyncio.create_task(asyncio.to_thread(deduplicate_repositories_logic, db_heal))
+                    dedup_task = asyncio.create_task(run_in_pipeline_thread(deduplicate_repositories_logic, db_heal))
                     while not dedup_task.done():
                         yield ": keepalive\n\n"
                         await asyncio.sleep(5)
@@ -729,6 +750,7 @@ async def run_full_pipeline_stream(
                     db_heal.close()
 
                 yield f"event: info\ndata: starting ingestion (force_discovery={force_discovery})...\n\n"
+                pipeline_tracker.update_stage("ingestion")
                 
                 # Ingestion has network requests; periodically yield keep-alive ticks
                 ingest_task = asyncio.create_task(run_daily_ingestion(force_discovery=force_discovery))
@@ -740,9 +762,10 @@ async def run_full_pipeline_stream(
                 yield f"event: info\ndata: ingestion complete. discovered={ingest_result.get('discovered',0)} ingested={ingest_result.get('ingested',0)} deactivated={ingest_result.get('deactivated',0)}\n\n"
 
                 yield "event: info\ndata: starting scoring...\n\n"
+                pipeline_tracker.update_stage("scoring")
                 
                 # Run scoring in a thread pool since SQLAlchemy calls are blocking/sync
-                scoring_task = asyncio.create_task(asyncio.to_thread(run_daily_scoring))
+                scoring_task = asyncio.create_task(run_in_pipeline_thread(run_daily_scoring))
                 while not scoring_task.done():
                     yield ": keepalive\n\n"
                     await asyncio.sleep(5)
@@ -751,8 +774,10 @@ async def run_full_pipeline_stream(
                 yield f"event: info\ndata: scoring complete. scored={score_result.get('scored',0)} alerts={score_result.get('alerts',0)}\n\n"
 
                 yield "event: info\ndata: generating explanations...\n\n"
+                pipeline_tracker.update_stage("explanations")
                 
-                explain_task = asyncio.create_task(asyncio.to_thread(enrich_top_repos_with_explanations, 20))
+                # Run explanation in a thread pool since it does OpenAI/Groq blocking calls or long CPU tasks
+                explain_task = asyncio.create_task(run_in_pipeline_thread(enrich_top_repos_with_explanations, 20))
                 while not explain_task.done():
                     yield ": keepalive\n\n"
                     await asyncio.sleep(5)
@@ -771,10 +796,12 @@ async def run_full_pipeline_stream(
                     "explanations": explain_count,
                 }
                 yield f"event: result\ndata: {json.dumps(summary)}\n\n"
+                pipeline_tracker.end(success=True)
 
             except Exception as e:
                 _logger.error(f"run-all-stream failed: {e}", exc_info=True)
                 yield f"event: error\ndata: {str(e)}\n\n"
+                pipeline_tracker.end(success=False)
 
     return StreamingResponse(
         event_generator(),
@@ -791,7 +818,8 @@ async def run_full_pipeline_stream(
 async def trigger_publish_weekly_snapshot():
     """Manually trigger publishing of the weekly snapshot."""
     from app.services.weekly_snapshots import publish_weekly_snapshot
-    res = await asyncio.to_thread(publish_weekly_snapshot)
+    from app.utils.executor import run_in_pipeline_thread
+    res = await run_in_pipeline_thread(publish_weekly_snapshot)
     if res.get("status") == "error":
         raise HTTPException(status_code=500, detail=res.get("detail"))
     return res
@@ -813,3 +841,141 @@ async def trigger_dispatch_digest(frequency: str = "weekly"):
         raise HTTPException(status_code=500, detail=f"Digest dispatch failed: {str(e)}")
 
 
+@router.get("/db-pool-status")
+def get_db_pool_status():
+    """Returns database connection pool observability metrics."""
+    from app.database import engine, _active_connections, _active_connections_lock
+    import time
+    
+    pool = engine.pool
+    pool_type = type(pool).__name__
+
+    def _get_metric(attr):
+        val = getattr(pool, attr, None)
+        if val is not None and callable(val):
+            try:
+                return val()
+            except Exception:
+                return None
+        return val
+    
+    stats = {
+        "pool_type": pool_type,
+        "pool_size": _get_metric("size"),
+        "checked_out": _get_metric("checkedout"),
+        "overflow": _get_metric("overflow"),
+        "max_overflow": getattr(pool, "_max_overflow", None),
+        "pool_timeout": getattr(pool, "_timeout", None),
+        "active_details": []
+    }
+    
+    now = time.time()
+    with _active_connections_lock:
+        for conn_id, info in _active_connections.items():
+            stats["active_details"].append({
+                "connection_id": conn_id,
+                "duration_seconds": round(now - info["checkout_time"], 2),
+                "thread_name": info["thread_name"]
+            })
+            
+    return stats
+
+
+@router.get("/runtime-health")
+def get_runtime_health(db: Session = Depends(get_db)):
+    """Returns runtime health and diagnostics for the application."""
+    import os
+    import time
+    import psutil
+    from datetime import datetime, timezone
+    from app.utils.pipeline_state import pipeline_tracker
+    from app.utils.executor import get_executor_stats
+    from app.utils.lock import pipeline_lock
+    from app.database import engine, _active_connections, _active_connections_lock
+
+    now_ts = time.time()
+    now_dt = datetime.now(timezone.utc)
+
+    # 1. Pipeline status & lifecycle metrics
+    pipeline_info = {
+        "running": pipeline_tracker.running,
+        "stage": pipeline_tracker.stage,
+        "started_at": pipeline_tracker.started_at.isoformat() if pipeline_tracker.started_at else None,
+        "duration_seconds": round(now_ts - pipeline_tracker.started_at.timestamp(), 2) if pipeline_tracker.started_at else None,
+        "last_pipeline_start": pipeline_tracker.last_pipeline_start.isoformat() if pipeline_tracker.last_pipeline_start else None,
+        "last_pipeline_end": pipeline_tracker.last_pipeline_end.isoformat() if pipeline_tracker.last_pipeline_end else None,
+        "last_pipeline_duration_seconds": round(pipeline_tracker.last_pipeline_duration_seconds, 2) if pipeline_tracker.last_pipeline_duration_seconds is not None else None,
+    }
+
+    # 2. Thread pool visibility
+    executor_stats = get_executor_stats()
+
+    # 3. Database pool status
+    pool = engine.pool
+    pool_size = 0
+    if hasattr(pool, "size"):
+        try:
+            pool_size = pool.size()
+        except Exception:
+            pass
+    if pool_size <= 0:
+        pool_size = getattr(pool, "_pool_size", 2)
+
+    checked_out = len(_active_connections)
+    overflow = 0
+    if hasattr(pool, "overflow"):
+        try:
+            overflow = pool.overflow()
+        except Exception:
+            pass
+
+    timeout = getattr(pool, "_timeout", 15)
+
+    database_pool_info = {
+        "pool_size": pool_size,
+        "checked_out": checked_out,
+        "overflow": overflow,
+        "timeout": timeout
+    }
+
+    # 4. System metrics using psutil
+    cpu_percent = psutil.cpu_percent(interval=None)
+    memory = psutil.virtual_memory()
+    swap = psutil.swap_memory()
+
+    system_info = {
+        "cpu_percent": cpu_percent,
+        "memory_percent": memory.percent,
+        "swap_percent": swap.percent
+    }
+
+    # 5. Process metrics
+    current_process = psutil.Process(os.getpid())
+    pid = os.getpid()
+    uptime_seconds = int(now_ts - current_process.create_time())
+
+    # Worker count (count processes with same parent running uvicorn)
+    worker_count = 1
+    try:
+        parent = current_process.parent()
+        if parent:
+            worker_count = len(parent.children())
+    except Exception:
+        pass
+
+    process_info = {
+        "pid": pid,
+        "worker_count": worker_count,
+        "uptime_seconds": uptime_seconds
+    }
+
+    return {
+        "timestamp": now_dt.isoformat(),
+        "pipeline_running": pipeline_tracker.running or pipeline_lock.locked(),
+        "pipeline_lock_held": pipeline_lock.locked(),
+        "pipeline": pipeline_info,
+        "pipeline_executor": executor_stats,
+        "database_pool": database_pool_info,
+        "system": system_info,
+        "process": process_info
+    }

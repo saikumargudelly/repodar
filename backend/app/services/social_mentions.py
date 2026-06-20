@@ -134,7 +134,7 @@ async def run_social_mentions_pipeline(top_n: int = 50) -> dict:
     from datetime import date
 
     db = SessionLocal()
-    written = 0
+    repos_to_fetch = []
     skipped = 0
 
     try:
@@ -151,49 +151,71 @@ async def run_social_mentions_pipeline(top_n: int = 50) -> dict:
             .all()
         )
 
-        async with aiohttp.ClientSession() as session:
-            for cm, repo in top:
-                # Check if we fetched recently
-                recent = (
-                    db.query(SocialMention)
-                    .filter(
-                        SocialMention.repo_id == repo.id,
-                        SocialMention.fetched_at >= yesterday,
-                    )
-                    .first()
+        for cm, repo in top:
+            # Check if we fetched recently
+            recent = (
+                db.query(SocialMention)
+                .filter(
+                    SocialMention.repo_id == repo.id,
+                    SocialMention.fetched_at >= yesterday,
                 )
-                if recent:
-                    skipped += 1
-                    continue
+                .first()
+            )
+            if recent:
+                skipped += 1
+                continue
+            repos_to_fetch.append({
+                "id": repo.id,
+                "owner": repo.owner,
+                "name": repo.name
+            })
+    except Exception as e:
+        logger.error(f"Social mentions pipeline query failed: {e}")
+        return {"written": 0, "skipped": skipped, "error": str(e)}
+    finally:
+        db.close()
 
-                mentions = await fetch_social_mentions_for_repo(session, repo.id, repo.owner, repo.name)
-                now = _utcnow()
-                for m in mentions:
-                    # Deduplicate by post_url
-                    exists = db.query(SocialMention).filter_by(post_url=m["post_url"]).first()
-                    if not exists:
-                        sm = SocialMention(
-                            id=str(uuid.uuid4()),
-                            repo_id=repo.id,
-                            platform=m["platform"],
-                            post_title=m.get("post_title"),
-                            post_url=m["post_url"],
-                            upvotes=m.get("upvotes", 0),
-                            comment_count=m.get("comment_count", 0),
-                            subreddit=m.get("subreddit"),
-                            posted_at=m["posted_at"],
-                            fetched_at=now,
-                        )
-                        db.add(sm)
-                        written += 1
+    # Fetch social mentions without holding database connections during network I/O
+    all_mentions = {}
+    async with aiohttp.ClientSession() as session:
+        for repo in repos_to_fetch:
+            mentions = await fetch_social_mentions_for_repo(session, repo["id"], repo["owner"], repo["name"])
+            if mentions:
+                all_mentions[repo["id"]] = mentions
 
+    if not all_mentions:
+        return {"written": 0, "skipped": skipped}
+
+    # Save to database in a new short-lived session
+    db = SessionLocal()
+    written = 0
+    try:
+        now = _utcnow()
+        for repo_id, mentions in all_mentions.items():
+            for m in mentions:
+                # Deduplicate by post_url
+                exists = db.query(SocialMention).filter_by(post_url=m["post_url"]).first()
+                if not exists:
+                    sm = SocialMention(
+                        id=str(uuid.uuid4()),
+                        repo_id=repo_id,
+                        platform=m["platform"],
+                        post_title=m.get("post_title"),
+                        post_url=m["post_url"],
+                        upvotes=m.get("upvotes", 0),
+                        comment_count=m.get("comment_count", 0),
+                        subreddit=m.get("subreddit"),
+                        posted_at=m["posted_at"],
+                        fetched_at=now,
+                    )
+                    db.add(sm)
+                    written += 1
         db.commit()
         logger.info(f"Social mentions: {written} new, {skipped} repos skipped (recently fetched)")
         return {"written": written, "skipped": skipped}
-
     except Exception as e:
         db.rollback()
-        logger.error(f"Social mentions pipeline failed: {e}")
-        return {"written": 0, "error": str(e)}
+        logger.error(f"Social mentions pipeline save failed: {e}")
+        return {"written": 0, "skipped": skipped, "error": str(e)}
     finally:
         db.close()

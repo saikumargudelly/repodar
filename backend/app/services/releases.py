@@ -80,7 +80,7 @@ async def run_releases_pipeline(top_n: int = 100) -> dict:
     from datetime import date
 
     db = SessionLocal()
-    written = 0
+    repos_to_fetch = []
 
     try:
         today = date.today()
@@ -92,37 +92,56 @@ async def run_releases_pipeline(top_n: int = 100) -> dict:
             .limit(top_n)
             .all()
         )
+        for cm, repo in top:
+            repos_to_fetch.append({
+                "id": repo.id,
+                "owner": repo.owner,
+                "name": repo.name
+            })
+    except Exception as e:
+        logger.error(f"Releases pipeline query failed: {e}")
+        return {"written": 0, "error": str(e)}
+    finally:
+        db.close()
 
-        async with aiohttp.ClientSession() as session:
-            for cm, repo in top:
-                releases = await fetch_releases_for_repo(session, repo.id, repo.owner, repo.name)
-                if not releases:
-                    continue
-                # Delete old releases for this repo and re-insert fresh
-                db.query(RepoRelease).filter_by(repo_id=repo.id).delete()
-                now = _utcnow()
-                for r in releases:
-                    rr = RepoRelease(
-                        id=str(uuid.uuid4()),
-                        repo_id=r["repo_id"],
-                        tag_name=r["tag_name"],
-                        name=r["name"],
-                        body_truncated=r["body_truncated"],
-                        published_at=r["published_at"],
-                        is_prerelease=r["is_prerelease"],
-                        html_url=r["html_url"],
-                        fetched_at=now,
-                    )
-                    db.add(rr)
-                    written += 1
+    # Fetch releases without holding database connection during HTTP calls
+    all_releases = {}
+    async with aiohttp.ClientSession() as session:
+        for repo in repos_to_fetch:
+            releases = await fetch_releases_for_repo(session, repo["id"], repo["owner"], repo["name"])
+            if releases:
+                all_releases[repo["id"]] = releases
 
+    if not all_releases:
+        return {"written": 0}
+
+    # Save to database in a new short-lived session
+    db = SessionLocal()
+    written = 0
+    try:
+        now = _utcnow()
+        for repo_id, releases in all_releases.items():
+            db.query(RepoRelease).filter_by(repo_id=repo_id).delete()
+            for r in releases:
+                rr = RepoRelease(
+                    id=str(uuid.uuid4()),
+                    repo_id=r["repo_id"],
+                    tag_name=r["tag_name"],
+                    name=r["name"],
+                    body_truncated=r["body_truncated"],
+                    published_at=r["published_at"],
+                    is_prerelease=r["is_prerelease"],
+                    html_url=r["html_url"],
+                    fetched_at=now,
+                )
+                db.add(rr)
+                written += 1
         db.commit()
         logger.info(f"Releases pipeline: {written} release records written")
         return {"written": written}
-
     except Exception as e:
         db.rollback()
-        logger.error(f"Releases pipeline failed: {e}")
+        logger.error(f"Releases pipeline save failed: {e}")
         return {"written": 0, "error": str(e)}
     finally:
         db.close()

@@ -57,10 +57,12 @@ async def send_watchlist_test_email(item_id: str) -> dict:
 
 
 async def dispatch_pending_watchlist_alert_emails(lookback_hours: int = 48) -> dict:
-    db = SessionLocal()
     sent_count = 0
     failed_count = 0
     skipped_count = 0
+    emails_to_send = []
+
+    db = SessionLocal()
     try:
         cutoff = _utcnow() - timedelta(hours=lookback_hours)
         alerts = (
@@ -92,48 +94,80 @@ async def dispatch_pending_watchlist_alert_emails(lookback_hours: int = 48) -> d
                     skipped_count += 1
                     continue
 
-                html = build_watchlist_alert_email(
-                    repo.owner,
-                    repo.name,
-                    alert.alert_type,
-                    alert.headline,
-                    _detail_lines_for_alert(alert),
-                )
-                sent, error = await send_email(
-                    watcher.notify_email,
-                    f"Repodar alert: {repo.owner}/{repo.name}",
-                    html,
-                )
-
-                db.add(
-                    AlertNotification(
-                        alert_id=alert.id,
-                        user_id=watcher.user_id,
-                        destination_email=watcher.notify_email,
-                        channel="email",
-                        status="sent" if sent else "failed",
-                        error_message=error,
-                    )
-                )
-                if sent:
-                    sent_count += 1
-                else:
-                    failed_count += 1
-
-        db.commit()
-        return {"sent": sent_count, "failed": failed_count, "skipped": skipped_count}
+                emails_to_send.append({
+                    "alert_id": alert.id,
+                    "user_id": watcher.user_id,
+                    "notify_email": watcher.notify_email,
+                    "repo_owner": repo.owner,
+                    "repo_name": repo.name,
+                    "alert_type": alert.alert_type,
+                    "headline": alert.headline,
+                    "detail_lines": _detail_lines_for_alert(alert),
+                })
     except Exception:
-        db.rollback()
-        logger.exception("dispatch_pending_watchlist_alert_emails failed")
-        return {"sent": sent_count, "failed": failed_count + 1, "skipped": skipped_count}
+        logger.exception("dispatch_pending_watchlist_alert_emails failed during DB query phase")
+        return {"sent": 0, "failed": 1, "skipped": 0}
     finally:
         db.close()
 
+    notifications_to_record = []
+    for email_data in emails_to_send:
+        html = build_watchlist_alert_email(
+            email_data["repo_owner"],
+            email_data["repo_name"],
+            email_data["alert_type"],
+            email_data["headline"],
+            email_data["detail_lines"],
+        )
+        sent, error = await send_email(
+            email_data["notify_email"],
+            f"Repodar alert: {email_data['repo_owner']}/{email_data['repo_name']}",
+            html,
+        )
+
+        notifications_to_record.append({
+            "alert_id": email_data["alert_id"],
+            "user_id": email_data["user_id"],
+            "destination_email": email_data["notify_email"],
+            "channel": "email",
+            "status": "sent" if sent else "failed",
+            "error_message": error,
+        })
+        if sent:
+            sent_count += 1
+        else:
+            failed_count += 1
+
+    if notifications_to_record:
+        db = SessionLocal()
+        try:
+            for notif in notifications_to_record:
+                db.add(
+                    AlertNotification(
+                        alert_id=notif["alert_id"],
+                        user_id=notif["user_id"],
+                        destination_email=notif["destination_email"],
+                        channel=notif["channel"],
+                        status=notif["status"],
+                        error_message=notif["error_message"],
+                    )
+                )
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.exception("Failed to record alert notifications in DB")
+        finally:
+            db.close()
+
+    return {"sent": sent_count, "failed": failed_count, "skipped": skipped_count}
+
 
 async def dispatch_digest_emails(frequency: Literal["daily", "weekly", "monthly"]) -> dict:
-    db = SessionLocal()
     sent_count = 0
     skipped_count = 0
+    subscribers_to_email = []
+    
+    db = SessionLocal()
     try:
         now = _utcnow()
         window_days = 1 if frequency == "daily" else (7 if frequency == "weekly" else 30)
@@ -194,28 +228,48 @@ async def dispatch_digest_emails(frequency: Literal["daily", "weekly", "monthly"
                     skipped_count += 1
                     continue
 
-            html = build_digest_email(
-                frequency,
-                alerts,
-                top_breakouts,
-                unsubscribe_url=f"{FRONTEND_URL}/unsubscribe?token={subscriber.unsubscribe_token}" if subscriber.unsubscribe_token else None,
-            )
-            sent, error = await send_email(
-                subscriber.email,
-                f"Repodar {frequency.title()} digest",
-                html,
-            )
-            if sent:
-                subscriber.last_digest_sent_at = now
-                sent_count += 1
-            else:
-                logger.warning("Digest send failed for %s: %s", subscriber.email, error)
-
-        db.commit()
-        return {"sent": sent_count, "skipped": skipped_count}
+            subscribers_to_email.append({
+                "id": subscriber.id,
+                "email": subscriber.email,
+                "unsubscribe_token": subscriber.unsubscribe_token,
+            })
     except Exception:
-        db.rollback()
-        logger.exception("dispatch_digest_emails(%s) failed", frequency)
-        return {"sent": sent_count, "skipped": skipped_count}
+        logger.exception("dispatch_digest_emails(%s) failed during DB query phase", frequency)
+        return {"sent": 0, "skipped": 0}
     finally:
         db.close()
+
+    successful_subscriber_ids = []
+    for sub in subscribers_to_email:
+        html = build_digest_email(
+            frequency,
+            alerts,
+            top_breakouts,
+            unsubscribe_url=f"{FRONTEND_URL}/unsubscribe?token={sub['unsubscribe_token']}" if sub['unsubscribe_token'] else None,
+        )
+        sent, error = await send_email(
+            sub["email"],
+            f"Repodar {frequency.title()} digest",
+            html,
+        )
+        if sent:
+            successful_subscriber_ids.append(sub["id"])
+            sent_count += 1
+        else:
+            logger.warning("Digest send failed for %s: %s", sub["email"], error)
+
+    if successful_subscriber_ids:
+        db = SessionLocal()
+        try:
+            db.query(Subscriber).filter(Subscriber.id.in_(successful_subscriber_ids)).update(
+                {Subscriber.last_digest_sent_at: now},
+                synchronize_session=False
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.exception("Failed to update last_digest_sent_at timestamps in DB")
+        finally:
+            db.close()
+
+    return {"sent": sent_count, "skipped": skipped_count}
