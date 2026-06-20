@@ -55,6 +55,8 @@ class Repository(Base):
     topics: Mapped[Optional[list[str]]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True, default=None)
     tech_stack_json: Mapped[Optional[list[str]]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True, default=None)
     dependencies_json: Mapped[Optional[dict]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True, default=None)
+    categories: Mapped[Optional[list[str]]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True, default=None)
+    ecosystem_data_json: Mapped[Optional[dict]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True, default=None)
     license_category: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default="unknown")
     has_ci_cd: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     has_tests: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

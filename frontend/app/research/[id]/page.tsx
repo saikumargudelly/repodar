@@ -765,9 +765,9 @@ export default function ResearchSessionPage() {
           es.close();
           esRef.current = null;
 
-          // Auto-name title on frontend if it is default
+          // Auto-name title on frontend if it is default (case-insensitive and trimmed)
           const queryExp = (doneMeta.query_explanation as string) ?? streamQueryExp;
-          if (title === "Untitled Research" && queryExp) {
+          if (title && title.trim().toLowerCase() === "untitled research" && queryExp) {
             let cleaned = queryExp.replace(/^(searching for|search for|comparing|compare|landscape mapping of|landscape of)\s+/i, '');
             cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
             cleaned = cleaned.substring(0, 50);
@@ -816,7 +816,7 @@ export default function ResearchSessionPage() {
       setStreamStatus(""); setSending(false);
       setStreamText(""); setStreamRepos([]);
     };
-  }, [input, effectiveUserId, sending, sessionId, streamQueryExp]);
+  }, [input, effectiveUserId, sending, sessionId, streamQueryExp, title]);
 
   const transcribeAudioBlob = useCallback(async (audioBlob: Blob, mimeType: string) => {
     setIsTranscribing(true);

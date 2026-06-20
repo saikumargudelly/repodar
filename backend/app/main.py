@@ -51,6 +51,7 @@ from app.routers import (
     recommendations_router,
     webhooks_router,
     collections_router,
+    ecosystem_router,
 )
 from app.seed.seeder import seed_repos
 
@@ -446,6 +447,7 @@ app.include_router(export_router)
 app.include_router(recommendations_router)
 app.include_router(webhooks_router)
 app.include_router(collections_router)
+app.include_router(ecosystem_router)
 
 # ─── Public API v1 (X-API-Key required) ──────────────────────────────────────
 from app.routers.public_api import router as public_api_router

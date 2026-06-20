@@ -24,6 +24,7 @@ from app.routers.export import router as export_router
 from app.routers.recommendations import router as recommendations_router
 from app.routers.webhooks import router as webhooks_router
 from app.routers.collections import router as collections_router
+from app.routers.ecosystem import router as ecosystem_router
 
 __all__ = [
     "repos_router", "metrics_router", "dashboard_router",
@@ -34,4 +35,5 @@ __all__ = [
     "onboarding_router", "profile_router", "research_router",
     "filters_router", "forecast_router", "export_router",
     "recommendations_router", "webhooks_router", "collections_router",
+    "ecosystem_router",
 ]

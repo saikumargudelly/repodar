@@ -14,6 +14,7 @@ import {
 } from "@/lib/api";
 import { ForecastChart } from "@/components/forecast/ForecastChart";
 import { RecommendationsPanel } from "@/components/recommendations/RecommendationsPanel";
+import ReactMarkdown from "react-markdown";
 
 const tooltipStyle = {
   contentStyle: { background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "6px", fontSize: "12px" },
@@ -502,6 +503,377 @@ function SocialMentionsFeed({ mentions }: { mentions: SocialMentionItem[] }) {
   );
 }
 
+function EcosystemTabContent({ repoId, repo }: { repoId: string; repo: any }) {
+  const [reportMd, setReportMd] = useState<string | null>(null);
+  const [generatingReport, setGeneratingReport] = useState(false);
+
+  const { data: ecosystem, isLoading, error } = useQuery({
+    queryKey: ["ecosystem-map", repoId],
+    queryFn: () => api.getEcosystemMap(repoId),
+    enabled: !!repoId,
+  });
+
+  const handleGenerateReport = async () => {
+    setGeneratingReport(true);
+    try {
+      const res = await api.generateEcosystemReport(repoId);
+      setReportMd(res.content_md);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to generate ecosystem report.");
+    } finally {
+      setGeneratingReport(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "40vh" }}>
+        <p style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "12px" }}>
+          // ANALYSING ECOSYSTEM DATA<span className="terminal-cursor" />
+        </p>
+      </div>
+    );
+  }
+
+  if (error || !ecosystem) {
+    return (
+      <div className="panel card-pad" style={{ borderLeft: "3px solid var(--accent-red)" }}>
+        <p style={{ fontFamily: "var(--font-mono)", color: "var(--accent-red)", margin: 0 }}>
+          ✕ Error loading ecosystem data. Please ensure repository is indexed.
+        </p>
+      </div>
+    );
+  }
+
+  const primaryCategory = ecosystem.primary_category || "OSS Tools";
+  const strength = ecosystem.strength;
+  const relationships = ecosystem.relationships || [];
+
+  const alternatives = relationships.filter((r: any) => r.relationship === "alternative");
+  const companions = relationships.filter((r: any) => r.relationship === "companion");
+
+  // SVG dimensions & node layout settings
+  const width = 600;
+  const height = 400;
+  const centerX = width / 2;
+  const centerY = height / 2;
+
+  // Let's compute positions dynamically
+  // 1. Center category node: (centerX, centerY)
+  // 2. Pivot Repository: (centerX, centerY - 120)
+  // 3. Alternatives (left side, distributed vertically/radially)
+  const leftAlts = alternatives.slice(0, 4);
+  const leftNodes = leftAlts.map((alt: any, index: number) => {
+    const angle = 140 + (index * 80) / Math.max(1, leftAlts.length - 1); // radial distribution
+    const rad = (angle * Math.PI) / 180;
+    const distance = 140;
+    return {
+      x: centerX + distance * Math.cos(rad),
+      y: centerY + distance * Math.sin(rad),
+      label: alt.related_repo,
+      type: "alternative",
+      data: alt,
+    };
+  });
+
+  // 4. Companions (right side, distributed vertically/radially)
+  const rightComps = companions.slice(0, 4);
+  const rightNodes = rightComps.map((comp: any, index: number) => {
+    const angle = -40 + (index * 80) / Math.max(1, rightComps.length - 1);
+    const rad = (angle * Math.PI) / 180;
+    const distance = 140;
+    return {
+      x: centerX + distance * Math.cos(rad),
+      y: centerY + distance * Math.sin(rad),
+      label: comp.related_repo,
+      type: "companion",
+      data: comp,
+    };
+  });
+
+  const allNodes = [
+    { x: centerX, y: centerY - 120, label: `${repo.owner}/${repo.name}`, type: "pivot", data: repo },
+    ...leftNodes,
+    ...rightNodes,
+  ];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+      {/* Ecosystem Strength Dashboard */}
+      <div className="panel card-pad" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px" }}>
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <span style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600 }}>Canonical Category</span>
+          <span style={{ fontSize: "20px", fontWeight: "bold", color: "#818cf8", marginTop: "4px" }}>{primaryCategory}</span>
+          <p style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "8px", lineHeight: "1.4" }}>
+            {strength.details}
+          </p>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "16px", borderLeft: "1px solid var(--border)", paddingLeft: "20px" }}>
+          {/* Circular progress display */}
+          <div style={{ position: "relative", width: "70px", height: "70px", flexShrink: 0 }}>
+            <svg width="70" height="70" viewBox="0 0 36 36">
+              <path
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                fill="none"
+                stroke="var(--border)"
+                strokeWidth="2.5"
+              />
+              <path
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                fill="none"
+                stroke="#818cf8"
+                strokeWidth="2.5"
+                strokeDasharray={`${strength.score}, 100`}
+                strokeLinecap="round"
+              />
+            </svg>
+            <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", fontSize: "16px", fontWeight: "bold", fontFamily: "var(--font-mono)", color: "var(--text-primary)" }}>
+              {strength.score}
+            </div>
+          </div>
+          <div>
+            <span style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600 }}>Ecosystem Strength</span>
+            <div style={{ fontSize: "15px", fontWeight: "bold", color: "var(--text-primary)", marginTop: "2px" }}>{strength.status}</div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", borderLeft: "1px solid var(--border)", paddingLeft: "20px" }}>
+          <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>Active Projects: <strong style={{ color: "var(--text-primary)", fontFamily: "var(--font-mono)" }}>{strength.metrics?.active_projects ?? 0}</strong></span>
+          <span style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px" }}>Total Stars: <strong style={{ color: "var(--text-primary)", fontFamily: "var(--font-mono)" }}>{(strength.metrics?.total_stars ?? 0).toLocaleString()}</strong></span>
+          <span style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px" }}>Avg Star Velocity: <strong style={{ color: "var(--text-primary)", fontFamily: "var(--font-mono)" }}>{strength.metrics?.average_velocity ?? 0}/day</strong></span>
+        </div>
+      </div>
+
+      {/* Interactive Ecosystem Graph Map */}
+      <div className="panel card-pad" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+        <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 4px 0", marginBottom: 0 }}>
+          <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
+            🌐 Ecosystem relationship map
+          </span>
+        </div>
+        <div style={{ position: "relative", width: "100%", overflow: "hidden", display: "flex", justifyContent: "center" }}>
+          <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", maxHeight: "400px", background: "rgba(0,0,0,0.2)", borderRadius: "8px", border: "1px solid var(--border)" }}>
+            {/* Draw connectors to Center Node */}
+            {allNodes.map((n, idx) => (
+              <line
+                key={`line-${idx}`}
+                x1={centerX}
+                y1={centerY}
+                x2={n.x}
+                y2={n.y}
+                stroke={n.type === "companion" ? "#ff9f43" : "#818cf8"}
+                strokeWidth={n.type === "pivot" ? 2.5 : 1.5}
+                strokeDasharray={n.type === "companion" ? "4 4" : "0"}
+                opacity="0.4"
+              />
+            ))}
+
+            {/* Center Node (Category) */}
+            <circle cx={centerX} cy={centerY} r="35" fill="rgba(129, 140, 248, 0.2)" stroke="#818cf8" strokeWidth="2" style={{ filter: "drop-shadow(0 0 6px rgba(129,140,248,0.4))" }} />
+            <text x={centerX} y={centerY - 5} textAnchor="middle" fill="var(--text-primary)" fontSize="10" fontWeight="bold" fontFamily="var(--font-sans)">
+              {primaryCategory.split(" ").slice(0, 1).join(" ")}
+            </text>
+            <text x={centerX} y={centerY + 8} textAnchor="middle" fill="var(--text-primary)" fontSize="9" fontWeight="bold" fontFamily="var(--font-sans)">
+              {primaryCategory.split(" ").slice(1).join(" ")}
+            </text>
+
+            {/* Render Surrounding Nodes */}
+            {allNodes.map((n, idx) => {
+              const r = n.type === "pivot" ? 22 : 16;
+              const fill = n.type === "pivot" ? "rgba(63, 185, 80, 0.2)" : n.type === "companion" ? "rgba(255, 159, 67, 0.15)" : "rgba(129, 140, 248, 0.15)";
+              const stroke = n.type === "pivot" ? "var(--green)" : n.type === "companion" ? "#ff9f43" : "#818cf8";
+              
+              // Helper to split long owner/name strings
+              const labelParts = n.label.split("/");
+              const displayName = labelParts.length > 1 ? labelParts[1] : n.label;
+
+              return (
+                <g key={`node-${idx}`} style={{ cursor: "pointer" }} onClick={() => {
+                  if (n.type !== "pivot") {
+                    // Navigate or search
+                    window.open(`https://github.com/${n.label}`, "_blank");
+                  }
+                }}>
+                  <circle cx={n.x} cy={n.y} r={r} fill={fill} stroke={stroke} strokeWidth="1.5" style={{ transition: "all 0.3s" }} />
+                  <text x={n.x} y={n.y + r + 13} textAnchor="middle" fill="var(--text-secondary)" fontSize="10" fontWeight={n.type === "pivot" ? "bold" : "normal"} fontFamily="var(--font-sans)">
+                    {displayName}
+                  </text>
+                  <text x={n.x} y={n.y + 3} textAnchor="middle" fill="#fff" fontSize="8" fontFamily="var(--font-mono)" opacity="0.8">
+                    {n.type === "pivot" ? "HQ" : n.type === "companion" ? "Stack" : "Alt"}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+        <div style={{ display: "flex", justifyContent: "center", gap: "24px", fontSize: "11px", color: "var(--text-muted)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "var(--green)" }} /> Selected Repository
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#818cf8" }} /> Direct Alternatives
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#ff9f43" }} /> Companion Stack Tools
+          </div>
+        </div>
+      </div>
+
+      {/* Alternatives Comparison Table */}
+      <div className="panel table-scroll">
+        <div className="panel-header" style={{ borderBottom: "none", padding: "16px 20px" }}>
+          <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
+            ⚔️ Direct Alternatives &amp; Competitors
+          </span>
+        </div>
+        {alternatives.length === 0 ? (
+          <p style={{ padding: "0 20px 20px 20px", fontSize: "12px", color: "var(--text-muted)", margin: 0 }}>
+            No direct alternatives indexable in this category yet.
+          </p>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                {["ALTERNATIVE", "STARS", "LANGUAGE", "CONFIDENCE", "EXPLANATION"].map((h) => (
+                  <th key={h} style={{ textAlign: "left", padding: "10px 16px", color: "var(--text-muted)", fontSize: "11px", fontWeight: 600 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {alternatives.map((alt: any) => (
+                <tr key={alt.related_repo} className="tr-cyber" style={{ borderBottom: "1px solid var(--border)" }}>
+                  <td style={{ padding: "12px 16px", fontWeight: 600 }}>
+                    <a href={`https://github.com/${alt.related_repo}`} target="_blank" rel="noopener noreferrer" style={{ color: "#58a6ff", textDecoration: "none" }}>
+                      {alt.related_repo}
+                    </a>
+                  </td>
+                  <td style={{ padding: "12px 16px", fontFamily: "var(--font-mono)" }}>
+                    {alt.stars ? alt.stars.toLocaleString() : "—"}
+                  </td>
+                  <td style={{ padding: "12px 16px", color: "var(--text-secondary)" }}>
+                    {alt.primary_language || "—"}
+                  </td>
+                  <td style={{ padding: "12px 16px" }}>
+                    <span style={{
+                      fontWeight: "bold",
+                      fontFamily: "var(--font-mono)",
+                      color: alt.confidence >= 0.75 ? "var(--green)" : alt.confidence >= 0.50 ? "var(--amber)" : "var(--pink)",
+                      background: alt.confidence >= 0.75 ? "rgba(63, 185, 80, 0.1)" : alt.confidence >= 0.50 ? "rgba(210, 153, 34, 0.1)" : "rgba(248, 81, 73, 0.1)",
+                      padding: "2px 6px",
+                      borderRadius: "4px"
+                    }}>
+                      {Math.round(alt.confidence * 100)}%
+                    </span>
+                  </td>
+                  <td style={{ padding: "12px 16px", color: "var(--text-secondary)", lineHeight: "1.4" }}>
+                    {alt.explanation}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Companions and Stack Combinations */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
+        <div className="panel card-pad">
+          <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 12px 0", marginBottom: 0 }}>
+            <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
+              🔌 Integrations &amp; Companion Stacks
+            </span>
+          </div>
+          {companions.length === 0 ? (
+            <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "8px 0 0 0" }}>
+              No adjacent integrations detected.
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "8px" }}>
+              {companions.slice(0, 5).map((comp: any) => (
+                <div key={comp.related_repo} style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                  <span style={{ color: "#ff9f43", fontWeight: "bold" }}>✦</span>
+                  <div style={{ fontSize: "12px" }}>
+                    <a href={`https://github.com/${comp.related_repo}`} target="_blank" rel="noopener noreferrer" style={{ color: "#58a6ff", textDecoration: "none", fontWeight: 600 }}>
+                      {comp.related_repo}
+                    </a>
+                    <span style={{ color: "var(--text-secondary)", marginLeft: "6px" }}>
+                      — {comp.explanation}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="panel card-pad" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+          <div>
+            <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 12px 0", marginBottom: 0 }}>
+              <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
+                📋 Ecosystem Research Brief
+              </span>
+            </div>
+            <p style={{ fontSize: "12px", color: "var(--text-secondary)", lineHeight: "1.5", margin: "8px 0 0 0" }}>
+              Generate a structured technology landscape analyst brief mapping the leaders, stacks, and trends of this category.
+            </p>
+          </div>
+          <button
+            onClick={handleGenerateReport}
+            disabled={generatingReport}
+            style={{
+              width: "100%",
+              marginTop: "16px",
+              padding: "10px 16px",
+              borderRadius: "6px",
+              background: "var(--cyan)",
+              color: "#000",
+              fontWeight: 600,
+              border: "none",
+              cursor: "pointer",
+              fontSize: "12px",
+              transition: "opacity 0.2s"
+            }}
+            className="hover:opacity-90"
+          >
+            {generatingReport ? "Generating Brief..." : "⚡ Generate Ecosystem Brief"}
+          </button>
+        </div>
+      </div>
+
+      {/* Render Markdown Ecosystem Report inline */}
+      {reportMd && (
+        <div className="panel card-pad" style={{ borderLeft: "3px solid var(--cyan)", marginTop: "8px" }}>
+          <div className="panel-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+            <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>📄 Category Landscape Report</span>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(reportMd);
+                alert("Report copied to clipboard!");
+              }}
+              style={{
+                background: "none",
+                border: "1px solid var(--border)",
+                color: "var(--text-secondary)",
+                padding: "4px 10px",
+                borderRadius: "4px",
+                fontSize: "11px",
+                cursor: "pointer"
+              }}
+            >
+              Copy Markdown
+            </button>
+          </div>
+          <div style={{ color: "var(--text-secondary)", fontSize: "13px", lineHeight: "1.7", overflowY: "auto", maxHeight: "500px", paddingRight: "10px" }} className="markdown-body font-sans">
+            <ReactMarkdown>{reportMd}</ReactMarkdown>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function RepoDeepDive() {
   const params = useParams<{ id: string[] }>();
   const repoId = Array.isArray(params.id) ? params.id.join("/") : params.id;
@@ -509,6 +881,7 @@ export default function RepoDeepDive() {
   const { userId } = useAuth();
   const queryClient = useQueryClient();
   const [pinned, setPinned] = useState(false);
+  const [activeTab, setActiveTab] = useState<"metrics" | "ecosystem">("metrics");
 
   const { data: repo, isLoading: repoLoading } = useQuery({
     queryKey: ["repo", repoId],
@@ -804,266 +1177,323 @@ export default function RepoDeepDive() {
         />
       </div>
 
-      {/* 3. AI Deep Analysis Panel */}
-      {deepLoading && (
-        <div className="panel card-pad" style={{ borderLeft: "3px solid var(--cyan)" }}>
-          <div className="panel-header" style={{ marginBottom: "10px" }}>
-            <span className="panel-title">◈ AI DEEP ANALYSIS</span>
-          </div>
-          <p style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px", letterSpacing: "0.06em" }}>// GENERATING ANALYSIS…<span className="terminal-cursor" /></p>
-        </div>
-      )}
+      </div>
 
-      {deepSummary && (
+      {/* Tab Switcher */}
+      <div style={{
+        display: "flex",
+        gap: "24px",
+        borderBottom: "1px solid var(--border)",
+        marginTop: "10px",
+        marginBottom: "18px",
+        position: "sticky",
+        top: "0",
+        background: "var(--bg-main)",
+        zIndex: 10,
+        paddingTop: "6px"
+      }}>
+        <button
+          onClick={() => setActiveTab("metrics")}
+          style={{
+            padding: "10px 4px",
+            fontSize: "14px",
+            fontWeight: activeTab === "metrics" ? 600 : 400,
+            color: activeTab === "metrics" ? "var(--text-primary)" : "var(--text-muted)",
+            borderBottom: activeTab === "metrics" ? "2px solid #818cf8" : "none",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            fontFamily: "var(--font-sans)",
+            transition: "all 0.2s"
+          }}
+        >
+          Repository Metrics &amp; Analysis
+        </button>
+        <button
+          onClick={() => setActiveTab("ecosystem")}
+          style={{
+            padding: "10px 4px",
+            fontSize: "14px",
+            fontWeight: activeTab === "ecosystem" ? 600 : 400,
+            color: activeTab === "ecosystem" ? "var(--text-primary)" : "var(--text-muted)",
+            borderBottom: activeTab === "ecosystem" ? "2px solid #818cf8" : "none",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            fontFamily: "var(--font-sans)",
+            transition: "all 0.2s"
+          }}
+        >
+          Ecosystem Intelligence
+        </button>
+      </div>
+
+      {activeTab === "metrics" ? (
         <>
-          <div className="panel card-pad" style={{ borderLeft: "3px solid var(--cyan)" }}>
-            <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
-                ✨ AI deep analysis
-              </span>
-              <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-                {formatDateFriendly(deepSummary.generated_at)}
-              </span>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginTop: "12px" }}>
-              {[
-                { key: "What", value: deepSummary.what, badgeBg: "rgba(129, 140, 248, 0.15)", badgeColor: "#818cf8" },
-                { key: "Why", value: deepSummary.why, badgeBg: "rgba(52, 211, 153, 0.15)", badgeColor: "#34d399" },
-                { key: "How", value: deepSummary.how, badgeBg: "rgba(210, 153, 34, 0.15)", badgeColor: "#d29922" },
-              ].map(({ key, value, badgeBg, badgeColor }) => value && (
-                <div key={key} style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
-                  <span style={{
-                    display: "inline-block",
-                    padding: "2px 10px",
-                    borderRadius: "12px",
-                    fontSize: "11px",
-                    fontWeight: "bold",
-                    fontFamily: "var(--font-sans)",
-                    background: badgeBg,
-                    color: badgeColor,
-                    minWidth: "50px",
-                    textAlign: "center",
-                    flexShrink: 0
-                  }}>{key}</span>
-                  <span style={{ color: "var(--text-secondary)", fontSize: "13px", lineHeight: "1.5" }}>
-                    {value}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 4. Tech Stack & Use Cases */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
-            {deepSummary.tech_stack.length > 0 && (
-              <div className="panel card-pad">
-                <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 12px 0", marginBottom: 0 }}>
-                  <span className="panel-title" style={{ fontSize: "14px" }}>
-                    🛠️ Tech stack
-                  </span>
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "8px" }}>
-                  {deepSummary.tech_stack.map((tech) => {
-                    const isTS = tech.toLowerCase() === "typescript";
-                    const isJS = tech.toLowerCase() === "javascript";
-                    const bg = isTS ? "rgba(129, 140, 248, 0.15)" : isJS ? "rgba(210, 153, 34, 0.15)" : "rgba(255,255,255,0.03)";
-                    const color = isTS ? "#818cf8" : isJS ? "#d29922" : "var(--text-secondary)";
-                    const border = isTS ? "1px solid rgba(129,140,248,0.25)" : isJS ? "1px solid rgba(210,153,34,0.25)" : "1px solid var(--border)";
-                    return (
-                      <span key={tech} style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "11px",
-                        padding: "3px 10px",
-                        borderRadius: "4px",
-                        background: bg,
-                        color: color,
-                        border: border
-                      }}>
-                        {tech}
-                      </span>
-                    );
-                  })}
-                </div>
+          {/* 3. AI Deep Analysis Panel */}
+          {deepLoading && (
+            <div className="panel card-pad" style={{ borderLeft: "3px solid var(--cyan)" }}>
+              <div className="panel-header" style={{ marginBottom: "10px" }}>
+                <span className="panel-title">◈ AI DEEP ANALYSIS</span>
               </div>
-            )}
+              <p style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px", letterSpacing: "0.06em" }}>// GENERATING ANALYSIS…<span className="terminal-cursor" /></p>
+            </div>
+          )}
 
-            {deepSummary.use_cases.length > 0 && (
-              <div className="panel card-pad">
-                <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 12px 0", marginBottom: 0 }}>
-                  <span className="panel-title" style={{ fontSize: "14px" }}>
-                    📋 Use cases
+          {deepSummary && (
+            <>
+              <div className="panel card-pad" style={{ borderLeft: "3px solid var(--cyan)" }}>
+                <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
+                    ✨ AI deep analysis
+                  </span>
+                  <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                    {formatDateFriendly(deepSummary.generated_at)}
                   </span>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" }}>
-                  {deepSummary.use_cases.map((uc) => (
-                    <div key={uc} style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
-                      <span style={{ color: "var(--green)", fontWeight: "bold" }}>✓</span>
-                      <span style={{ color: "var(--text-secondary)", fontSize: "13px" }}>{uc}</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginTop: "12px" }}>
+                  {[
+                    { key: "What", value: deepSummary.what, badgeBg: "rgba(129, 140, 248, 0.15)", badgeColor: "#818cf8" },
+                    { key: "Why", value: deepSummary.why, badgeBg: "rgba(52, 211, 153, 0.15)", badgeColor: "#34d399" },
+                    { key: "How", value: deepSummary.how, badgeBg: "rgba(210, 153, 34, 0.15)", badgeColor: "#d29922" },
+                  ].map(({ key, value, badgeBg, badgeColor }) => value && (
+                    <div key={key} style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
+                      <span style={{
+                        display: "inline-block",
+                        padding: "2px 10px",
+                        borderRadius: "12px",
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                        fontFamily: "var(--font-sans)",
+                        background: badgeBg,
+                        color: badgeColor,
+                        minWidth: "50px",
+                        textAlign: "center",
+                        flexShrink: 0
+                      }}>{key}</span>
+                      <span style={{ color: "var(--text-secondary)", fontSize: "13px", lineHeight: "1.5" }}>
+                        {value}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
-            )}
-          </div>
 
-          {/* 5. Language Breakdown & Signal Explainer */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
-            {Object.keys(deepSummary.languages).length > 0 && (
-              <div className="panel card-pad">
-                <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 12px 0", marginBottom: 0 }}>
-                  <span className="panel-title" style={{ fontSize: "14px" }}>
-                    &lt;/ &gt; Language breakdown
-                  </span>
-                </div>
-                {(() => {
-                  const total = Object.values(deepSummary.languages).reduce((a, b) => a + b, 0);
-                  const sorted = Object.entries(deepSummary.languages).sort(([, a], [, b]) => b - a);
-                  const COLORS = ["#818cf8", "#ff9f43", "var(--green)", "var(--pink)", "#9d7fff", "#ff9944", "#44aaff", "#ff44aa"];
-                  return (
-                    <div style={{ display: "flex", flexDirection: "column", marginTop: "8px" }}>
-                      <div style={{ display: "flex", height: "10px", borderRadius: "5px", overflow: "hidden", width: "100%" }}>
-                        {sorted.map(([lang, bytes], i) => (
-                          <div key={lang} title={`${lang}: ${((bytes / total) * 100).toFixed(1)}%`}
-                            style={{ width: `${(bytes / total) * 100}%`, background: COLORS[i % COLORS.length], minWidth: "2px" }} />
-                        ))}
-                      </div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 16px", marginTop: "12px" }}>
-                        {sorted.slice(0, 6).map(([lang, bytes], i) => (
-                          <div key={lang} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", fontFamily: "var(--font-sans)" }}>
-                            <span style={{ color: COLORS[i % COLORS.length], fontSize: "14px" }}>●</span>
-                            <span style={{ color: "var(--text-secondary)" }}>
-                              {lang} <span style={{ color: "var(--text-muted)", marginLeft: "4px" }}>{((bytes / total) * 100).toFixed(1)}%</span>
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+              {/* 4. Tech Stack & Use Cases */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
+                {deepSummary.tech_stack.length > 0 && (
+                  <div className="panel card-pad">
+                    <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 12px 0", marginBottom: 0 }}>
+                      <span className="panel-title" style={{ fontSize: "14px" }}>
+                        🛠️ Tech stack
+                      </span>
                     </div>
-                  );
-                })()}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "8px" }}>
+                      {deepSummary.tech_stack.map((tech) => {
+                        const isTS = tech.toLowerCase() === "typescript";
+                        const isJS = tech.toLowerCase() === "javascript";
+                        const bg = isTS ? "rgba(129, 140, 248, 0.15)" : isJS ? "rgba(210, 153, 34, 0.15)" : "rgba(255,255,255,0.03)";
+                        const color = isTS ? "#818cf8" : isJS ? "#d29922" : "var(--text-secondary)";
+                        const border = isTS ? "1px solid rgba(129,140,248,0.25)" : isJS ? "1px solid rgba(210,153,34,0.25)" : "1px solid var(--border)";
+                        return (
+                          <span key={tech} style={{
+                            fontFamily: "var(--font-mono)",
+                            fontSize: "11px",
+                            padding: "3px 10px",
+                            borderRadius: "4px",
+                            background: bg,
+                            color: color,
+                            border: border
+                          }}>
+                            {tech}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {deepSummary.use_cases.length > 0 && (
+                  <div className="panel card-pad">
+                    <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 12px 0", marginBottom: 0 }}>
+                      <span className="panel-title" style={{ fontSize: "14px" }}>
+                        📋 Use cases
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" }}>
+                      {deepSummary.use_cases.map((uc) => (
+                        <div key={uc} style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
+                          <span style={{ color: "var(--green)", fontWeight: "bold" }}>✓</span>
+                          <span style={{ color: "var(--text-secondary)", fontSize: "13px" }}>{uc}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
 
-            {scores && scores.length > 0 && (
-              <SignalExplainer scores={scores} />
-            )}
-          </div>
+              {/* 5. Language Breakdown & Signal Explainer */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
+                {Object.keys(deepSummary.languages).length > 0 && (
+                  <div className="panel card-pad">
+                    <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 12px 0", marginBottom: 0 }}>
+                      <span className="panel-title" style={{ fontSize: "14px" }}>
+                        &lt;/ &gt; Language breakdown
+                      </span>
+                    </div>
+                    {(() => {
+                      const total = Object.values(deepSummary.languages).reduce((a, b) => a + b, 0);
+                      const sorted = Object.entries(deepSummary.languages).sort(([, a], [, b]) => b - a);
+                      const COLORS = ["#818cf8", "#ff9f43", "var(--green)", "var(--pink)", "#9d7fff", "#ff9944", "#44aaff", "#ff44aa"];
+                      return (
+                        <div style={{ display: "flex", flexDirection: "column", marginTop: "8px" }}>
+                          <div style={{ display: "flex", height: "10px", borderRadius: "5px", overflow: "hidden", width: "100%" }}>
+                            {sorted.map(([lang, bytes], i) => (
+                              <div key={lang} title={`${lang}: ${((bytes / total) * 100).toFixed(1)}%`}
+                                style={{ width: `${(bytes / total) * 100}%`, background: COLORS[i % COLORS.length], minWidth: "2px" }} />
+                            ))}
+                          </div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 16px", marginTop: "12px" }}>
+                            {sorted.slice(0, 6).map(([lang, bytes], i) => (
+                              <div key={lang} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", fontFamily: "var(--font-sans)" }}>
+                                <span style={{ color: COLORS[i % COLORS.length], fontSize: "14px" }}>●</span>
+                                <span style={{ color: "var(--text-secondary)" }}>
+                                  {lang} <span style={{ color: "var(--text-muted)", marginLeft: "4px" }}>{((bytes / total) * 100).toFixed(1)}%</span>
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
 
-          {/* 6. Top Contributors */}
-          {deepSummary.contributors.length > 0 && (
-            <div className="panel card-pad">
-              <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                {scores && scores.length > 0 && (
+                  <SignalExplainer scores={scores} />
+                )}
+              </div>
+
+              {/* 6. Top Contributors */}
+              {deepSummary.contributors.length > 0 && (
+                <div className="panel card-pad">
+                  <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span className="panel-title" style={{ fontSize: "14px" }}>
+                      <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                      Top contributors
+                    </span>
+                    <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                      by commit count
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", marginTop: "12px" }}>
+                    {deepSummary.contributors.slice(0, 10).map((c) => (
+                      <a key={c.login} href={c.profile_url} target="_blank" rel="noopener noreferrer"
+                        style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "20px", background: "rgba(255,255,255,0.01)", textDecoration: "none", transition: "all 0.2s" }}
+                        className="hover:bg-space-800"
+                      >
+                        <img src={c.avatar_url} alt={c.login} style={{ width: "20px", height: "20px", borderRadius: "50%" }} />
+                        <span style={{ fontSize: "12px", color: "var(--text-secondary)", fontWeight: 500 }}>{c.login}</span>
+                        <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{c.contributions} commits</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Fallback AI Summary */}
+          {!deepSummary && !deepLoading && repo.repo_summary && (
+            <div className="panel card-pad" style={{ borderLeft: "3px solid var(--cyan)" }}>
+              <div className="panel-header" style={{ marginBottom: "10px" }}>
+                <span className="panel-title">◈ AI SUMMARY</span>
+              </div>
+              <p style={{ color: "var(--text-secondary)", lineHeight: "1.7", fontSize: "13px", margin: 0 }}>
+                {repo.repo_summary}
+              </p>
+            </div>
+          )}
+
+          {/* 7. Star History */}
+          {dailyMetrics && dailyMetrics.length > 0 && (
+            <StarHistoryChart data={dailyMetrics} mentions={mentions} />
+          )}
+
+          {/* 8. Daily Star Delta & Contributor Growth side by side */}
+          {dailyMetrics && dailyMetrics.length > 0 && (
+            <div className="chart-row-2">
+              <DailyDeltaChart data={dailyMetrics} />
+              <ContributorChart data={dailyMetrics} />
+            </div>
+          )}
+
+          {/* 9. Star Forecast (90 days) */}
+          <ForecastChart owner={repo.owner} name={repo.name} />
+
+          {/* 10. Velocity vs Acceleration & Trend Score Timeline side by side */}
+          {scores && scores.length > 0 && (
+            <div className="chart-row-2">
+              <VelocityChart data={scores} />
+              <ScoreTimeline data={scores} />
+            </div>
+          )}
+
+          {/* Commit activity */}
+          {commitActivity && commitActivity.length > 0 && (
+            <CommitHeatmap data={commitActivity} />
+          )}
+
+          {/* Social Mentions */}
+          <SocialMentionsFeed mentions={mentions || []} />
+
+          {/* Recent Releases */}
+          <ReleaseChangelog releases={releases || []} owner={repo.owner} name={repo.name} />
+
+          {/* 11. Similar Repositories */}
+          <RecommendationsPanel repoOwner={repo.owner} repoName={repo.name} />
+
+          {/* 12. Raw Metrics snapshots table */}
+          {dailyMetrics && dailyMetrics.length > 0 && (
+            <div className="panel table-scroll">
+              <div className="panel-header" style={{ borderBottom: "none", padding: "16px 20px" }}>
                 <span className="panel-title" style={{ fontSize: "14px" }}>
-                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                  Top contributors
-                </span>
-                <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-                  by commit count
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                  Raw metrics — last 7 snapshots
                 </span>
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", marginTop: "12px" }}>
-                {deepSummary.contributors.slice(0, 10).map((c) => (
-                  <a key={c.login} href={c.profile_url} target="_blank" rel="noopener noreferrer"
-                    style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "20px", background: "rgba(255,255,255,0.01)", textDecoration: "none", transition: "all 0.2s" }}
-                    className="hover:bg-space-800"
-                  >
-                    <img src={c.avatar_url} alt={c.login} style={{ width: "20px", height: "20px", borderRadius: "50%" }} />
-                    <span style={{ fontSize: "12px", color: "var(--text-secondary)", fontWeight: 500 }}>{c.login}</span>
-                    <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{c.contributions} commits</span>
-                  </a>
-                ))}
-              </div>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                <thead>
+                  <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                    {["DATE", "STARS", "+STARS", "FORKS", "CONTRIBUTORS", "OPEN ISSUES", "RELEASES"].map((h) => {
+                      let cls = "th-mono";
+                      if (["FORKS", "CONTRIBUTORS", "OPEN ISSUES"].includes(h)) cls += " col-hide-mobile";
+                      if (h === "RELEASES") cls += " col-hide-tablet";
+                      return <th key={h} className={cls} style={{ textAlign: "left", padding: "10px 16px", color: "var(--text-muted)", fontSize: "11px", fontWeight: 600 }}>{h}</th>;
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {dailyMetrics.slice(-7).reverse().map((m) => (
+                    <tr key={m.date} className="tr-cyber" style={{ borderBottom: "1px solid var(--border)" }}>
+                      <td style={{ padding: "12px 16px", fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)" }}>{m.date}</td>
+                      <td style={{ padding: "12px 16px", fontFamily: "var(--font-mono)", color: "var(--text-primary)" }}>{m.stars.toLocaleString()}</td>
+                      <td style={{ padding: "12px 16px", fontFamily: "var(--font-mono)", color: m.daily_star_delta > 0 ? "var(--green)" : "var(--text-muted)" }}>
+                        {m.daily_star_delta > 0 ? `+${m.daily_star_delta}` : m.daily_star_delta}
+                      </td>
+                      <td className="col-hide-mobile" style={{ padding: "12px 16px", fontFamily: "var(--font-mono)" }}>{m.forks.toLocaleString()}</td>
+                      <td className="col-hide-mobile" style={{ padding: "12px 16px", fontFamily: "var(--font-mono)" }}>{m.contributors}</td>
+                      <td className="col-hide-mobile" style={{ padding: "12px 16px", fontFamily: "var(--font-mono)" }}>{m.open_issues}</td>
+                      <td className="col-hide-tablet" style={{ padding: "12px 16px", fontFamily: "var(--font-mono)" }}>{m.releases}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </>
-      )}
-
-      {/* Fallback AI Summary */}
-      {!deepSummary && !deepLoading && repo.repo_summary && (
-        <div className="panel card-pad" style={{ borderLeft: "3px solid var(--cyan)" }}>
-          <div className="panel-header" style={{ marginBottom: "10px" }}>
-            <span className="panel-title">◈ AI SUMMARY</span>
-          </div>
-          <p style={{ color: "var(--text-secondary)", lineHeight: "1.7", fontSize: "13px", margin: 0 }}>
-            {repo.repo_summary}
-          </p>
-        </div>
-      )}
-
-      {/* 7. Star History */}
-      {dailyMetrics && dailyMetrics.length > 0 && (
-        <StarHistoryChart data={dailyMetrics} mentions={mentions} />
-      )}
-
-      {/* 8. Daily Star Delta & Contributor Growth side by side */}
-      {dailyMetrics && dailyMetrics.length > 0 && (
-        <div className="chart-row-2">
-          <DailyDeltaChart data={dailyMetrics} />
-          <ContributorChart data={dailyMetrics} />
-        </div>
-      )}
-
-      {/* 9. Star Forecast (90 days) */}
-      <ForecastChart owner={repo.owner} name={repo.name} />
-
-      {/* 10. Velocity vs Acceleration & Trend Score Timeline side by side */}
-      {scores && scores.length > 0 && (
-        <div className="chart-row-2">
-          <VelocityChart data={scores} />
-          <ScoreTimeline data={scores} />
-        </div>
-      )}
-
-      {/* Commit activity */}
-      {commitActivity && commitActivity.length > 0 && (
-        <CommitHeatmap data={commitActivity} />
-      )}
-
-      {/* Social Mentions */}
-      <SocialMentionsFeed mentions={mentions || []} />
-
-      {/* Recent Releases */}
-      <ReleaseChangelog releases={releases || []} owner={repo.owner} name={repo.name} />
-
-      {/* 11. Similar Repositories */}
-      <RecommendationsPanel repoOwner={repo.owner} repoName={repo.name} />
-
-      {/* 12. Raw Metrics snapshots table */}
-      {dailyMetrics && dailyMetrics.length > 0 && (
-        <div className="panel table-scroll">
-          <div className="panel-header" style={{ borderBottom: "none", padding: "16px 20px" }}>
-            <span className="panel-title" style={{ fontSize: "14px" }}>
-              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
-              Raw metrics — last 7 snapshots
-            </span>
-          </div>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                {["DATE", "STARS", "+STARS", "FORKS", "CONTRIBUTORS", "OPEN ISSUES", "RELEASES"].map((h) => {
-                  let cls = "th-mono";
-                  if (["FORKS", "CONTRIBUTORS", "OPEN ISSUES"].includes(h)) cls += " col-hide-mobile";
-                  if (h === "RELEASES") cls += " col-hide-tablet";
-                  return <th key={h} className={cls} style={{ textAlign: "left", padding: "10px 16px", color: "var(--text-muted)", fontSize: "11px", fontWeight: 600 }}>{h}</th>;
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              {dailyMetrics.slice(-7).reverse().map((m) => (
-                <tr key={m.date} className="tr-cyber" style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td style={{ padding: "12px 16px", fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)" }}>{m.date}</td>
-                  <td style={{ padding: "12px 16px", fontFamily: "var(--font-mono)", color: "var(--text-primary)" }}>{m.stars.toLocaleString()}</td>
-                  <td style={{ padding: "12px 16px", fontFamily: "var(--font-mono)", color: m.daily_star_delta > 0 ? "var(--green)" : "var(--text-muted)" }}>
-                    {m.daily_star_delta > 0 ? `+${m.daily_star_delta}` : m.daily_star_delta}
-                  </td>
-                  <td className="col-hide-mobile" style={{ padding: "12px 16px", fontFamily: "var(--font-mono)" }}>{m.forks.toLocaleString()}</td>
-                  <td className="col-hide-mobile" style={{ padding: "12px 16px", fontFamily: "var(--font-mono)" }}>{m.contributors}</td>
-                  <td className="col-hide-mobile" style={{ padding: "12px 16px", fontFamily: "var(--font-mono)" }}>{m.open_issues}</td>
-                  <td className="col-hide-tablet" style={{ padding: "12px 16px", fontFamily: "var(--font-mono)" }}>{m.releases}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      ) : (
+        <EcosystemTabContent repoId={repoId} repo={repo} />
       )}
     </div>
   );

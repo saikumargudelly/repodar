@@ -160,3 +160,85 @@ def test_parse_intent_passes_context_and_rules_to_llm(monkeypatch):
             assert "AGENT: Here are 30 home automation projects..." in msg["content"]
             assert "CONTEXTUAL REFINEMENT & FOLLOW-UP RULES:" in msg["content"]
     assert prompt_found
+
+
+def test_parse_intent_with_repos_in_context(monkeypatch):
+    captured_messages = []
+
+    async def _fake_chat_completion(messages, temperature, max_tokens, response_format=None):
+        captured_messages.extend(messages)
+        return """{
+            "intent": "repo_detail",
+            "confidence": 0.95,
+            "entities": {
+                "repos": ["langchain-ai/langgraph"]
+            },
+            "github_queries": [],
+            "query_explanation": "Details for langchain-ai/langgraph",
+            "needs_clarification": false,
+            "clarification_prompt": null,
+            "rejection_reason": null
+        }"""
+
+    monkeypatch.setattr(research_agent, "async_chat_completion", _fake_chat_completion)
+    monkeypatch.setattr(research_agent, "GROQ_API_KEY", "fake-key")
+
+    context = [
+        {"role": "user", "content": "search for langgraph"},
+        {
+            "role": "agent",
+            "content": "Here is the repository...",
+            "repos": [{"full_name": "langchain-ai/langgraph", "stars": 5000}]
+        },
+    ]
+
+    result = asyncio.run(
+        research_agent.parse_intent(
+            message="what is its license?",
+            context_turns=context
+        )
+    )
+
+    assert result.intent == "repo_detail"
+    assert result.entities["repos"] == ["langchain-ai/langgraph"]
+
+    prompt_found = False
+    for msg in captured_messages:
+        if "what is its license?" in msg["content"]:
+            prompt_found = True
+            assert "[Returned Repositories: langchain-ai/langgraph]" in msg["content"]
+    assert prompt_found
+
+
+def test_best_effort_intent_rescues_repo_detail_with_repos():
+    # When intent is repo_detail and it has repos, it should rescue and not fall back to generic query
+    parsed = ParsedIntent(
+        intent="repo_detail",
+        confidence=0.5,
+        entities={"repos": ["foo/bar"]},
+        github_queries=[],
+        query_explanation="",
+        needs_clarification=True,
+    )
+    rescued = research_agent._best_effort_intent("about foo/bar", parsed, has_context=True)
+    assert rescued.intent == "repo_detail"
+    assert not rescued.needs_clarification
+    assert rescued.confidence >= 0.60
+
+
+def test_best_effort_intent_preserves_llm_intent_when_has_context():
+    # If the message has context, it should trust the LLM parsed intent and not naively rewrite to keyword search
+    parsed = ParsedIntent(
+        intent="search",
+        confidence=0.4,
+        entities={"topics": ["python"]},
+        github_queries=["LangGraph topic:python"],
+        query_explanation="Python LangGraph search",
+        needs_clarification=True,
+    )
+    rescued = research_agent._best_effort_intent("in python", parsed, has_context=True)
+    assert rescued.intent == "search"
+    assert rescued.github_queries == ["LangGraph topic:python"]
+    assert not rescued.needs_clarification
+    assert rescued.confidence >= 0.60
+

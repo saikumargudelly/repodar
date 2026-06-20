@@ -402,7 +402,11 @@ async def send_message(
 
     # Build context (last 3 turns = 6 messages)
     context = [
-        {"role": m.role, "content": m.content}
+        {
+            "role": m.role,
+            "content": m.content,
+            "repos": json.loads(m.repos_json) if m.repos_json else []
+        }
         for m in s.messages[-6:]
         if m.id != user_msg.id  # exclude the one we just added
     ]
@@ -482,7 +486,11 @@ async def stream_message(
 
     # Build context (last 3 turns, excluding message we just saved)
     context = [
-        {"role": m.role, "content": m.content}
+        {
+            "role": m.role,
+            "content": m.content,
+            "repos": json.loads(m.repos_json) if m.repos_json else []
+        }
         for m in (
             db.query(ResearchMessage)
             .filter_by(session_id=session_id)

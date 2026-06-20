@@ -212,6 +212,14 @@ def ensure_db_schema_upgraded(db_engine):
         if "dependencies_json" not in repo_cols:
             db_logger.info("Auto-migrating: Adding column 'dependencies_json' to 'repositories'")
             conn.execute(text(f"ALTER TABLE repositories ADD COLUMN dependencies_json {json_type}"))
+
+        if "categories" not in repo_cols:
+            db_logger.info("Auto-migrating: Adding column 'categories' to 'repositories'")
+            conn.execute(text(f"ALTER TABLE repositories ADD COLUMN categories {json_type}"))
+
+        if "ecosystem_data_json" not in repo_cols:
+            db_logger.info("Auto-migrating: Adding column 'ecosystem_data_json' to 'repositories'")
+            conn.execute(text(f"ALTER TABLE repositories ADD COLUMN ecosystem_data_json {json_type}"))
             
         if "license_category" not in repo_cols:
             db_logger.info("Auto-migrating: Adding column 'license_category' to 'repositories'")

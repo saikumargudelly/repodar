@@ -198,9 +198,25 @@ async def parse_intent(message: str, context_turns: list[dict]) -> ParsedIntent:
     ctx_lines = []
     for t in context_turns[-6:]:
         if isinstance(t, dict) and "role" in t and "content" in t:
-            ctx_lines.append(f"{t['role'].upper()}: {t['content'][:300]}")
+            role = t["role"].upper()
+            content = t["content"]
+            repos = t.get("repos", [])
+            
+            # Increase character limit for context to keep table headers/descriptions
+            turn_str = f"{role}: {content[:1000]}"
+            if repos:
+                # Include repo names returned in that turn
+                repo_names = []
+                for r in repos:
+                    if isinstance(r, dict) and r.get("full_name"):
+                        repo_names.append(r["full_name"])
+                    elif isinstance(r, str):
+                        repo_names.append(r)
+                if repo_names:
+                    turn_str += f"\n[Returned Repositories: {', '.join(repo_names)}]"
+            ctx_lines.append(turn_str)
         elif isinstance(t, str):
-            ctx_lines.append(f"USER: {t[:300]}")
+            ctx_lines.append(f"USER: {t[:1000]}")
     ctx = "\n".join(ctx_lines)
 
     current_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -281,7 +297,7 @@ def _keyword_fallback_intent(message: str) -> ParsedIntent:
     )
 
 
-def _best_effort_intent(message: str, parsed: ParsedIntent) -> ParsedIntent:
+def _best_effort_intent(message: str, parsed: ParsedIntent, has_context: bool = False) -> ParsedIntent:
     """
     Convert over-eager clarify outcomes into actionable search intents when
     enough signal exists in either parser output or a short topical prompt.
@@ -290,10 +306,11 @@ def _best_effort_intent(message: str, parsed: ParsedIntent) -> ParsedIntent:
     if not must_clarify:
         return parsed
 
-    # If the parser already produced runnable queries for a search-like intent,
+    # If the parser already produced runnable queries or repository names,
     # execute them instead of forcing a clarification loop.
     safe_queries = [q.strip() for q in parsed.github_queries if isinstance(q, str) and q.strip()]
-    if safe_queries and parsed.intent in {"search", "compare", "landscape", "temporal", "report"}:
+    has_repos = bool(parsed.entities.get("repos"))
+    if (safe_queries or has_repos) and parsed.intent in {"search", "compare", "landscape", "temporal", "report", "repo_detail"}:
         return ParsedIntent(
             intent=parsed.intent,
             confidence=max(parsed.confidence, 0.62),
@@ -304,6 +321,13 @@ def _best_effort_intent(message: str, parsed: ParsedIntent) -> ParsedIntent:
             clarification_prompt="",
             rejection_reason=parsed.rejection_reason,
         )
+
+    # If we have context, do not apply the naive keyword/token-based search fallback,
+    # as it might destroy context-based queries. Instead, trust the LLM parsed intent.
+    if has_context:
+        parsed.confidence = max(parsed.confidence, 0.61)
+        parsed.needs_clarification = False
+        return parsed
 
     # Domain-focused rescue for concise topical prompts frequently used in chat.
     msg = message.lower().strip()
@@ -634,6 +658,70 @@ async def _normalize_repo(raw: dict) -> dict:
     }
 
 
+async def _enrich_repos_with_ecosystem(repos: list[dict]) -> list[dict]:
+    """Enrich the top 5 repositories with ecosystem data, caching it in the database."""
+    from app.database import SessionLocal
+    from app.models.repository import Repository
+    from app.services.ecosystem import EcosystemClassifier, RelationshipGraphEngine, EcosystemStrengthScorer
+
+    # Only enrich the top 5 repositories to avoid excessive DB/network overhead
+    for repo in repos[:5]:
+        owner = repo.get("owner", "")
+        name = repo.get("name", "")
+        if not owner or not name:
+            continue
+
+        try:
+            with SessionLocal() as db:
+                # Find repo in DB
+                db_repo = db.query(Repository).filter_by(owner=owner, name=name).first()
+                if not db_repo:
+                    # Create a Repository row using current metadata
+                    db_repo = Repository(
+                        owner=owner,
+                        name=name,
+                        category="default",
+                        description=repo.get("description") or "",
+                        github_url=repo.get("github_url") or f"https://github.com/{owner}/{name}",
+                        primary_language=repo.get("primary_language"),
+                        stars_snapshot=repo.get("stars", 0),
+                        topics=repo.get("topics", []),
+                        has_ci_cd=repo.get("has_ci_cd", False),
+                        has_tests=repo.get("has_tests", False),
+                        license_category=repo.get("license_category", "unknown"),
+                    )
+                    db.add(db_repo)
+                    db.commit()
+                    db.refresh(db_repo)
+
+                # Ensure categories and ecosystem data are cached
+                dirty = False
+                if not db_repo.categories:
+                    db_repo.categories = EcosystemClassifier.classify_repo(db_repo)
+                    dirty = True
+                
+                if not db_repo.ecosystem_data_json or not db_repo.ecosystem_data_json.get("relationships"):
+                    graph = await RelationshipGraphEngine.build_relationships(db_repo, db)
+                    db_repo.ecosystem_data_json = {"relationships": graph["relationships"]}
+                    dirty = True
+
+                if dirty:
+                    db.commit()
+                    db.refresh(db_repo)
+
+                # Populate repo dict with ecosystem metadata
+                repo["categories"] = db_repo.categories
+                rels = db_repo.ecosystem_data_json.get("relationships") or []
+                repo["alternatives"] = [r for r in rels if r["relationship"] == "alternative"]
+                repo["companions"] = [r for r in rels if r["relationship"] == "companion"]
+                primary_cat = db_repo.category or (db_repo.categories[0] if db_repo.categories else "OSS Tools")
+                repo["ecosystem_strength"] = EcosystemStrengthScorer.calculate_category_strength(primary_cat, db)
+        except Exception as exc:
+            logger.warning(f"Failed to enrich ecosystem data for {owner}/{name}: {exc}", exc_info=True)
+
+    return repos
+
+
 def _rank_repos_by_profile(repos: list[dict], profile: str) -> list[dict]:
     """Re-ranks a list of normalized repositories based on the Research Intent Profile."""
     if not repos:
@@ -925,6 +1013,7 @@ TONE: Factual. Concise. Analyst-grade. No filler. No exclamation marks.
 FORMAT:
 - Start with 1-sentence factual summary (e.g. "Found 6 active Rust web frameworks.")
 - Render a side-by-side markdown comparison table comparing the repositories (max 5) on Stars, Trend, Confidence, Risk, and a Best-fit Recommendation.
+- If ecosystem data (categories, ecosystem_strength, alternatives, companions) is present in REPOS DATA for the primary repository, add a section called "### Ecosystem Insights" displaying the canonical Category, its Ecosystem Strength Score, a table of alternatives (showing repo name, confidence, and explanation), and a bulleted list of companion technologies.
 - List each repository with a pros and cons list.
 - Every claim must have the format: `[owner/name: citation string]`.
 - End with ≤2 follow-up suggestions prefixed with > 💡
@@ -985,7 +1074,8 @@ async def _synthesize(
                   "age_days","pushed_at","trend_label","momentum","velocity_proxy",
                   "is_fork","archived","github_url","confidence_score",
                   "confidence_level","confidence_reason","risk_score","risk_factors",
-                  "evidence_citations","has_ci_cd","has_tests","license_category","readme_len"}}
+                  "evidence_citations","has_ci_cd","has_tests","license_category","readme_len",
+                  "categories","alternatives","companions","ecosystem_strength"}}
         for r in repos[:20]
     ]
 
@@ -1041,6 +1131,9 @@ MANDATORY REPORT STRUCTURE (markdown):
 ## Comparison Matrix
 (A side-by-side markdown table comparing all repositories on Stars, Trend, Confidence, Risk, and a Best-fit Recommendation)
 
+## Ecosystem Landscape Analysis
+(Summarize the ecosystem using the ECOSYSTEM INTEL below. Detail the primary category overview, the Ecosystem Strength Score and what it implies, key leaders, common tech stacks and companion tools, and emerging trends/observations in this domain)
+
 ## Rising Stars
 (repos with trend_label=HIGH, ranked by momentum, with real metric citations)
 
@@ -1064,6 +1157,9 @@ MANDATORY REPORT STRUCTURE (markdown):
 --- REPOS DATA (use ONLY these) ---
 {repos_json}
 
+--- ECOSYSTEM INTEL (ground truth) ---
+{ecosystem_intel}
+
 --- SESSION QUERIES ---
 {queries}
 """
@@ -1082,6 +1178,89 @@ async def generate_report(
             "In the chat, ask me to search for repos, then click **Pin** on ones you want to include."
         )
 
+    from app.database import SessionLocal
+    from app.models.repository import Repository
+    from app.services.ecosystem import EcosystemClassifier, RelationshipGraphEngine, EcosystemStrengthScorer
+
+    # Gather ecosystem intelligence if there are >= 3 pins
+    ecosystem_intel = None
+    try:
+        with SessionLocal() as db:
+            db_repos = []
+            for p in pins:
+                owner_name = p.get("full_name", "")
+                if "/" in owner_name:
+                    owner, name = owner_name.split("/", 1)
+                    r = db.query(Repository).filter_by(owner=owner, name=name).first()
+                    if not r:
+                        # Auto-insert if missing in DB to ensure classification
+                        r = Repository(
+                            owner=owner,
+                            name=name,
+                            category="default",
+                            description=p.get("description") or "",
+                            github_url=p.get("github_url") or f"https://github.com/{owner}/{name}",
+                            primary_language=p.get("primary_language"),
+                            stars_snapshot=p.get("stars", 0),
+                            topics=p.get("topics", []),
+                            has_ci_cd=p.get("has_ci_cd", False),
+                            has_tests=p.get("has_tests", False),
+                            license_category=p.get("license_category", "unknown"),
+                        )
+                        db.add(r)
+                        db.commit()
+                        db.refresh(r)
+                    
+                    # Ensure categories/ecosystem cached
+                    dirty = False
+                    if not r.categories:
+                        r.categories = EcosystemClassifier.classify_repo(r)
+                        dirty = True
+                    if not r.ecosystem_data_json or not r.ecosystem_data_json.get("relationships"):
+                        graph = await RelationshipGraphEngine.build_relationships(r, db)
+                        r.ecosystem_data_json = {"relationships": graph["relationships"]}
+                        dirty = True
+                    if dirty:
+                        db.commit()
+                        db.refresh(r)
+
+                    db_repos.append(r)
+            
+            if db_repos:
+                # Determine the most common category among pins
+                from collections import Counter
+                categories = []
+                for r in db_repos:
+                    categories.extend(r.categories or [])
+                
+                if categories:
+                    primary_cat, _ = Counter(categories).most_common(1)[0]
+                    strength = EcosystemStrengthScorer.calculate_category_strength(primary_cat, db)
+                    
+                    # Find leaders in this category
+                    leaders = db.query(Repository).filter(
+                        Repository.is_active == True,
+                        Repository.category == primary_cat
+                    ).order_by(Repository.stars_snapshot.desc()).limit(5).all()
+                    leader_list = [f"{l.owner}/{l.name} ({l.stars_snapshot} stars)" for l in leaders]
+                    
+                    # Find companion categories
+                    from app.services.ecosystem import ADJACENCY_MAP
+                    adj = ADJACENCY_MAP.get(primary_cat, [])
+                    
+                    ecosystem_intel = {
+                        "primary_category": primary_cat,
+                        "strength_score": strength["score"],
+                        "strength_status": strength["status"],
+                        "strength_details": strength["details"],
+                        "active_projects": strength["metrics"]["active_projects"],
+                        "total_stars": strength["metrics"]["total_stars"],
+                        "leaders": leader_list,
+                        "companion_categories": adj,
+                    }
+    except Exception as exc:
+        logger.warning(f"Failed to gather ecosystem intelligence for report: {exc}", exc_info=True)
+
     if not GROQ_API_KEY:
         return _report_fallback(session_title, pins, queries_used)
 
@@ -1098,6 +1277,7 @@ async def generate_report(
 
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     queries_str = "\n".join(f"- {q}" for q in queries_used) if queries_used else "- (direct repo pins)"
+    ecosystem_intel_str = json.dumps(ecosystem_intel, indent=2) if ecosystem_intel else "No ecosystem data available."
 
     prompt = _REPORT_SYSTEM.format(
         title=session_title,
@@ -1105,6 +1285,7 @@ async def generate_report(
         queries=queries_str,
         repo_count=len(safe_pins),
         repos_json=json.dumps(safe_pins, indent=2),
+        ecosystem_intel=ecosystem_intel_str,
     )
 
     try:
@@ -1173,7 +1354,7 @@ async def process_message(
 
     # ── Stage 2: LLM parse ───────────────────────────────────────────────────
     parsed = await parse_intent(message, context_turns)
-    parsed = _best_effort_intent(message, parsed)
+    parsed = _best_effort_intent(message, parsed, has_context=bool(context_turns))
 
     # Guardrail 1 cont: low confidence → clarify
     if parsed.needs_clarification or parsed.confidence < 0.60:
@@ -1207,6 +1388,9 @@ async def process_message(
         repos, summary_line = await _handle_temporal(parsed)
     else:  # search | report | fallback
         repos, summary_line = await _handle_search(parsed)
+
+    # ── Enrich repos with Ecosystem Intelligence ──
+    repos = await _enrich_repos_with_ecosystem(repos)
 
     # ── Re-rank repos by intent profile ──
     repos = _rank_repos_by_profile(repos, intent_profile)
@@ -1270,7 +1454,7 @@ async def stream_process_message(
 
         # Stage 2
         parsed = await parse_intent(message, context_turns)
-        parsed = _best_effort_intent(message, parsed)
+        parsed = _best_effort_intent(message, parsed, has_context=bool(context_turns))
 
         if parsed.needs_clarification or parsed.confidence < 0.60:
             msg = parsed.clarification_prompt or "Could you rephrase or add more detail?"
@@ -1303,6 +1487,9 @@ async def stream_process_message(
             repos, summary_line = await _handle_temporal(parsed)
         else:
             repos, summary_line = await _handle_search(parsed)
+
+        # ── Enrich repos with Ecosystem Intelligence ──
+        repos = await _enrich_repos_with_ecosystem(repos)
 
         # Re-rank repos by intent profile
         repos = _rank_repos_by_profile(repos, intent_profile)

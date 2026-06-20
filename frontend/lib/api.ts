@@ -1216,6 +1216,16 @@ export const api = {
       body: JSON.stringify({ email, verticals }),
     }),
 
+  // Ecosystem Intelligence
+  getEcosystemMap: (repo: string) =>
+    apiFetch<EcosystemMapResponse>(`/ecosystem/${repo}`),
+  getAlternatives: (repo: string) =>
+    apiFetch<EcosystemRelationship[]>(`/alternatives/${repo}`),
+  getRelatedTechnologies: (repo: string) =>
+    apiFetch<EcosystemRelationship[]>(`/related-technologies/${repo}`),
+  generateEcosystemReport: (repo: string) =>
+    apiFetch<{ content_md: string }>(`/ecosystem/${repo}/report`, { method: "POST" }),
+
   // ── Research Mode ────────────────────────────────────────────────────────
   research: {
     createSession: (userId: string, title?: string, description?: string, verticals?: string[]) =>
@@ -1434,4 +1444,35 @@ export interface ResearchSpeechToText {
   model: string;
   language: string | null;
   duration_seconds: number | null;
+}
+
+export interface EcosystemRelationship {
+  related_repo: string;
+  relationship: "alternative" | "companion" | "dependency";
+  source: string;
+  confidence: number;
+  explanation: string;
+  stars: number;
+  primary_language: string | null;
+  description: string;
+}
+
+export interface EcosystemStrength {
+  score: number;
+  status: string;
+  details: string;
+  metrics: {
+    active_projects: number;
+    total_stars: number;
+    average_velocity: number;
+  };
+}
+
+export interface EcosystemMapResponse {
+  repo_id: string;
+  full_name: string;
+  categories: string[];
+  primary_category: string;
+  strength: EcosystemStrength;
+  relationships: EcosystemRelationship[];
 }
