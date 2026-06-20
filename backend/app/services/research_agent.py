@@ -29,7 +29,7 @@ from typing import Any, AsyncIterator
 
 import aiohttp
 
-from app.utils.llm import async_chat_completion, GROQ_API_KEY
+from app.utils.llm import async_chat_completion, GROQ_API_KEY, GROQ_MODEL
 
 logger = logging.getLogger(__name__)
 
