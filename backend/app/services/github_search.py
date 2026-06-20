@@ -394,7 +394,7 @@ def _start_date(period: str) -> str:
 
 
 import json
-import groq
+from app.utils.llm import async_chat_completion
 
 async def _dynamic_topics(category: str, limit: int = 15) -> list[str]:
     """Dynamically generate GitHub topics for a given vertical or category using an LLM."""
@@ -413,14 +413,14 @@ async def _dynamic_topics(category: str, limit: int = 15) -> list[str]:
     """
     
     try:
-        client = groq.AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
-        completion = await client.chat.completions.create(
+        content = await async_chat_completion(
             messages=[{"role": "user", "content": prompt}],
-            model="llama-3.3-70b-versatile",
-            response_format={"type": "json_object"},
             temperature=0.2,
+            response_format={"type": "json_object"},
         )
-        data = json.loads(completion.choices[0].message.content)
+        if not content:
+            raise ValueError("No response from Groq")
+        data = json.loads(content)
         tags = data.get("topics", [])
         return [f"topic:{t}" for t in tags[:limit]]
     except Exception as e:

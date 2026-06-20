@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.middleware import APIKeyMiddleware
 
-from app.database import engine
+from app.database import engine, ensure_db_schema_upgraded
 from app.models import Repository, DailyMetric, ComputedMetric  # noqa — registers models
 from app.models import WatchlistItem, ApiKey, RepoContributor, ForkSnapshot, EcosystemReport  # noqa
 from app.models.a2a_service import A2AService, A2ACapability  # noqa — ensure A2A tables are created
@@ -308,6 +308,7 @@ async def lifespan(app: FastAPI):
 
     # Create all tables (idempotent)
     Base.metadata.create_all(bind=engine)
+    ensure_db_schema_upgraded(engine)
     logger.info("Database tables ensured.")
 
     # Seed repos from YAML (idempotent)

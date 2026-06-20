@@ -141,6 +141,109 @@ function RepoCard({
         ))}
       </div>
 
+      {/* Confidence and Risk Row */}
+      {(repo.confidence_score !== undefined || repo.risk_score !== undefined) && (
+        <div style={{ display: "flex", gap: "10px", alignItems: "center", margin: "4px 0", flexWrap: "wrap" }}>
+          {repo.confidence_score !== undefined && (
+            <div
+              title={repo.confidence_reason}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+                fontSize: "11px",
+                fontFamily: "var(--font-sans)",
+                fontWeight: 600,
+                color: repo.confidence_level === "High" ? "#3fb950" : repo.confidence_level === "Medium" ? "#e3b341" : "#f85149",
+                background: repo.confidence_level === "High" ? "rgba(63,185,80,0.1)" : repo.confidence_level === "Medium" ? "rgba(227,179,65,0.1)" : "rgba(248,81,73,0.1)",
+                border: `1px solid ${repo.confidence_level === "High" ? "rgba(63,185,80,0.2)" : repo.confidence_level === "Medium" ? "rgba(227,179,65,0.2)" : "rgba(248,81,73,0.2)"}`,
+                borderRadius: "6px",
+                padding: "2px 8px",
+                cursor: "help",
+              }}
+            >
+              🛡️ Confidence: {repo.confidence_score}% ({repo.confidence_level})
+            </div>
+          )}
+
+          {repo.risk_score !== undefined && (
+            <div
+              title={repo.risk_factors && repo.risk_factors.length > 0 ? `Risk Factors:\n- ${repo.risk_factors.join("\n- ")}` : "No risk factors detected"}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+                fontSize: "11px",
+                fontFamily: "var(--font-sans)",
+                fontWeight: 600,
+                color: repo.risk_score >= 50 ? "#f85149" : repo.risk_score >= 20 ? "#e3b341" : C.textSub,
+                background: repo.risk_score >= 50 ? "rgba(248,81,73,0.1)" : repo.risk_score >= 20 ? "rgba(227,179,65,0.1)" : C.bgHover,
+                border: `1px solid ${repo.risk_score >= 50 ? "rgba(248,81,73,0.2)" : repo.risk_score >= 20 ? "rgba(227,179,65,0.2)" : C.border}`,
+                borderRadius: "6px",
+                padding: "2px 8px",
+                cursor: repo.risk_factors && repo.risk_factors.length > 0 ? "help" : "default",
+              }}
+            >
+              ⚠️ Risk Score: {repo.risk_score}/100
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Citations and QA Badges */}
+      {(repo.has_ci_cd || repo.has_tests || (repo.evidence_citations && repo.evidence_citations.length > 0)) && (
+        <details style={{ marginTop: "4px", width: "100%" }}>
+          <summary style={{
+            fontSize: "11px",
+            fontFamily: "var(--font-sans)",
+            color: C.textSub,
+            cursor: "pointer",
+            userSelect: "none",
+            fontWeight: 600,
+            outline: "none",
+          }}>
+            📋 Analysis & QA Evidence ({repo.evidence_citations?.length || 0})
+          </summary>
+          <div style={{
+            marginTop: "6px",
+            padding: "8px 10px",
+            background: C.bgHover,
+            border: `1px solid ${C.border}`,
+            borderRadius: "6px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "6px",
+          }}>
+            {/* Badges */}
+            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+              {repo.has_ci_cd && (
+                <span style={{ fontSize: "10px", fontWeight: 700, background: "rgba(56,139,253,0.15)", color: "#58a6ff", border: "1px solid rgba(56,139,253,0.3)", borderRadius: "4px", padding: "1px 6px" }}>
+                  ✓ CI/CD ACTIVE
+                </span>
+              )}
+              {repo.has_tests && (
+                <span style={{ fontSize: "10px", fontWeight: 700, background: "rgba(56,139,253,0.15)", color: "#58a6ff", border: "1px solid rgba(56,139,253,0.3)", borderRadius: "4px", padding: "1px 6px" }}>
+                  ✓ TEST SUITE
+                </span>
+              )}
+              {repo.license_category && (
+                <span style={{ fontSize: "10px", fontWeight: 700, background: C.bgCard, color: C.textSub, border: `1px solid ${C.border}`, borderRadius: "4px", padding: "1px 6px" }}>
+                  LICENSE: {repo.license_category.toUpperCase()}
+                </span>
+              )}
+            </div>
+            {/* Citations List */}
+            {repo.evidence_citations && repo.evidence_citations.length > 0 && (
+              <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "10.5px", fontFamily: "var(--font-sans)", color: C.textSub, lineHeight: 1.4 }}>
+                {repo.evidence_citations.map((cit, idx) => (
+                  <li key={idx} style={{ marginBottom: "2px" }}>{cit}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </details>
+      )}
+
       <div style={{ display: "flex", gap: "6px", marginTop: "2px", flexWrap: "wrap" }}>
         <button
           onClick={() => onPin(repo)}

@@ -7,17 +7,13 @@ import os
 import logging
 from typing import Optional
 
-from groq import Groq
 from dotenv import load_dotenv
+from app.utils.llm import sync_chat_completion, GROQ_API_KEY
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-
-client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 SYSTEM_PROMPT = """You are an AI infrastructure analyst writing for a technical analyst audience.
 Your tone is direct, precise, and data-driven — similar to a Bloomberg Intelligence brief.
@@ -51,8 +47,8 @@ def generate_explanation(
     Calls Groq to generate an analyst explanation for a trending repo.
     Returns the explanation string, or None if Groq is unavailable.
     """
-    if not client:
-        logger.warning("Groq client not configured — skipping explanation generation")
+    if not GROQ_API_KEY:
+        logger.warning("Groq API key not configured — skipping explanation generation")
         return None
 
     release_boost = "Yes" if metrics.get("trend_score", 0) > 0 and metrics.get("acceleration", 0) > 0 else "No"
@@ -71,22 +67,18 @@ def generate_explanation(
         primary_language=primary_language or "Unknown",
     )
 
-    try:
-        response = client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.3,
-            max_tokens=300,
-        )
-        explanation = (response.choices[0].message.content or "").strip()
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": prompt},
+    ]
+    explanation = sync_chat_completion(
+        messages=messages,
+        temperature=0.3,
+        max_tokens=300,
+    )
+    if explanation:
         logger.info(f"Generated explanation for {owner}/{repo_name}")
-        return explanation
-    except Exception as e:
-        logger.error(f"Groq explanation failed for {owner}/{repo_name}: {e}")
-        return None
+    return explanation
 
 
 def enrich_top_repos_with_explanations(top_n: int = 20) -> int:
@@ -207,7 +199,7 @@ def generate_repo_summary(
     contributors: int,
 ) -> Optional[str]:
     """Generate a 3-sentence plain-English summary for a repo. Cached weekly."""
-    if not client:
+    if not GROQ_API_KEY:
         return None
 
     prompt = SUMMARY_TEMPLATE.format(
@@ -222,22 +214,18 @@ def generate_repo_summary(
         contributors=contributors,
     )
 
-    try:
-        response = client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[
-                {"role": "system", "content": SUMMARY_SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.4,
-            max_tokens=200,
-        )
-        summary = (response.choices[0].message.content or "").strip()
+    messages = [
+        {"role": "system", "content": SUMMARY_SYSTEM_PROMPT},
+        {"role": "user", "content": prompt},
+    ]
+    summary = sync_chat_completion(
+        messages=messages,
+        temperature=0.4,
+        max_tokens=200,
+    )
+    if summary:
         logger.info(f"Generated summary for {owner}/{repo_name}")
-        return summary
-    except Exception as e:
-        logger.error(f"Groq summary failed for {owner}/{repo_name}: {e}")
-        return None
+    return summary
 
 
 def enrich_repos_with_summaries(top_n: int = 30, score_delta_threshold: float = 10.0) -> int:
@@ -438,7 +426,7 @@ def generate_deep_summary(
         "use_cases": [],
     }
 
-    if not client:
+    if not GROQ_API_KEY:
         return fallback
 
     languages_str = ", ".join(
@@ -457,17 +445,18 @@ def generate_deep_summary(
         readme=readme[:3000] if readme else "Not available",
     )
 
+    messages = [
+        {"role": "system", "content": DEEP_SUMMARY_SYSTEM},
+        {"role": "user", "content": prompt},
+    ]
+    raw = sync_chat_completion(
+        messages=messages,
+        temperature=0.3,
+        max_tokens=700,
+    )
+    if not raw:
+        return fallback
     try:
-        response = client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[
-                {"role": "system", "content": DEEP_SUMMARY_SYSTEM},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.3,
-            max_tokens=700,
-        )
-        raw = (response.choices[0].message.content or "").strip()
         # Strip any accidental markdown fences
         if raw.startswith("```"):
             raw = raw.split("```")[1]

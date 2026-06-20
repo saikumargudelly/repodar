@@ -22,6 +22,8 @@ def test_production_db_overview_retrieval():
     assert database_url.startswith("postgresql"), "Must be a PostgreSQL database"
     
     engine = create_engine(database_url)
+    from app.database import ensure_db_schema_upgraded
+    ensure_db_schema_upgraded(engine)
     Session = sessionmaker(bind=engine)
     session = Session()
     

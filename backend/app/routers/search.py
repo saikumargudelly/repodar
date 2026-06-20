@@ -25,8 +25,7 @@ from app.utils.db import get_latest_metric_subquery, get_latest_daily_metric_sub
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/search", tags=["Search"])
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-GROQ_MODEL   = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+from app.utils.llm import sync_chat_completion, GROQ_API_KEY
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 
 _GITHUB_HEADERS = {
@@ -171,18 +170,17 @@ def _parse_query(query: str) -> Optional[dict]:
     if not GROQ_API_KEY:
         return None
     try:
-        from groq import Groq
-        client = Groq(api_key=GROQ_API_KEY)
-        resp = client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[
-                {"role": "system", "content": _PARSE_SYSTEM},
-                {"role": "user",   "content": query},
-            ],
+        messages = [
+            {"role": "system", "content": _PARSE_SYSTEM},
+            {"role": "user",   "content": query},
+        ]
+        raw = sync_chat_completion(
+            messages=messages,
             temperature=0.1,
             max_tokens=400,
         )
-        raw = (resp.choices[0].message.content or "").strip()
+        if not raw:
+            raise ValueError("No response from Groq")
         # Strip markdown code fences if present
         if raw.startswith("```"):
             lines = raw.split("\n")

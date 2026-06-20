@@ -42,6 +42,7 @@ class ResearchSession(Base):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     # JSON array of vertical keys active for this session, e.g. '["ai_ml","devtools"]'
     verticals_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    intent_profile: Mapped[str] = mapped_column(String(50), nullable=False, default="developer")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 

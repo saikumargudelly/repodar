@@ -95,6 +95,7 @@ def _serialize_session(s: ResearchSession) -> dict:
         "title": s.title,
         "description": s.description,
         "verticals": json.loads(s.verticals_json) if s.verticals_json else [],
+        "intent_profile": s.intent_profile,
         "message_count": len(s.messages),
         "pin_count": len(s.pins),
         "has_report": s.report is not None,
@@ -141,18 +142,21 @@ class CreateSessionRequest(BaseModel):
     title: str = "Untitled Research"
     description: Optional[str] = None
     verticals: List[str] = []
+    intent_profile: str = "developer"
 
 
 class UpdateSessionRequest(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     verticals: Optional[List[str]] = None
+    intent_profile: Optional[str] = None
 
 
 class SendMessageRequest(BaseModel):
     user_id: str
     content: str = Field(..., min_length=1, max_length=2000)
     user_tier: str = "free"  # free | pro | team
+    intent_profile: Optional[str] = None
 
 
 class PinRepoRequest(BaseModel):
@@ -292,6 +296,7 @@ async def create_session(body: CreateSessionRequest, db: Session = Depends(get_d
             title=body.title.strip() or "Untitled Research",
             description=body.description,
             verticals_json=json.dumps(body.verticals) if body.verticals else None,
+            intent_profile=body.intent_profile,
         )
         db.add(s)
         db.commit()
@@ -357,6 +362,8 @@ async def update_session(
             s.description = body.description
         if body.verticals is not None:
             s.verticals_json = json.dumps(body.verticals)
+        if body.intent_profile is not None:
+            s.intent_profile = body.intent_profile
         s.updated_at = _utcnow()
         db.commit()
     await asyncio.to_thread(_update)
@@ -400,11 +407,18 @@ async def send_message(
         if m.id != user_msg.id  # exclude the one we just added
     ]
 
+    # Update profile if provided in message payload
+    profile = body.intent_profile or s.intent_profile
+    if body.intent_profile and body.intent_profile != s.intent_profile:
+        s.intent_profile = body.intent_profile
+        db.commit()
+
     # Run agent
     result = await process_message(
         message=body.content,
         context_turns=context,
         user_tier=body.user_tier,
+        intent_profile=profile,
     )
 
     # Save agent message
@@ -438,6 +452,7 @@ async def stream_message(
     user_id: str = Query(...),
     message: str = Query(..., min_length=1, max_length=2000),
     user_tier: str = Query("free"),
+    intent_profile: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
     """
@@ -469,6 +484,12 @@ async def stream_message(
         )[-7:-1]  # last 6 messages before the current one
     ]
 
+    # Update profile if specified in query param
+    profile = intent_profile or s.intent_profile
+    if intent_profile and intent_profile != s.intent_profile:
+        s.intent_profile = intent_profile
+        db.commit()
+
     # Accumulate agent output to persist after streaming
     collected_content: list[str] = []
     collected_repos: list[dict] = []
@@ -481,6 +502,7 @@ async def stream_message(
                 message=message,
                 context_turns=context,
                 user_tier=user_tier,
+                intent_profile=profile,
             ):
                 yield chunk
                 # Parse to accumulate

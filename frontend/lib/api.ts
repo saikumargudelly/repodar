@@ -1399,6 +1399,16 @@ export interface ResearchRepo {
   velocity_proxy: number;
   momentum: number;
   trend_label: "HIGH" | "MID" | "LOW";
+  confidence_score?: number;
+  confidence_level?: string;
+  confidence_reason?: string;
+  risk_score?: number;
+  risk_factors?: string[];
+  evidence_citations?: string[];
+  has_ci_cd?: boolean;
+  has_tests?: boolean;
+  license_category?: string;
+  readme_len?: number;
 }
 
 export interface ResearchSharedView {

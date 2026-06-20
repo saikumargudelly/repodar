@@ -16,10 +16,9 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.models import Repository, ComputedMetric, DailyMetric
 from app.models.ecosystem_report import EcosystemReport
+from app.utils.llm import sync_chat_completion
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
-
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 
 # ─── Schemas ─────────────────────────────────────────────────────────────────
@@ -109,22 +108,18 @@ Category momentum:
 Provide a strategic summary covering: which signals are most significant, 
 what ecosystem shifts are emerging, and what analysts should watch next week."""
 
-    try:
-        from groq import Groq
-        import os
-        client = Groq(api_key=os.getenv("GROQ_API_KEY", ""))
-        response = client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[
-                {"role": "system", "content": "You are a senior AI infrastructure analyst. Be concise, analytical, and signal-focused."},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.3,
-            max_tokens=350,
-        )
-        return (response.choices[0].message.content or "").strip()
-    except Exception as e:
-        return f"Strategic insight generation unavailable: {e}"
+    messages = [
+        {"role": "system", "content": "You are a senior AI infrastructure analyst. Be concise, analytical, and signal-focused."},
+        {"role": "user", "content": prompt},
+    ]
+    res = sync_chat_completion(
+        messages=messages,
+        temperature=0.3,
+        max_tokens=350,
+    )
+    if res:
+        return res
+    return "Strategic insight generation unavailable: Rate limit or API error."
 
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────

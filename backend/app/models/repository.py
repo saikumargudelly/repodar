@@ -50,11 +50,14 @@ class Repository(Base):
     discovered_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
     last_seen_trending: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
 
-    # GitHub topic tags — JSON array of strings
-    # Populated from GitHub's repositoryTopics API; refreshed on each ingestion run.
     from sqlalchemy import JSON
     from sqlalchemy.dialects.postgresql import JSONB
     topics: Mapped[Optional[list[str]]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True, default=None)
+    tech_stack_json: Mapped[Optional[list[str]]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True, default=None)
+    dependencies_json: Mapped[Optional[dict]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True, default=None)
+    license_category: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default="unknown")
+    has_ci_cd: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    has_tests: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # Current total stars snapshot — denormalised here for fast Early-Radar
     # queries without joining daily_metrics. Updated by the ingestion pipeline.

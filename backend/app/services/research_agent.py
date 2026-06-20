@@ -29,11 +29,12 @@ from typing import Any, AsyncIterator
 
 import aiohttp
 
+from app.utils.llm import async_chat_completion, GROQ_API_KEY
+
 logger = logging.getLogger(__name__)
 
-GROQ_API_KEY  = os.getenv("GROQ_API_KEY", "")
-GROQ_MODEL    = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 GITHUB_TOKEN  = os.getenv("GITHUB_TOKEN", "")
+
 
 _GH_HEADERS = {
     "Authorization": f"Bearer {GITHUB_TOKEN}",
@@ -215,15 +216,14 @@ async def parse_intent(message: str, context_turns: list[dict]) -> ParsedIntent:
     }
 
     try:
-        async with aiohttp.ClientSession() as sess:
-            async with sess.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-                json=payload,
-                timeout=aiohttp.ClientTimeout(total=8),
-            ) as resp:
-                data = await resp.json()
-        raw = data["choices"][0]["message"]["content"]
+        raw = await async_chat_completion(
+            messages=payload["messages"],
+            temperature=payload["temperature"],
+            max_tokens=payload["max_tokens"],
+            response_format=payload.get("response_format"),
+        )
+        if not raw:
+            raise ValueError("No response from Groq")
         parsed = json.loads(raw)
         
         queries = parsed.get("github_queries", [])
@@ -451,8 +451,62 @@ def _compute_efficiency_score(stars: int, forks: int, open_issues: int,
     return round(min(1.0, score), 4)
 
 
-def _normalize_repo(raw: dict) -> dict:
-    """Convert GitHub API item -> clean Repodar schema with efficiency scoring."""
+async def _scan_repo_contents(owner: str, name: str) -> dict:
+    """Scans repository contents via API to check for CI/CD, tests, and README size."""
+    from fastapi_cache import FastAPICache
+    cache_backend = None
+    try:
+        cache_backend = FastAPICache.get_backend()
+    except Exception:
+        pass
+
+    cache_key = f"agent:analysis:{owner}:{name}".lower()
+    if cache_backend:
+        try:
+            cached = await cache_backend.get(cache_key)
+            if cached:
+                return json.loads(cached)
+        except Exception:
+            pass
+
+    result = {
+        "has_ci_cd": False,
+        "has_tests": False,
+        "readme_len": 0,
+    }
+
+    # Fetch contents of root directory
+    url = f"https://api.github.com/repos/{owner}/{name}/contents"
+    try:
+        async with aiohttp.ClientSession() as sess:
+            async with sess.get(url, headers=_GH_HEADERS, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                if resp.status == 200:
+                    items = await resp.json()
+                    if isinstance(items, list):
+                        for item in items:
+                            name_lc = item.get("name", "").lower()
+                            itype = item.get("type", "")
+                            
+                            if name_lc == ".github" and itype == "dir":
+                                result["has_ci_cd"] = True
+                            if name_lc in ("tests", "test", "spec", "testing") and itype == "dir":
+                                result["has_tests"] = True
+                            if "readme" in name_lc:
+                                result["readme_len"] = item.get("size", 0)
+    except Exception as exc:
+        logger.warning(f"Failed to scan contents for {owner}/{name}: {exc}")
+
+    if cache_backend:
+        try:
+            await cache_backend.set(cache_key, json.dumps(result), expire=86400) # 24 hours
+        except Exception:
+            pass
+
+    return result
+
+
+async def _normalize_repo(raw: dict) -> dict:
+    """Convert GitHub API item -> clean Repodar schema with efficiency scoring and research metrics."""
     pushed      = raw.get("pushed_at") or ""
     created_at  = raw.get("created_at") or ""
     age_days    = 0
@@ -498,10 +552,46 @@ def _normalize_repo(raw: dict) -> dict:
     else:
         trend_label = "LOW"
 
+    owner = (raw.get("owner") or {}).get("login", "")
+    name = raw.get("name", "")
+    
+    # ─── Analysis Agent: Directory Scans ───
+    scan = await _scan_repo_contents(owner, name)
+    
+    # Categorise license
+    license_key = (raw.get("license") or {}).get("key", "").lower()
+    if any(k in license_key for k in ["mit", "apache", "bsd", "isc", "unlicense"]):
+        license_category = "permissive"
+    elif any(k in license_key for k in ["gpl", "agpl", "lgpl", "mpl"]):
+        license_category = "copyleft"
+    else:
+        license_category = "unknown"
+
+    # Compute scores using ResearchScorer
+    from app.services.research_intelligence import ResearchScorer
+    repo_data = {
+        "stars": stars,
+        "forks": forks,
+        "open_issues": open_issues,
+        "velocity_proxy": velocity_proxy,
+        "star_velocity_30d": velocity_proxy * 0.8,
+        "days_since_push": days_since_push,
+        "has_ci_cd": scan["has_ci_cd"],
+        "has_tests": scan["has_tests"],
+        "license_category": license_category,
+        "license": (raw.get("license") or {}).get("spdx_id") or "MIT",
+        "readme_len": scan["readme_len"],
+        "contributors": raw.get("contributors_count") or 5,
+    }
+
+    conf = ResearchScorer.calculate_confidence_score(repo_data)
+    risk = ResearchScorer.calculate_risk_score(repo_data)
+    citations = ResearchScorer.generate_evidence_citations(repo_data)
+
     return {
         "repo_id":          raw.get("id"),
-        "owner":            (raw.get("owner") or {}).get("login", ""),
-        "name":             raw.get("name", ""),
+        "owner":            owner,
+        "name":             name,
         "full_name":        raw.get("full_name", ""),
         "description":      raw.get("description") or "",
         "github_url":       raw.get("html_url", ""),
@@ -523,7 +613,75 @@ def _normalize_repo(raw: dict) -> dict:
         "momentum":         efficiency,       # alias — keeps frontend field name working
         "trend_label":      trend_label,
         "days_since_push":  days_since_push,
+        
+        # Scoring metrics
+        "has_ci_cd":         scan["has_ci_cd"],
+        "has_tests":         scan["has_tests"],
+        "license_category":  license_category,
+        "readme_len":        scan["readme_len"],
+        "confidence_score":  conf["score"],
+        "confidence_level":  conf["level"],
+        "confidence_reason": conf["reason"],
+        "risk_score":        risk["score"],
+        "risk_factors":      risk["factors"],
+        "evidence_citations": citations,
     }
+
+
+def _rank_repos_by_profile(repos: list[dict], profile: str) -> list[dict]:
+    """Re-ranks a list of normalized repositories based on the Research Intent Profile."""
+    if not repos:
+        return []
+
+    profile = (profile or "developer").lower()
+    
+    scored_repos = []
+    for r in repos:
+        stars = float(r.get("stars") or 0)
+        velocity = float(r.get("velocity_proxy") or 0.0)
+        efficiency = float(r.get("efficiency") or 0.0)
+        conf = float(r.get("confidence_score") or 50.0)
+        risk = float(r.get("risk_score") or 0.0)
+        readme_len = float(r.get("readme_len") or 0)
+        lic_cat = r.get("license_category") or "unknown"
+        has_ci = bool(r.get("has_ci_cd"))
+        has_tests = bool(r.get("has_tests"))
+        
+        score = 0.0
+        
+        if profile == "startup_founder":
+            # Growth-focused: prioritize trend velocity and efficiency
+            score = (velocity * 10.0) + (efficiency * 100.0) + (conf * 0.2)
+        elif profile == "enterprise_architect":
+            # Compliance & Risk-focused: prioritize low risk, permissive license, CI/CD, tests
+            lic_bonus = 30.0 if lic_cat == "permissive" else (10.0 if lic_cat == "copyleft" else 0.0)
+            ci_bonus = 15.0 if has_ci else 0.0
+            test_bonus = 15.0 if has_tests else 0.0
+            risk_penalty = risk * 0.8
+            score = (100.0 - risk_penalty) + lic_bonus + ci_bonus + test_bonus
+        elif profile == "student":
+            # Readability-focused: docs quality (readme_len) and stars
+            docs_score = min(readme_len / 100.0, 60.0)  # max 60 points
+            stars_score = min(stars / 1000.0, 40.0)      # max 40 points
+            score = docs_score + stars_score + (conf * 0.1)
+        elif profile == "researcher":
+            # Innovation-focused: emerging/low-star count + trend stability (no massive spikes)
+            if 500 <= stars <= 15000:
+                emerging_score = 50.0
+            elif stars < 500:
+                emerging_score = 30.0
+            else:
+                emerging_score = max(0.0, 50.0 - (stars - 15000) / 1000.0)
+            score = emerging_score + (conf * 0.5) - (risk * 0.1)
+        else:
+            # developer (default): balanced profile
+            score = conf - (risk * 0.3) + min(stars / 5000.0, 10.0)
+            
+        scored_repos.append((score, r))
+        
+    # Sort descending by score, tie-break with stars
+    scored_repos.sort(key=lambda x: (x[0], x[1].get("stars", 0)), reverse=True)
+    return [item[1] for item in scored_repos]
 
 
 # ─── Intent handlers ─────────────────────────────────────────────────────────
@@ -536,14 +694,32 @@ async def _handle_search(parsed: ParsedIntent) -> tuple[list[dict], str]:
     Adds a broad safety-net fallback if everything returns empty.
     """
     import asyncio as _aio
+    from app.services.research_intelligence import QueryExpansionEngine
 
     queries = [q.strip() for q in parsed.github_queries if q.strip()]
     if not queries:
         return [], "No valid search queries generated."
 
+    # ─── Query Expansion ───
+    expanded_queries = []
+    for q in queries[:2]:
+        import re as _re
+        base_query = _re.sub(r'\b\S+:[<>=]?\S+', '', q).strip()
+        base_query = base_query.replace('(', '').replace(')', '').strip()
+        if base_query:
+            expansions = await QueryExpansionEngine.expand_query(base_query)
+            qualifiers = " ".join(_re.findall(r'\b\S+:[<>=]?\S+', q))
+            for exp in expansions[:3]:
+                eq = f'"{exp}" {qualifiers}'.strip() if " " in exp else f"{exp} {qualifiers}".strip()
+                if eq not in queries and eq not in expanded_queries:
+                    expanded_queries.append(eq)
+
+    all_queries = queries + expanded_queries
+    all_queries = all_queries[:6]
+
     # Run ALL queries in parallel, then accumulate
     results_batches = await _aio.gather(
-        *[_github_search(q, per_page=30) for q in queries],
+        *[_github_search(q, per_page=30) for q in all_queries],
         return_exceptions=True,
     )
 
@@ -561,15 +737,12 @@ async def _handle_search(parsed: ParsedIntent) -> tuple[list[dict], str]:
     # --- Safety-net fallback: if ALL queries returned 0, broaden the search ---
     if not seen:
         logger.info("All LLM-generated queries returned 0 results — running broad fallback")
-        # Extract keywords from the first query (strip qualifiers like pushed:>= stars:>=)
         import re as _re
         first_q = queries[0] if queries else ""
-        broad = _re.sub(r'\S+:>=?\S+', '', first_q).strip()  # remove field:value qualifiers
+        broad = _re.sub(r'\S+:>=?\S+', '', first_q).strip()
         if not broad:
-            # Build from entities topics
             topics = parsed.entities.get("topics", [])
             broad = " OR ".join(topics[:3]) if topics else "machine-learning"
-        # Try a completely unconstrained search
         fallback_results = await _github_search(
             f"{broad} stars:>=100",
             per_page=30,
@@ -579,9 +752,10 @@ async def _handle_search(parsed: ParsedIntent) -> tuple[list[dict], str]:
             if rid and not r.get("archived"):
                 seen[rid] = r
 
-    repos = [_normalize_repo(r) for r in seen.values()]
+    normalized = await _aio.gather(*[_normalize_repo(r) for r in seen.values()])
+    repos = [r for r in normalized if r]
     repos.sort(key=lambda r: (r["efficiency"], r["stars"]), reverse=True)
-    repos = repos[:30]  # cap at 30
+    repos = repos[:30]
     return repos, f"Found {len(repos)} repositories matching your query."
 
 
@@ -597,7 +771,8 @@ async def _handle_compare(parsed: ParsedIntent) -> tuple[list[dict], str]:
         _github_repo(r.split("/")[0], r.split("/")[1])
         for r in repo_names if "/" in r
     ])
-    repos = [_normalize_repo(r) for r in results if r]
+    normalized = await _aio.gather(*[_normalize_repo(r) for r in results if r])
+    repos = [r for r in normalized if r]
     return repos, f"Comparing {len(repos)} repositories."
 
 
@@ -611,14 +786,18 @@ async def _handle_landscape(parsed: ParsedIntent) -> tuple[list[dict], str]:
 
     all_items = await _aio.gather(*[_github_search(q, per_page=20) for q in queries])
     seen: set[int] = set()
-    repos = []
+    raw_repos = []
     for items in all_items:
+        if not isinstance(items, list):
+            continue
         for raw in items:
             rid = raw.get("id")
             if rid not in seen and not raw.get("archived"):
                 seen.add(rid)
-                repos.append(_normalize_repo(raw))
+                raw_repos.append(raw)
 
+    normalized = await _aio.gather(*[_normalize_repo(r) for r in raw_repos])
+    repos = [r for r in normalized if r]
     repos.sort(key=lambda r: (r["efficiency"], r["stars"]), reverse=True)
     repos = repos[:30]
     return repos, f"Mapped {len(repos)} repositories across the ecosystem."
@@ -646,10 +825,8 @@ async def _handle_temporal(parsed: ParsedIntent) -> tuple[list[dict], str]:
             since_key = "7d" if period == "weekly" else "1d"
             raw_trending = await _fetch_trending(since_key, limit=30)
             if raw_trending:
-                repos = []
-                for i, r in enumerate(raw_trending):
-                    norm = _normalize_repo(r)
-                    repos.append(norm)
+                normalized = await _aio.gather(*[_normalize_repo(r) for r in raw_trending])
+                repos = [r for r in normalized if r]
                 repos.sort(key=lambda r: (r["efficiency"], r["stars"]), reverse=True)
                 return repos, f"Fetched {len(repos)} trending repos from GitHub Trending ({period})."
         except Exception as exc:
@@ -679,17 +856,23 @@ async def _handle_temporal(parsed: ParsedIntent) -> tuple[list[dict], str]:
         return [], "Found 0 repositories matching the temporal queries."
 
     seen: set[int] = set()
-    new_repos: list[dict] = []
+    raw_recent = []
     for r in recent_items:
         if not r.get("archived"):
             seen.add(r["id"])
-            new_repos.append(_normalize_repo(r))
+            raw_recent.append(r)
 
-    established: list[dict] = []
+    raw_older = []
     for r in older_items:
         if r.get("id") not in seen and not r.get("archived"):
             seen.add(r.get("id"))
-            established.append(_normalize_repo(r))
+            raw_older.append(r)
+
+    normalized_recent = await _aio.gather(*[_normalize_repo(r) for r in raw_recent])
+    normalized_older = await _aio.gather(*[_normalize_repo(r) for r in raw_older])
+
+    new_repos = [r for r in normalized_recent if r]
+    established = [r for r in normalized_older if r]
 
     new_repos.sort(key=lambda r: (r["efficiency"], r["stars"]), reverse=True)
     established.sort(key=lambda r: (r["efficiency"], r["stars"]), reverse=True)
@@ -711,7 +894,8 @@ async def _handle_repo_detail(parsed: ParsedIntent, owner: str = "", name: str =
     raw = await _github_repo(owner, name)
     if not raw:
         return [], f"Repository `{owner}/{name}` not found on GitHub."
-    return [_normalize_repo(raw)], f"Fetched live data for `{owner}/{name}`."
+    normalized = await _normalize_repo(raw)
+    return [normalized], f"Fetched live data for `{owner}/{name}`."
 
 
 # ─── Response synthesizer (Guardrail 2 + 3) ──────────────────────────────────
@@ -728,12 +912,15 @@ HARD RULES — violating any is disqualifying:
    "revolutionary", "exciting", "amazing" — unless momentum=HIGH AND supported by data.
 6. Do NOT speculate on future trajectory. Describe only what the data shows NOW.
 7. If the question cannot be answered from REPOS DATA, say so directly.
+8. Every narrative claim made about a repository (such as quality, activity, QA, license) MUST end with a citation to its evidence_citations. Format citation exactly as: `[owner/name: citation string]`.
 
 TONE: Factual. Concise. Analyst-grade. No filler. No exclamation marks.
 
 FORMAT:
 - Start with 1-sentence factual summary (e.g. "Found 6 active Rust web frameworks.")
-- List repos as: `owner/name` — Xk ⭐ · TREND_LABEL · one-line description
+- Render a side-by-side markdown comparison table comparing the repositories (max 5) on Stars, Trend, Confidence, Risk, and a Best-fit Recommendation.
+- List each repository with a pros and cons list.
+- Every claim must have the format: `[owner/name: citation string]`.
 - End with ≤2 follow-up suggestions prefixed with > 💡
 
 --- REPOS DATA (ground truth — use ONLY these) ---
@@ -790,7 +977,9 @@ async def _synthesize(
          if k in {"full_name","owner","name","stars","forks","open_issues",
                   "watchers","primary_language","description","topics","license",
                   "age_days","pushed_at","trend_label","momentum","velocity_proxy",
-                  "is_fork","archived","github_url"}}
+                  "is_fork","archived","github_url","confidence_score",
+                  "confidence_level","confidence_reason","risk_score","risk_factors",
+                  "evidence_citations","has_ci_cd","has_tests","license_category","readme_len"}}
         for r in repos[:20]
     ]
 
@@ -801,20 +990,14 @@ async def _synthesize(
     )
 
     try:
-        async with aiohttp.ClientSession() as sess:
-            async with sess.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-                json={
-                    "model": GROQ_MODEL,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.2,
-                    "max_tokens": 800,
-                },
-                timeout=aiohttp.ClientTimeout(total=15),
-            ) as resp:
-                data = await resp.json()
-                return data["choices"][0]["message"]["content"].strip()
+        res = await async_chat_completion(
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=800,
+        )
+        if not res:
+            raise ValueError("No response from Groq")
+        return res
     except Exception as exc:
         logger.warning(f"Synthesis LLM failed ({exc}), using fallback")
         lines = [summary_line, ""]
@@ -840,7 +1023,8 @@ HARD RULES:
 5. Do NOT use: "explosive", "game-changing", "leading", "dominant", "best"
    unless momentum >= 0.7 AND it is the top-ranked repo by that metric.
 6. Do NOT speculate on future performance.
-7. METHODOLOGY section is MANDATORY at the end.
+7. Every claim must end with a citation to the repository's evidence_citations in the format: `[owner/name: citation string]`.
+8. METHODOLOGY section is MANDATORY at the end.
 
 MANDATORY REPORT STRUCTURE (markdown):
 # {title}
@@ -848,17 +1032,20 @@ MANDATORY REPORT STRUCTURE (markdown):
 ## Executive Summary
 (2-3 sentences, data-grounded only)
 
+## Comparison Matrix
+(A side-by-side markdown table comparing all repositories on Stars, Trend, Confidence, Risk, and a Best-fit Recommendation)
+
 ## Rising Stars
 (repos with trend_label=HIGH, ranked by momentum, with real metric citations)
 
-## Sector Analysis
-(group repos by primary_language or topics, only factual patterns)
+## Sector Analysis & Pros/Cons
+(Group repos by primary_language or topics, with a Pros and Cons bullet list for each repo backed by data and citations)
 
 ## Underperformers / Watch Items
 (repos with trend_label=LOW -- report honestly, do not soften)
 
 ## Key Observations
-(5 or fewer bullet points, each backed by specific data from REPOS DATA)
+(5 or fewer bullet points, each backed by specific data from REPOS DATA and citations)
 
 ## Methodology
 - Data source: GitHub Search API (real-time)
@@ -896,7 +1083,10 @@ async def generate_report(
         {k: v for k, v in p.items()
          if k in {"full_name","owner","name","stars","forks","open_issues",
                   "primary_language","description","topics","license",
-                  "age_days","pushed_at","trend_label","momentum","velocity_proxy"}}
+                  "age_days","pushed_at","trend_label","momentum","velocity_proxy",
+                  "confidence_score","confidence_level","confidence_reason",
+                  "risk_score","risk_factors","evidence_citations","has_ci_cd",
+                  "has_tests","license_category","readme_len"}}
         for p in pins[:50]
     ]
 
@@ -912,20 +1102,14 @@ async def generate_report(
     )
 
     try:
-        async with aiohttp.ClientSession() as sess:
-            async with sess.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-                json={
-                    "model": GROQ_MODEL,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.15,
-                    "max_tokens": 2000,
-                },
-                timeout=aiohttp.ClientTimeout(total=30),
-            ) as resp:
-                data = await resp.json()
-                return data["choices"][0]["message"]["content"].strip()
+        res = await async_chat_completion(
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.15,
+            max_tokens=2000,
+        )
+        if not res:
+            raise ValueError("No response from Groq")
+        return res
     except Exception as exc:
         logger.warning(f"Report generation LLM failed ({exc}): using fallback")
         return _report_fallback(session_title, pins, queries_used)
@@ -958,6 +1142,7 @@ async def process_message(
     user_tier: str = "free",
     fast_owner: str = "",         # pre-filled if fast_route found owner/name
     fast_name: str = "",
+    intent_profile: str = "developer",
 ) -> AgentMessage:
     """
     Full pipeline: fast-route → intent parse → GitHub fetch → synthesize.
@@ -1017,6 +1202,9 @@ async def process_message(
     else:  # search | report | fallback
         repos, summary_line = await _handle_search(parsed)
 
+    # ── Re-rank repos by intent profile ──
+    repos = _rank_repos_by_profile(repos, intent_profile)
+
     # ── Synthesize response ───────────────────────────────────────────────────
     narrative = await _synthesize(repos, message, context_turns, parsed.intent, summary_line)
 
@@ -1050,6 +1238,7 @@ async def stream_process_message(
     user_tier: str = "free",
     fast_owner: str = "",
     fast_name: str = "",
+    intent_profile: str = "developer",
 ) -> AsyncIterator[str]:
     """
     Yields SSE-formatted strings.
@@ -1108,6 +1297,9 @@ async def stream_process_message(
             repos, summary_line = await _handle_temporal(parsed)
         else:
             repos, summary_line = await _handle_search(parsed)
+
+        # Re-rank repos by intent profile
+        repos = _rank_repos_by_profile(repos, intent_profile)
 
         # Send repos to frontend immediately (cards render before narrative)
         yield _sse("repos", repos)
@@ -1238,20 +1430,14 @@ async def generate_social_post(
     prompt = _SOCIAL_PROMPTS[platform].format(repo_json=json.dumps(safe_repo, indent=2))
 
     try:
-        async with aiohttp.ClientSession() as sess:
-            async with sess.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-                json={
-                    "model": GROQ_MODEL,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.55,
-                    "max_tokens": 700,
-                },
-                timeout=aiohttp.ClientTimeout(total=20),
-            ) as resp:
-                data = await resp.json()
-                return data["choices"][0]["message"]["content"].strip()
+        res = await async_chat_completion(
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.55,
+            max_tokens=700,
+        )
+        if not res:
+            raise ValueError("No response from Groq")
+        return res
     except Exception as exc:
         logger.warning(f"Social post generation failed ({platform}): {exc}")
         return f"Failed to generate {platform} post. Please try again."

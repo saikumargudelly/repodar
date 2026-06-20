@@ -177,3 +177,52 @@ def get_db():
     finally:
         db.close()
 
+
+def ensure_db_schema_upgraded(db_engine):
+    """
+    Checks if required columns exist in database tables and adds them dynamically if missing.
+    Ensures backward compatibility and auto-migration in both SQLite and PostgreSQL.
+    """
+    from sqlalchemy import inspect, text
+    import logging
+    db_logger = logging.getLogger("app.database.migration")
+    inspector = inspect(db_engine)
+    
+    # Check if tables exist before running checks (Base.metadata.create_all must run first)
+    if not inspector.has_table("research_sessions") or not inspector.has_table("repositories"):
+        return
+        
+    is_postgres = db_engine.dialect.name == "postgresql"
+    default_bool = "FALSE" if is_postgres else "0"
+    json_type = "JSONB" if is_postgres else "TEXT"
+
+    with db_engine.begin() as conn:
+        # 1. Upgrade research_sessions
+        session_cols = {c["name"] for c in inspector.get_columns("research_sessions")}
+        if "intent_profile" not in session_cols:
+            db_logger.info("Auto-migrating: Adding column 'intent_profile' to 'research_sessions'")
+            conn.execute(text("ALTER TABLE research_sessions ADD COLUMN intent_profile VARCHAR(50) NOT NULL DEFAULT 'developer'"))
+            
+        # 2. Upgrade repositories
+        repo_cols = {c["name"] for c in inspector.get_columns("repositories")}
+        if "tech_stack_json" not in repo_cols:
+            db_logger.info("Auto-migrating: Adding column 'tech_stack_json' to 'repositories'")
+            conn.execute(text(f"ALTER TABLE repositories ADD COLUMN tech_stack_json {json_type}"))
+            
+        if "dependencies_json" not in repo_cols:
+            db_logger.info("Auto-migrating: Adding column 'dependencies_json' to 'repositories'")
+            conn.execute(text(f"ALTER TABLE repositories ADD COLUMN dependencies_json {json_type}"))
+            
+        if "license_category" not in repo_cols:
+            db_logger.info("Auto-migrating: Adding column 'license_category' to 'repositories'")
+            conn.execute(text("ALTER TABLE repositories ADD COLUMN license_category VARCHAR(50) DEFAULT 'unknown'"))
+            
+        if "has_ci_cd" not in repo_cols:
+            db_logger.info("Auto-migrating: Adding column 'has_ci_cd' to 'repositories'")
+            conn.execute(text(f"ALTER TABLE repositories ADD COLUMN has_ci_cd BOOLEAN NOT NULL DEFAULT {default_bool}"))
+            
+        if "has_tests" not in repo_cols:
+            db_logger.info("Auto-migrating: Adding column 'has_tests' to 'repositories'")
+            conn.execute(text(f"ALTER TABLE repositories ADD COLUMN has_tests BOOLEAN NOT NULL DEFAULT {default_bool}"))
+
+
