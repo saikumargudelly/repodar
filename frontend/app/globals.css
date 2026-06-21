@@ -6,13 +6,13 @@
 
 :root {
   /* Backgrounds */
-  --bg-primary:  #1e1d1c;
-  --bg-surface:  #262524;
-  --bg-elevated: #2e2d2c;
-  --bg-dim:      #383736;
+  --bg-primary:  #141312;
+  --bg-surface:  #1c1b1a;
+  --bg-elevated: #242322;
+  --bg-dim:      #2e2d2c;
 
   /* Borders */
-  --border: #31302f;
+  --border: #272625;
 
   /* Text */
   --text-primary:   #e6edf3;
