@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header, Path
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
+from app.auth import get_current_user
 from app.database import get_db
 from app.models.api_key import ApiKey
 
@@ -31,11 +32,6 @@ RATE_LIMITS = {"free": 100, "pro": 5000, "enterprise": 10_000_000}
 def _utcnow():
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
-
-def _require_user(x_clerk_user_id: Optional[str] = Header(None)) -> str:
-    if not x_clerk_user_id:
-        raise HTTPException(status_code=401, detail="Authentication required")
-    return x_clerk_user_id
 
 
 def _hash_key(raw: str) -> str:
@@ -142,7 +138,7 @@ def validate_api_key(
 @router.post("/keys", response_model=ApiKeyOut, status_code=201)
 def create_api_key(
     body: ApiKeyCreate,
-    user_id: str = Depends(_require_user),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -174,7 +170,7 @@ def create_api_key(
 
 @router.post("/keys/ensure", response_model=ApiKeyOut)
 def ensure_default_api_key(
-    user_id: str = Depends(_require_user),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Return an active key for the user, creating a default free key if needed."""
@@ -205,7 +201,7 @@ def ensure_default_api_key(
 
 @router.get("/keys", response_model=List[ApiKeyOut])
 def list_api_keys(
-    user_id: str = Depends(_require_user),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """List all API keys for the authenticated user (raw keys not shown)."""
@@ -216,7 +212,7 @@ def list_api_keys(
 @router.delete("/keys/{key_id}", status_code=204)
 def revoke_api_key(
     key_id: str = Path(...),
-    user_id: str = Depends(_require_user),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Revoke (deactivate) an API key."""
@@ -231,7 +227,7 @@ def revoke_api_key(
 @router.get("/keys/{key_id}/status", response_model=RateLimitStatus)
 def get_key_status(
     key_id: str = Path(...),
-    user_id: str = Depends(_require_user),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Get usage stats and rate limit status for a specific key."""

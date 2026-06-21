@@ -5,8 +5,11 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from app.middleware import APIKeyMiddleware
 
@@ -378,6 +381,14 @@ app = FastAPI(
     docs_url="/docs" if _is_dev else None,
     redoc_url="/redoc" if _is_dev else None,
 )
+
+# ── Rate limiter (slowapi) ────────────────────────────────────────────────────
+# Uses client IP as key. The limiter instance is imported by routers that
+# need per-endpoint rate limiting (e.g. the STT endpoint).
+limiter = Limiter(key_func=get_remote_address, default_limits=[])
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 
 # CORS — allow frontend dev server and production domain
 origins_env = os.getenv("ALLOWED_ORIGINS")

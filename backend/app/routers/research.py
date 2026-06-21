@@ -32,12 +32,15 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 import aiohttp
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi import File, Form, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, selectinload
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
+from app.auth import get_current_user
 from app.database import get_db
 from app.models.research import (
     ResearchSession,
@@ -55,10 +58,13 @@ from app.services.research_agent import (
 )
 
 logger = logging.getLogger(__name__)
+limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/research", tags=["Research"])
 
 STT_DEFAULT_MODEL = os.getenv("GROQ_STT_MODEL", "whisper-large-v3-turbo")
 STT_MAX_BYTES = int(os.getenv("GROQ_STT_MAX_BYTES", str(25 * 1024 * 1024)))  # 25 MB
+# Limit: 10 STT requests per minute per IP.
+STT_RATE_LIMIT = os.getenv("STT_RATE_LIMIT", "10/minute")
 STT_ALLOWED_CONTENT_TYPES = {
     "audio/mpeg", "audio/mp3", "audio/mp4", "audio/wav", "audio/x-wav",
     "audio/x-m4a", "audio/aac", "audio/ogg", "audio/flac", "audio/webm",
@@ -138,7 +144,7 @@ def _is_supported_audio_upload(filename: str, content_type: str) -> bool:
 # ─── Schemas ─────────────────────────────────────────────────────────────────
 
 class CreateSessionRequest(BaseModel):
-    user_id: str
+    # user_id is derived server-side from the verified JWT — not supplied by the client.
     title: str = "Untitled Research"
     description: Optional[str] = None
     verticals: List[str] = []
@@ -153,14 +159,14 @@ class UpdateSessionRequest(BaseModel):
 
 
 class SendMessageRequest(BaseModel):
-    user_id: str
+    # user_id derived from JWT
     content: str = Field(..., min_length=1, max_length=2000)
     user_tier: str = "free"  # free | pro | team
     intent_profile: Optional[str] = None
 
 
 class PinRepoRequest(BaseModel):
-    user_id: str
+    # user_id derived from JWT
     repo_full_name: str
     repo_data: dict = {}
     note: Optional[str] = None
@@ -168,36 +174,37 @@ class PinRepoRequest(BaseModel):
 
 
 class UpdatePinRequest(BaseModel):
-    user_id: str
+    # user_id derived from JWT
     note: Optional[str] = None
     stage: Optional[str] = None
 
 
 class GenerateReportRequest(BaseModel):
-    user_id: str
+    pass  # user_id derived from JWT
 
 
 class CreateShareRequest(BaseModel):
-    user_id: str
+    # user_id derived from JWT
     ttl_days: Optional[int] = 7  # None = never expires
 
 
 # ─── Speech To Text ──────────────────────────────────────────────────────────
 
 @router.post("/stt/transcribe")
+@limiter.limit(STT_RATE_LIMIT)
 async def transcribe_audio(
-    user_id: str = Form(..., min_length=1, max_length=200),
+    request: Request,
     file: UploadFile = File(...),
     model: str = Form(default=STT_DEFAULT_MODEL),
     language: Optional[str] = Form(default=None),
     prompt: Optional[str] = Form(default=None),
+    _user: str = Depends(get_current_user),  # JWT required; rate-limited by IP
 ):
     """
     Transcribe uploaded audio using Groq's OpenAI-compatible Whisper endpoint.
-    This endpoint is intended for short, user-recorded voice notes from the UI.
+    Requires a valid Clerk JWT in the Authorization header.
+    Rate-limited to STT_RATE_LIMIT requests per IP per minute.
     """
-    del user_id  # Reserved for analytics/rate-control hooks.
-
     if not file.filename:
         raise HTTPException(status_code=400, detail="Audio filename is required.")
 
@@ -289,10 +296,14 @@ async def transcribe_audio(
 # ─── Session CRUD ─────────────────────────────────────────────────────────────
 
 @router.post("/sessions", status_code=201)
-async def create_session(body: CreateSessionRequest, db: Session = Depends(get_db)):
+async def create_session(
+    body: CreateSessionRequest,
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     def _create():
         s = ResearchSession(
-            user_id=body.user_id,
+            user_id=user_id,                          # ← from verified JWT
             title=body.title.strip() or "Untitled Research",
             description=body.description,
             verticals_json=json.dumps(body.verticals) if body.verticals else None,
@@ -309,7 +320,7 @@ async def create_session(body: CreateSessionRequest, db: Session = Depends(get_d
 
 @router.get("/sessions")
 async def list_sessions(
-    user_id: str = Query(..., description="Clerk user ID"),
+    user_id: str = Depends(get_current_user),   # ← derived from JWT, not query param
     db: Session = Depends(get_db),
 ):
     def _list():
@@ -331,7 +342,7 @@ async def list_sessions(
 @router.get("/sessions/{session_id}")
 async def get_session(
     session_id: str,
-    user_id: str = Query(...),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     s = await asyncio.to_thread(_session_or_404, session_id, user_id, db)
@@ -351,7 +362,7 @@ async def get_session(
 async def update_session(
     session_id: str,
     body: UpdateSessionRequest,
-    user_id: str = Query(...),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     s = await asyncio.to_thread(_session_or_404, session_id, user_id, db)
@@ -373,7 +384,7 @@ async def update_session(
 @router.delete("/sessions/{session_id}", status_code=204)
 async def delete_session(
     session_id: str,
-    user_id: str = Query(...),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     s = await asyncio.to_thread(_session_or_404, session_id, user_id, db)
@@ -386,10 +397,11 @@ async def delete_session(
 async def send_message(
     session_id: str,
     body: SendMessageRequest,
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Send a user message and get back a full agent response (non-streaming)."""
-    s = _session_or_404(session_id, body.user_id, db)
+    s = _session_or_404(session_id, user_id, db)
 
     # Save user message
     user_msg = ResearchMessage(
@@ -460,12 +472,26 @@ async def send_message(
 @router.get("/sessions/{session_id}/stream")
 async def stream_message(
     session_id: str,
-    user_id: str = Query(...),
     message: str = Query(..., min_length=1, max_length=2000),
     user_tier: str = Query("free"),
     intent_profile: Optional[str] = Query(None),
+    # SSE workaround: EventSource cannot set custom headers, so the frontend
+    # passes the Clerk JWT as `__token`. Falls back to Authorization header.
+    __token: Optional[str] = Query(None, include_in_schema=False),
+    authorization: Optional[str] = Query(None, include_in_schema=False),
     db: Session = Depends(get_db),
 ):
+    from app.auth import _verify_clerk_token
+    # Resolve token — prefer Authorization header (normal clients), fall back to __token (EventSource)
+    raw_token = None
+    if authorization and authorization.lower().startswith("bearer "):
+        raw_token = authorization.removeprefix("Bearer ").removeprefix("bearer ").strip()
+    elif __token:
+        raw_token = __token.strip()
+    if not raw_token:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    user_id = _verify_clerk_token(raw_token)
+
     """
     SSE endpoint. Streams agent response events:
       status | query_explanation | repos | token | done | error
@@ -587,9 +613,10 @@ async def stream_message(
 def pin_repo(
     session_id: str,
     body: PinRepoRequest,
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    s = _session_or_404(session_id, body.user_id, db)
+    s = _session_or_404(session_id, user_id, db)
 
     # Check duplicate
     existing = db.query(ResearchPin).filter_by(
@@ -616,7 +643,7 @@ def pin_repo(
 def unpin_repo(
     session_id: str,
     pin_id: str,
-    user_id: str = Query(...),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     s = _session_or_404(session_id, user_id, db)
@@ -633,9 +660,10 @@ def update_pin(
     session_id: str,
     pin_id: str,
     body: UpdatePinRequest,
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    s = _session_or_404(session_id, body.user_id, db)
+    s = _session_or_404(session_id, user_id, db)
     pin = db.query(ResearchPin).filter_by(id=pin_id, session_id=session_id).first()
     if not pin:
         raise HTTPException(status_code=404, detail="Pin not found.")
@@ -657,9 +685,10 @@ def update_pin(
 async def create_report(
     session_id: str,
     body: GenerateReportRequest,
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    s = _session_or_404(session_id, body.user_id, db)
+    s = _session_or_404(session_id, user_id, db)
 
     pins = s.pins
     pin_dicts = [json.loads(p.repo_data_json) for p in pins if p.repo_data_json]
@@ -703,7 +732,7 @@ async def create_report(
 @router.get("/sessions/{session_id}/report")
 def get_report(
     session_id: str,
-    user_id: str = Query(...),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     s = _session_or_404(session_id, user_id, db)
@@ -722,9 +751,10 @@ def get_report(
 def create_share(
     session_id: str,
     body: CreateShareRequest,
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    s = _session_or_404(session_id, body.user_id, db)
+    s = _session_or_404(session_id, user_id, db)
 
     if s.share:
         # Refresh token + expiry
@@ -780,7 +810,7 @@ def get_shared_session(token: str, db: Session = Depends(get_db)):
 # ─── Social Post / Blog ───────────────────────────────────────────────────────
 
 class GenerateBlogRequest(BaseModel):
-    user_id: str
+    # user_id derived from JWT
     platform: str = "reddit"   # reddit | twitter | linkedin
     niche: str = ""            # optional context e.g. "AI agents"
     repo: dict = Field(default_factory=dict)  # full repo data dict from research results
@@ -790,13 +820,14 @@ class GenerateBlogRequest(BaseModel):
 async def generate_blog_post(
     session_id: str,
     body: GenerateBlogRequest,
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
     Generate a platform-specific social post / blog draft for a pinned or searched repo.
     Returns the generated markdown post copy.
     """
-    _session_or_404(session_id, body.user_id, db)  # auth check only
+    _session_or_404(session_id, user_id, db)  # ownership check only
 
     valid_platforms = {"reddit", "twitter", "linkedin"}
     if body.platform not in valid_platforms:

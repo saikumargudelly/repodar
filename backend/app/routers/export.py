@@ -2,12 +2,13 @@
 Export router — CSV / JSON bulk export of repo data.
 
 GET /export/repos?format=csv|json
-  Full repo catalogue with latest computed metrics.
+  Full repo catalogue with latest computed metrics. Streams rows in batches;
+  never loads the full table into server memory.
 
 GET /export/metrics/{owner}/{name}?format=csv|json
   Daily metric history for a single repo.
 
-Exports are synchronous (streaming response) — suitable for up to ~50k rows.
+All endpoints require a valid Clerk JWT in the Authorization header.
 """
 
 import csv
@@ -15,24 +16,19 @@ import io
 import json
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Optional
+from typing import Generator, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_user
 from app.database import get_db
 from app.models import Repository, ComputedMetric, DailyMetric
 
 router = APIRouter(prefix="/export", tags=["Export"])
 logger = logging.getLogger(__name__)
 
-
-def _require_user(x_clerk_user_id: Optional[str] = Header(None)) -> str:
-    """Require a Clerk user ID header — prevents unauthenticated bulk exports."""
-    if not x_clerk_user_id:
-        raise HTTPException(status_code=401, detail="Authentication required. Pass X-Clerk-User-Id header.")
-    return x_clerk_user_id
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -53,6 +49,9 @@ def _ts_str(dt: Optional[datetime]) -> str:
 
 # ─── /export/repos ─────────────────────────────────────────────────────────────
 
+EXPORT_BATCH_SIZE = 500   # rows per DB fetch — caps memory usage per batch
+
+
 REPO_CSV_HEADERS = [
     "id", "owner", "name", "category", "primary_language", "description",
     "github_url", "stars", "age_days", "trend_score", "sustainability_score",
@@ -68,11 +67,12 @@ def export_repos(
     min_stars: Optional[int] = Query(None, ge=0),
     active_only: bool = Query(True),
     db: Session = Depends(get_db),
-    _user: str = Depends(_require_user),   # ← auth guard
+    _user: str = Depends(get_current_user),   # ← verified JWT, not spoofable header
 ):
     """
     Export all tracked repositories with latest computed scores.
-    Supports CSV and JSON output formats.
+    Streams results in batches of EXPORT_BATCH_SIZE; never loads the
+    full table into server memory.
     """
     from sqlalchemy import and_, func
 
@@ -96,6 +96,7 @@ def export_repos(
                 ComputedMetric.date == latest_cm_sub.c.max_date,
             ),
         )
+        .order_by(Repository.id)
     )
 
     if active_only:
@@ -105,9 +106,8 @@ def export_repos(
     if min_stars is not None:
         q = q.filter(Repository.stars_snapshot >= min_stars)
 
-    rows_data = []
-    for repo, cm in q.all():
-        rows_data.append({
+    def _row_to_dict(repo: Repository, cm: Optional[ComputedMetric]) -> dict:
+        return {
             "id":                   repo.id,
             "owner":                repo.owner,
             "name":                 repo.name,
@@ -126,19 +126,55 @@ def export_repos(
             "source":               repo.source,
             "is_active":            repo.is_active,
             "topics":               repo.topics or "[]",
-        })
+        }
 
     filename = f"repodar_repos_{datetime.now(timezone.utc).strftime('%Y%m%d')}"
 
     if format == "csv":
+        def _csv_stream() -> Generator[str, None, None]:
+            """Yield CSV rows one batch at a time."""
+            buf = io.StringIO()
+            writer = csv.DictWriter(buf, fieldnames=REPO_CSV_HEADERS, extrasaction="ignore")
+            writer.writeheader()
+            yield buf.getvalue()
+            offset = 0
+            while True:
+                batch = q.offset(offset).limit(EXPORT_BATCH_SIZE).all()
+                if not batch:
+                    break
+                for repo, cm in batch:
+                    buf = io.StringIO()
+                    writer = csv.DictWriter(buf, fieldnames=REPO_CSV_HEADERS, extrasaction="ignore")
+                    writer.writerow(_row_to_dict(repo, cm))
+                    yield buf.getvalue()
+                offset += EXPORT_BATCH_SIZE
+
         return StreamingResponse(
-            _stream_csv(REPO_CSV_HEADERS, rows_data),
+            _csv_stream(),
             media_type="text/csv",
             headers={"Content-Disposition": f'attachment; filename="{filename}.csv"'},
         )
     else:
+        def _json_stream() -> Generator[str, None, None]:
+            """Yield a valid JSON array one batch at a time."""
+            yield "["
+            first = True
+            offset = 0
+            while True:
+                batch = q.offset(offset).limit(EXPORT_BATCH_SIZE).all()
+                if not batch:
+                    break
+                for repo, cm in batch:
+                    row_json = json.dumps(_row_to_dict(repo, cm))
+                    if not first:
+                        yield ","
+                    yield row_json
+                    first = False
+                offset += EXPORT_BATCH_SIZE
+            yield "]"
+
         return StreamingResponse(
-            iter([json.dumps(rows_data, indent=2)]),
+            _json_stream(),
             media_type="application/json",
             headers={"Content-Disposition": f'attachment; filename="{filename}.json"'},
         )
@@ -160,7 +196,7 @@ def export_repo_metrics(
     format: str = Query("json", pattern=r"^(json|csv)$"),
     days: int = Query(90, ge=1, le=365),
     db: Session = Depends(get_db),
-    _user: str = Depends(_require_user),   # ← auth guard
+    _user: str = Depends(get_current_user),   # ← auth guard
 ):
     """
     Export daily metric history for a single repository.

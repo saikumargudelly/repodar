@@ -1067,25 +1067,25 @@ export const api = {
   },
 
   // Watchlist
-  getWatchlist: (userId: string) =>
-    apiFetch<WatchlistItemOut[]>("/watchlist", { headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
-  addToWatchlist: (userId: string, body: WatchlistAddBody) =>
-    apiFetch<WatchlistItemOut>("/watchlist", { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
-  updateWatchlistItem: (userId: string, id: string, body: WatchlistPatchBody) =>
-    apiFetch<WatchlistItemOut>(`/watchlist/${id}`, { method: "PATCH", body: JSON.stringify(body), headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
-  removeFromWatchlist: (userId: string, id: string) =>
-    apiFetch<{ ok: boolean }>(`/watchlist/${id}`, { method: "DELETE", headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
-  checkWatchlist: (userId: string, repoId: string) =>
-    apiFetch<{ watching: boolean; item: WatchlistItemOut | null }>(`/watchlist/check/${repoId}`, { headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
+  getWatchlist: (token: string) =>
+    apiFetch<WatchlistItemOut[]>("/watchlist", { headers: { "Authorization": `Bearer ${token}` } }),
+  addToWatchlist: (token: string, body: WatchlistAddBody) =>
+    apiFetch<WatchlistItemOut>("/watchlist", { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` } }),
+  updateWatchlistItem: (token: string, id: string, body: WatchlistPatchBody) =>
+    apiFetch<WatchlistItemOut>(`/watchlist/${id}`, { method: "PATCH", body: JSON.stringify(body), headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` } }),
+  removeFromWatchlist: (token: string, id: string) =>
+    apiFetch<{ ok: boolean }>(`/watchlist/${id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${token}` } }),
+  checkWatchlist: (token: string, repoId: string) =>
+    apiFetch<{ watching: boolean; item: WatchlistItemOut | null }>(`/watchlist/check/${repoId}`, { headers: { "Authorization": `Bearer ${token}` } }),
 
   // Profile
-  getProfilePreferences: (userId: string) =>
-    apiFetch<ProfilePreferences>("/profile/preferences", { headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
-  updateProfilePreferences: (userId: string, body: ProfilePreferencesPatchBody) =>
+  getProfilePreferences: (token: string) =>
+    apiFetch<ProfilePreferences>("/profile/preferences", { headers: { "Authorization": `Bearer ${token}` } }),
+  updateProfilePreferences: (token: string, body: ProfilePreferencesPatchBody) =>
     apiFetch<ProfilePreferences>("/profile/preferences", {
       method: "PATCH",
       body: JSON.stringify(body),
-      headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
     }),
 
   // Topic Intelligence
@@ -1112,52 +1112,52 @@ export const api = {
     apiFetch<NotableFork[]>(`/forks/leaderboard?min_stars=${minStars}&limit=${limit}`),
 
   // API Keys
-  createApiKey: (userId: string, body: CreateApiKeyBody) =>
-    apiFetch<ApiKeyOut>("/dev/keys", { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
-  ensureApiKey: (userId: string) =>
-    apiFetch<ApiKeyOut>("/dev/keys/ensure", { method: "POST", headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
-  listApiKeys: (userId: string) =>
-    apiFetch<ApiKeyOut[]>("/dev/keys", { headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
-  revokeApiKey: (userId: string, keyId: string) =>
-    apiFetch<{ ok: boolean }>(`/dev/keys/${keyId}`, { method: "DELETE", headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
-  getApiKeyStatus: (userId: string, keyId: string) =>
-    apiFetch<ApiKeyOut>(`/dev/keys/${keyId}/status`, { headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
+  createApiKey: (token: string, body: CreateApiKeyBody) =>
+    apiFetch<ApiKeyOut>("/dev/keys", { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` } }),
+  ensureApiKey: (token: string) =>
+    apiFetch<ApiKeyOut>("/dev/keys/ensure", { method: "POST", headers: { "Authorization": `Bearer ${token}` } }),
+  listApiKeys: (token: string) =>
+    apiFetch<ApiKeyOut[]>("/dev/keys", { headers: { "Authorization": `Bearer ${token}` } }),
+  revokeApiKey: (token: string, keyId: string) =>
+    apiFetch<{ ok: boolean }>(`/dev/keys/${keyId}`, { method: "DELETE", headers: { "Authorization": `Bearer ${token}` } }),
+  getApiKeyStatus: (token: string, keyId: string) =>
+    apiFetch<ApiKeyOut>(`/dev/keys/${keyId}/status`, { headers: { "Authorization": `Bearer ${token}` } }),
 
   // Onboarding
-  getOnboardingStatus: (userId: string) =>
-    apiFetch<OnboardingStatus>("/onboarding/status", { headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId } }),
-  saveOnboardingInterests: (userId: string, verticals: string[]) =>
+  getOnboardingStatus: (token: string) =>
+    apiFetch<OnboardingStatus>("/onboarding/status", { headers: { "Authorization": `Bearer ${token}` } }),
+  saveOnboardingInterests: (token: string, verticals: string[]) =>
     apiFetch<OnboardingStatus>("/onboarding/interests", {
       method: "POST",
       body: JSON.stringify({ verticals }),
-      headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
     }),
-  saveOnboardingWatchlist: (userId: string, repos: string[]) =>
+  saveOnboardingWatchlist: (token: string, repos: string[]) =>
     apiFetch<{ created: number; current_step: string }>("/onboarding/watchlist", {
       method: "POST",
       body: JSON.stringify({ repos }),
-      headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
     }),
-  saveOnboardingAlerts: (userId: string, body: { email: string; frequency: DigestFrequency }) =>
+  saveOnboardingAlerts: (token: string, body: { email: string; frequency: DigestFrequency }) =>
     apiFetch<{ saved: boolean; current_step: string }>("/onboarding/alerts", {
       method: "POST",
       body: JSON.stringify(body),
-      headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
     }),
-  completeOnboarding: (userId: string) =>
+  completeOnboarding: (token: string) =>
     apiFetch<OnboardingStatus>("/onboarding/complete", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId },
+      headers: { "Authorization": `Bearer ${token}` },
     }),
-  skipOnboarding: (userId: string) =>
+  skipOnboarding: (token: string) =>
     apiFetch<OnboardingStatus>("/onboarding/skip", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId },
+      headers: { "Authorization": `Bearer ${token}` },
     }),
-  resetOnboarding: (userId: string) =>
+  resetOnboarding: (token: string) =>
     apiFetch<OnboardingStatus>("/onboarding/reset", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Clerk-User-Id": userId },
+      headers: { "Authorization": `Bearer ${token}` },
     }),
 
 
@@ -1228,52 +1228,73 @@ export const api = {
 
   // ── Research Mode ────────────────────────────────────────────────────────
   research: {
-    createSession: (userId: string, title?: string, description?: string, verticals?: string[]) =>
+    // token = Clerk JWT from useAuth().getToken()
+    createSession: (token: string, title?: string, description?: string, verticals?: string[]) =>
       apiFetch<ResearchSession>("/research/sessions", {
         method: "POST",
-        body: JSON.stringify({ user_id: userId, title: title ?? "Untitled Research", description, verticals: verticals ?? [] }),
+        // user_id is now derived server-side from the JWT — not sent in body
+        body: JSON.stringify({ title: title ?? "Untitled Research", description, verticals: verticals ?? [] }),
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
       }),
 
-    listSessions: (userId: string) =>
-      apiFetch<ResearchSession[]>(`/research/sessions?user_id=${encodeURIComponent(userId)}`),
+    listSessions: (token: string) =>
+      apiFetch<ResearchSession[]>("/research/sessions", {
+        headers: { "Authorization": `Bearer ${token}` },
+      }),
 
-    getSession: (id: string, userId: string) =>
-      apiFetch<ResearchSessionDetail>(`/research/sessions/${id}?user_id=${encodeURIComponent(userId)}`),
+    getSession: (id: string, token: string) =>
+      apiFetch<ResearchSessionDetail>(`/research/sessions/${id}`, {
+        headers: { "Authorization": `Bearer ${token}` },
+      }),
 
-    updateSession: (id: string, userId: string, patch: { title?: string; description?: string; verticals?: string[] }) =>
-      apiFetch<ResearchSession>(`/research/sessions/${id}?user_id=${encodeURIComponent(userId)}`, {
+    updateSession: (id: string, token: string, patch: { title?: string; description?: string; verticals?: string[] }) =>
+      apiFetch<ResearchSession>(`/research/sessions/${id}`, {
         method: "PATCH",
         body: JSON.stringify(patch),
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
       }),
 
-    deleteSession: (id: string, userId: string) =>
-      apiFetch<void>(`/research/sessions/${id}?user_id=${encodeURIComponent(userId)}`, { method: "DELETE" }),
+    deleteSession: (id: string, token: string) =>
+      apiFetch<void>(`/research/sessions/${id}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` },
+      }),
 
-    sendMessage: (sessionId: string, userId: string, content: string, tier?: string) =>
+    sendMessage: (sessionId: string, token: string, content: string, tier?: string) =>
       apiFetch<ResearchAgentMessage>(`/research/sessions/${sessionId}/message`, {
         method: "POST",
-        body: JSON.stringify({ user_id: userId, content, user_tier: tier ?? "free" }),
+        // user_id removed from body — derived from JWT on backend
+        body: JSON.stringify({ content, user_tier: tier ?? "free" }),
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
       }),
 
-    /** Returns the SSE stream URL — use EventSource on this URL */
-    streamUrl: (sessionId: string, userId: string, message: string, tier?: string) => {
+    /**
+     * Returns the SSE stream URL.
+     * NOTE: EventSource does not support custom headers, so the Clerk token
+     * is passed as a query parameter ("__token"). The backend reads it from
+     * the Authorization header OR the __token query param.
+     * IMPORTANT: The stream endpoint on the backend must be updated to also
+     * read Authorization from the __token query param for SSE compatibility.
+     */
+    streamUrl: (sessionId: string, token: string, message: string, tier?: string) => {
       const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
       return (
         `${base}/research/sessions/${sessionId}/stream` +
-        `?user_id=${encodeURIComponent(userId)}` +
-        `&message=${encodeURIComponent(message)}` +
-        `&user_tier=${tier ?? "free"}`
+        `?message=${encodeURIComponent(message)}` +
+        `&user_tier=${tier ?? "free"}` +
+        `&__token=${encodeURIComponent(token)}`
       );
     },
-    transcribeSpeech: async (userId: string, audioBlob: Blob, filename = "speech.webm", model = "whisper-large-v3-turbo") => {
+
+    transcribeSpeech: async (token: string, audioBlob: Blob, filename = "speech.webm", model = "whisper-large-v3-turbo") => {
       const form = new FormData();
-      form.append("user_id", userId);
       form.append("file", audioBlob, filename);
       form.append("model", model);
-
+      // user_id removed — JWT carries identity
       const res = await fetch(`${BASE}/research/stt/transcribe`, {
         method: "POST",
         body: form,
+        headers: { "Authorization": `Bearer ${token}` },
       });
 
       if (!res.ok) {
@@ -1292,42 +1313,53 @@ export const api = {
       return await res.json() as ResearchSpeechToText;
     },
 
-    pinRepo: (sessionId: string, userId: string, repoFullName: string, repoData: Record<string, unknown>, note?: string, stage?: string) =>
+    pinRepo: (sessionId: string, token: string, repoFullName: string, repoData: Record<string, unknown>, note?: string, stage?: string) =>
       apiFetch<ResearchPin>(`/research/sessions/${sessionId}/pins`, {
         method: "POST",
-        body: JSON.stringify({ user_id: userId, repo_full_name: repoFullName, repo_data: repoData, note, stage: stage ?? "watch" }),
+        // user_id removed from body — derived from JWT
+        body: JSON.stringify({ repo_full_name: repoFullName, repo_data: repoData, note, stage: stage ?? "watch" }),
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
       }),
 
-    unpinRepo: (sessionId: string, userId: string, pinId: string) =>
-      apiFetch<void>(`/research/sessions/${sessionId}/pins/${pinId}?user_id=${encodeURIComponent(userId)}`, { method: "DELETE" }),
+    unpinRepo: (sessionId: string, token: string, pinId: string) =>
+      apiFetch<void>(`/research/sessions/${sessionId}/pins/${pinId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` },
+      }),
 
-    updatePin: (sessionId: string, userId: string, pinId: string, patch: { note?: string; stage?: string }) =>
+    updatePin: (sessionId: string, token: string, pinId: string, patch: { note?: string; stage?: string }) =>
       apiFetch<ResearchPin>(`/research/sessions/${sessionId}/pins/${pinId}`, {
         method: "PATCH",
-        body: JSON.stringify({ user_id: userId, ...patch }),
+        // user_id removed from body — derived from JWT
+        body: JSON.stringify(patch),
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
       }),
 
-    generateReport: (sessionId: string, userId: string) =>
+    generateReport: (sessionId: string, token: string) =>
       apiFetch<{ content_md: string; repos_count: number; generated_at: string }>(`/research/sessions/${sessionId}/report`, {
         method: "POST",
-        body: JSON.stringify({ user_id: userId }),
+        body: JSON.stringify({}),  // user_id removed — derived from JWT
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
       }),
 
-    getReport: (sessionId: string, userId: string) =>
-      apiFetch<{ content_md: string; repos_count: number; generated_at: string }>(`/research/sessions/${sessionId}/report?user_id=${encodeURIComponent(userId)}`),
+    getReport: (sessionId: string, token: string) =>
+      apiFetch<{ content_md: string; repos_count: number; generated_at: string }>(`/research/sessions/${sessionId}/report`, {
+        headers: { "Authorization": `Bearer ${token}` },
+      }),
 
-    createShare: (sessionId: string, userId: string, ttlDays?: number) =>
+    createShare: (sessionId: string, token: string, ttlDays?: number) =>
       apiFetch<{ token: string; share_url: string; expires_at: string | null }>(`/research/sessions/${sessionId}/share`, {
         method: "POST",
-        body: JSON.stringify({ user_id: userId, ttl_days: ttlDays ?? 7 }),
+        body: JSON.stringify({ ttl_days: ttlDays ?? 7 }),  // user_id removed
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
       }),
 
-    getShared: (token: string) =>
-      apiFetch<ResearchSharedView>(`/research/share/${token}`),
+    getShared: (shareToken: string) =>
+      apiFetch<ResearchSharedView>(`/research/share/${shareToken}`),
 
     generateBlog: (
       sessionId: string,
-      userId: string,
+      token: string,
       platform: "reddit" | "twitter" | "linkedin",
       repo: Record<string, unknown>,
       niche?: string,
@@ -1336,7 +1368,8 @@ export const api = {
         `/research/sessions/${sessionId}/blog`,
         {
           method: "POST",
-          body: JSON.stringify({ user_id: userId, platform, repo, niche: niche ?? "" }),
+          body: JSON.stringify({ platform, repo, niche: niche ?? "" }),  // user_id removed
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         }
       ),
   },

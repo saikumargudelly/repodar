@@ -1,7 +1,7 @@
 """
 Watchlist endpoints — server-side per-user repo subscriptions.
-Authentication is assumed to be handled upstream (Clerk token is passed in the
-X-Clerk-User-Id header for now; swap for proper JWT middleware in production).
+All endpoints require a valid Clerk JWT in the Authorization header.
+The verified Clerk user ID is extracted from the token's `sub` claim.
 """
 
 from typing import List, Optional
@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
+from app.auth import get_current_user
 from app.database import get_db
 from app.models import Repository, ComputedMetric
 from app.models.watchlist import WatchlistItem
@@ -60,12 +61,6 @@ def _assert_safe_url(url: str | None) -> None:
 def _utcnow():
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
-
-def _require_user(x_clerk_user_id: Optional[str] = Header(None)) -> str:
-    """Extract Clerk user_id from request header. Raises 401 if missing."""
-    if not x_clerk_user_id:
-        raise HTTPException(status_code=401, detail="Authentication required. Pass X-Clerk-User-Id header.")
-    return x_clerk_user_id
 
 
 # ─── Schemas ─────────────────────────────────────────────────────────────────
@@ -145,7 +140,7 @@ def _serialize_watchlist_item(db: Session, item: WatchlistItem) -> WatchlistItem
 
 @router.get("", response_model=List[WatchlistItemOut])
 def get_watchlist(
-    user_id: str = Depends(_require_user),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Return all watchlist items for the authenticated user with latest scores."""
@@ -160,7 +155,7 @@ def get_watchlist(
 @router.post("", response_model=WatchlistItemOut, status_code=201)
 def add_to_watchlist(
     body: WatchlistItemCreate,
-    user_id: str = Depends(_require_user),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Pin a repo to the user's server-side watchlist."""
@@ -201,7 +196,7 @@ def add_to_watchlist(
 def update_watchlist_item(
     item_id: str,
     body: WatchlistItemUpdate,
-    user_id: str = Depends(_require_user),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Update alert threshold or notification config for a watchlist item."""
@@ -231,7 +226,7 @@ def update_watchlist_item(
 @router.delete("/{item_id}", status_code=204)
 def remove_from_watchlist(
     item_id: str,
-    user_id: str = Depends(_require_user),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Remove a repo from the user's watchlist."""
@@ -249,7 +244,7 @@ def remove_from_watchlist(
 @router.get("/check/{repo_id}", response_model=WatchlistCheckOut)
 def check_watchlist(
     repo_id: str,
-    user_id: str = Depends(_require_user),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Quick check if a specific repo is in the user's watchlist. Returns item_id or null."""
@@ -267,7 +262,7 @@ def check_watchlist(
 @router.post("/{item_id}/test-email")
 async def test_watchlist_email(
     item_id: str,
-    user_id: str = Depends(_require_user),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     item = db.query(WatchlistItem).filter_by(id=item_id, user_id=user_id).first()

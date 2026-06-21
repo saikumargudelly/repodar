@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_user
 from app.database import get_db
 from app.models import Repository, Subscriber
 from app.models.user_onboarding import UserOnboarding
@@ -18,11 +19,6 @@ router = APIRouter(prefix="/onboarding", tags=["Onboarding"])
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
-
-def _require_user(x_clerk_user_id: Optional[str] = Header(None)) -> str:
-    if not x_clerk_user_id:
-        raise HTTPException(status_code=401, detail="Authentication required")
-    return x_clerk_user_id
 
 
 def _get_or_create(db: Session, user_id: str) -> UserOnboarding:
@@ -59,7 +55,7 @@ class AlertsIn(BaseModel):
 
 @router.get("/status", response_model=OnboardingStatusOut)
 def get_onboarding_status(
-    user_id: str = Depends(_require_user),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     onboarding = _get_or_create(db, user_id)
@@ -80,7 +76,7 @@ def get_onboarding_status(
 @router.post("/interests", response_model=OnboardingStatusOut)
 def save_interests(
     body: InterestsIn,
-    user_id: str = Depends(_require_user),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     onboarding = _get_or_create(db, user_id)
@@ -95,7 +91,7 @@ def save_interests(
 @router.post("/watchlist")
 def save_watchlist(
     body: WatchlistIn,
-    user_id: str = Depends(_require_user),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     onboarding = _get_or_create(db, user_id)
@@ -124,7 +120,7 @@ def save_watchlist(
 @router.post("/alerts")
 def save_alert_preferences(
     body: AlertsIn,
-    user_id: str = Depends(_require_user),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     onboarding = _get_or_create(db, user_id)
@@ -163,7 +159,7 @@ def save_alert_preferences(
 
 @router.post("/complete", response_model=OnboardingStatusOut)
 def complete_onboarding(
-    user_id: str = Depends(_require_user),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     onboarding = _get_or_create(db, user_id)
@@ -178,7 +174,7 @@ def complete_onboarding(
 
 @router.post("/skip", response_model=OnboardingStatusOut)
 def skip_onboarding(
-    user_id: str = Depends(_require_user),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     onboarding = _get_or_create(db, user_id)
@@ -192,7 +188,7 @@ def skip_onboarding(
 
 @router.post("/reset", response_model=OnboardingStatusOut)
 def reset_onboarding(
-    user_id: str = Depends(_require_user),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     onboarding = _get_or_create(db, user_id)

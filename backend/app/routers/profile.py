@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_user
 from app.database import get_db
 from app.models import Subscriber
 from app.models.user_onboarding import UserOnboarding
@@ -20,11 +21,6 @@ ALLOWED_FREQUENCIES = {"realtime", "daily", "weekly", "monthly", "off"}
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
-
-def _require_user(x_clerk_user_id: Optional[str] = Header(None)) -> str:
-    if not x_clerk_user_id:
-        raise HTTPException(status_code=401, detail="Authentication required")
-    return x_clerk_user_id
 
 
 def _parse_verticals(raw_json: Optional[str]) -> list[str]:
@@ -83,7 +79,7 @@ class ProfilePreferencesUpdateIn(BaseModel):
 
 @router.get("/preferences", response_model=ProfilePreferencesOut)
 def get_profile_preferences(
-    user_id: str = Depends(_require_user),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     subscriber = db.query(Subscriber).filter_by(user_id=user_id).first()
@@ -100,7 +96,7 @@ def get_profile_preferences(
 @router.patch("/preferences", response_model=ProfilePreferencesOut)
 def update_profile_preferences(
     body: ProfilePreferencesUpdateIn,
-    user_id: str = Depends(_require_user),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     if body.email is None and body.digest_frequency is None and body.verticals is None:

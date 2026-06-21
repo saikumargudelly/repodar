@@ -1,0 +1,27 @@
+# Python byte-compiled
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment / secrets — NEVER commit
+.env
+.env.*
+!.env.example
+
+# Runtime artefacts
+*.log
+pipeline.log
+
+# Test / coverage
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Editor
+.DS_Store
+*.swp
