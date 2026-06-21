@@ -31,16 +31,16 @@ type EarlyStage = "all" | "dormant" | "emerging" | "accelerating" | "pre_viral" 
 
 // ─── Theme palette (B&W) ─────────────────────────────────────
 const C = {
-  text:       "#e6edf3",   // primary text — white-ish
-  textSub:    "#8b949e",   // secondary text — gray
-  textMuted:  "#6e7681",   // muted — dark gray
-  border:     "#30363d",   // borders
-  bgPrimary:  "#0d1117",   // darkest bg
-  bgCard:     "#161b22",   // card/panel bg
-  bgHover:    "#21262d",   // hover bg
-  amber:      "#d29922",   // trend scores, ETA
-  green:      "#3fb950",   // healthy, positive accel
-  red:        "#f85149",   // critical
+  text:       "var(--text-primary)",
+  textSub:    "var(--text-secondary)",
+  textMuted:  "var(--text-muted)",
+  border:     "var(--border)",
+  bgPrimary:  "var(--bg-primary)",
+  bgCard:     "var(--bg-surface)",
+  bgHover:    "var(--bg-elevated)",
+  amber:      "var(--accent-yellow)",
+  green:      "var(--accent-green)",
+  red:        "var(--accent-red)",
 };
 
 // Stage badge: border + text color (B&W palette — no blues)

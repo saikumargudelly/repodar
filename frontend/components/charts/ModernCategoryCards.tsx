@@ -180,7 +180,112 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
     () => [...data].sort((a, b) => b.total_stars - a.total_stars),
     [data]
   );
-  const top8Categories = useMemo(() => sortedData.slice(0, 8), [sortedData]);
+
+  const topCategoryNames = useMemo(() => {
+    return sortedData.slice(0, 5).map(c => c.category);
+  }, [sortedData]);
+
+  const profileData = useMemo(() => {
+    if (sortedData.length === 0) return [];
+    
+    let items = [];
+    if (sortedData.length <= 6) {
+      items = sortedData.map((c, idx) => ({
+        name: c.category,
+        stars: c.total_stars,
+        percentage: total > 0 ? (c.total_stars / total) * 100 : 0,
+        mom_growth_pct: c.mom_growth_pct || 0,
+        weekly_velocity: c.weekly_velocity || 0,
+        repo_count: c.repo_count || 0,
+        avg_open_prs: c.avg_open_prs || 0,
+        trend_composite: c.trend_composite || 0,
+        total_contributors: c.total_contributors || 0,
+        color: CATEGORY_COLORS[c.category] ?? "#6b7280",
+        rank: idx + 1,
+      }));
+    } else {
+      const top5 = sortedData.slice(0, 5);
+      const othersStars = sortedData.slice(5).reduce((sum, c) => sum + c.total_stars, 0);
+      const othersRepos = sortedData.slice(5).reduce((sum, c) => sum + (c.repo_count || 0), 0);
+      const othersVelocity = sortedData.slice(5).reduce((sum, c) => sum + (c.weekly_velocity || 0), 0);
+      const othersGrowth = sortedData.slice(5).reduce((sum, c) => sum + (c.mom_growth_pct || 0), 0) / (sortedData.length - 5);
+      const othersAvgOpenPRs = sortedData.slice(5).reduce((sum, c) => sum + (c.avg_open_prs || 0), 0) / (sortedData.length - 5);
+      const othersTrend = sortedData.slice(5).reduce((sum, c) => sum + (c.trend_composite || 0), 0) / (sortedData.length - 5);
+      const othersContributors = sortedData.slice(5).reduce((sum, c) => sum + (c.total_contributors || 0), 0);
+      
+      items = [
+        ...top5.map((c, idx) => ({
+          name: c.category,
+          stars: c.total_stars,
+          percentage: total > 0 ? (c.total_stars / total) * 100 : 0,
+          mom_growth_pct: c.mom_growth_pct || 0,
+          weekly_velocity: c.weekly_velocity || 0,
+          repo_count: c.repo_count || 0,
+          avg_open_prs: c.avg_open_prs || 0,
+          trend_composite: c.trend_composite || 0,
+          total_contributors: c.total_contributors || 0,
+          color: CATEGORY_COLORS[c.category] ?? "#6b7280",
+          rank: idx + 1,
+        })),
+        {
+          name: "Others",
+          stars: othersStars,
+          percentage: total > 0 ? (othersStars / total) * 100 : 0,
+          mom_growth_pct: othersGrowth || 0,
+          weekly_velocity: othersVelocity || 0,
+          repo_count: othersRepos || 0,
+          avg_open_prs: othersAvgOpenPRs || 0,
+          trend_composite: othersTrend || 0,
+          total_contributors: othersContributors || 0,
+          color: "#94a3b8",
+          rank: "O",
+        }
+      ];
+    }
+    return items;
+  }, [sortedData, total]);
+
+  const activeProfile = useMemo(() => {
+    if (!hoveredCategory) return null;
+    if (hoveredCategory === "Others") {
+      return profileData.find(p => p.name === "Others") || null;
+    }
+    const catData = sortedData.find(c => c.category === hoveredCategory);
+    if (!catData) return null;
+    
+    const origIdx = sortedData.findIndex(c => c.category === hoveredCategory);
+    return {
+      name: catData.category,
+      stars: catData.total_stars,
+      percentage: total > 0 ? (catData.total_stars / total) * 100 : 0,
+      mom_growth_pct: catData.mom_growth_pct || 0,
+      weekly_velocity: catData.weekly_velocity || 0,
+      repo_count: catData.repo_count || 0,
+      avg_open_prs: catData.avg_open_prs || 0,
+      trend_composite: catData.trend_composite || 0,
+      total_contributors: catData.total_contributors || 0,
+      color: CATEGORY_COLORS[catData.category] ?? "#6b7280",
+      rank: origIdx + 1,
+    };
+  }, [profileData, sortedData, hoveredCategory, total]);
+
+  const ecosystemSummary = useMemo(() => {
+    const totalCategories = data.length;
+    const totalRepos = data.reduce((sum, c) => sum + (c.repo_count || 0), 0);
+    const totalVelocity = data.reduce((sum, c) => sum + (c.weekly_velocity || 0), 0);
+    const avgTrend = data.reduce((sum, c) => sum + (c.trend_composite || 0), 0) / (data.length || 1);
+    const avgGrowth = data.reduce((sum, c) => sum + (c.mom_growth_pct || 0), 0) / (data.length || 1);
+    const avgOpenPRs = data.reduce((sum, c) => sum + (c.avg_open_prs || 0), 0) / (data.length || 1);
+    
+    return {
+      totalCategories,
+      totalRepos,
+      totalVelocity,
+      avgTrend,
+      avgGrowth,
+      avgOpenPRs,
+    };
+  }, [data]);
 
   // Trigger animation after mount
   useEffect(() => {
@@ -189,7 +294,7 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
   }, []);
 
   return (
-    <div className="panel" style={{ display: "flex", flexDirection: "column" }}>
+    <div className="panel bento-card-row3" style={{ display: "flex", flexDirection: "column" }}>
       <div className="panel-header" style={{ borderBottom: "1px solid var(--border)", padding: "14px 16px" }}>
         <div style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }} className="header-container-animate">
@@ -218,109 +323,314 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
         </div>
       </div>
 
-      <div style={{ padding: "16px 12px", flex: 1, display: "flex", flexDirection: "column", gap: "10px" }}>
-        {top8Categories.map((cat, idx) => {
-          const percentage = total > 0 ? (cat.total_stars / total) * 100 : 0;
-          const color = CATEGORY_COLORS[cat.category] ?? "#6b7280";
-          const icon = CATEGORY_ICONS[cat.category] ?? (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/>
-            </svg>
-          );
-          const isHovered = hoveredCategory === cat.category;
+      <div className="bento-dist-body" style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+        <div className="bento-scroll-content bento-dist-list" style={{ padding: "16px 12px", flex: 1, display: "flex", flexDirection: "column", gap: "10px" }}>
+          {sortedData.map((cat, idx) => {
+            const percentage = total > 0 ? (cat.total_stars / total) * 100 : 0;
+            const color = CATEGORY_COLORS[cat.category] ?? "#6b7280";
+            const icon = CATEGORY_ICONS[cat.category] ?? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+              </svg>
+            );
+            const isInOthers = idx >= 5;
+            const isHovered = hoveredCategory === cat.category || (hoveredCategory === "Others" && isInOthers);
 
-          return (
-            <div
-              key={cat.category}
-              className="distribution-row"
-              onMouseEnter={() => setHoveredCategory(cat.category)}
-              onMouseLeave={() => setHoveredCategory(null)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                padding: "7px 6px",
-                borderRadius: "8px",
-                gap: "6px",
-                opacity: hoveredCategory === null || isHovered ? 1 : 0.4,
-              }}
-            >
-              {/* Rank */}
-              <span style={{
-                width: "14px",
-                fontSize: "11px",
-                fontWeight: 600,
-                color: "var(--text-muted)",
-                textAlign: "right",
-                fontFamily: "var(--font-mono)",
-                flexShrink: 0,
-              }}>
-                {idx + 1}
-              </span>
-
-              {/* Icon Container */}
+            return (
               <div
-                className="icon-box"
+                key={cat.category}
+                className="distribution-row"
+                onMouseEnter={() => setHoveredCategory(cat.category)}
+                onMouseLeave={() => setHoveredCategory(null)}
                 style={{
-                  width: "26px",
-                  height: "26px",
-                  borderRadius: "6px",
-                  background: "var(--bg-elevated)",
-                  border: "1px solid var(--border)",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  color: isHovered ? "var(--text-primary)" : "var(--text-secondary)",
-                  flexShrink: 0,
-                  transition: "all 0.2s ease",
+                  padding: "7px 6px",
+                  borderRadius: "8px",
+                  gap: "6px",
+                  opacity: hoveredCategory === null || isHovered ? 1 : 0.4,
+                  cursor: "pointer",
                 }}
               >
-                {icon}
-              </div>
+                {/* Rank */}
+                <span style={{
+                  width: "14px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  color: "var(--text-muted)",
+                  textAlign: "right",
+                  fontFamily: "var(--font-mono)",
+                  flexShrink: 0,
+                }}>
+                  {idx + 1}
+                </span>
 
-              {/* Title — flex grows and truncates */}
-              <span style={{
-                flex: 1,
-                minWidth: 0,
-                fontWeight: 600,
-                fontSize: "12px",
-                color: "var(--text-primary)",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-              title={cat.category}>
-                {cat.category}
-              </span>
-
-              {/* Progress Bar */}
-              <div style={{ width: "60px", flexShrink: 0, height: "4px", background: "rgba(255, 255, 255, 0.05)", borderRadius: "2px", overflow: "hidden", position: "relative" }}>
+                {/* Icon Container */}
                 <div
+                  className="icon-box"
                   style={{
-                    height: "100%",
-                    background: isHovered ? "#ffffff" : "rgba(255, 255, 255, 0.7)",
-                    width: animated ? `${percentage}%` : "0%",
-                    transition: "width 1.2s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.2s ease",
-                    boxShadow: isHovered ? "0 0 6px rgba(255, 255, 255, 0.5)" : "none",
-                    borderRadius: "2px",
+                    width: "26px",
+                    height: "26px",
+                    borderRadius: "6px",
+                    background: "var(--bg-elevated)",
+                    border: "1px solid var(--border)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: isHovered ? "var(--text-primary)" : "var(--text-secondary)",
+                    flexShrink: 0,
+                    transition: "all 0.2s ease",
                   }}
-                />
-              </div>
+                >
+                  {icon}
+                </div>
 
-              {/* Value Percentage */}
-              <span style={{
-                width: "40px",
-                fontSize: "12px",
-                fontWeight: 600,
-                color: "var(--text-primary)",
-                textAlign: "right",
-                fontFamily: "var(--font-mono)",
-                flexShrink: 0,
-              }}>
-                {percentage.toFixed(1)}%
+                {/* Title */}
+                <span style={{
+                  width: "160px",
+                  flexShrink: 0,
+                  fontWeight: 600,
+                  fontSize: "12px",
+                  color: "var(--text-primary)",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+                title={cat.category}>
+                  {cat.category}
+                </span>
+
+                {/* Progress Bar */}
+                <div style={{
+                  flex: 1,
+                  height: "6px",
+                  background: "rgba(255, 255, 255, 0.05)",
+                  borderRadius: "3px",
+                  overflow: "hidden",
+                  position: "relative",
+                  margin: "0 12px",
+                }}>
+                  <div
+                    style={{
+                      height: "100%",
+                      background: isHovered ? "#ffffff" : "rgba(255, 255, 255, 0.7)",
+                      width: animated ? `${percentage}%` : "0%",
+                      transition: "width 1.2s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.2s ease",
+                      boxShadow: isHovered ? "0 0 6px rgba(255, 255, 255, 0.5)" : "none",
+                      borderRadius: "3px",
+                    }}
+                  />
+                </div>
+
+                {/* Value Percentage */}
+                <span style={{
+                  width: "40px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: "var(--text-primary)",
+                  textAlign: "right",
+                  fontFamily: "var(--font-mono)",
+                  flexShrink: 0,
+                }}>
+                  {percentage.toFixed(1)}%
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Right Side: Profile Telemetry Inspector */}
+        <div className="bento-dist-chart" style={{ borderLeft: "1px solid var(--border)", display: "flex", flexDirection: "column", padding: "18px 16px", background: "rgba(255,255,255,0.002)", overflow: "hidden", minWidth: 0 }}>
+          {/* Section Title */}
+          <div style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", minWidth: 0 }}>
+            <span style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0 }}>
+              {activeProfile ? "Category Profile" : "Ecosystem Overview"}
+            </span>
+            <span style={{ 
+              fontSize: "10px", 
+              color: activeProfile ? activeProfile.color : "var(--text-muted)", 
+              fontWeight: 700, 
+              fontFamily: "var(--font-sans)",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              textAlign: "right",
+              flex: 1,
+              minWidth: 0,
+              marginLeft: "12px"
+            }}
+            title={activeProfile ? activeProfile.name : "All Categories"}
+            >
+              {activeProfile ? activeProfile.name : "All Categories"}
+            </span>
+          </div>
+
+          {/* Horizontal Segmented Share Bar */}
+          <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px", marginBottom: "18px" }}>
+            <div style={{ display: "flex", height: "8px", borderRadius: "4px", overflow: "hidden", background: "rgba(255, 255, 255, 0.05)", width: "100%" }}>
+              {profileData.map((p) => {
+                const isActive = hoveredCategory === null || 
+                  hoveredCategory === p.name || 
+                  (p.name === "Others" && hoveredCategory !== null && !topCategoryNames.includes(hoveredCategory));
+                return (
+                  <div
+                    key={p.name}
+                    style={{
+                      width: `${p.percentage}%`,
+                      background: p.color,
+                      height: "100%",
+                      opacity: isActive ? 1 : 0.25,
+                      transition: "opacity 0.2s ease, transform 0.2s ease",
+                      cursor: "pointer",
+                    }}
+                    onMouseEnter={() => setHoveredCategory(p.name)}
+                    onMouseLeave={() => setHoveredCategory(null)}
+                    title={`${p.name}: ${p.percentage.toFixed(1)}%`}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 3x2 Telemetry Grid */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, 1fr)",
+            gridTemplateRows: "repeat(3, 1fr)",
+            gap: "10px",
+            flex: 1,
+            minHeight: 0
+          }}>
+            {/* Card 1: Rank */}
+            <div style={{
+              background: "rgba(255, 255, 255, 0.015)",
+              border: "1px solid var(--border)",
+              borderRadius: "6px",
+              padding: "8px 10px",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              minWidth: 0
+            }}>
+              <span style={{ fontSize: "8px", fontWeight: 700, letterSpacing: "0.08em", color: "var(--text-muted)" }}>RANK & ROLE</span>
+              <span style={{ fontSize: "14px", fontWeight: 700, color: "#ffffff", fontFamily: "var(--font-mono)", marginTop: "2px" }}>
+                {activeProfile ? `#${activeProfile.rank}` : `--`}
+              </span>
+              <span style={{ fontSize: "8px", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {activeProfile 
+                  ? (activeProfile.rank === "O" ? "Aggregate Others" : "Top Category Focus")
+                  : `${ecosystemSummary.totalCategories} Active Categories`
+                }
               </span>
             </div>
-          );
-        })}
+
+            {/* Card 2: Share */}
+            <div style={{
+              background: "rgba(255, 255, 255, 0.015)",
+              border: "1px solid var(--border)",
+              borderRadius: "6px",
+              padding: "8px 10px",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              minWidth: 0
+            }}>
+              <span style={{ fontSize: "8px", fontWeight: 700, letterSpacing: "0.08em", color: "var(--text-muted)" }}>STAR SHARE</span>
+              <span style={{ fontSize: "14px", fontWeight: 700, color: activeProfile ? activeProfile.color : "#ffffff", fontFamily: "var(--font-mono)", marginTop: "2px" }}>
+                {activeProfile ? `${activeProfile.percentage.toFixed(1)}%` : "100.0%"}
+              </span>
+              <span style={{ fontSize: "8px", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {activeProfile ? "of ecosystem stars" : "cumulative weight"}
+              </span>
+            </div>
+
+            {/* Card 3: Stars Volume */}
+            <div style={{
+              background: "rgba(255, 255, 255, 0.015)",
+              border: "1px solid var(--border)",
+              borderRadius: "6px",
+              padding: "8px 10px",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              minWidth: 0
+            }}>
+              <span style={{ fontSize: "8px", fontWeight: 700, letterSpacing: "0.08em", color: "var(--text-muted)" }}>STARS VOLUME</span>
+              <span style={{ fontSize: "14px", fontWeight: 700, color: "#ffffff", fontFamily: "var(--font-mono)", marginTop: "2px" }}>
+                {activeProfile ? formatNumber(activeProfile.stars) : formatNumber(total)}
+              </span>
+              <span style={{ fontSize: "8px", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {activeProfile ? "total category stars" : "total system stars"}
+              </span>
+            </div>
+
+            {/* Card 4: Velocity */}
+            <div style={{
+              background: "rgba(255, 255, 255, 0.015)",
+              border: "1px solid var(--border)",
+              borderRadius: "6px",
+              padding: "8px 10px",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              minWidth: 0
+            }}>
+              <span style={{ fontSize: "8px", fontWeight: 700, letterSpacing: "0.08em", color: "var(--text-muted)" }}>MOMENTUM</span>
+              <span style={{ fontSize: "14px", fontWeight: 700, color: "#ffffff", fontFamily: "var(--font-mono)", marginTop: "2px" }}>
+                {activeProfile ? `+${formatNumber(activeProfile.weekly_velocity)}/wk` : `+${formatNumber(ecosystemSummary.totalVelocity)}/wk`}
+              </span>
+              <span style={{ fontSize: "8px", color: activeProfile && activeProfile.mom_growth_pct >= 0 ? "var(--accent-green)" : activeProfile ? "var(--accent-red)" : "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {activeProfile 
+                  ? `${activeProfile.mom_growth_pct >= 0 ? "+" : ""}${activeProfile.mom_growth_pct.toFixed(1)}% MoM Growth`
+                  : `${ecosystemSummary.avgGrowth >= 0 ? "+" : ""}${ecosystemSummary.avgGrowth.toFixed(1)}% MoM Avg`
+                }
+              </span>
+            </div>
+
+            {/* Card 5: Size */}
+            <div style={{
+              background: "rgba(255, 255, 255, 0.015)",
+              border: "1px solid var(--border)",
+              borderRadius: "6px",
+              padding: "8px 10px",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              minWidth: 0
+            }}>
+              <span style={{ fontSize: "8px", fontWeight: 700, letterSpacing: "0.08em", color: "var(--text-muted)" }}>REPOSITORIES</span>
+              <span style={{ fontSize: "14px", fontWeight: 700, color: "#ffffff", fontFamily: "var(--font-mono)", marginTop: "2px" }}>
+                {activeProfile ? `${activeProfile.repo_count} repos` : `${ecosystemSummary.totalRepos} repos`}
+              </span>
+              <span style={{ fontSize: "8px", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {activeProfile 
+                  ? `${activeProfile.avg_open_prs.toFixed(1)} avg open PRs`
+                  : `${ecosystemSummary.avgOpenPRs.toFixed(1)} avg open PRs`
+                }
+              </span>
+            </div>
+
+            {/* Card 6: Trend Score */}
+            <div style={{
+              background: "rgba(255, 255, 255, 0.015)",
+              border: "1px solid var(--border)",
+              borderRadius: "6px",
+              padding: "8px 10px",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              minWidth: 0
+            }}>
+              <span style={{ fontSize: "8px", fontWeight: 700, letterSpacing: "0.08em", color: "var(--text-muted)" }}>TREND INDEX</span>
+              <span style={{ fontSize: "14px", fontWeight: 700, color: "#ffffff", fontFamily: "var(--font-mono)", marginTop: "2px" }}>
+                {activeProfile ? `${activeProfile.trend_composite.toFixed(1)}/10` : `${ecosystemSummary.avgTrend.toFixed(1)}/10`}
+              </span>
+              <span style={{ fontSize: "8px", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {activeProfile ? "composite health index" : "overall health index"}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <style>{`
@@ -333,11 +643,10 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
           animation: starPulse 0.8s ease-in-out infinite;
         }
         .distribution-row {
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: background-color 0.2s ease;
         }
         .distribution-row:hover {
           background: rgba(255, 255, 255, 0.03);
-          transform: translateX(4px);
         }
         .distribution-row:hover .icon-box {
           border-color: var(--text-primary);
@@ -348,6 +657,21 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
         }
         .distribution-row .icon-box svg {
           transition: transform 0.2s ease;
+        }
+        .bento-dist-body {
+          display: grid;
+          grid-template-columns: 1fr;
+          min-height: 0;
+        }
+        @media (min-width: 768px) {
+          .bento-dist-body {
+            grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+          }
+        }
+        @media (max-width: 768px) {
+          .bento-dist-chart {
+            display: none !important;
+          }
         }
       `}</style>
     </div>

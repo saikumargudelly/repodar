@@ -72,7 +72,6 @@ export function ModernPRChart({ data, period }: ModernPRChartProps) {
             b.avg_open_prs -
             (a.total_merged_prs + a.avg_open_prs)
         )
-        .slice(0, 8)
         .map((cat) => ({
           category: cat.category,
           totalPRs: cat.total_merged_prs,
@@ -87,7 +86,7 @@ export function ModernPRChart({ data, period }: ModernPRChartProps) {
   }, []);
 
   return (
-    <div className="panel" style={{ display: "flex", flexDirection: "column" }}>
+    <div className="panel bento-card-row3" style={{ display: "flex", flexDirection: "column" }}>
       <div className="panel-header" style={{ borderBottom: "1px solid var(--border)", padding: "14px 16px" }}>
         <div style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }} className="header-container-animate">
@@ -115,7 +114,7 @@ export function ModernPRChart({ data, period }: ModernPRChartProps) {
         </div>
       </div>
 
-      <div style={{ padding: "16px 12px", flex: 1, display: "flex", flexDirection: "column", gap: "10px" }}>
+      <div className="bento-scroll-content" style={{ padding: "16px 12px", flex: 1, display: "flex", flexDirection: "column", gap: "10px" }}>
         {chartData.map((item, idx) => {
           const isHovered = hoveredCategory === item.category;
 

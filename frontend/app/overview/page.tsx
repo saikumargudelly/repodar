@@ -21,16 +21,16 @@ import { ProfessionalLoader } from "@/components/ProfessionalLoader";
 
 
 const C = {
-  bg: "#0d1117",
-  bgCard: "#161b22",
-  bgHover: "#21262d",
-  border: "#30363d",
-  text: "#e6edf3",
-  textSub: "#8b949e",
-  textMuted: "#6e7681",
-  green: "#3fb950",
-  amber: "#d29922",
-  red: "#f85149",
+  bg: "var(--bg-primary)",
+  bgCard: "var(--bg-surface)",
+  bgHover: "var(--bg-elevated)",
+  border: "var(--border)",
+  text: "var(--text-primary)",
+  textSub: "var(--text-secondary)",
+  textMuted: "var(--text-muted)",
+  green: "var(--accent-green)",
+  amber: "var(--accent-yellow)",
+  red: "var(--accent-red)",
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -57,25 +57,25 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 const PERIODS: { key: Period; label: string }[] = [
-  { key: "1d",   label: "Today" },
-  { key: "7d",   label: "7D" },
-  { key: "30d",  label: "1M" },
-  { key: "90d",  label: "3M" },
+  { key: "1d", label: "Today" },
+  { key: "7d", label: "7D" },
+  { key: "30d", label: "1M" },
+  { key: "90d", label: "3M" },
   { key: "365d", label: "1Y" },
-  { key: "3y",   label: "3Y" },
-  { key: "5y",   label: "5Y" },
+  { key: "3y", label: "3Y" },
+  { key: "5y", label: "5Y" },
 ];
 
 const VERTICALS: { key: Vertical; label: string }[] = [
-  { key: "ai_ml",      label: "AI / ML" },
-  { key: "devtools",   label: "DevTools" },
+  { key: "ai_ml", label: "AI / ML" },
+  { key: "devtools", label: "DevTools" },
   { key: "web_mobile", label: "Web & Mobile" },
   { key: "data_infra", label: "Data & Infra" },
-  { key: "security",   label: "Security" },
+  { key: "security", label: "Security" },
   { key: "blockchain", label: "Blockchain" },
-  { key: "oss_tools",  label: "OSS Tools" },
-  { key: "science",    label: "Science" },
-  { key: "creative",   label: "Creative" },
+  { key: "oss_tools", label: "OSS Tools" },
+  { key: "science", label: "Science" },
+  { key: "creative", label: "Creative" },
 ];
 
 // ─── Watchlist hook (localStorage) ───────────────────────────────────────────
@@ -115,7 +115,8 @@ function useWatchlist() {
   return { items, toggle, isPinned, save };
 }
 
-function StatCard({ label, value, sub, index = 0 }: { label: string; value: string | number; sub?: string; index?: number }) {
+function StatCard({ label, value, sub, index = 0, href }: { label: string; value: string | number; sub?: string; index?: number; href?: string }) {
+  const router = useRouter();
   const [isHovered, setIsHovered] = useState(false);
   // Responsive font size via JS (CSS can't reach inline styles easily)
   const [isMobile, setIsMobile] = useState(false);
@@ -162,14 +163,35 @@ function StatCard({ label, value, sub, index = 0 }: { label: string; value: stri
   ];
 
   const subTextColor = (index === 0 || index === 1) ? "#3fb950" : index === 2 ? "#f85149" : "var(--text-muted)";
-  const valueFontSize = isMobile ? "clamp(13px, 3.5vw, 18px)" : "clamp(16px, 2vw, 24px)";
+  
+  // Dynamically calculate font size based on the value's string length
+  const getFontSize = (val: string | number) => {
+    const str = String(val);
+    if (str.length > 20) {
+      return isMobile ? "clamp(10px, 2.5vw, 12px)" : "clamp(12px, 1.2vw, 15px)";
+    }
+    if (str.length > 15) {
+      return isMobile ? "clamp(11px, 3vw, 14px)" : "clamp(13px, 1.5vw, 18px)";
+    }
+    if (str.length > 11) {
+      return isMobile ? "clamp(12px, 3.2vw, 16px)" : "clamp(15px, 1.8vw, 21px)";
+    }
+    return isMobile ? "clamp(13px, 3.5vw, 18px)" : "clamp(16px, 2vw, 24px)";
+  };
+  const fontSize = getFontSize(value);
 
   return (
     <div
       className="kpi-card card-pad"
+      onClick={href ? () => router.push(href) : undefined}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "flex-start",
+        cursor: href ? "pointer" : "default",
         transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
         transform: isHovered ? "scale(1.02) translateY(-2px)" : "scale(1) translateY(0)",
         borderLeftColor: isHovered ? "var(--text-muted)" : "var(--border)",
@@ -195,18 +217,23 @@ function StatCard({ label, value, sub, index = 0 }: { label: string; value: stri
       </div>
 
       {/* Value */}
-      <div className="kpi-value" style={{
-        color: "#ffffff",
-        fontSize: valueFontSize,
-        fontWeight: 700,
-        fontFamily: "var(--font-sans)",
-        transition: "opacity 0.2s ease",
-        opacity: 0.95,
-        marginBottom: "4px",
-        wordBreak: "break-word",
-        overflowWrap: "anywhere",
-        lineHeight: 1.2,
-      }}>
+      <div 
+        className="kpi-value"
+        title={String(value)}
+        style={{
+          color: "#ffffff",
+          fontSize: fontSize,
+          fontWeight: 700,
+          fontFamily: "var(--font-sans)",
+          transition: "all 0.2s ease",
+          opacity: 0.95,
+          marginBottom: "4px",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          lineHeight: 1.2,
+        }}
+      >
         {value}
       </div>
 
@@ -219,6 +246,7 @@ function StatCard({ label, value, sub, index = 0 }: { label: string; value: stri
           display: "flex",
           alignItems: "center",
           gap: "4px",
+          marginTop: "auto", // Push subtext to the bottom to maintain visual alignment
         }}>
           {index === 2 && (
             <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -658,7 +686,7 @@ function LeaderboardTable({
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", fontFamily: "var(--font-sans)" }}>
           <thead>
             <tr style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
-              {/* checkbox */ }<th style={{ padding: "9px 12px", width: "28px" }} />
+              {/* checkbox */}<th style={{ padding: "9px 12px", width: "28px" }} />
               {/* rank */}<th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 600, fontSize: "11px", letterSpacing: "0.03em", whiteSpace: "nowrap", textTransform: "uppercase" }}>#</th>
               {/* repo */}<th style={{ padding: "9px 12px", fontWeight: 600, fontSize: "11px", letterSpacing: "0.03em", whiteSpace: "nowrap", textTransform: "uppercase" }}>Repo</th>
               {/* category */}<th className="col-hide-mobile" style={{ padding: "9px 12px", fontWeight: 600, fontSize: "11px", letterSpacing: "0.03em", whiteSpace: "nowrap", textTransform: "uppercase" }}>Category</th>
@@ -689,7 +717,7 @@ function LeaderboardTable({
                 >
                   {/* Compare checkbox */}
                   <td style={{ padding: "12px 8px 10px 16px", width: "28px", verticalAlign: "top" }}>
-                    <div 
+                    <div
                       onClick={() => onToggleCompare(slug)}
                       style={{
                         width: "14px",
@@ -714,7 +742,7 @@ function LeaderboardTable({
                       )}
                     </div>
                   </td>
-                  
+
                   {/* Rank */}
                   <td
                     style={{ padding: "12px 12px", textAlign: "right", color: "var(--text-muted)", width: "40px", verticalAlign: "top", cursor: "pointer", fontFamily: "var(--font-mono)" }}
@@ -875,32 +903,32 @@ function LeaderboardTable({
 function SustainabilityRanking({ repos }: { repos: SustainabilityEntry[] }) {
   const router = useRouter();
   return (
-    <div className="panel">
-      <div className="panel-header">
+    <div className="panel bento-card-row3" style={{ display: "flex", flexDirection: "column" }}>
+      <div className="panel-header" style={{ borderBottom: "1px solid var(--border)", padding: "14px 16px" }}>
         <div className="panel-title">Sustainability Ranking</div>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+      <div className="bento-scroll-content" style={{ display: "flex", flexDirection: "column", gap: "2px", flex: 1, padding: "12px 10px" }}>
         {repos.length === 0 ? (
           <div style={{ padding: "20px 24px", textAlign: "center", fontFamily: "var(--font-sans)", color: "var(--text-muted)", fontSize: "13px" }}>
             No sustainability data yet — scores will populate after first ingestion run.
           </div>
-        ) : repos.slice(0, 10).map((repo, i) => (
+        ) : repos.map((repo, i) => (
           <div
             key={repo.repo_id}
             className="sustain-row"
-            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px", cursor: "pointer", minWidth: 0, borderBottom: "1px solid var(--border)", transition: "background 0.15s" }}
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 6px", cursor: "pointer", minWidth: 0, borderBottom: "1px solid var(--border)", transition: "background 0.15s" }}
             onClick={() => router.push(`/repo/${repo.repo_id}`)}
             onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
             onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, overflow: "hidden", flex: 1 }}>
-              <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "10px", width: "22px", textAlign: "right", flexShrink: 0 }}>{i + 1}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0, overflow: "hidden", flex: 1 }}>
+              <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "10px", width: "14px", textAlign: "right", flexShrink: 0 }}>{i + 1}</span>
               <div style={{ minWidth: 0 }}>
                 <span className="sustain-repo-name" style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--text-primary)", wordBreak: "break-word" }}>{repo.owner}/{repo.name}</span>
                 <span style={{ marginLeft: "6px", fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", letterSpacing: "0.06em" }}>{repo.category}</span>
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
               <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--amber)" }}>
                 {(repo.sustainability_score * 100).toFixed(0)}%
               </span>
@@ -967,63 +995,63 @@ function EcosystemMapChart({ repos, title = "AI Ecosystem Map" }: { repos: Radar
         </div>
       </div>
       <div style={{ padding: "14px 16px" }}>
-      <ResponsiveContainer width="100%" height={chartHeight}>
-        <ScatterChart margin={{ top: 10, right: 10, bottom: 30, left: 10 }}>
-          <XAxis
-            type="number" dataKey="x" name="Trend"
-            domain={[0, "auto"]}
-            tick={{ fontSize: 10, fill: "var(--text-muted)" }}
-            label={{ value: "Trend Score", position: "insideBottom", offset: -10, fontSize: 10, fill: "var(--text-muted)" }}
-          />
-          <YAxis
-            type="number" dataKey="y" name="Sustainability"
-            domain={[0, 100]}
-            width={36}
-            tick={{ fontSize: 10, fill: "var(--text-muted)" }}
-            label={{ value: "Sustain.", angle: -90, position: "insideLeft", offset: 10, fontSize: 10, fill: "var(--text-muted)" }}
-          />
-          <ZAxis range={[30, 30]} />
-          <Tooltip
-            cursor={{ strokeDasharray: "3 3" }}
-            content={({ payload }) => {
-              if (!payload?.length) return null;
-              const d = payload[0]?.payload as { x: number; y: number; name: string; owner: string; category: string };
-              return (
-                <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", padding: "8px 12px", fontSize: "12px", fontFamily: "var(--font-mono)" }}>
-                  <p style={{ margin: "0 0 4px", fontWeight: 600, color: "var(--text-primary)" }}>{d.owner}/{d.name}</p>
-                  <p style={{ margin: "0 0 2px", color: "var(--cyan)" }}>TREND: <strong>{d.x}</strong></p>
-                  <p style={{ margin: "0 0 2px", color: "var(--amber)" }}>SUSTAIN: <strong>{d.y}</strong></p>
-                  <p style={{ margin: 0, color: CATEGORY_COLORS[d.category] ?? "#888", fontSize: "10px", letterSpacing: "0.06em" }}>{d.category}</p>
-                </div>
-              );
-            }}
-          />
-          {categories.map((cat) => (
-            <Scatter
-              key={cat}
-              name={cat}
-              data={byCategory[cat]}
-              fill={CATEGORY_COLORS[cat] ?? "#888"}
-              opacity={0.85}
+        <ResponsiveContainer width="100%" height={chartHeight}>
+          <ScatterChart margin={{ top: 10, right: 10, bottom: 30, left: 10 }}>
+            <XAxis
+              type="number" dataKey="x" name="Trend"
+              domain={[0, "auto"]}
+              tick={{ fontSize: 10, fill: "var(--text-muted)" }}
+              label={{ value: "Trend Score", position: "insideBottom", offset: -10, fontSize: 10, fill: "var(--text-muted)" }}
             />
-          ))}
-        </ScatterChart>
-      </ResponsiveContainer>
+            <YAxis
+              type="number" dataKey="y" name="Sustainability"
+              domain={[0, 100]}
+              width={36}
+              tick={{ fontSize: 10, fill: "var(--text-muted)" }}
+              label={{ value: "Sustain.", angle: -90, position: "insideLeft", offset: 10, fontSize: 10, fill: "var(--text-muted)" }}
+            />
+            <ZAxis range={[30, 30]} />
+            <Tooltip
+              cursor={{ strokeDasharray: "3 3" }}
+              content={({ payload }) => {
+                if (!payload?.length) return null;
+                const d = payload[0]?.payload as { x: number; y: number; name: string; owner: string; category: string };
+                return (
+                  <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", padding: "8px 12px", fontSize: "12px", fontFamily: "var(--font-mono)" }}>
+                    <p style={{ margin: "0 0 4px", fontWeight: 600, color: "var(--text-primary)" }}>{d.owner}/{d.name}</p>
+                    <p style={{ margin: "0 0 2px", color: "var(--cyan)" }}>TREND: <strong>{d.x}</strong></p>
+                    <p style={{ margin: "0 0 2px", color: "var(--amber)" }}>SUSTAIN: <strong>{d.y}</strong></p>
+                    <p style={{ margin: 0, color: CATEGORY_COLORS[d.category] ?? "#888", fontSize: "10px", letterSpacing: "0.06em" }}>{d.category}</p>
+                  </div>
+                );
+              }}
+            />
+            {categories.map((cat) => (
+              <Scatter
+                key={cat}
+                name={cat}
+                data={byCategory[cat]}
+                fill={CATEGORY_COLORS[cat] ?? "#888"}
+                opacity={0.85}
+              />
+            ))}
+          </ScatterChart>
+        </ResponsiveContainer>
 
-      {/* Quadrant hints */}
-      <div className="quadrant-grid">
-        {[
-          { bg: "rgba(63,185,80,0.06)", border: "var(--accent-green)", label: "Rising Stars 🍃", desc: "High trend · high sustainability" },
-          { bg: "rgba(210,153,34,0.06)", border: "var(--accent-yellow)", label: "Breakouts", desc: "High trend · lower sustainability" },
-          { bg: "rgba(88,166,255,0.06)", border: "var(--accent-blue)", label: "Established", desc: "Lower trend · high sustainability" },
-          { bg: "rgba(248,81,73,0.06)", border: "var(--accent-red)", label: "Watch", desc: "Low trend · low sustainability" },
-        ].map(({ bg, border, label, desc }) => (
-          <div key={label} style={{ background: bg, border: `1px solid ${border}33`, borderRadius: "5px", padding: "7px 10px", fontSize: "12px", fontFamily: "var(--font-sans)" }}>
-            <span style={{ color: border, fontWeight: 600 }}>{label}</span>
-            <span style={{ color: "var(--text-muted)", marginLeft: "6px" }}>{desc}</span>
-          </div>
-        ))}
-      </div>
+        {/* Quadrant hints */}
+        <div className="quadrant-grid">
+          {[
+            { bg: "rgba(63,185,80,0.06)", border: "var(--accent-green)", label: "Rising Stars 🍃", desc: "High trend · high sustainability" },
+            { bg: "rgba(210,153,34,0.06)", border: "var(--accent-yellow)", label: "Breakouts", desc: "High trend · lower sustainability" },
+            { bg: "rgba(88,166,255,0.06)", border: "var(--accent-blue)", label: "Established", desc: "Lower trend · high sustainability" },
+            { bg: "rgba(248,81,73,0.06)", border: "var(--accent-red)", label: "Watch", desc: "Low trend · low sustainability" },
+          ].map(({ bg, border, label, desc }) => (
+            <div key={label} style={{ background: bg, border: `1px solid ${border}33`, borderRadius: "5px", padding: "7px 10px", fontSize: "12px", fontFamily: "var(--font-sans)" }}>
+              <span style={{ color: border, fontWeight: 600 }}>{label}</span>
+              <span style={{ color: "var(--text-muted)", marginLeft: "6px" }}>{desc}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -1452,7 +1480,7 @@ export default function OverviewPage() {
               )}
             </button>
 
-            <div 
+            <div
               className="trends-popup"
               style={{
                 opacity: alertsOpen ? 1 : 0,
@@ -1543,98 +1571,90 @@ export default function OverviewPage() {
         </div>
       </div>
 
-      {/* Stat Cards */}
-      <div className="stat-grid">
-        <StatCard
-          index={0}
-          label="Repos Tracked"
-          value={overview.total_repos}
-          sub={overview.discovered_repos > 0
-            ? `+${overview.discovered_repos} auto-discovered`
-            : "curated baseline"}
-        />
-        <StatCard
-          index={1}
-          label="Top Category"
-          value={topCat?.category ?? "—"}
-          sub={topCat ? `${topCat.total_stars.toLocaleString()} total stars` : undefined}
-        />
-        <StatCard
-          index={2}
-          label={`#1 — ${PERIODS.find(p => p.key === period)?.label ?? period} Momentum`}
-          value={topLeaderEntry ? `${topLeaderEntry.owner}/${topLeaderEntry.name}` : "—"}
-          sub={topLeaderEntry
-            ? `★ ${topLeaderEntry.current_stars.toLocaleString()} stars`
-            : undefined}
-        />
-        <StatCard
-          index={3}
-          label="Healthy Repos"
-          value={greenCount}
-          sub={`of ${overview.total_repos} active`}
-        />
-      </div>
+      {/* Bento Grid Layout */}
+      <div className="bento-grid">
+        {/* Stat Cards */}
+        <div className="bento-col-3" style={{ display: "flex", flexDirection: "column" }}>
+          <StatCard
+            index={0}
+            label="Repos Tracked"
+            value={overview.total_repos}
+            sub={overview.discovered_repos > 0
+              ? `+${overview.discovered_repos} auto-discovered`
+              : "curated baseline"}
+          />
+        </div>
+        <div className="bento-col-3" style={{ display: "flex", flexDirection: "column" }}>
+          <StatCard
+            index={1}
+            label="Top Category"
+            value={topCat?.category ?? "—"}
+            sub={topCat ? `${topCat.total_stars.toLocaleString()} total stars` : undefined}
+          />
+        </div>
+        <div className="bento-col-3" style={{ display: "flex", flexDirection: "column" }}>
+          <StatCard
+            index={2}
+            label={`#1 — ${PERIODS.find(p => p.key === period)?.label ?? period} Momentum`}
+            value={topLeaderEntry ? `${topLeaderEntry.owner}/${topLeaderEntry.name}` : "—"}
+            sub={topLeaderEntry
+              ? `★ ${topLeaderEntry.current_stars.toLocaleString()} stars`
+              : undefined}
+            href={topLeaderEntry ? `/repo/${topLeaderEntry.owner}/${topLeaderEntry.name}` : undefined}
+          />
+        </div>
+        <div className="bento-col-3" style={{ display: "flex", flexDirection: "column" }}>
+          <StatCard
+            index={3}
+            label="Healthy Repos"
+            value={greenCount}
+            sub={`of ${overview.total_repos} active`}
+          />
+        </div>
 
-      {/* Category Charts Row */}
-      <ModernCategoryTrendScore data={categoriesData ?? overview.category_growth} period={period} />
-      <div className="chart-row-2">
-        <ModernCategoryCards data={categoriesData ?? overview.category_growth} />
-        <ModernPRChart data={categoriesData ?? overview.category_growth} period={period} />
-      </div>
+        {/* Row 2: Category Trend Score (8 cols) & Sustainability Ranking (4 cols) */}
+        <div className="bento-col-8">
+          <ModernCategoryTrendScore data={categoriesData ?? overview.category_growth} period={period} />
+        </div>
+        <div className="bento-col-4">
+          <SustainabilityRanking repos={overview.sustainability_ranking} />
+        </div>
 
-      {/* Ecosystem Map — trend vs sustainability per repo */}
-      {radarRepos && radarRepos.length > 0 && (
-        <EcosystemMapChart repos={radarRepos} title={`${verticalLabel} Ecosystem Map`} />
-      )}
+        {/* Row 3: Stars Distribution (8 cols) & PR Activity (4 cols) */}
+        <div className="bento-col-8">
+          <ModernCategoryCards data={categoriesData ?? overview.category_growth} />
+        </div>
+        <div className="bento-col-4">
+          <ModernPRChart data={categoriesData ?? overview.category_growth} period={period} />
+        </div>
 
-      {/* Period + Vertical Leaderboard */}
-      <div className="table-scroll">
-      <LeaderboardTable
-        entries={leaderboard?.entries ?? []}
-        period={period}
-        isLoading={leaderboardLoading}
-        compareSelection={compareSelection}
-        onToggleCompare={toggleCompare}
-        isPinned={isPinned}
-        onTogglePin={(entry) => togglePin({
-          repo_id: entry.repo_id,
-          owner: entry.owner,
-          name: entry.name,
-          github_url: entry.github_url,
-        })}
-      />
-      </div>
-
-      {/* Watchlist */}
-      {watchlist.length > 0 && (
-        <div className="panel">
-          <div className="panel-header">
-            <div className="panel-title">★ Watchlist</div>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--cyan)", border: "1px solid var(--cyan)", padding: "2px 8px", letterSpacing: "0.08em" }}>{watchlist.length}</span>
+        {/* Row 4: Ecosystem Map (12 cols) */}
+        {radarRepos && radarRepos.length > 0 && (
+          <div className="bento-col-12">
+            <EcosystemMapChart repos={radarRepos} title={`${verticalLabel} Ecosystem Map`} />
           </div>
-          <div style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: "1px", background: "var(--border)" }}>
-            {watchlist.map((item) => (
-              <div key={item.repo_id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 12px", background: "var(--bg-surface)" }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(0,229,255,0.025)")}
-                onMouseLeave={(e) => (e.currentTarget.style.background = "var(--bg-surface)")}
-              >
-                <a href={`/repo/${item.owner}/${item.name}`} style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--text-primary)", textDecoration: "none" }}>
-                  {item.owner}/{item.name}
-                </a>
-                <button
-                  onClick={() => togglePin(item)}
-                  style={{ background: "none", border: "1px solid var(--border)", cursor: "pointer", color: "var(--pink)", fontSize: "10px", padding: "2px 8px", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}
-                >
-                  REMOVE
-                </button>
-              </div>
-            ))}
+        )}
+
+        {/* Row 5: Leaderboard Table (12 cols) */}
+        <div className="bento-col-12">
+          <div className="table-scroll">
+            <LeaderboardTable
+              entries={leaderboard?.entries ?? []}
+              period={period}
+              isLoading={leaderboardLoading}
+              compareSelection={compareSelection}
+              onToggleCompare={toggleCompare}
+              isPinned={isPinned}
+              onTogglePin={(entry) => togglePin({
+                repo_id: entry.repo_id,
+                owner: entry.owner,
+                name: entry.name,
+                github_url: entry.github_url,
+              })}
+            />
           </div>
         </div>
-      )}
-
-      {/* Sustainability Ranking */}
-      <SustainabilityRanking repos={overview.sustainability_ranking} />
+      </div>
     </div>
   );
 }

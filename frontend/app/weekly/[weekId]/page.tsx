@@ -716,7 +716,7 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
               </div>
               <button onClick={() => setIsModalOpen(false)} style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 20, lineHeight: 1, padding: 0 }}>✕</button>
             </div>
-            <div style={{ border: "1px solid var(--border)", background: "#0d1117", borderRadius: "8px", overflow: "hidden", display: "flex", justifyContent: "center", alignItems: "center", padding: 20 }}>
+            <div style={{ border: "1px solid var(--border)", background: "var(--bg-primary)", borderRadius: "8px", overflow: "hidden", display: "flex", justifyContent: "center", alignItems: "center", padding: 20 }}>
               <div style={{ width: 220, height: 293, background: "radial-gradient(circle at 50% 50%, #171d2b 0%, #0a0d14 100%)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: 16, display: "flex", flexDirection: "column", justifyContent: "space-between", boxSizing: "border-box" }}>
                 <div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>

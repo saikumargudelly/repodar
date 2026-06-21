@@ -11,7 +11,7 @@ export default function NetworkRedirect() {
   }, [router]);
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", alignItems: "center", justifyContent: "center", background: "#0d1117" }}>
+    <div style={{ display: "flex", minHeight: "100vh", alignItems: "center", justifyContent: "center", background: "var(--bg-primary)" }}>
       <div style={{ fontFamily: "var(--font-mono)", color: "#6e7681", fontSize: "12px" }}>
         Redirecting to Leaderboard & contributor network...
       </div>

@@ -1177,8 +1177,6 @@ export default function RepoDeepDive() {
         />
       </div>
 
-      </div>
-
       {/* Tab Switcher */}
       <div style={{
         display: "flex",

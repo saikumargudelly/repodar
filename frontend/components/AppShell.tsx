@@ -94,7 +94,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           maxWidth: "100%",
           marginTop: "0px",
           overflowX: "hidden",
-          transition: "margin-left 0.3s ease, margin-top 0.3s ease",
+          transition: "margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1), margin-top 0.25s ease",
         }}
       >
         {children}

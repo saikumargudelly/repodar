@@ -171,7 +171,7 @@ export function Sidebar() {
   useEffect(() => {
     document.documentElement.style.setProperty(
       "--sidebar-width",
-      isMobile ? "0px" : collapsed ? "64px" : "240px"
+      isMobile ? "0px" : collapsed ? "56px" : "240px"
     );
   }, [collapsed, isMobile]);
 
@@ -216,32 +216,43 @@ export function Sidebar() {
           height: "56px",
           display: "flex",
           alignItems: "center",
-          padding: collapsed && !isMobile ? "0 8px" : "0 14px",
+          padding: collapsed && !isMobile ? "0" : "0 14px",
           borderBottom: "1px solid var(--border)",
           gap: collapsed && !isMobile ? "0" : "10px",
           flexShrink: 0,
           justifyContent: collapsed && !isMobile ? "center" : "flex-start",
           cursor: isMobile ? "default" : "pointer",
-          transition: "background 0.13s",
+          transition: "background 0.13s, padding 0.25s cubic-bezier(0.4, 0, 0.2, 1), gap 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
         }}
         onMouseEnter={(e) => { if (!isMobile) e.currentTarget.style.background = "var(--bg-elevated)"; }}
         onMouseLeave={(e) => { if (!isMobile) e.currentTarget.style.background = "transparent"; }}
         title={isMobile ? "" : collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
-        <div className="brand-icon">
+        <div className="brand-icon" style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", width: "24px" }}>
           {/* Konoha Leaf brand symbol */}
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
             <path d="M12,4 C7.58,4 4,7.58 4,12 C4,16.42 7.58,20 12,20 C14,20 15.8,19.2 17.2,17.8 L18.5,19.1 C16.8,20.9 14.5,22 12,22 C6.48,22 2,17.52 2,12 C2,6.48 6.48,2 12,2 C17,2 20.5,5 21,5.5 L18,8.5 L22,9 L21.5,5 L19.5,7 C18.2,5.2 15.2,4 12,4 Z" fill="currentColor" />
             <path d="M12,8 C9.79,8 8,9.79 8,12 C8,14.21 9.79,16 12,16 C13.5,16 14.8,15.2 15.5,14 L13.5,13 C13.2,13.6 12.6,14 12,14 C10.9,14 10,13.1 10,12 C10,10.9 10.9,10 12,10 C13.1,10 14,10.9 14,12" fill="none" stroke="currentColor" strokeWidth="1.8" />
-            <path d="M5,19 L3,21" stroke="currentColor" stroke-width="2" />
+            <path d="M5,19 L3,21" stroke="currentColor" strokeWidth="2" />
           </svg>
         </div>
-        {(!collapsed || isMobile) && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "2px", userSelect: "none" }}>
-            <span style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "15px", letterSpacing: "0.01em", color: "var(--text-primary)", whiteSpace: "nowrap" }}>Repodar</span>
-            <span style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>GitHub AI Radar</span>
-          </div>
-        )}
+        <div 
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "2px",
+            userSelect: "none",
+            maxHeight: collapsed && !isMobile ? "0" : "40px",
+            maxWidth: collapsed && !isMobile ? "0" : "160px",
+            opacity: collapsed && !isMobile ? 0 : 1,
+            overflow: "hidden",
+            transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+            marginLeft: collapsed && !isMobile ? "0" : "10px",
+          }}
+        >
+          <span style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "15px", letterSpacing: "0.01em", color: "var(--text-primary)", whiteSpace: "nowrap" }}>Repodar</span>
+          <span style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>GitHub AI Radar</span>
+        </div>
         {/* Close button on mobile */}
         {isMobile && (
           <button
@@ -257,20 +268,24 @@ export function Sidebar() {
         {NAV_SECTIONS.map((section) => (
           <div key={section.title} style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
             {/* Section Header */}
-            {(!collapsed || isMobile) && (
-              <div style={{
+            <div 
+              style={{
                 fontFamily: "var(--font-sans)",
                 fontSize: "12px",
                 fontWeight: 700,
                 letterSpacing: "0.08em",
                 color: "var(--text-muted)",
                 textTransform: "uppercase",
-                padding: "0 10px 6px",
-                marginTop: "4px",
-              }}>
-                {section.title}
-              </div>
-            )}
+                padding: collapsed && !isMobile ? "0" : "0 10px 6px",
+                marginTop: collapsed && !isMobile ? "0" : "4px",
+                maxHeight: collapsed && !isMobile ? "0" : "30px",
+                opacity: collapsed && !isMobile ? 0 : 1,
+                overflow: "hidden",
+                transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+              }}
+            >
+              {section.title}
+            </div>
             
              {section.items.map((item) => {
               const isActive = isNavActive(item.href);
@@ -288,25 +303,30 @@ export function Sidebar() {
                     background: isActive ? "rgba(255, 255, 255, 0.05)" : "transparent",
                     justifyContent: collapsed && !isMobile ? "center" : "flex-start",
                     borderLeft: isActive ? "2px solid var(--text-primary)" : "2px solid transparent",
+                    borderRight: collapsed && !isMobile ? "2px solid transparent" : "none",
                   }}
                 >
                   <span style={{ display: "flex", alignItems: "center", justifyContent: "center", color: isActive ? "var(--text-primary)" : "var(--text-muted)", flexShrink: 0, width: "17px" }}>
                     {item.icon}
                   </span>
-                  {(!collapsed || isMobile) && (
-                    <span className="sidebar-label" style={{ flex: 1, fontFamily: "var(--font-sans)", fontSize: "13px", letterSpacing: "0", marginLeft: "10px" }}>{item.label}</span>
-                  )}
-                  {(!collapsed || isMobile) && badgeText && (
+                  <span className="sidebar-label" style={{ flex: 1, fontFamily: "var(--font-sans)", fontSize: "13px", letterSpacing: "0" }}>{item.label}</span>
+                  {badgeText && (
                     <span style={{
                       fontSize: "10px",
                       fontWeight: 600,
-                      padding: badgeText === "β" ? "1px 5px" : "2px 8px",
+                      padding: collapsed && !isMobile ? "0" : (badgeText === "β" ? "1px 5px" : "2px 8px"),
                       borderRadius: "10px",
                       lineHeight: 1,
-                      marginRight: "4px",
-                      display: "inline-flex",
+                      marginRight: collapsed && !isMobile ? "0" : "4px",
+                      display: collapsed && !isMobile ? "none" : "inline-flex",
                       alignItems: "center",
                       justifyContent: "center",
+                      maxHeight: collapsed && !isMobile ? "0" : "18px",
+                      maxWidth: collapsed && !isMobile ? "0" : "40px",
+                      opacity: collapsed && !isMobile ? 0 : 1,
+                      overflow: "hidden",
+                      transition: "all 0.25s ease",
+                      flexShrink: 0,
                       ...(badgeType === "peach" ? {
                         background: "#ffebe9",
                         color: "#a51d24",
@@ -331,28 +351,38 @@ export function Sidebar() {
 
       {/* Footer Profile Card */}
       {authLoaded && userId && (
-        <div ref={profileMenuRef} style={{ position: "relative", borderTop: "1px solid var(--border)", padding: "10px 10px 36px 10px", flexShrink: 0 }}>
+        <div 
+          ref={profileMenuRef} 
+          style={{ 
+            position: "relative", 
+            borderTop: "1px solid var(--border)", 
+            padding: collapsed && !isMobile ? "8px 8px 36px 8px" : "10px 10px 36px 10px", 
+            flexShrink: 0,
+            transition: "padding 0.25s ease",
+          }}
+        >
           {/* Profile Card Button */}
           <div
             onClick={() => setProfileMenuOpen((o) => !o)}
             style={{
               display: "flex",
               alignItems: "center",
-              padding: collapsed && !isMobile ? "4px" : "6px 8px",
+              padding: collapsed && !isMobile ? "4px 0" : "6px 8px",
               borderRadius: "8px",
               cursor: "pointer",
-              transition: "background 0.15s",
+              transition: "background 0.15s, padding 0.25s ease",
               background: profileMenuOpen ? "var(--bg-elevated)" : "transparent",
               justifyContent: collapsed && !isMobile ? "center" : "flex-start",
-              gap: "10px",
+              gap: collapsed && !isMobile ? "0" : "10px",
+              width: "100%",
             }}
             onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elevated)"; }}
             onMouseLeave={(e) => { if (!profileMenuOpen) e.currentTarget.style.background = "transparent"; }}
           >
             {/* Avatar circle */}
             <div style={{
-              width: "38px",
-              height: "38px",
+              width: collapsed && !isMobile ? "30px" : "38px",
+              height: collapsed && !isMobile ? "30px" : "38px",
               borderRadius: "50%",
               background: "#ffffff",
               color: "#0d1117",
@@ -360,58 +390,73 @@ export function Sidebar() {
               alignItems: "center",
               justifyContent: "center",
               fontWeight: 700,
-              fontSize: "13px",
+              fontSize: collapsed && !isMobile ? "11px" : "13px",
               flexShrink: 0,
+              transition: "all 0.25s ease",
             }}>
               {profileInitials}
             </div>
 
-            {(!collapsed || isMobile) && (
-              <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
-                <span style={{
-                  fontFamily: "var(--font-sans)",
-                  fontWeight: 600,
-                  fontSize: "13px",
-                  color: "var(--text-primary)",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}>
-                  {profileName}
-                </span>
-                <span style={{
-                  fontFamily: "var(--font-sans)",
-                  fontSize: "11px",
-                  color: "var(--text-muted)",
-                  whiteSpace: "nowrap",
-                  marginTop: "1px",
-                }}>
-                  v2.0 · Pro
-                </span>
-              </div>
-            )}
+            <div 
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                flex: 1,
+                minWidth: 0,
+                maxHeight: collapsed && !isMobile ? "0" : "36px",
+                maxWidth: collapsed && !isMobile ? "0" : "140px",
+                opacity: collapsed && !isMobile ? 0 : 1,
+                overflow: "hidden",
+                transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                marginLeft: collapsed && !isMobile ? "0" : "10px",
+              }}
+            >
+              <span style={{
+                fontFamily: "var(--font-sans)",
+                fontWeight: 600,
+                fontSize: "13px",
+                color: "var(--text-primary)",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}>
+                {profileName}
+              </span>
+              <span style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "11px",
+                color: "var(--text-muted)",
+                whiteSpace: "nowrap",
+                marginTop: "1px",
+              }}>
+                v2.0 · Pro
+              </span>
+            </div>
 
-            {(!collapsed || isMobile) && (
-              <button
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "var(--text-muted)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "4px",
-                }}
-              >
-                {/* Vertical ellipsis ⋮ */}
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="1.2" />
-                  <circle cx="12" cy="5" r="1.2" />
-                  <circle cx="12" cy="19" r="1.2" />
-                </svg>
-              </button>
-            )}
+            <button
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "var(--text-muted)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "4px",
+                maxHeight: collapsed && !isMobile ? "0" : "24px",
+                maxWidth: collapsed && !isMobile ? "0" : "24px",
+                opacity: collapsed && !isMobile ? 0 : 1,
+                overflow: "hidden",
+                transition: "all 0.25s ease",
+              }}
+            >
+              {/* Vertical ellipsis ⋮ */}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="1.2" />
+                <circle cx="12" cy="5" r="1.2" />
+                <circle cx="12" cy="19" r="1.2" />
+              </svg>
+            </button>
           </div>
 
           {/* Popup Dropdown Menu */}
@@ -550,7 +595,7 @@ export function Sidebar() {
           gap: 10px;
           font-size: 11px;
           text-decoration: none;
-          transition: background 0.13s, color 0.13s;
+          transition: background 0.13s, color 0.13s, padding 0.25s ease, border-left 0.25s ease;
           position: relative;
           cursor: pointer;
           border-radius: 6px;
@@ -685,13 +730,15 @@ export function Sidebar() {
         .sidebar-label {
           white-space: nowrap;
           overflow: hidden;
-          transition: opacity 0.2s ease, max-width 0.25s ease;
+          transition: opacity 0.2s ease, max-width 0.25s ease, margin-left 0.25s ease;
           max-width: 160px;
           opacity: 1;
+          margin-left: 10px;
         }
         .sidebar-collapsed .sidebar-label {
           max-width: 0;
           opacity: 0;
+          margin-left: 0;
         }
       `}</style>
 
@@ -704,12 +751,12 @@ export function Sidebar() {
             left: 0,
             top: 0,
             height: "100vh",
-            width: collapsed ? "64px" : "240px",
+            width: collapsed ? "56px" : "240px",
             background: "var(--bg-surface)",
             borderRight: "1px solid var(--border)",
             display: "flex",
             flexDirection: "column",
-            transition: "width 0.25s ease",
+            transition: "width 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
             overflowY: "auto",
             overflowX: "hidden",
             zIndex: 50,

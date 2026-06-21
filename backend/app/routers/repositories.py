@@ -955,20 +955,20 @@ async def delta_run_repo(
 
     # Infer category from topics/description
     topics_list = gh_data.get("topics", [])
-    inferred_category = "general"
+    inferred_category = "DevTools"
     topic_set = set(t.lower() for t in topics_list)
     desc_lower = (gh_data.get("description") or "").lower()
     
     if any(t in topic_set for t in ["machine-learning", "llm", "deep-learning", "ai", "nlp", "computer-vision"]) or any(w in desc_lower for w in ["llm", "ai ", "ml ", "machine learning"]):
-        inferred_category = "ai_ml"
+        inferred_category = "AI / ML"
     elif any(t in topic_set for t in ["javascript", "typescript", "react", "vue", "angular", "nextjs"]) or any(w in desc_lower for w in ["web", "frontend", "mobile", "react", "vue"]):
-        inferred_category = "web_mobile"
+        inferred_category = "Web & Mobile"
     elif any(t in topic_set for t in ["kubernetes", "docker", "terraform", "database", "kafka"]) or any(w in desc_lower for w in ["infrastructure", "database", "devops", "kubernetes"]):
-        inferred_category = "data_infra"
+        inferred_category = "Data & Infra"
     elif any(t in topic_set for t in ["security", "cryptography", "pentest"]) or "security" in desc_lower:
-        inferred_category = "security"
+        inferred_category = "Security"
     elif any(t in topic_set for t in ["blockchain", "ethereum", "solidity", "web3"]) or "blockchain" in desc_lower:
-        inferred_category = "blockchain"
+        inferred_category = "Blockchain"
 
     # Save basic repo record (short-lived transaction)
     repo_data = await asyncio.to_thread(_upsert_repo_record, owner, name, inferred_category, gh_data, now)

@@ -94,7 +94,7 @@ export function ModernCategoryTrendScore({
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"score" | "stars">("score");
   const [animated, setAnimated] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [activeCategoryName, setActiveCategoryName] = useState<string | null>(null);
 
   const periodLabel = PERIODS.find((p) => p.key === period)?.label ?? period;
 
@@ -107,11 +107,10 @@ export function ModernCategoryTrendScore({
     });
   }, [data, sortBy]);
 
-  const top12Categories = useMemo(() => chartData.slice(0, 12), [chartData]);
-
-  const displayedCategories = useMemo(() => {
-    return isExpanded ? top12Categories : top12Categories.slice(0, 6);
-  }, [top12Categories, isExpanded]);
+  const activeCategory = useMemo(() => {
+    if (!chartData || chartData.length === 0) return null;
+    return chartData.find(c => c.category === activeCategoryName) || chartData[0];
+  }, [chartData, activeCategoryName]);
 
   useEffect(() => {
     const t = setTimeout(() => setAnimated(true), 80);
@@ -119,7 +118,7 @@ export function ModernCategoryTrendScore({
   }, []);
 
   return (
-    <div className="panel" style={{ display: "flex", flexDirection: "column" }}>
+    <div className="panel bento-card-row2" style={{ display: "flex", flexDirection: "column" }}>
       <div className="panel-header" style={{ borderBottom: "1px solid var(--border)", padding: "14px 16px" }}>
         <div style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", flexWrap: "wrap" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "6px", minWidth: 0 }}>
@@ -192,125 +191,209 @@ export function ModernCategoryTrendScore({
         </div>
       </div>
 
-      <div style={{ padding: "14px 16px", flex: 1, display: "flex", flexDirection: "column", gap: "10px" }}>
-        {displayedCategories.map((item, idx) => {
-          const isHovered = hoveredCategory === item.category;
-          const label = getTrendLabel(item.trend_composite);
-          const percentage = item.trend_composite * 100;
+      <div className="bento-trend-body" style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
+        <div className="bento-scroll-content" style={{ padding: "14px 16px", flex: 1, display: "flex", flexDirection: "column", gap: "10px" }}>
+          {chartData.map((item, idx) => {
+            const isHovered = hoveredCategory === item.category;
+            const label = getTrendLabel(item.trend_composite);
+            const percentage = item.trend_composite * 100;
 
-          return (
-            <div
-              key={item.category}
-              className="trend-row"
-              onMouseEnter={() => setHoveredCategory(item.category)}
-              onMouseLeave={() => setHoveredCategory(null)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                padding: "4px 0",
-                opacity: hoveredCategory === null || isHovered ? 1 : 0.4,
-                transition: "opacity 0.2s ease",
-                gap: "8px",
-              }}
-            >
-              {/* Title & Repos Count */}
-              <div style={{ minWidth: 0, flexBasis: "130px", flexShrink: 1, display: "flex", flexDirection: "column" }}>
-                <span style={{
-                  fontWeight: 600,
-                  fontSize: "13px",
-                  color: "#ffffff",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }} title={item.category}>
-                  {item.category}
-                </span>
-                <span style={{
-                  fontSize: "10px",
-                  color: "var(--text-muted)",
-                  fontFamily: "var(--font-mono)",
-                  marginTop: "1px",
-                }}>
-                  {item.repo_count}r
-                </span>
-              </div>
+            return (
+              <div
+                key={item.category}
+                className="trend-row"
+                onMouseEnter={() => {
+                  setHoveredCategory(item.category);
+                  setActiveCategoryName(item.category);
+                }}
+                onMouseLeave={() => setHoveredCategory(null)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "4px 0",
+                  opacity: hoveredCategory === null || isHovered ? 1 : 0.4,
+                  transition: "opacity 0.2s ease",
+                  gap: "8px",
+                  cursor: "pointer",
+                }}
+              >
+                {/* Title & Repos Count */}
+                <div style={{ minWidth: 0, flexBasis: "130px", flexShrink: 1, display: "flex", flexDirection: "column" }}>
+                  <span style={{
+                    fontWeight: 600,
+                    fontSize: "13px",
+                    color: "#ffffff",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }} title={item.category}>
+                    {item.category}
+                  </span>
+                  <span style={{
+                    fontSize: "10px",
+                    color: "var(--text-muted)",
+                    fontFamily: "var(--font-mono)",
+                    marginTop: "1px",
+                  }}>
+                    {item.repo_count}r
+                  </span>
+                </div>
 
-              {/* Thin Progress Bar */}
-              <div style={{ flex: 1, display: "flex", alignItems: "center", minWidth: 0 }}>
-                <div className="chakra-bar-container">
-                  <div
-                    className={`chakra-bar-fill ${getChakraClass(item.category)}`}
-                    style={{
-                      width: animated ? `${percentage}%` : "0%",
-                    }}
-                  />
+                {/* Thin Progress Bar */}
+                <div style={{ flex: 1, display: "flex", alignItems: "center", minWidth: 0 }}>
+                  <div className="chakra-bar-container">
+                    <div
+                      className={`chakra-bar-fill ${getChakraClass(item.category)}`}
+                      style={{
+                        width: animated ? `${percentage}%` : "0%",
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Right Side Values */}
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+                  {/* Score Percentage */}
+                  <span style={{
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    color: "#ffffff",
+                    fontFamily: "var(--font-mono)",
+                    minWidth: "32px",
+                    textAlign: "right",
+                  }}>
+                    {percentage.toFixed(0)}%
+                  </span>
+
+                  {/* Score Level Badge */}
+                  <span style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "5px",
+                    fontSize: "12px",
+                    color: "var(--text-muted)",
+                    minWidth: "44px",
+                  }}>
+                    <SignalDot label={label} />
+                    {label.toLowerCase()}
+                  </span>
+
+                  {/* Star Gained — hidden on very small screens via CSS */}
+                  <span className="trend-stars-col" style={{
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    color: "#2ea043",
+                    fontFamily: "var(--font-mono)",
+                    minWidth: "54px",
+                    textAlign: "right",
+                  }}>
+                    +{formatNumber(item.period_star_gain)}
+                  </span>
                 </div>
               </div>
+            );
+          })}
+        </div>
 
-              {/* Right Side Values */}
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
-                {/* Score Percentage */}
-                <span style={{
-                  fontSize: "13px",
-                  fontWeight: 700,
-                  color: "#ffffff",
-                  fontFamily: "var(--font-mono)",
-                  minWidth: "32px",
-                  textAlign: "right",
-                }}>
-                  {percentage.toFixed(0)}%
+        {/* Right Side: Deep-Dive Panel */}
+        {activeCategory && (
+          <div className="bento-trend-detail" style={{ width: "270px", borderLeft: "1px solid var(--border)", padding: "12px 14px", display: "flex", flexDirection: "column", gap: "10px", background: "rgba(255,255,255,0.01)", overflowY: "hidden", flexShrink: 0 }}>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div style={{ width: "28px", height: "28px", borderRadius: "6px", background: "var(--bg-elevated)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-primary)", flexShrink: 0 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M3 3v18h18" />
+                  <path d="m18.7 8-5.1 5.2-2.8-2.7L7 14.3" />
+                </svg>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                <span style={{ fontWeight: 700, fontSize: "13px", color: "#ffffff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={activeCategory.category}>
+                  {activeCategory.category}
                 </span>
-
-                {/* Score Level Badge */}
-                <span style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "5px",
-                  fontSize: "12px",
-                  color: "var(--text-muted)",
-                  minWidth: "44px",
-                }}>
-                  <SignalDot label={label} />
-                  {label.toLowerCase()}
-                </span>
-
-                {/* Star Gained — hidden on very small screens via CSS */}
-                <span className="trend-stars-col" style={{
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  color: "#2ea043",
-                  fontFamily: "var(--font-mono)",
-                  minWidth: "54px",
-                  textAlign: "right",
-                }}>
-                  +{formatNumber(item.period_star_gain)}
+                <span style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", lineHeight: 1.1 }}>
+                  {activeCategory.repo_count} repos
                 </span>
               </div>
             </div>
-          );
-        })}
 
-        {top12Categories.length > 6 && (
-          <div style={{ display: "flex", justifyContent: "center", marginTop: "6px" }}>
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              style={{
-                fontFamily: "var(--font-sans)",
-                fontSize: "11px",
-                fontWeight: 600,
-                padding: "6px 16px",
-                borderRadius: "6px",
-                border: "1px solid var(--border)",
-                background: "rgba(255, 255, 255, 0.02)",
-                color: "var(--text-secondary)",
-                cursor: "pointer",
-                transition: "all 0.15s",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elevated)"; e.currentTarget.style.color = "var(--text-primary)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.02)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
-            >
-              {isExpanded ? "Show Less ▴" : "Show All ▾"}
-            </button>
+            {/* Composite Score Display */}
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "6px 10px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border)", borderRadius: "6px" }}>
+              <div style={{ 
+                position: "relative", 
+                width: "38px", 
+                height: "38px", 
+                borderRadius: "50%", 
+                border: `2.5px solid ${trendColor(activeCategory.trend_composite)}`, 
+                display: "flex", 
+                alignItems: "center", 
+                justifyContent: "center",
+                flexShrink: 0,
+                boxShadow: `0 0 8px ${trendColor(activeCategory.trend_composite)}15`
+              }}>
+                <span style={{ fontSize: "11px", fontWeight: 800, color: "#ffffff", fontFamily: "var(--font-mono)" }}>
+                  {(activeCategory.trend_composite * 100).toFixed(0)}%
+                </span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                <span style={{ fontSize: "8px", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "0.05em" }}>MOMENTUM</span>
+                <span style={{ fontSize: "11px", fontWeight: 700, color: trendColor(activeCategory.trend_composite), whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {getTrendLabel(activeCategory.trend_composite)} LEVEL
+                </span>
+              </div>
+            </div>
+
+            {/* 2x2 Grid of Metrics */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+              <div style={{ padding: "6px 8px", background: "rgba(255,255,255,0.015)", border: "1px solid var(--border)", borderRadius: "6px" }}>
+                <span style={{ display: "block", fontSize: "8px", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase" }}>Star Velocity</span>
+                <span style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "#84cc16", fontFamily: "var(--font-mono)", marginTop: "2px" }}>
+                  +{formatNumber(activeCategory.period_star_gain)}
+                </span>
+              </div>
+              <div style={{ padding: "6px 8px", background: "rgba(255,255,255,0.015)", border: "1px solid var(--border)", borderRadius: "6px" }}>
+                <span style={{ display: "block", fontSize: "8px", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase" }}>Contributors</span>
+                <span style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "#ffffff", fontFamily: "var(--font-mono)", marginTop: "2px" }}>
+                  {formatNumber(activeCategory.total_contributors)}
+                </span>
+              </div>
+              <div style={{ padding: "6px 8px", background: "rgba(255,255,255,0.015)", border: "1px solid var(--border)", borderRadius: "6px" }}>
+                <span style={{ display: "block", fontSize: "8px", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase" }}>Merged PRs</span>
+                <span style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "#38bdf8", fontFamily: "var(--font-mono)", marginTop: "2px" }}>
+                  +{formatNumber(activeCategory.period_pr_gain || activeCategory.total_merged_prs)}
+                </span>
+              </div>
+              <div style={{ padding: "6px 8px", background: "rgba(255,255,255,0.015)", border: "1px solid var(--border)", borderRadius: "6px" }}>
+                <span style={{ display: "block", fontSize: "8px", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase" }}>MoM Growth</span>
+                <span style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "#a78bfa", fontFamily: "var(--font-mono)", marginTop: "2px" }}>
+                  {activeCategory.mom_growth_pct >= 0 ? "+" : ""}{activeCategory.mom_growth_pct.toFixed(1)}%
+                </span>
+              </div>
+            </div>
+
+            {/* Score Breakdown Bars */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "auto" }}>
+              <span style={{ fontSize: "7.5px", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "0.06em", opacity: 0.6 }}>METRIC WEIGHT INFLUENCE</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: "3px", fontSize: "9px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text-muted)" }}>
+                    <span>Stars (40%)</span>
+                    <span style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono)", fontSize: "8.5px" }}>High Influence</span>
+                  </div>
+                  <div style={{ height: "2px", background: "rgba(255,255,255,0.05)", borderRadius: "1px", overflow: "hidden" }}>
+                    <div style={{ height: "100%", background: "#84cc16", width: "85%" }} />
+                  </div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text-muted)" }}>
+                    <span>Velocity & contributors (40%)</span>
+                    <span style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono)", fontSize: "8.5px" }}>Active Surge</span>
+                  </div>
+                  <div style={{ height: "2px", background: "rgba(255,255,255,0.05)", borderRadius: "1px", overflow: "hidden" }}>
+                    <div style={{ height: "100%", background: "#38bdf8", width: "70%" }} />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -386,6 +469,16 @@ export function ModernCategoryTrendScore({
           display: flex;
           gap: 8px;
         }
+        .bento-trend-body {
+          min-height: 0;
+        }
+        .bento-trend-detail::-webkit-scrollbar {
+          width: 4px;
+        }
+        .bento-trend-detail::-webkit-scrollbar-thumb {
+          background-color: var(--border);
+          border-radius: 2px;
+        }
         /* Hide star-gain column on very narrow screens */
         @media (max-width: 480px) {
           .trend-stars-col { display: none !important; }
@@ -397,6 +490,9 @@ export function ModernCategoryTrendScore({
             justify-content: space-between;
             align-items: center;
             margin-top: 6px;
+          }
+          .bento-trend-detail {
+            display: none !important;
           }
         }
 

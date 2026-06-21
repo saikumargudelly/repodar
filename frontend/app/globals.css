@@ -6,18 +6,18 @@
 
 :root {
   /* Backgrounds */
-  --bg-primary:  #0d1117;
-  --bg-surface:  #161b22;
-  --bg-elevated: #1c2230;
-  --bg-dim:      #21262d;
+  --bg-primary:  #1e1d1c;
+  --bg-surface:  #262524;
+  --bg-elevated: #2e2d2c;
+  --bg-dim:      #383736;
 
   /* Borders */
-  --border: #30363d;
+  --border: #31302f;
 
   /* Text */
   --text-primary:   #e6edf3;
-  --text-secondary: #8b949e;
-  --text-muted:     #6e7681;
+  --text-secondary: #bac3cc;
+  --text-muted:     #8b949e;
 
   /* Accent palette — calm, readable */
   --accent-blue:   #ffffff;
@@ -55,7 +55,7 @@
   --color-border-secondary: var(--border);
   --color-border-tertiary: var(--border);
   --border-radius-md: 6px;
-  --border-radius-lg: 12px;
+  --border-radius-lg: 16px;
 }
 
 @theme inline {
@@ -132,7 +132,7 @@ p, span, div, td, th, a, label, li {
 .kpi-card {
   background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.01) 100%);
   border: 1.2px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  border-radius: 16px;
   padding: 16px 18px;
   position: relative;
   overflow: hidden;
@@ -195,7 +195,7 @@ p, span, div, td, th, a, label, li {
 /* ── Panels ─────────────────────────────────────────────────── */
 .panel {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 16px;
   background: var(--bg-surface);
   position: relative;
   overflow: hidden;
@@ -379,6 +379,7 @@ p, span, div, td, th, a, label, li {
   z-index: 500;
   flex-wrap: nowrap !important;
   overflow: hidden;
+  transition: padding 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .status-bar-cyber span {
   font-size: 11px;
@@ -559,9 +560,92 @@ p, span, div, td, th, a, label, li {
 [data-theme="matrix"] .repo-card-cyber:hover { border-color: var(--accent-blue); }
 [data-theme="matrix"] .repo-card-cyber.hot { border-color: var(--accent-blue); }
 
-/* ══════════════════════════════════════════════════════════════
-   Responsive Grid & Layout Utilities
-   ══════════════════════════════════════════════════════════════ */
+/* ── Bento Grid ────────────────────────────────────────────── */
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.bento-col-4, .bento-col-8, .bento-col-12 {
+  grid-column: span 12;
+}
+
+.bento-col-3 {
+  grid-column: span 6;
+}
+
+@media (min-width: 768px) {
+  .bento-col-3 {
+    grid-column: span 6;
+  }
+  .bento-col-4 {
+    grid-column: span 6;
+  }
+  .bento-col-8 {
+    grid-column: span 12;
+  }
+}
+
+@media (min-width: 1200px) {
+  .bento-col-3 {
+    grid-column: span 3;
+  }
+  .bento-col-4 {
+    grid-column: span 4;
+  }
+  .bento-col-8 {
+    grid-column: span 8;
+  }
+  .bento-col-12 {
+    grid-column: span 12;
+  }
+}
+
+/* ── Bento Card heights and scrolling ── */
+@media (min-width: 1200px) {
+  .bento-card-row2 {
+    height: 540px;
+  }
+  .bento-card-row3 {
+    height: 420px;
+  }
+}
+
+@media (max-width: 1199px) {
+  .bento-card-row2, .bento-card-row3 {
+    height: auto !important;
+  }
+  .bento-scroll-content {
+    max-height: 340px;
+  }
+}
+
+.bento-scroll-content {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.bento-scroll-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.bento-scroll-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.bento-scroll-content::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 3px;
+}
+
+@media (max-width: 768px) {
+  .bento-grid {
+    gap: 16px;
+  }
+}
 
 /* ── Grids ─────────────────────────────────────────────────── */
 

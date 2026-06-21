@@ -11,16 +11,16 @@ function MD({ children }: { children: string }) {
 }
 
 const C = {
-  bg: "#0d1117",
-  bgCard: "#161b22",
-  bgHover: "#21262d",
-  border: "#30363d",
-  text: "#e6edf3",
-  textSub: "#8b949e",
-  textMuted: "#6e7681",
-  green: "#3fb950",
-  amber: "#d29922",
-  red: "#f85149",
+  bg: "var(--bg-primary)",
+  bgCard: "var(--bg-surface)",
+  bgHover: "var(--bg-elevated)",
+  border: "var(--border)",
+  text: "var(--text-primary)",
+  textSub: "var(--text-secondary)",
+  textMuted: "var(--text-muted)",
+  green: "var(--accent-green)",
+  amber: "var(--accent-yellow)",
+  red: "var(--accent-red)",
 };
 
 const TREND_COLORS: Record<string, string> = {
