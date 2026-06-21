@@ -86,7 +86,7 @@ export function ModernPRChart({ data, period }: ModernPRChartProps) {
   }, []);
 
   return (
-    <div className="panel bento-card-row3" style={{ display: "flex", flexDirection: "column" }}>
+    <div className="panel bento-card-row2" style={{ display: "flex", flexDirection: "column" }}>
       <div className="panel-header" style={{ borderBottom: "1px solid var(--border)", padding: "14px 16px" }}>
         <div style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }} className="header-container-animate">

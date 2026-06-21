@@ -903,7 +903,7 @@ function LeaderboardTable({
 function SustainabilityRanking({ repos }: { repos: SustainabilityEntry[] }) {
   const router = useRouter();
   return (
-    <div className="panel bento-card-row3" style={{ display: "flex", flexDirection: "column" }}>
+    <div className="panel bento-card-row2" style={{ display: "flex", flexDirection: "column" }}>
       <div className="panel-header" style={{ borderBottom: "1px solid var(--border)", padding: "14px 16px" }}>
         <div className="panel-title">Sustainability Ranking</div>
       </div>
