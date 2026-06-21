@@ -11,7 +11,9 @@ GET    /collections/{user_id}/mine   → collections created by a user
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, HTTPException, Header
+from fastapi import APIRouter, Depends, Query, HTTPException
+
+from app.auth import get_current_user
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
@@ -88,7 +90,7 @@ def get_trending_collections(
 @router.post("", response_model=CollectionResponse, status_code=201)
 def create_collection(
     body: CollectionCreate,
-    x_user_id: str = Header(..., alias="X-User-Id"),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     import json
@@ -103,7 +105,7 @@ def create_collection(
         description=body.description,
         repo_ids_json=json.dumps(valid_ids),
         is_public=body.is_public,
-        created_by=x_user_id,
+        created_by=user_id,
     )
     db.add(c)
     db.commit()
@@ -119,13 +121,13 @@ def create_collection(
 def update_collection(
     collection_id: str,
     body: CollectionUpdate,
-    x_user_id: str = Header(..., alias="X-User-Id"),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     c = db.query(Collection).filter_by(id=collection_id).first()
     if not c:
         raise HTTPException(status_code=404, detail="Collection not found")
-    if c.created_by != x_user_id:
+    if c.created_by != user_id:
         raise HTTPException(status_code=403, detail="Not authorised")
 
     import json
@@ -156,7 +158,7 @@ def update_collection(
 def vote_collection(
     collection_id: str,
     body: VoteRequest,
-    x_user_id: str = Header(..., alias="X-User-Id"),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     c = db.query(Collection).filter_by(id=collection_id).first()
@@ -164,7 +166,7 @@ def vote_collection(
         raise HTTPException(status_code=404, detail="Collection not found")
     
     dir_val = 1 if body.direction > 0 else -1
-    vote = db.query(CollectionVote).filter_by(collection_id=collection_id, user_id=x_user_id).first()
+    vote = db.query(CollectionVote).filter_by(collection_id=collection_id, user_id=user_id).first()
     
     if vote:
         if vote.direction == dir_val:
@@ -177,7 +179,7 @@ def vote_collection(
             c.votes += (dir_val * 2)
     else:
         # new vote
-        new_vote = CollectionVote(collection_id=collection_id, user_id=x_user_id, direction=dir_val)
+        new_vote = CollectionVote(collection_id=collection_id, user_id=user_id, direction=dir_val)
         db.add(new_vote)
         c.votes += dir_val
         

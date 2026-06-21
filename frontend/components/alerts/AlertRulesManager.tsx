@@ -7,21 +7,20 @@ import { api, AlertRule } from "@/lib/api";
 
 export function AlertRulesManager() {
   const queryClient = useQueryClient();
-  const { userId } = useAuth();
+  const { getToken } = useAuth();
   const [showCreate, setShowCreate] = useState(false);
 
   const { data: rules, isLoading } = useQuery<AlertRule[]>({
-    queryKey: ["alert-rules", userId],
-    queryFn: () => api.getAlertRules(userId!),
-    enabled: !!userId,
+    queryKey: ["alert-rules"],
+    queryFn: async () => api.getAlertRules(await getToken() ?? ""),
+    enabled: true,
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.deleteAlertRule(userId!, id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["alert-rules", userId] }),
+    mutationFn: async (id: string) => api.deleteAlertRule(await getToken() ?? "", id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["alert-rules"] }),
   });
 
-  if (!userId) return <div className="text-sm text-gray-500 p-4">Sign in to manage alerts.</div>;
   if (isLoading) return <div className="text-sm text-gray-400 p-4 animate-pulse">Loading alert rules…</div>;
 
   return (
@@ -44,7 +43,7 @@ export function AlertRulesManager() {
         </button>
       </div>
 
-      {showCreate && <CreateAlertForm userId={userId} onSuccess={() => setShowCreate(false)} />}
+      {showCreate && <CreateAlertForm getToken={getToken} onSuccess={() => setShowCreate(false)} />}
 
       <div className="space-y-3">
         {rules?.map((rule) => (
@@ -81,16 +80,16 @@ export function AlertRulesManager() {
   );
 }
 
-function CreateAlertForm({ userId, onSuccess }: { userId: string; onSuccess: () => void }) {
+function CreateAlertForm({ getToken, onSuccess }: { getToken: () => Promise<string | null>; onSuccess: () => void }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [condition, setCondition] = useState("STAR_VELOCITY_500_3D");
   const [url, setUrl] = useState("");
 
   const createMutation = useMutation({
-    mutationFn: (data: Omit<AlertRule, "id" | "is_active">) => api.createAlertRule(userId, data),
+    mutationFn: async (data: Omit<AlertRule, "id" | "is_active">) => api.createAlertRule(await getToken() ?? "", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["alert-rules", userId] });
+      queryClient.invalidateQueries({ queryKey: ["alert-rules"] });
       onSuccess();
     },
   });

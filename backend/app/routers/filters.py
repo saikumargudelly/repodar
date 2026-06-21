@@ -12,7 +12,7 @@ import logging
 import asyncio
 from typing import Optional, Callable
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi_cache.decorator import cache
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -21,6 +21,7 @@ from app.database import get_db
 from app.models import ComputedMetric
 from app.models.saved_filter import SavedFilterPreset
 from app.services.filter_engine import RepoFilterDTO, FilterParser, QueryBuilder
+from app.auth import get_current_user
 
 router = APIRouter(prefix="/filters", tags=["Filters"])
 logger = logging.getLogger(__name__)
@@ -192,11 +193,11 @@ async def filter_repos_get(
 
 @router.get("/presets", response_model=list[PresetResponse])
 def list_presets(
-    x_user_id: str = Header(..., alias="X-User-Id", description="Clerk user ID"),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """List all saved filter presets for the authenticated user."""
-    rows = db.query(SavedFilterPreset).filter_by(user_id=x_user_id).all()
+    rows = db.query(SavedFilterPreset).filter_by(user_id=user_id).all()
     return [
         PresetResponse(
             id=r.id, name=r.name,
@@ -210,12 +211,12 @@ def list_presets(
 @router.post("/presets", response_model=PresetResponse, status_code=201)
 def save_preset(
     body: SavePresetRequest,
-    x_user_id: str = Header(..., alias="X-User-Id"),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Save the current filter configuration as a named preset."""
     preset = SavedFilterPreset(
-        user_id=x_user_id,
+        user_id=user_id,
         name=body.name,
         filter_json=json.dumps(body.filter),
     )
@@ -230,11 +231,11 @@ def save_preset(
 @router.delete("/presets/{preset_id}", status_code=204)
 def delete_preset(
     preset_id: str,
-    x_user_id: str = Header(..., alias="X-User-Id"),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Delete a saved filter preset (only the owner can delete)."""
-    preset = db.query(SavedFilterPreset).filter_by(id=preset_id, user_id=x_user_id).first()
+    preset = db.query(SavedFilterPreset).filter_by(id=preset_id, user_id=user_id).first()
     if not preset:
         raise HTTPException(status_code=404, detail="Preset not found")
     db.delete(preset)

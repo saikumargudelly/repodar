@@ -915,12 +915,12 @@ export const api = {
       method: "POST",
       body: JSON.stringify(filter),
     }),
-  getSavedFilters: () =>
-    apiFetch<SavedFilterPreset[]>("/filters/presets"),
-  createSavedFilter: (preset: Omit<SavedFilterPreset, "id" | "created_by">) =>
-    apiFetch<SavedFilterPreset>("/filters/presets", { method: "POST", body: JSON.stringify(preset) }),
-  deleteSavedFilter: (id: string) =>
-    apiFetch<void>(`/filters/presets/${id}`, { method: "DELETE" }),
+  getSavedFilters: (token: string) =>
+    apiFetch<SavedFilterPreset[]>("/filters/presets", { headers: { "Authorization": `Bearer ${token}` } }),
+  createSavedFilter: (token: string, preset: Omit<SavedFilterPreset, "id" | "created_by">) =>
+    apiFetch<SavedFilterPreset>("/filters/presets", { method: "POST", body: JSON.stringify(preset), headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` } }),
+  deleteSavedFilter: (token: string, id: string) =>
+    apiFetch<void>(`/filters/presets/${id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${token}` } }),
 
   // Forecasting — GET /forecast/{owner}/{name}
   getForecast: (owner: string, name: string, days = 90) =>
@@ -934,27 +934,27 @@ export const api = {
   exportReposJson: (filter?: RepoFilterDTO) =>
     apiFetch<RepoSummary[]>("/export/repos/json", { method: "POST", body: JSON.stringify(filter || {}) }),
 
-  // Recommendations — GET /recommendations?user_id=xxx and GET /recommendations/similar/{owner}/{name}
-  getRecommendations: (userId: string, limit = 10) =>
-    apiFetch<RecommendedRepo[]>(`/recommendations?user_id=${encodeURIComponent(userId)}&limit=${limit}`),
+  // Recommendations — GET /recommendations (JWT-authenticated, limit/category as query params)
+  getRecommendations: (token: string, limit = 10) =>
+    apiFetch<RecommendedRepo[]>(`/recommendations?limit=${limit}`, { headers: { "Authorization": `Bearer ${token}` } }),
   getSimilarRepos: (owner: string, name: string, limit = 5) =>
     apiFetch<RecommendedRepo[]>(`/recommendations/similar/${owner}/${name}?limit=${limit}`),
 
-  // Alert Rules — /alerts/rules with X-User-Id header
-  getAlertRules: (userId: string) =>
-    apiFetch<AlertRule[]>("/alerts/rules", { headers: { "Content-Type": "application/json", "X-User-Id": userId } }),
-  createAlertRule: (userId: string, rule: Omit<AlertRule, "id" | "is_active">) =>
-    apiFetch<AlertRule>("/alerts/rules", { method: "POST", body: JSON.stringify(rule), headers: { "Content-Type": "application/json", "X-User-Id": userId } }),
-  deleteAlertRule: (userId: string, id: string) =>
-    apiFetch<void>(`/alerts/rules/${id}`, { method: "DELETE", headers: { "Content-Type": "application/json", "X-User-Id": userId } }),
+  // Alert Rules — /alerts/rules with Bearer JWT
+  getAlertRules: (token: string) =>
+    apiFetch<AlertRule[]>("/alerts/rules", { headers: { "Authorization": `Bearer ${token}` } }),
+  createAlertRule: (token: string, rule: Omit<AlertRule, "id" | "is_active">) =>
+    apiFetch<AlertRule>("/alerts/rules", { method: "POST", body: JSON.stringify(rule), headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` } }),
+  deleteAlertRule: (token: string, id: string) =>
+    apiFetch<void>(`/alerts/rules/${id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${token}` } }),
 
-  // Collections — /collections with X-User-Id header
+  // Collections — /collections with Bearer JWT
   getTrendingCollections: () =>
     apiFetch<Collection[]>("/collections/trending"),
-  createCollection: (userId: string, collection: { title: string; description?: string; repo_ids: string[]; is_public: boolean }) =>
-    apiFetch<Collection>("/collections", { method: "POST", body: JSON.stringify(collection), headers: { "Content-Type": "application/json", "X-User-Id": userId } }),
-  voteCollection: (userId: string, id: string, direction: 1 | -1) =>
-    apiFetch<{ votes: number }>(`/collections/${id}/vote`, { method: "POST", body: JSON.stringify({ direction }), headers: { "Content-Type": "application/json", "X-User-Id": userId } }),
+  createCollection: (token: string, collection: { title: string; description?: string; repo_ids: string[]; is_public: boolean }) =>
+    apiFetch<Collection>("/collections", { method: "POST", body: JSON.stringify(collection), headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` } }),
+  voteCollection: (token: string, id: string, direction: 1 | -1) =>
+    apiFetch<{ votes: number }>(`/collections/${id}/vote`, { method: "POST", body: JSON.stringify({ direction }), headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` } }),
 
   // ───────────────────────────────────────────────────────────────────────────
 

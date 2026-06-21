@@ -9,7 +9,7 @@ import { ProfessionalLoader } from "@/components/ProfessionalLoader";
 
 export function TrendingCollections() {
   const queryClient = useQueryClient();
-  const { userId } = useAuth();
+  const { getToken, userId } = useAuth();
   const [showCreate, setShowCreate] = useState(false);
 
   const { data: collections, isLoading } = useQuery<Collection[]>({
@@ -19,8 +19,8 @@ export function TrendingCollections() {
   });
 
   const voteMutation = useMutation({
-    mutationFn: ({ id, direction }: { id: string; direction: 1 | -1 }) =>
-      api.voteCollection(userId!, id, direction),
+    mutationFn: async ({ id, direction }: { id: string; direction: 1 | -1 }) =>
+      api.voteCollection(await getToken() ?? "", id, direction),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["collections", "trending"] }),
   });
 
@@ -74,7 +74,7 @@ export function TrendingCollections() {
 
       {/* Create form */}
       {showCreate && userId && (
-        <CreateCollectionForm userId={userId} onSuccess={() => setShowCreate(false)} />
+        <CreateCollectionForm getToken={getToken} onSuccess={() => setShowCreate(false)} />
       )}
 
       {/* Grid */}
@@ -265,14 +265,14 @@ export function TrendingCollections() {
   );
 }
 
-function CreateCollectionForm({ userId, onSuccess }: { userId: string; onSuccess: () => void }) {
+function CreateCollectionForm({ getToken, onSuccess }: { getToken: () => Promise<string | null>; onSuccess: () => void }) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
 
   const createMutation = useMutation({
-    mutationFn: (data: { title: string; description: string; is_public: boolean; repo_ids: string[] }) =>
-      api.createCollection(userId, data),
+    mutationFn: async (data: { title: string; description: string; is_public: boolean; repo_ids: string[] }) =>
+      api.createCollection(await getToken() ?? "", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["collections", "trending"] });
       onSuccess();

@@ -13,18 +13,18 @@ interface Props {
 }
 
 export function RecommendationsPanel({ repoOwner, repoName }: Props) {
-  const { userId } = useAuth();
+  const { getToken } = useAuth();
   const isSimilar = !!(repoOwner && repoName);
 
   const { data: recommendations, isLoading } = useQuery({
     queryKey: isSimilar
       ? ["similar-repos", repoOwner, repoName]
-      : ["personalized-recs", userId],
+      : ["personalized-recs"],
     queryFn: () =>
       isSimilar
         ? api.getSimilarRepos(repoOwner!, repoName!, 6)
-        : api.getRecommendations(userId!, 10),
-    enabled: isSimilar || !!userId,
+        : getToken().then(token => api.getRecommendations(token ?? "", 10)),
+    enabled: true,
     staleTime: 5 * 60_000,
   });
 

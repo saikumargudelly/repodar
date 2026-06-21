@@ -10,12 +10,13 @@ import logging
 import socket
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.alert_rule import AlertRule
+from app.auth import get_current_user
 
 
 router = APIRouter(prefix="/alerts", tags=["AlertRules"])
@@ -77,10 +78,10 @@ class AlertRuleResponse(BaseModel):
 
 @router.get("/rules", response_model=list[AlertRuleResponse])
 def get_user_rules(
-    x_user_id: str = Header(..., alias="X-User-Id"),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    rows = db.query(AlertRule).filter_by(user_id=x_user_id).all()
+    rows = db.query(AlertRule).filter_by(user_id=user_id).all()
     import json
     return [
         AlertRuleResponse(
@@ -96,7 +97,7 @@ def get_user_rules(
 @router.post("/rules", response_model=AlertRuleResponse, status_code=201)
 def create_alert_rule(
     body: AlertRuleCreate,
-    x_user_id: str = Header(..., alias="X-User-Id"),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     # SSRF guard: validate webhook URL before persisting
@@ -104,7 +105,7 @@ def create_alert_rule(
 
     import json
     rule = AlertRule(
-        user_id=x_user_id,
+        user_id=user_id,
         name=body.name,
         condition=body.condition,
         frequency=body.frequency,
@@ -125,10 +126,10 @@ def create_alert_rule(
 @router.delete("/rules/{rule_id}", status_code=204)
 def delete_alert_rule(
     rule_id: str,
-    x_user_id: str = Header(..., alias="X-User-Id"),
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    rule = db.query(AlertRule).filter_by(id=rule_id, user_id=x_user_id).first()
+    rule = db.query(AlertRule).filter_by(id=rule_id, user_id=user_id).first()
     if not rule:
         raise HTTPException(status_code=404, detail="Rule not found")
     db.delete(rule)

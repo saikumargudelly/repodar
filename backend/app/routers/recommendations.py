@@ -22,6 +22,7 @@ from app.models.watchlist import WatchlistItem
 from app.services.recommendations import (
     RecommendedRepo, compute_recommendations, repo_to_vector,
 )
+from app.auth import get_current_user
 
 router = APIRouter(prefix="/recommendations", tags=["Recommendations"])
 logger = logging.getLogger(__name__)
@@ -29,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 @router.get("", response_model=list[RecommendedRepo])
 def get_recommendations(
-    user_id: str = Query(..., description="Clerk user ID"),
+    user_id: str = Depends(get_current_user),
     limit:   int = Query(10, ge=1, le=50),
     category: Optional[str] = Query(None, description="Optionally filter candidates by category"),
     db: Session = Depends(get_db),
