@@ -16,6 +16,7 @@ import { ForecastChart } from "@/components/forecast/ForecastChart";
 import { RecommendationsPanel } from "@/components/recommendations/RecommendationsPanel";
 import ReactMarkdown from "react-markdown";
 import { useToast } from "@/components/ToastProvider";
+import { formatCompactNumber } from "@/lib/utils";
 
 const tooltipStyle = {
   contentStyle: {
@@ -158,7 +159,7 @@ function StarHistoryChart({ data, mentions }: {
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
           <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={formatDateShort} tickLine={false} axisLine={false} />
-          <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={42} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={42} tickFormatter={(v) => formatCompactNumber(v)} tickLine={false} axisLine={false} />
           <Tooltip {...tooltipStyle} formatter={(v: any) => [v != null ? v.toLocaleString() : "—", "Stars"]} />
           <Area type="monotone" dataKey="stars" stroke="var(--accent-blue)" fill="url(#starGrad)" strokeWidth={2} dot={false} />
           {data.map((d) =>
@@ -516,6 +517,7 @@ function EcosystemTabContent({ repoId, repo }: { repoId: string; repo: any }) {
   const { showToast } = useToast();
   const [reportMd, setReportMd] = useState<string | null>(null);
   const [generatingReport, setGeneratingReport] = useState(false);
+  const [grabbing, setGrabbing] = useState(false);
 
   const { data: ecosystem, isLoading, error } = useQuery({
     queryKey: ["ecosystem-map", repoId],
@@ -664,7 +666,21 @@ function EcosystemTabContent({ repoId, repo }: { repoId: string; repo: any }) {
           </span>
         </div>
         <div style={{ position: "relative", width: "100%", overflow: "hidden", display: "flex", justifyContent: "center" }}>
-          <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", maxHeight: "400px", background: "rgba(0,0,0,0.2)", borderRadius: "8px", border: "1px solid var(--border)" }}>
+          <svg
+            viewBox={`0 0 ${width} ${height}`}
+            onMouseDown={() => setGrabbing(true)}
+            onMouseUp={() => setGrabbing(false)}
+            onMouseLeave={() => setGrabbing(false)}
+            style={{
+              width: "100%",
+              maxHeight: "400px",
+              background: "rgba(0,0,0,0.2)",
+              borderRadius: "8px",
+              border: "1px solid var(--border)",
+              cursor: grabbing ? "grabbing" : "grab",
+              userSelect: "none"
+            }}
+          >
             {/* Draw connectors to Center Node */}
             {allNodes.map((n, idx) => (
               <line

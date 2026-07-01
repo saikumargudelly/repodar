@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { api, RepoFilterDTO, RepoSummary, PaginatedResponse } from "@/lib/api";
+import { formatCompactNumber } from "@/lib/utils";
 
 const CATEGORIES = [
   { id: "all", name: "All" },
@@ -407,10 +408,7 @@ export default function ExplorePage() {
 function RepoCard({ repo }: { repo: RepoSummary }) {
   // Format stars helper (e.g. 25326 -> "25.3k")
   const formatStars = (num: number) => {
-    if (num >= 1000) {
-      return (num / 1000).toFixed(1).replace(/\.0$/, "") + "k";
-    }
-    return num.toString();
+    return formatCompactNumber(num);
   };
 
   // Language color — CSS variable based dots

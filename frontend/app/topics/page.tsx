@@ -14,6 +14,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { api, TopicMomentum, TopicRepo } from "@/lib/api";
+import { formatCompactNumber } from "@/lib/utils";
 
 // ── Score bar component ─────────────────────────────────────
 function ScoreBar({ value, max = 1 }: { value: number; max?: number }) {
@@ -85,26 +86,14 @@ export default function TopicsPage() {
   const maxScore = Math.max(...filtered.map((t) => t.avg_trend_score), 1);
 
   // Formatter helpers
-  const formatVelocityHeader = (num: number) => {
+  const formatVelocity = (num: number) => {
     const sign = num >= 0 ? "+" : "";
-    if (Math.abs(num) >= 1_000_000) {
-      return `${sign}${(num / 1_000_000).toFixed(2)}M/d`;
-    }
-    if (Math.abs(num) >= 1000) {
-      return `${sign}${(num / 1000).toFixed(1)}k/d`;
-    }
-    return `${sign}${num.toFixed(0)}/d`;
+    return `${sign}${formatCompactNumber(Math.abs(num))}/d`;
   };
 
   const formatTableVelocity = (num: number) => {
     const sign = num >= 0 ? "+" : "";
-    if (Math.abs(num) >= 1_000_000) {
-      return `${sign}${(num / 1_000_000).toFixed(1)}M`;
-    }
-    if (Math.abs(num) >= 1000) {
-      return `${sign}${(num / 1000).toFixed(1)}k`;
-    }
-    return `${sign}${num.toFixed(0)}`;
+    return `${sign}${formatCompactNumber(Math.abs(num))}`;
   };
 
   const formatYAxisTicks = (value: number) => {
@@ -141,7 +130,7 @@ export default function TopicsPage() {
             <div>
               <span style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: "var(--font-mono)", display: "block" }}>Total velocity</span>
               <span style={{ fontSize: "14px", fontWeight: 700, color: "var(--accent-green)", fontFamily: "var(--font-mono)" }}>
-                {formatVelocityHeader(filtered.reduce((s, t) => s + t.total_star_velocity, 0))}
+                {formatVelocity(filtered.reduce((s, t) => s + t.total_star_velocity, 0))}
               </span>
             </div>
           </div>
@@ -530,7 +519,7 @@ export default function TopicsPage() {
                       {/* Repository stats */}
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "8px", paddingTop: "8px", borderTop: "1px solid var(--border)", textAlign: "center" }}>
                         {[
-                          { label: "Stars", val: repo.stars != null ? (repo.stars >= 1000 ? `${(repo.stars / 1000).toFixed(1)}k` : String(repo.stars)) : "—", color: "var(--text-secondary)" },
+                          { label: "Stars", val: repo.stars != null ? formatCompactNumber(repo.stars) : "—", color: "var(--text-secondary)" },
                           { label: "Rank", val: `#${idx + 1}`, color: "var(--text-secondary)" },
                           { label: "Accel", val: `${repo.acceleration > 1 ? "▲" : ""}${repo.acceleration.toFixed(2)}`, color: repo.acceleration > 1 ? "var(--accent-green)" : "var(--text-secondary)" },
                         ].map(({ label, val, color }) => (

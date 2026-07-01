@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
 import { api, WatchlistItemOut } from "@/lib/api";
 import { SustainBadge } from "@/components/Nav";
-import { ProfessionalLoader } from "@/components/ProfessionalLoader";
+import { TableSkeleton } from "@/components/DashboardSkeleton";
 
 
 export default function WatchlistPage() {
@@ -89,7 +89,7 @@ export default function WatchlistPage() {
   }
 
   return (
-    <div className="page-root">
+    <div className="page-root page-fade-in">
       {/* Header */}
       <div>
         <div className="section-title-cyber">WATCHLIST<span className="terminal-cursor" /></div>
@@ -99,11 +99,7 @@ export default function WatchlistPage() {
       </div>
 
       {/* Loading */}
-      {isLoading && (
-        <div style={{ padding: "40px 0" }}>
-          <ProfessionalLoader size={45} text="Loading watchlist..." />
-        </div>
-      )}
+      {isLoading && <TableSkeleton />}
 
       {/* Error */}
       {error && (
@@ -136,6 +132,22 @@ export default function WatchlistPage() {
           <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)" }}>
             // Navigate to any repo page and click Watch
           </div>
+          <Link
+            href="/overview"
+            className="btn-cyber btn-cyber-cyan"
+            style={{
+              padding: "8px 20px",
+              fontSize: "12px",
+              fontWeight: 600,
+              marginTop: "12px",
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              cursor: "pointer"
+            }}
+          >
+            Explore Repositories
+          </Link>
         </div>
       )}
 
