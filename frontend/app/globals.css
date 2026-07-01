@@ -20,13 +20,13 @@
   --text-muted:     #8b949e;
 
   /* Accent palette — calm, readable */
-  --accent-blue:   #ffffff;
+  --accent-blue:   #58a6ff;
   --accent-green:  #3fb950;
   --accent-yellow: #d29922;
   --accent-red:    #f85149;
 
   /* Aliases kept for backwards compatibility */
-  --cyan:  #ffffff;
+  --cyan:  #22d3ee;
   --amber: #d29922;
   --pink:  #f85149;
   --green: #3fb950;
@@ -1797,72 +1797,6 @@ p, span, div, td, th, a, label, li {
   color: #639922;
 }
 
-/* ── COMPONENT 8 — SubstitutionShimmer on .kpi-card ── */
-.kpi-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
-  transform: translateX(-100%);
-  pointer-events: none;
-  z-index: 3;
-}
-.kpi-card::after {
-  content: '';
-  position: absolute;
-  top: 50%; left: 50%;
-  width: 120px; height: 120px;
-  background: radial-gradient(circle, #F5CBA7 0%, transparent 70%);
-  transform: translate(-50%, -50%) scale(0);
-  opacity: 0;
-  pointer-events: none;
-  z-index: 2;
-}
-.kpi-card:hover {
-  animation: substitution-brightness 0.5s ease forwards, border-flash 0.25s ease forwards !important;
-}
-.kpi-card:hover::before {
-  animation: shimmer-sweep-sweep 0.5s ease-out forwards;
-}
-.kpi-card:hover::after {
-  animation: radial-bloom-bloom 0.3s ease-out forwards;
-}
-@keyframes shimmer-sweep-sweep {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(200%); }
-}
-@keyframes radial-bloom-bloom {
-  0% {
-    transform: translate(-50%, -50%) scale(0);
-    opacity: 0.08;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(1.5);
-    opacity: 0;
-  }
-}
-@keyframes substitution-brightness {
-  0%, 40% { filter: brightness(1); }
-  55% { filter: brightness(1.18); }
-  70%, 100% { filter: brightness(1); }
-}
-@keyframes border-flash {
-  0% {
-    border-left-color: var(--color-border-secondary);
-    border-right-color: var(--color-border-secondary);
-    border-bottom-color: var(--color-border-secondary);
-  }
-  50% {
-    border-left-color: rgba(245, 203, 167, 0.3);
-    border-right-color: rgba(245, 203, 167, 0.3);
-    border-bottom-color: rgba(245, 203, 167, 0.3);
-  }
-  100% {
-    border-left-color: var(--color-border-secondary);
-    border-right-color: var(--color-border-secondary);
-    border-bottom-color: var(--color-border-secondary);
-  }
-}
 
 /* Link hover glow effect */
 .hover-link-glow {
@@ -2339,6 +2273,41 @@ p, span, div, td, th, a, label, li {
 }
 
 
+/* ── Hygiene Styles (Batches 6) ── */
+@keyframes rowFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.repo-row {
+  animation: rowFadeIn 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  transition: background-color 0.2s ease;
+}
+.repo-row:hover {
+  background-color: rgba(255, 255, 255, 0.02) !important;
+}
+.repo-row:hover .repo-name {
+  text-decoration: underline;
+}
 
+@keyframes pulse-badge {
+  0% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0.4); }
+  70% { box-shadow: 0 0 0 5px rgba(248, 81, 73, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0); }
+}
 
+/* Custom page/pane scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
 

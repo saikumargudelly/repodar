@@ -588,7 +588,7 @@ function CheckBox({ checked, onChange }: { checked: boolean; onChange: (v: boole
 function SectionHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle: string }) {
   return (
     <div style={{ marginBottom: "20px" }}>
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: C.textMuted, letterSpacing: "0.08em", marginBottom: "6px" }}>{eyebrow}</div>
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: C.textMuted, letterSpacing: "0.08em", marginBottom: "2px" }}>{eyebrow}</div>
       <h1 style={{ fontSize: "26px", fontWeight: 700, color: C.text, margin: 0 }}>{title}</h1>
       <p style={{ fontSize: "13px", color: C.textMuted, margin: "6px 0 0" }}>{subtitle}</p>
     </div>
@@ -621,9 +621,9 @@ function GhostBtn({ children, onClick }: { children: React.ReactNode; onClick: (
 
 function MetricCard({ label, value, highlight }: { label: string; value: string; highlight?: string }) {
   return (
-    <div className="panel radar-metric-card" style={{ padding: "14px 16px" }}>
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: C.textMuted, letterSpacing: "0.07em", marginBottom: "6px" }}>{label}</div>
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: "20px", fontWeight: 700, color: highlight ?? C.text }}>{value}</div>
+    <div className="kpi-card">
+      <div className="kpi-label">{label}</div>
+      <div className="kpi-value" style={{ color: highlight ?? "var(--text-primary)" }}>{value}</div>
     </div>
   );
 }

@@ -366,27 +366,27 @@ function LeaderboardAndNetworkContent() {
         <div>
           {/* Metric cards */}
           <div className="radar-summary-grid" style={{ marginBottom: "20px" }}>
-            <div className="panel" style={{ padding: "14px 18px", border: `1px solid ${C.border}` }}>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: C.textMuted, letterSpacing: "0.06em", marginBottom: "4px" }}>REPOS RANKED</div>
-              <div style={{ fontFamily: "var(--font-sans)", fontSize: "22px", fontWeight: 700, color: C.text }}>
+            <div className="kpi-card">
+              <div className="kpi-label">REPOS RANKED</div>
+              <div className="kpi-value" style={{ color: C.text }}>
                 {leaderboardRows.length}
               </div>
             </div>
-            <div className="panel" style={{ padding: "14px 18px", border: `1px solid ${C.border}` }}>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: C.textMuted, letterSpacing: "0.06em", marginBottom: "4px" }}>TOP STAR GAIN (7D)</div>
-              <div style={{ fontFamily: "var(--font-sans)", fontSize: "22px", fontWeight: 700, color: C.green }}>
+            <div className="kpi-card">
+              <div className="kpi-label">TOP STAR GAIN (7D)</div>
+              <div className="kpi-value" style={{ color: C.green }}>
                 +{totalStarGain.toLocaleString()}
               </div>
             </div>
-            <div className="panel" style={{ padding: "14px 18px", border: `1px solid ${C.border}` }}>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: C.textMuted, letterSpacing: "0.06em", marginBottom: "4px" }}>AVG TREND SCORE</div>
-              <div style={{ fontFamily: "var(--font-sans)", fontSize: "22px", fontWeight: 700, color: C.amber }}>
+            <div className="kpi-card">
+              <div className="kpi-label">AVG TREND SCORE</div>
+              <div className="kpi-value" style={{ color: C.amber }}>
                 {avgTrendScore.toFixed(4)}
               </div>
             </div>
-            <div className="panel" style={{ padding: "14px 18px", border: `1px solid ${C.border}` }}>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: C.textMuted, letterSpacing: "0.06em", marginBottom: "4px" }}>HIGH MOMENTUM</div>
-              <div style={{ fontFamily: "var(--font-sans)", fontSize: "22px", fontWeight: 700, color: C.text }}>
+            <div className="kpi-card">
+              <div className="kpi-label">HIGH MOMENTUM</div>
+              <div className="kpi-value" style={{ color: C.text }}>
                 {highMomentumCount}
               </div>
             </div>
@@ -495,7 +495,7 @@ function LeaderboardAndNetworkContent() {
                           {idx + 1}
                         </td>
                         <td className="leaderboard-repo-cell" style={TD_STYLE}>
-                          <div style={{ fontFamily: "var(--font-mono)", fontSize: "12px", fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <div style={{ fontFamily: "var(--font-mono)", fontSize: "13px", fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             <span style={{ fontWeight: 400, color: C.textMuted }}>{row.owner}/</span>{row.name}
                           </div>
                           <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: C.textMuted, marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -571,27 +571,27 @@ function LeaderboardAndNetworkContent() {
         <div>
           {/* Metric cards */}
           <div className="radar-summary-grid" style={{ marginBottom: "20px" }}>
-            <div className="panel" style={{ padding: "14px 18px", border: `1px solid ${C.border}` }}>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: C.textMuted, letterSpacing: "0.06em", marginBottom: "4px" }}>CROSS-REPO CONTRIBUTORS</div>
-              <div style={{ fontFamily: "var(--font-sans)", fontSize: "22px", fontWeight: 700, color: C.text }}>
+            <div className="kpi-card">
+              <div className="kpi-label">CROSS-REPO CONTRIBUTORS</div>
+              <div className="kpi-value" style={{ color: C.text }}>
                 {filteredContributors.length}
               </div>
             </div>
-            <div className="panel" style={{ padding: "14px 18px", border: `1px solid ${C.border}` }}>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: C.textMuted, letterSpacing: "0.06em", marginBottom: "4px" }}>TOP CONTRIBUTOR REPOS</div>
-              <div style={{ fontFamily: "var(--font-sans)", fontSize: "22px", fontWeight: 700, color: C.green }}>
+            <div className="kpi-card">
+              <div className="kpi-label">TOP CONTRIBUTOR REPOS</div>
+              <div className="kpi-value" style={{ color: C.green }}>
                 {topContributorRepos}
               </div>
             </div>
-            <div className="panel" style={{ padding: "14px 18px", border: `1px solid ${C.border}` }}>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: C.textMuted, letterSpacing: "0.06em", marginBottom: "4px" }}>TOP COMMIT COUNT</div>
-              <div style={{ fontFamily: "var(--font-sans)", fontSize: "22px", fontWeight: 700, color: C.amber }}>
+            <div className="kpi-card">
+              <div className="kpi-label">TOP COMMIT COUNT</div>
+              <div className="kpi-value" style={{ color: C.amber }}>
                 {totalCommitsCount.toLocaleString()}
               </div>
             </div>
-            <div className="panel" style={{ padding: "14px 18px", border: `1px solid ${C.border}` }}>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: C.textMuted, letterSpacing: "0.06em", marginBottom: "4px" }}>MIN REPOS FILTER</div>
-              <div style={{ fontFamily: "var(--font-sans)", fontSize: "22px", fontWeight: 700, color: C.text }}>
+            <div className="kpi-card">
+              <div className="kpi-label">MIN REPOS FILTER</div>
+              <div className="kpi-value" style={{ color: C.text }}>
                 {minRepos}
               </div>
             </div>

@@ -274,7 +274,7 @@ export function Sidebar() {
                 fontSize: "12px",
                 fontWeight: 700,
                 letterSpacing: "0.08em",
-                color: "var(--text-muted)",
+                color: "var(--text-secondary)",
                 textTransform: "uppercase",
                 padding: collapsed && !isMobile ? "0" : "0 10px 6px",
                 marginTop: collapsed && !isMobile ? "0" : "4px",
@@ -300,10 +300,10 @@ export function Sidebar() {
                     padding: collapsed && !isMobile ? "9px 0" : "9px 10px",
                     fontWeight: isActive ? 700 : 400,
                     color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
-                    background: isActive ? "rgba(255, 255, 255, 0.05)" : "transparent",
+                    background: isActive ? "rgba(255, 255, 255, 0.04)" : "transparent",
                     justifyContent: collapsed && !isMobile ? "center" : "flex-start",
-                    borderLeft: isActive ? "2px solid var(--text-primary)" : "2px solid transparent",
-                    borderRight: collapsed && !isMobile ? "2px solid transparent" : "none",
+                    borderLeft: isActive ? "3px solid var(--text-primary)" : "3px solid transparent",
+                    borderRight: collapsed && !isMobile ? "3px solid transparent" : "none",
                   }}
                 >
                   <span style={{ display: "flex", alignItems: "center", justifyContent: "center", color: isActive ? "var(--text-primary)" : "var(--text-muted)", flexShrink: 0, width: "17px" }}>
@@ -386,6 +386,7 @@ export function Sidebar() {
               borderRadius: "50%",
               background: "#ffffff",
               color: "#0d1117",
+              border: "1.5px solid var(--border)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",

@@ -115,7 +115,7 @@ function useWatchlist() {
   return { items, toggle, isPinned, save };
 }
 
-function StatCard({ label, value, sub, index = 0, href }: { label: string; value: string | number; sub?: string; index?: number; href?: string }) {
+function StatCard({ label, value, sub, index = 0, href, trend = "neutral" }: { label: string; value: string | number; sub?: string; index?: number; href?: string; trend?: "up" | "down" | "neutral" }) {
   const router = useRouter();
   const [isHovered, setIsHovered] = useState(false);
   // Responsive font size via JS (CSS can't reach inline styles easily)
@@ -129,14 +129,16 @@ function StatCard({ label, value, sub, index = 0, href }: { label: string; value
   }, []);
   const isTiny = typeof window !== "undefined" && window.innerWidth <= 420;
 
-  const colors = ["#218bff", "#10b981", "#f85149", "#3fb950"];
+  const colors = ["var(--accent-blue)", "var(--accent-green)", "var(--accent-yellow)", "var(--accent-green)"];
   const color = colors[index];
 
   const svgIcons = [
     // Card 1: Package
     <svg key="pkg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}>
-      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-      <path d="m3.3 7 8.7 5 8.7-5" />
+      <line x1="16.5" y1="9.4" x2="7.5" y2="4.21" />
+      <polygon points="12 22.08 12 12 3 6.92 3 17.08 12 22.08" />
+      <polygon points="12 12 21 6.92 21 17.08 12 22.08" />
+      <polygon points="12 12 3 6.92 12 1.84 21 6.92 12 12" />
       <path d="M12 22V12" />
     </svg>,
     // Card 2: Trophy
@@ -162,7 +164,7 @@ function StatCard({ label, value, sub, index = 0, href }: { label: string; value
     </svg>
   ];
 
-  const subTextColor = (index === 0 || index === 1) ? "#3fb950" : index === 2 ? "#f85149" : "var(--text-muted)";
+  const subTextColor = trend === "up" ? "var(--accent-green)" : trend === "down" ? "var(--accent-red)" : "var(--text-muted)";
   
   // Dynamically calculate font size based on the value's string length
   const getFontSize = (val: string | number) => {
@@ -193,12 +195,12 @@ function StatCard({ label, value, sub, index = 0, href }: { label: string; value
         justifyContent: "flex-start",
         cursor: href ? "pointer" : "default",
         transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-        transform: isHovered ? "scale(1.02) translateY(-2px)" : "scale(1) translateY(0)",
-        borderLeftColor: isHovered ? "var(--text-muted)" : "var(--border)",
-        borderRightColor: isHovered ? "var(--text-muted)" : "var(--border)",
-        borderBottomColor: isHovered ? "var(--text-muted)" : "var(--border)",
+        transform: isHovered ? "translateY(-1px)" : "translateY(0)",
+        borderLeftColor: isHovered ? "var(--text-secondary)" : "var(--border)",
+        borderRightColor: isHovered ? "var(--text-secondary)" : "var(--border)",
+        borderBottomColor: isHovered ? "var(--text-secondary)" : "var(--border)",
         borderTop: `3px solid ${color}`,
-        boxShadow: isHovered ? `0 8px 24px ${color}10` : "none",
+        boxShadow: isHovered ? `0 4px 16px ${color}18` : "none",
         position: "relative",
       }}
     >
@@ -221,7 +223,7 @@ function StatCard({ label, value, sub, index = 0, href }: { label: string; value
         className="kpi-value"
         title={String(value)}
         style={{
-          color: "#ffffff",
+          color: "var(--text-primary)",
           fontSize: fontSize,
           fontWeight: 700,
           fontFamily: "var(--font-sans)",
@@ -256,22 +258,6 @@ function StatCard({ label, value, sub, index = 0, href }: { label: string; value
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sub}</span>
         </div>
       )}
-
-      {/* Corner number */}
-      <div className="kpi-corner" style={{
-        opacity: isHovered ? 0.15 : 0.04,
-        transition: "opacity 0.2s ease",
-        fontFamily: "var(--font-mono)",
-        fontSize: "24px",
-        fontWeight: 700,
-        color: "var(--text-muted)",
-        position: "absolute",
-        right: "10px",
-        bottom: "6px",
-        pointerEvents: "none",
-      }}>
-        {String(index + 1).padStart(2, '0')}
-      </div>
     </div>
   );
 }
@@ -350,11 +336,11 @@ function VerticalSelector({
             width: "36px",
             height: "20px",
             borderRadius: "10px",
-            background: showMine ? "#218bff" : C.border,
+            background: showMine ? "var(--accent-blue)" : C.border,
             position: "relative",
             cursor: "pointer",
             transition: "background-color 0.2s",
-            border: `1px solid ${showMine ? "#218bff" : C.border}`,
+            border: `1px solid ${showMine ? "var(--accent-blue)" : C.border}`,
           }}
         >
           <div
@@ -392,7 +378,7 @@ function VerticalSelector({
                 fontFamily: "var(--font-sans)",
                 cursor: "pointer",
                 transition: "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
-                background: active ? "rgba(255, 255, 255, 0.05)" : C.bgCard,
+                background: active ? "rgba(255, 255, 255, 0.08)" : C.bgCard,
                 border: `1px solid ${active ? C.text : C.border}`,
                 color: active ? C.text : C.textSub,
               }}
@@ -642,10 +628,33 @@ function LeaderboardTable({
         {/* Sort Buttons */}
         <div className="lb-filter-sort">
           {[
-            { key: "stars", label: "Stars", icon: "⭐" },
-            { key: "forks", label: "Forks", icon: "🍴" },
-            { key: "issues", label: "Issues", icon: "☉" },
-            { key: "age", label: "Age", icon: "🕒" },
+            { key: "stars", label: "Stars", icon: (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+            ) },
+            { key: "forks", label: "Forks", icon: (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="18" cy="18" r="3" />
+                <circle cx="6" cy="6" r="3" />
+                <circle cx="6" cy="18" r="3" />
+                <path d="M18 15V9a4 4 0 0 0-4-4H9" />
+                <line x1="6" y1="9" x2="6" y2="15" />
+              </svg>
+            ) },
+            { key: "issues", label: "Issues", icon: (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            ) },
+            { key: "age", label: "Age", icon: (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+            ) },
           ].map((s) => (
             <button
               key={s.key}
@@ -659,7 +668,7 @@ function LeaderboardTable({
                 cursor: "pointer",
                 transition: "all 0.15s",
                 border: "1px solid var(--border)",
-                background: sortBy === s.key ? "#ffffff" : "transparent",
+                background: sortBy === s.key ? "var(--accent-blue)" : "transparent",
                 color: sortBy === s.key ? "var(--bg-primary)" : "var(--text-secondary)",
                 display: "flex",
                 alignItems: "center",
@@ -667,7 +676,7 @@ function LeaderboardTable({
                 whiteSpace: "nowrap",
               }}
             >
-              <span style={{ fontSize: "10px" }}>{s.icon}</span>
+              <span style={{ display: "inline-flex", alignItems: "center" }}>{s.icon}</span>
               {s.label}
             </button>
           ))}
@@ -880,22 +889,7 @@ function LeaderboardTable({
 
 
 
-      <style>{`
-        @keyframes rowFadeIn {
-          from { opacity: 0; transform: translateY(6px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .repo-row {
-          animation: rowFadeIn 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-          transition: background-color 0.2s ease;
-        }
-        .repo-row:hover {
-          background-color: rgba(255, 255, 255, 0.02) !important;
-        }
-        .repo-row:hover .repo-name {
-          text-decoration: underline;
-        }
-      `}</style>
+
     </div>
   );
 }
@@ -912,20 +906,26 @@ function SustainabilityRanking({ repos }: { repos: SustainabilityEntry[] }) {
           <div style={{ padding: "20px 24px", textAlign: "center", fontFamily: "var(--font-sans)", color: "var(--text-muted)", fontSize: "13px" }}>
             No sustainability data yet — scores will populate after first ingestion run.
           </div>
-        ) : repos.map((repo, i) => (
-          <div
-            key={repo.repo_id}
-            className="sustain-row"
-            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 6px", cursor: "pointer", minWidth: 0, borderBottom: "1px solid var(--border)", transition: "background 0.15s" }}
-            onClick={() => router.push(`/repo/${repo.repo_id}`)}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-          >
+        ) : repos.map((repo, i) => {
+          const sustainColor = repo.sustainability_label === "GREEN"
+            ? "var(--accent-green)"
+            : repo.sustainability_label === "YELLOW"
+            ? "var(--accent-yellow)"
+            : "var(--accent-red)";
+          return (
+            <div
+              key={repo.repo_id}
+              className="sustain-row"
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 8px 7px 6px", cursor: "pointer", minWidth: 0, borderBottom: "1px solid var(--border)", borderLeft: `3px solid ${sustainColor}`, transition: "background 0.15s" }}
+              onClick={() => router.push(`/repo/${repo.repo_id}`)}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
             <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0, overflow: "hidden", flex: 1 }}>
               <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "10px", width: "14px", textAlign: "right", flexShrink: 0 }}>{i + 1}</span>
               <div style={{ minWidth: 0 }}>
-                <span className="sustain-repo-name" style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--text-primary)", wordBreak: "break-word" }}>{repo.owner}/{repo.name}</span>
-                <span style={{ marginLeft: "6px", fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)", letterSpacing: "0.06em" }}>{repo.category}</span>
+                <span className="sustain-repo-name" style={{ fontFamily: "var(--font-mono)", fontSize: "12px", fontWeight: 600, color: "var(--text-primary)", wordBreak: "break-word" }}>{repo.owner}/{repo.name}</span>
+                <span style={{ marginLeft: "6px", fontFamily: "var(--font-sans)", fontSize: "10px", color: "var(--text-muted)" }}>{repo.category}</span>
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
@@ -935,7 +935,8 @@ function SustainabilityRanking({ repos }: { repos: SustainabilityEntry[] }) {
               <SustainBadge label={repo.sustainability_label} />
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -1059,12 +1060,38 @@ function EcosystemMapChart({ repos, title = "AI Ecosystem Map" }: { repos: Radar
 
 
 // ─── Alerts Panel ─────────────────────────────────────────────────────────────
-const ALERT_ICONS: Record<string, string> = {
-  star_spike_24h: "⭐",
-  star_spike_48h: "🌟",
-  momentum_surge: "🚀",
-  pr_surge: "🔀",
-  new_breakout: "🌀",   // Rasengan!
+const ALERT_ICONS: Record<string, React.ReactNode> = {
+  star_spike_24h: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--accent-yellow)" }}>
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  ),
+  star_spike_48h: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--accent-yellow)" }}>
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  ),
+  momentum_surge: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--accent-green)" }}>
+      <path d="M4.5 16.5c-1.5 1.25-2.5 3.5-2.5 3.5s2.25-1 3.5-2.5" />
+      <path d="M12 2c1.5 2 2.5 4 2.5 6 0 1-.5 1.5-1.5 1.5s-4-1-6-2.5c-2-1.5-3-2.5-3-3.5 0-1 .5-1.5 1.5-1.5 2 0 4 1 6 2.5Z" />
+      <path d="M12 2s4 1.5 6 3.5c1.5 1.5 2.5 3 2.5 4.5 0 1-.5 1.5-1.5 1.5s-3-1-4.5-2.5c-1.5-1.5-2.5-3-2.5-7Z" />
+    </svg>
+  ),
+  pr_surge: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--accent-blue)" }}>
+      <circle cx="18" cy="18" r="3" />
+      <circle cx="6" cy="6" r="3" />
+      <circle cx="6" cy="18" r="3" />
+      <path d="M18 15V9a4 4 0 0 0-4-4H9" />
+      <line x1="6" y1="9" x2="6" y2="15" />
+    </svg>
+  ),
+  new_breakout: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--accent-red)" }}>
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+    </svg>
+  ),
 };
 
 function AlertsPanel({
@@ -1096,7 +1123,24 @@ function AlertsPanel({
             background: "none", border: "none", cursor: "pointer", padding: 0,
           }}
         >
-          <span style={{ fontFamily: "var(--font-sans)", fontSize: "13px", color: "var(--text-muted)", transition: "transform 0.2s", display: "inline-block", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>▾</span>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{
+              color: "var(--text-muted)",
+              transition: "transform 0.2s",
+              display: "inline-block",
+              transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)",
+            }}
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
           <span className="panel-title">
             Trend Alerts
           </span>
@@ -1150,8 +1194,12 @@ function AlertsPanel({
                 className={`alert-row-cyber${alert.is_read ? " read" : ""}`}
                 style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "12px", width: "100%" }}
               >
-                <span style={{ fontSize: "16px", flexShrink: 0 }}>
-                  {ALERT_ICONS[alert.alert_type] ?? "★"}
+                <span style={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>
+                  {ALERT_ICONS[alert.alert_type] ?? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                    </svg>
+                  )}
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: "var(--font-sans)", fontSize: "13px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: "2px" }}>
@@ -1356,14 +1404,7 @@ export default function OverviewPage() {
 
       {/* Header */}
       <div className="overview-header" style={{ marginBottom: "0px" }}>
-        {/* CSS for micro-animations */}
-        <style>{`
-          @keyframes pulse-badge {
-            0% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0.4); }
-            70% { box-shadow: 0 0 0 5px rgba(248, 81, 73, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0); }
-          }
-        `}</style>
+
 
         {/* Row 1: Title + Period Selector */}
         <div className="overview-title-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", marginBottom: "6px" }}>
@@ -1407,10 +1448,10 @@ export default function OverviewPage() {
               alignItems: "center",
               gap: "4px",
               padding: "2px 8px",
-              background: "#e0f2fe",
-              border: "1px solid #bae6fd",
+              background: "var(--bg-elevated)",
+              border: "1px solid rgba(63,185,80,0.25)",
               borderRadius: "12px",
-              color: "#0369a1",
+              color: "var(--accent-green)",
               fontSize: "11px",
               fontWeight: 600,
             }}>
@@ -1533,7 +1574,13 @@ export default function OverviewPage() {
                         className={`alert-row-cyber${alert.is_read ? " read" : ""}`}
                         style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "12px", width: "100%" }}
                       >
-                        <span style={{ fontSize: "16px", flexShrink: 0 }}>{ALERT_ICONS[alert.alert_type] ?? "★"}</span>
+                        <span style={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>
+                          {ALERT_ICONS[alert.alert_type] ?? (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                            </svg>
+                          )}
+                        </span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontFamily: "var(--font-sans)", fontSize: "13px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: "2px" }}>
                             <strong style={{ color: "var(--accent-blue)", fontWeight: 600 }}>{alert.owner}/{alert.name}</strong>
@@ -1584,6 +1631,7 @@ export default function OverviewPage() {
             sub={overview.discovered_repos > 0
               ? `+${overview.discovered_repos} auto-discovered`
               : "curated baseline"}
+            trend={overview.discovered_repos > 0 ? "up" : "neutral"}
           />
         </div>
         <div className="bento-col-3" style={{ display: "flex", flexDirection: "column" }}>
@@ -1592,6 +1640,7 @@ export default function OverviewPage() {
             label="Top Category"
             value={topCat?.category ?? "—"}
             sub={topCat ? `${topCat.total_stars.toLocaleString()} total stars` : undefined}
+            trend="neutral"
           />
         </div>
         <div className="bento-col-3" style={{ display: "flex", flexDirection: "column" }}>
@@ -1603,6 +1652,7 @@ export default function OverviewPage() {
               ? `★ ${topLeaderEntry.current_stars.toLocaleString()} stars`
               : undefined}
             href={topLeaderEntry ? `/repo/${topLeaderEntry.owner}/${topLeaderEntry.name}` : undefined}
+            trend="up"
           />
         </div>
         <div className="bento-col-3" style={{ display: "flex", flexDirection: "column" }}>
@@ -1611,6 +1661,7 @@ export default function OverviewPage() {
             label="Healthy Repos"
             value={greenCount}
             sub={`of ${overview.total_repos} active`}
+            trend="neutral"
           />
         </div>
 

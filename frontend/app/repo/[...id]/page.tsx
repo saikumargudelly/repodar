@@ -99,7 +99,7 @@ function MetricCard({
   return (
     <div className="kpi-card" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%", padding: "14px 16px" }}>
       <div>
-        <div className="kpi-label" style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "none", fontWeight: 500, marginBottom: "4px", letterSpacing: "normal" }}>
+        <div className="kpi-label" style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: 600, marginBottom: "4px" }}>
           {label}
         </div>
         <div className="kpi-value" style={{ fontSize: "24px", fontWeight: "bold", fontFamily: "var(--font-mono)", color: valueColor || "var(--text-primary)", marginBottom: "4px", letterSpacing: "-0.02em" }}>
@@ -131,7 +131,7 @@ function StarHistoryChart({ data, mentions }: {
   return (
     <div className="panel card-pad">
       <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
+        <span className="panel-title" style={{ fontSize: "15px", fontWeight: 700 }}>
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><path d="M3 3v18h18"></path><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"></path></svg>
           Star history
         </span>
@@ -143,15 +143,15 @@ function StarHistoryChart({ data, mentions }: {
         <AreaChart data={enriched} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
           <defs>
             <linearGradient id="starGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#818cf8" stopOpacity={0.25} />
-              <stop offset="95%" stopColor="#818cf8" stopOpacity={0} />
+              <stop offset="5%" stopColor="var(--accent-blue)" stopOpacity={0.25} />
+              <stop offset="95%" stopColor="var(--accent-blue)" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
           <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={formatDateShort} tickLine={false} axisLine={false} />
           <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={42} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} tickLine={false} axisLine={false} />
           <Tooltip {...tooltipStyle} formatter={(v: any) => [v != null ? v.toLocaleString() : "—", "Stars"]} />
-          <Area type="monotone" dataKey="stars" stroke="#818cf8" fill="url(#starGrad)" strokeWidth={2} dot={false} />
+          <Area type="monotone" dataKey="stars" stroke="var(--accent-blue)" fill="url(#starGrad)" strokeWidth={2} dot={false} />
           {data.map((d) =>
             mentionDates.has(d.date) ? (
               <ReferenceLine
@@ -184,7 +184,7 @@ function DailyDeltaChart({ data }: { data: DailyMetricPoint[] }) {
           <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={formatDateShort} tickLine={false} axisLine={false} />
           <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={36} tickLine={false} axisLine={false} />
           <Tooltip {...tooltipStyle} />
-          <Bar dataKey="daily_star_delta" name="Stars Added" fill="rgba(52, 211, 153, 0.7)" radius={[2, 2, 0, 0]} />
+          <Bar dataKey="daily_star_delta" name="Stars Added" fill="var(--accent-green)" fillOpacity={0.7} radius={[2, 2, 0, 0]} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>
@@ -204,15 +204,15 @@ function ContributorChart({ data }: { data: DailyMetricPoint[] }) {
         <AreaChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
           <defs>
             <linearGradient id="contribGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#ff9f43" stopOpacity={0.2} />
-              <stop offset="95%" stopColor="#ff9f43" stopOpacity={0} />
+              <stop offset="5%" stopColor="var(--accent-yellow)" stopOpacity={0.2} />
+              <stop offset="95%" stopColor="var(--accent-yellow)" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
           <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={formatDateShort} tickLine={false} axisLine={false} />
           <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={36} tickLine={false} axisLine={false} />
           <Tooltip {...tooltipStyle} />
-          <Area type="monotone" dataKey="contributors" name="Contributors" stroke="#ff9f43" fill="url(#contribGrad)" strokeWidth={2} dot={false} />
+          <Area type="monotone" dataKey="contributors" name="Contributors" stroke="var(--accent-yellow)" fill="url(#contribGrad)" strokeWidth={2} dot={false} />
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -232,15 +232,15 @@ function VelocityChart({ data }: { data: ComputedMetricPoint[] }) {
         <AreaChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
           <defs>
             <linearGradient id="velGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.2} />
-              <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
+              <stop offset="5%" stopColor="var(--accent-blue)" stopOpacity={0.2} />
+              <stop offset="95%" stopColor="var(--accent-blue)" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
           <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={formatDateShort} tickLine={false} axisLine={false} />
           <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={36} tickLine={false} axisLine={false} />
           <Tooltip {...tooltipStyle} />
-          <Area type="monotone" dataKey="star_velocity_7d" name="Velocity 7d" stroke="#38bdf8" fill="url(#velGrad)" strokeWidth={2} dot={false} />
+          <Area type="monotone" dataKey="star_velocity_7d" name="Velocity 7d" stroke="var(--accent-blue)" fill="url(#velGrad)" strokeWidth={2} dot={false} />
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -260,15 +260,15 @@ function ScoreTimeline({ data }: { data: ComputedMetricPoint[] }) {
         <AreaChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
           <defs>
             <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--amber)" stopOpacity={0.25} />
-              <stop offset="95%" stopColor="var(--amber)" stopOpacity={0} />
+              <stop offset="5%" stopColor="var(--accent-yellow)" stopOpacity={0.25} />
+              <stop offset="95%" stopColor="var(--accent-yellow)" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
           <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={formatDateShort} tickLine={false} axisLine={false} />
           <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={52} tickLine={false} axisLine={false} />
           <Tooltip {...tooltipStyle} formatter={(v: any) => [typeof v === "number" && v != null ? v.toFixed(6) : "—", "Trend Score"]} />
-          <Area type="monotone" dataKey="trend_score" stroke="var(--amber)" fill="url(#trendGrad)" strokeWidth={2} dot={false} />
+          <Area type="monotone" dataKey="trend_score" stroke="var(--accent-yellow)" fill="url(#trendGrad)" strokeWidth={2} dot={false} />
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -370,10 +370,10 @@ function CommitHeatmap({ data }: { data: CommitActivityPoint[] }) {
   const intensity = (count: number) => {
     if (count === 0) return "var(--bg-elevated)";
     const pct = count / maxCount;
-    if (pct < 0.25) return "rgba(0,229,255,0.2)";
-    if (pct < 0.5) return "rgba(0,229,255,0.45)";
-    if (pct < 0.75) return "rgba(0,229,255,0.7)";
-    return "var(--cyan)";
+    if (pct < 0.25) return "rgba(63,185,80,0.2)";
+    if (pct < 0.5) return "rgba(63,185,80,0.45)";
+    if (pct < 0.75) return "rgba(63,185,80,0.7)";
+    return "var(--accent-green)";
   };
 
   return (
@@ -604,7 +604,7 @@ function EcosystemTabContent({ repoId, repo }: { repoId: string; repo: any }) {
       <div className="panel card-pad" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px" }}>
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <span style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600 }}>Canonical Category</span>
-          <span style={{ fontSize: "20px", fontWeight: "bold", color: "#818cf8", marginTop: "4px" }}>{primaryCategory}</span>
+          <span style={{ fontSize: "20px", fontWeight: "bold", color: "var(--accent-blue)", marginTop: "4px" }}>{primaryCategory}</span>
           <p style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "8px", lineHeight: "1.4" }}>
             {strength.details}
           </p>
@@ -623,7 +623,7 @@ function EcosystemTabContent({ repoId, repo }: { repoId: string; repo: any }) {
               <path
                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                 fill="none"
-                stroke="#818cf8"
+                stroke="var(--accent-blue)"
                 strokeWidth="2.5"
                 strokeDasharray={`${strength.score}, 100`}
                 strokeLinecap="round"
@@ -663,7 +663,7 @@ function EcosystemTabContent({ repoId, repo }: { repoId: string; repo: any }) {
                 y1={centerY}
                 x2={n.x}
                 y2={n.y}
-                stroke={n.type === "companion" ? "#ff9f43" : "#818cf8"}
+                stroke={n.type === "companion" ? "var(--accent-yellow)" : "var(--accent-blue)"}
                 strokeWidth={n.type === "pivot" ? 2.5 : 1.5}
                 strokeDasharray={n.type === "companion" ? "4 4" : "0"}
                 opacity="0.4"
@@ -671,7 +671,7 @@ function EcosystemTabContent({ repoId, repo }: { repoId: string; repo: any }) {
             ))}
 
             {/* Center Node (Category) */}
-            <circle cx={centerX} cy={centerY} r="35" fill="rgba(129, 140, 248, 0.2)" stroke="#818cf8" strokeWidth="2" style={{ filter: "drop-shadow(0 0 6px rgba(129,140,248,0.4))" }} />
+            <circle cx={centerX} cy={centerY} r="35" fill="var(--accent-blue)" fillOpacity={0.2} stroke="var(--accent-blue)" strokeWidth="2" style={{ filter: "drop-shadow(0 0 6px rgba(88,166,255,0.4))" }} />
             <text x={centerX} y={centerY - 5} textAnchor="middle" fill="var(--text-primary)" fontSize="10" fontWeight="bold" fontFamily="var(--font-sans)">
               {primaryCategory.split(" ").slice(0, 1).join(" ")}
             </text>
@@ -682,8 +682,8 @@ function EcosystemTabContent({ repoId, repo }: { repoId: string; repo: any }) {
             {/* Render Surrounding Nodes */}
             {allNodes.map((n, idx) => {
               const r = n.type === "pivot" ? 22 : 16;
-              const fill = n.type === "pivot" ? "rgba(63, 185, 80, 0.2)" : n.type === "companion" ? "rgba(255, 159, 67, 0.15)" : "rgba(129, 140, 248, 0.15)";
-              const stroke = n.type === "pivot" ? "var(--green)" : n.type === "companion" ? "#ff9f43" : "#818cf8";
+              const fill = n.type === "pivot" ? "var(--accent-green)" : n.type === "companion" ? "var(--accent-yellow)" : "var(--accent-blue)";
+              const stroke = n.type === "pivot" ? "var(--accent-green)" : n.type === "companion" ? "var(--accent-yellow)" : "var(--accent-blue)";
               
               // Helper to split long owner/name strings
               const labelParts = n.label.split("/");
@@ -696,7 +696,7 @@ function EcosystemTabContent({ repoId, repo }: { repoId: string; repo: any }) {
                     window.open(`https://github.com/${n.label}`, "_blank");
                   }
                 }}>
-                  <circle cx={n.x} cy={n.y} r={r} fill={fill} stroke={stroke} strokeWidth="1.5" style={{ transition: "all 0.3s" }} />
+                  <circle cx={n.x} cy={n.y} r={r} fill={fill} fillOpacity={n.type === "pivot" ? 0.2 : 0.15} stroke={stroke} strokeWidth="1.5" style={{ transition: "all 0.3s" }} />
                   <text x={n.x} y={n.y + r + 13} textAnchor="middle" fill="var(--text-secondary)" fontSize="10" fontWeight={n.type === "pivot" ? "bold" : "normal"} fontFamily="var(--font-sans)">
                     {displayName}
                   </text>
@@ -710,13 +710,13 @@ function EcosystemTabContent({ repoId, repo }: { repoId: string; repo: any }) {
         </div>
         <div style={{ display: "flex", justifyContent: "center", gap: "24px", fontSize: "11px", color: "var(--text-muted)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "var(--green)" }} /> Selected Repository
+            <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "var(--accent-green)" }} /> Selected Repository
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#818cf8" }} /> Direct Alternatives
+            <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "var(--accent-blue)" }} /> Direct Alternatives
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#ff9f43" }} /> Companion Stack Tools
+            <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "var(--accent-yellow)" }} /> Companion Stack Tools
           </div>
         </div>
       </div>
@@ -1206,7 +1206,7 @@ export default function RepoDeepDive() {
             fontSize: "14px",
             fontWeight: activeTab === "metrics" ? 600 : 400,
             color: activeTab === "metrics" ? "var(--text-primary)" : "var(--text-muted)",
-            borderBottom: activeTab === "metrics" ? "2px solid #818cf8" : "none",
+            borderBottom: activeTab === "metrics" ? "2px solid var(--accent-blue)" : "none",
             background: "none",
             border: "none",
             cursor: "pointer",
@@ -1223,7 +1223,7 @@ export default function RepoDeepDive() {
             fontSize: "14px",
             fontWeight: activeTab === "ecosystem" ? 600 : 400,
             color: activeTab === "ecosystem" ? "var(--text-primary)" : "var(--text-muted)",
-            borderBottom: activeTab === "ecosystem" ? "2px solid #818cf8" : "none",
+            borderBottom: activeTab === "ecosystem" ? "2px solid var(--accent-blue)" : "none",
             background: "none",
             border: "none",
             cursor: "pointer",
@@ -1260,9 +1260,9 @@ export default function RepoDeepDive() {
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginTop: "12px" }}>
                   {[
-                    { key: "What", value: deepSummary.what, badgeBg: "rgba(129, 140, 248, 0.15)", badgeColor: "#818cf8" },
-                    { key: "Why", value: deepSummary.why, badgeBg: "rgba(52, 211, 153, 0.15)", badgeColor: "#34d399" },
-                    { key: "How", value: deepSummary.how, badgeBg: "rgba(210, 153, 34, 0.15)", badgeColor: "#d29922" },
+                    { key: "What", value: deepSummary.what, badgeBg: "rgba(88, 166, 255, 0.15)", badgeColor: "var(--accent-blue)" },
+                    { key: "Why", value: deepSummary.why, badgeBg: "rgba(63, 185, 80, 0.15)", badgeColor: "var(--accent-green)" },
+                    { key: "How", value: deepSummary.how, badgeBg: "rgba(210, 153, 34, 0.15)", badgeColor: "var(--accent-yellow)" },
                   ].map(({ key, value, badgeBg, badgeColor }) => value && (
                     <div key={key} style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
                       <span style={{
@@ -1299,9 +1299,9 @@ export default function RepoDeepDive() {
                       {deepSummary.tech_stack.map((tech) => {
                         const isTS = tech.toLowerCase() === "typescript";
                         const isJS = tech.toLowerCase() === "javascript";
-                        const bg = isTS ? "rgba(129, 140, 248, 0.15)" : isJS ? "rgba(210, 153, 34, 0.15)" : "rgba(255,255,255,0.03)";
-                        const color = isTS ? "#818cf8" : isJS ? "#d29922" : "var(--text-secondary)";
-                        const border = isTS ? "1px solid rgba(129,140,248,0.25)" : isJS ? "1px solid rgba(210,153,34,0.25)" : "1px solid var(--border)";
+                        const bg = isTS ? "rgba(88, 166, 255, 0.15)" : isJS ? "rgba(210, 153, 34, 0.15)" : "rgba(255,255,255,0.03)";
+                        const color = isTS ? "var(--accent-blue)" : isJS ? "var(--accent-yellow)" : "var(--text-secondary)";
+                        const border = isTS ? "1px solid rgba(88,166,255,0.25)" : isJS ? "1px solid rgba(210,153,34,0.25)" : "1px solid var(--border)";
                         return (
                           <span key={tech} style={{
                             fontFamily: "var(--font-mono)",

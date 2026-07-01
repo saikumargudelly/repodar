@@ -222,7 +222,7 @@ export function ModernCategoryTrendScore({
                   <span style={{
                     fontWeight: 600,
                     fontSize: "13px",
-                    color: "#ffffff",
+                    color: "var(--text-primary)",
                     whiteSpace: "nowrap",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
@@ -257,7 +257,7 @@ export function ModernCategoryTrendScore({
                   <span style={{
                     fontSize: "13px",
                     fontWeight: 700,
-                    color: "#ffffff",
+                    color: "var(--text-primary)",
                     fontFamily: "var(--font-mono)",
                     minWidth: "32px",
                     textAlign: "right",
@@ -282,7 +282,7 @@ export function ModernCategoryTrendScore({
                   <span className="trend-stars-col" style={{
                     fontSize: "13px",
                     fontWeight: 600,
-                    color: "#2ea043",
+                    color: "var(--accent-green)",
                     fontFamily: "var(--font-mono)",
                     minWidth: "54px",
                     textAlign: "right",
@@ -307,7 +307,7 @@ export function ModernCategoryTrendScore({
                 </svg>
               </div>
               <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-                <span style={{ fontWeight: 700, fontSize: "13px", color: "#ffffff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={activeCategory.category}>
+                <span style={{ fontWeight: 700, fontSize: "13px", color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={activeCategory.category}>
                   {activeCategory.category}
                 </span>
                 <span style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", lineHeight: 1.1 }}>
@@ -330,7 +330,7 @@ export function ModernCategoryTrendScore({
                 flexShrink: 0,
                 boxShadow: `0 0 8px ${trendColor(activeCategory.trend_composite)}15`
               }}>
-                <span style={{ fontSize: "11px", fontWeight: 800, color: "#ffffff", fontFamily: "var(--font-mono)" }}>
+                <span style={{ fontSize: "11px", fontWeight: 800, color: "var(--text-primary)", fontFamily: "var(--font-mono)" }}>
                   {(activeCategory.trend_composite * 100).toFixed(0)}%
                 </span>
               </div>
@@ -346,25 +346,25 @@ export function ModernCategoryTrendScore({
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
               <div style={{ padding: "6px 8px", background: "rgba(255,255,255,0.015)", border: "1px solid var(--border)", borderRadius: "6px" }}>
                 <span style={{ display: "block", fontSize: "8px", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase" }}>Star Velocity</span>
-                <span style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "#84cc16", fontFamily: "var(--font-mono)", marginTop: "2px" }}>
+                <span style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "var(--accent-green)", fontFamily: "var(--font-mono)", marginTop: "2px" }}>
                   +{formatNumber(activeCategory.period_star_gain)}
                 </span>
               </div>
               <div style={{ padding: "6px 8px", background: "rgba(255,255,255,0.015)", border: "1px solid var(--border)", borderRadius: "6px" }}>
                 <span style={{ display: "block", fontSize: "8px", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase" }}>Contributors</span>
-                <span style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "#ffffff", fontFamily: "var(--font-mono)", marginTop: "2px" }}>
+                <span style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "var(--text-primary)", fontFamily: "var(--font-mono)", marginTop: "2px" }}>
                   {formatNumber(activeCategory.total_contributors)}
                 </span>
               </div>
               <div style={{ padding: "6px 8px", background: "rgba(255,255,255,0.015)", border: "1px solid var(--border)", borderRadius: "6px" }}>
                 <span style={{ display: "block", fontSize: "8px", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase" }}>Merged PRs</span>
-                <span style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "#38bdf8", fontFamily: "var(--font-mono)", marginTop: "2px" }}>
+                <span style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "var(--accent-blue)", fontFamily: "var(--font-mono)", marginTop: "2px" }}>
                   +{formatNumber(activeCategory.period_pr_gain || activeCategory.total_merged_prs)}
                 </span>
               </div>
               <div style={{ padding: "6px 8px", background: "rgba(255,255,255,0.015)", border: "1px solid var(--border)", borderRadius: "6px" }}>
                 <span style={{ display: "block", fontSize: "8px", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase" }}>MoM Growth</span>
-                <span style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "#a78bfa", fontFamily: "var(--font-mono)", marginTop: "2px" }}>
+                <span style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", fontFamily: "var(--font-mono)", marginTop: "2px" }}>
                   {activeCategory.mom_growth_pct >= 0 ? "+" : ""}{activeCategory.mom_growth_pct.toFixed(1)}%
                 </span>
               </div>

@@ -92,11 +92,13 @@ export default function ExplorePage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto py-8 px-0 md:px-4 lg:px-8">
+    <div style={{ maxWidth: "80rem", margin: "0 auto", padding: "32px 0" }}>
       {/* Title & Matched Count */}
-      <div className="flex items-baseline gap-3 mb-6">
-        <h1 className="text-2xl font-bold text-white tracking-tight">Explore repositories</h1>
-        <span className="text-xs text-gray-500 font-medium font-sans">
+      <div style={{ display: "flex", alignItems: "baseline", gap: "12px", marginBottom: "24px" }}>
+        <h1 style={{ fontSize: "24px", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.02em", margin: 0 }}>
+          Explore repositories
+        </h1>
+        <span style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: 500, fontFamily: "var(--font-sans)" }}>
           {data?.total !== undefined ? `${data.total} matched` : "12 matched"}
         </span>
       </div>
@@ -104,9 +106,9 @@ export default function ExplorePage() {
       {/* Filter Toolbar (Search, Categories, Sort) */}
       <div className="explore-filter-toolbar">
         {/* Search Input */}
-        <div className="relative flex-1 min-w-[220px] max-w-[280px]">
-          <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+        <div style={{ position: "relative", flex: 1, minWidth: "220px", maxWidth: "280px" }}>
+          <span style={{ position: "absolute", inset: "0 auto 0 0", display: "flex", alignItems: "center", paddingLeft: "12px", pointerEvents: "none", color: "var(--text-muted)" }}>
+            <svg style={{ width: "16px", height: "16px" }} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </span>
@@ -114,8 +116,24 @@ export default function ExplorePage() {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search repos, t..."
-            className="w-full pl-9 pr-3 py-1.5 bg-[#18181b] border border-[#2d2d34] rounded-md text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-gray-500 focus:ring-1 focus:ring-gray-500 transition-all"
+            placeholder="Search repos, topics..."
+            style={{
+              width: "100%",
+              paddingLeft: "36px",
+              paddingRight: "12px",
+              paddingTop: "6px",
+              paddingBottom: "6px",
+              background: "var(--bg-elevated)",
+              border: "1px solid var(--border)",
+              borderRadius: "6px",
+              fontSize: "13px",
+              color: "var(--text-primary)",
+              fontFamily: "var(--font-sans)",
+              outline: "none",
+              transition: "border-color 0.15s",
+            }}
+            onFocus={(e) => (e.currentTarget.style.borderColor = "var(--text-muted)")}
+            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
           />
         </div>
 
@@ -125,11 +143,31 @@ export default function ExplorePage() {
             <button
               key={cat.id}
               onClick={() => handleCategorySelect(cat.id)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-full transition-all cursor-pointer whitespace-nowrap border ${
-                activeCategory === cat.id
-                  ? "bg-[#27272a] text-white border-gray-600"
-                  : "bg-transparent text-gray-400 hover:text-gray-200 hover:bg-[#1f1f23] border-transparent"
-              }`}
+              style={{
+                padding: "5px 14px",
+                fontSize: "12px",
+                fontWeight: 600,
+                borderRadius: "20px",
+                border: `1px solid ${activeCategory === cat.id ? "var(--text-muted)" : "var(--border)"}`,
+                background: activeCategory === cat.id ? "rgba(255,255,255,0.06)" : "transparent",
+                color: activeCategory === cat.id ? "var(--text-primary)" : "var(--text-secondary)",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                fontFamily: "var(--font-sans)",
+                transition: "all 0.15s",
+              }}
+              onMouseEnter={(e) => {
+                if (activeCategory !== cat.id) {
+                  e.currentTarget.style.borderColor = "var(--text-muted)";
+                  e.currentTarget.style.color = "var(--text-primary)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeCategory !== cat.id) {
+                  e.currentTarget.style.borderColor = "var(--border)";
+                  e.currentTarget.style.color = "var(--text-secondary)";
+                }
+              }}
             >
               {cat.name}
             </button>
@@ -137,12 +175,26 @@ export default function ExplorePage() {
         </div>
 
         {/* Sort Dropdown */}
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-xs text-gray-500 font-semibold font-sans">Sort</span>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: 600, fontFamily: "var(--font-sans)" }}>Sort</span>
           <select
             value={sortBy}
             onChange={(e) => handleSortChange(e.target.value)}
-            className="bg-[#18181b] border border-[#2d2d34] rounded-md px-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-gray-500 transition-all font-semibold cursor-pointer"
+            style={{
+              background: "var(--bg-elevated)",
+              border: "1px solid var(--border)",
+              borderRadius: "6px",
+              padding: "5px 12px",
+              fontSize: "12px",
+              color: "var(--text-primary)",
+              fontFamily: "var(--font-sans)",
+              fontWeight: 600,
+              cursor: "pointer",
+              outline: "none",
+              transition: "border-color 0.15s",
+            }}
+            onFocus={(e) => (e.currentTarget.style.borderColor = "var(--text-muted)")}
+            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
           >
             <option value="trend_score">Trend score</option>
             <option value="stars">Stars</option>
@@ -154,16 +206,36 @@ export default function ExplorePage() {
       </div>
 
       {/* Languages Filters Row */}
-      <div className="explore-languages-row border-t border-b border-gray-800/40">
+      <div className="explore-languages-row" style={{ borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
         {LANGUAGES.map((lang) => (
           <button
             key={lang.id}
             onClick={() => handleLanguageSelect(lang.id)}
-            className={`px-3.5 py-1 text-xs font-semibold rounded-full border transition-all cursor-pointer ${
-              activeLanguage === lang.id
-                ? "border-indigo-500/50 bg-indigo-500/10 text-indigo-200"
-                : "bg-[#18181b] border-[#2d2d34] text-gray-400 hover:text-gray-200 hover:border-gray-600"
-            }`}
+            style={{
+              padding: "4px 14px",
+              fontSize: "12px",
+              fontWeight: 600,
+              borderRadius: "20px",
+              border: "1px solid",
+              borderColor: activeLanguage === lang.id ? "var(--text-muted)" : "transparent",
+              background: activeLanguage === lang.id ? "var(--bg-elevated)" : "transparent",
+              color: activeLanguage === lang.id ? "var(--text-primary)" : "var(--text-muted)",
+              cursor: "pointer",
+              fontFamily: "var(--font-sans)",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              if (activeLanguage !== lang.id) {
+                e.currentTarget.style.color = "var(--text-secondary)";
+                e.currentTarget.style.borderColor = "var(--border)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (activeLanguage !== lang.id) {
+                e.currentTarget.style.color = "var(--text-muted)";
+                e.currentTarget.style.borderColor = "transparent";
+              }
+            }}
           >
             {lang.name}
           </button>
@@ -172,47 +244,112 @@ export default function ExplorePage() {
 
       {/* Card Grid Results */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "20px" }}>
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-[#1f1f23] border border-[#2d2d34] rounded-xl p-5 h-44 animate-pulse" />
+            <div
+              key={i}
+              style={{
+                background: "var(--bg-surface)",
+                border: "1px solid var(--border)",
+                borderRadius: "12px",
+                padding: "20px",
+                height: "176px",
+                animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+              }}
+            />
           ))}
         </div>
       ) : (
         <>
-          <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 transition-opacity duration-200 ${isFetching ? "opacity-60" : "opacity-100"}`}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+              gap: "20px",
+              transition: "opacity 0.2s",
+              opacity: isFetching ? 0.6 : 1,
+            }}
+          >
             {data?.items.map((repo) => (
               <RepoCard key={repo.id} repo={repo} />
             ))}
             {data?.items.length === 0 && (
-              <div className="col-span-full py-16 text-center text-gray-400 font-mono text-sm border border-dashed border-gray-800 rounded-xl">
+              <div
+                style={{
+                  gridColumn: "1 / -1",
+                  padding: "64px 0",
+                  textAlign: "center",
+                  color: "var(--text-muted)",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "13px",
+                  border: "1px dashed var(--border)",
+                  borderRadius: "12px",
+                }}
+              >
                 No repositories match your filters. Try relaxing the constraints.
               </div>
             )}
           </div>
 
           {/* Footer Navigation & Pagination */}
-          <div className="mt-8 pt-6 border-t border-gray-800/60 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-xs text-gray-500 font-medium font-sans">
+          <div
+            style={{
+              marginTop: "32px",
+              paddingTop: "24px",
+              borderTop: "1px solid var(--border)",
+              display: "flex",
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "16px",
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: 500, fontFamily: "var(--font-sans)" }}>
               Showing {data?.items.length ?? 0} of {data?.total ?? 0}
             </div>
 
             {/* Pagination Controls */}
             {data && data.total_pages > 1 && (
-              <div className="flex items-center gap-2">
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="px-3 py-1 bg-[#18181b] border border-[#2d2d34] rounded-md text-xs font-semibold text-gray-400 hover:text-white disabled:opacity-40 disabled:hover:text-gray-400 transition-all cursor-pointer"
+                  style={{
+                    padding: "4px 12px",
+                    background: "var(--bg-elevated)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    color: "var(--text-secondary)",
+                    cursor: page === 1 ? "not-allowed" : "pointer",
+                    opacity: page === 1 ? 0.4 : 1,
+                    fontFamily: "var(--font-sans)",
+                    transition: "all 0.15s",
+                  }}
                 >
                   ← Prev
                 </button>
-                <span className="text-xs text-gray-400 font-mono px-1">
+                <span style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", padding: "0 4px" }}>
                   Page {page} of {data.total_pages}
                 </span>
                 <button
                   onClick={() => setPage((p) => Math.min(data.total_pages, p + 1))}
                   disabled={page === data.total_pages}
-                  className="px-3 py-1 bg-[#18181b] border border-[#2d2d34] rounded-md text-xs font-semibold text-gray-400 hover:text-white disabled:opacity-40 disabled:hover:text-gray-400 transition-all cursor-pointer"
+                  style={{
+                    padding: "4px 12px",
+                    background: "var(--bg-elevated)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    color: "var(--text-secondary)",
+                    cursor: page === data.total_pages ? "not-allowed" : "pointer",
+                    opacity: page === data.total_pages ? 0.4 : 1,
+                    fontFamily: "var(--font-sans)",
+                    transition: "all 0.15s",
+                  }}
                 >
                   Next →
                 </button>
@@ -220,18 +357,44 @@ export default function ExplorePage() {
             )}
 
             {/* Bottom Links */}
-            <div className="flex items-center gap-3">
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
               <Link
                 href="/radar"
-                className="px-4 py-1.5 bg-[#18181b] border border-[#2d2d34] hover:border-gray-600 rounded-md text-xs font-semibold text-gray-300 hover:text-white transition-all inline-flex items-center gap-1 cursor-pointer"
+                style={{
+                  padding: "5px 14px",
+                  background: "var(--bg-elevated)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "6px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: "var(--text-secondary)",
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  transition: "all 0.15s",
+                }}
               >
-                Agent picks <span className="text-xs">↗</span>
+                Agent picks <span style={{ fontSize: "11px" }}>↗</span>
               </Link>
               <Link
                 href="/early-radar"
-                className="px-4 py-1.5 bg-[#18181b] border border-[#2d2d34] hover:border-gray-600 rounded-md text-xs font-semibold text-gray-300 hover:text-white transition-all inline-flex items-center gap-1 cursor-pointer"
+                style={{
+                  padding: "5px 14px",
+                  background: "var(--bg-elevated)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "6px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: "var(--text-secondary)",
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  transition: "all 0.15s",
+                }}
               >
-                Rising fast <span className="text-xs">↗</span>
+                Rising fast <span style={{ fontSize: "11px" }}>↗</span>
               </Link>
             </div>
           </div>
@@ -250,32 +413,44 @@ function RepoCard({ repo }: { repo: RepoSummary }) {
     return num.toString();
   };
 
-  // Language color mapper
-  const getLanguageColor = (lang: string) => {
+  // Language color — CSS variable based dots
+  const getLanguageColor = (lang: string): string => {
     const colors: Record<string, string> = {
-      python: "bg-emerald-500",
-      go: "bg-teal-500",
-      typescript: "bg-blue-500",
-      javascript: "bg-yellow-500",
-      rust: "bg-orange-500",
-      elixir: "bg-violet-500",
+      python: "#3fb950",   // green — matches var(--accent-green)
+      go: "#22d3ee",       // cyan
+      typescript: "#58a6ff", // blue — matches var(--accent-blue)
+      javascript: "#d29922", // amber — matches var(--accent-yellow)
+      rust: "#f97316",     // orange
+      elixir: "#a78bfa",   // violet
     };
-    return colors[lang.toLowerCase()] || "bg-gray-400";
+    return colors[lang.toLowerCase()] || "var(--text-muted)";
   };
 
-  // Trend Badge Style
-  const getTrendBadgeStyle = (score: number) => {
+  // Trend Badge — dark-mode color system (matches the rest of the app)
+  const getTrendBadge = (score: number): { bg: string; color: string; border: string } => {
     const val = Math.round(score * 100);
     if (val >= 100) {
-      return "bg-[#e6f4ea] text-[#137333]"; // High Trend
+      return {
+        bg: "rgba(63,185,80,0.12)",
+        color: "var(--accent-green)",
+        border: "1px solid rgba(63,185,80,0.25)",
+      };
     } else if (val >= 30) {
-      return "bg-[#fff3cd] text-[#856404]"; // Medium Trend
+      return {
+        bg: "rgba(210,153,34,0.12)",
+        color: "var(--accent-yellow)",
+        border: "1px solid rgba(210,153,34,0.25)",
+      };
     } else {
-      return "bg-[#2a2a2d] text-[#8e8e93]"; // Low Trend
+      return {
+        bg: "var(--bg-elevated)",
+        color: "var(--text-muted)",
+        border: "1px solid var(--border)",
+      };
     }
   };
 
-  // Generate polish fallbacks if topics is empty
+  // Generate fallback topics if empty
   let displayTopics = repo.topics || [];
   if (displayTopics.length === 0) {
     if (repo.category) {
@@ -294,43 +469,88 @@ function RepoCard({ repo }: { repo: RepoSummary }) {
   displayTopics = displayTopics.slice(0, 3);
 
   const trendVal = repo.trend_score !== null ? Math.round(repo.trend_score * 100) : null;
+  const badge = getTrendBadge(repo.trend_score || 0);
 
   return (
     <Link
       href={`/repo/${repo.owner}/${repo.name}`}
-      className="group flex flex-col bg-[#1f1f23] border border-[#2d2d34] rounded-xl p-5 hover:border-gray-600 hover:bg-[#232328] transition-all duration-200 shadow-sm"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        background: "var(--bg-surface)",
+        border: "1px solid var(--border)",
+        borderRadius: "12px",
+        padding: "20px",
+        textDecoration: "none",
+        color: "inherit",
+        transition: "border-color 0.15s, background 0.15s",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLElement).style.borderColor = "var(--text-muted)";
+        (e.currentTarget as HTMLElement).style.background = "var(--bg-elevated)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
+        (e.currentTarget as HTMLElement).style.background = "var(--bg-surface)";
+      }}
     >
       {/* Top Header: Owner/Name & Stars */}
-      <div className="flex justify-between items-start mb-1.5">
-        <div className="text-[15px] font-semibold text-white truncate pr-3">
-          <span className="text-gray-400 font-normal">{repo.owner}/</span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "6px" }}>
+        <div style={{ fontSize: "15px", fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: "12px" }}>
+          <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>{repo.owner}/</span>
           {repo.name}
         </div>
-        <div className="flex items-center gap-1 text-sm font-semibold text-gray-200 shrink-0">
-          <span className="text-amber-500 text-sm">★</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "13px", fontWeight: 600, color: "var(--text-secondary)", flexShrink: 0 }}>
+          <span style={{ color: "var(--accent-yellow)" }}>★</span>
           {formatStars(repo.stars)}
         </div>
       </div>
 
       {/* Description */}
       {repo.description && (
-        <p className="text-xs text-gray-400 line-clamp-2 mb-4 leading-relaxed flex-grow">
+        <p style={{
+          fontSize: "12px",
+          color: "var(--text-muted)",
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+          marginBottom: "16px",
+          lineHeight: "1.5",
+          flexGrow: 1,
+          margin: "0 0 16px 0",
+        }}>
           {repo.description}
         </p>
       )}
 
       {/* Language & Trend Badge Row */}
-      <div className="mt-auto flex items-center justify-between">
+      <div style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         {/* Language */}
-        <div className="flex items-center gap-2">
-          <span className={`w-2.5 h-2.5 rounded-full ${getLanguageColor(repo.primary_language || "")}`} />
-          <span className="text-gray-400 text-xs font-semibold">{repo.primary_language || "Markdown"}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: getLanguageColor(repo.primary_language || ""), flexShrink: 0 }} />
+          <span style={{ color: "var(--text-muted)", fontSize: "12px", fontWeight: 600, fontFamily: "var(--font-sans)" }}>
+            {repo.primary_language || "Markdown"}
+          </span>
         </div>
 
         {/* Trend score pill */}
         {trendVal !== null && (
-          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold transition-all ${getTrendBadgeStyle(repo.trend_score || 0)}`}>
-            <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+          <span style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "4px",
+            padding: "2px 10px",
+            borderRadius: "20px",
+            fontSize: "11px",
+            fontWeight: 700,
+            fontFamily: "var(--font-mono)",
+            background: badge.bg,
+            color: badge.color,
+            border: badge.border,
+            transition: "all 0.15s",
+          }}>
+            <svg style={{ width: "10px", height: "10px", flexShrink: 0 }} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
             </svg>
             {trendVal}
@@ -339,11 +559,22 @@ function RepoCard({ repo }: { repo: RepoSummary }) {
       </div>
 
       {/* Topics row */}
-      <div className="flex flex-wrap gap-1.5 mt-3 pt-2.5 border-t border-gray-800/20">
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "12px", paddingTop: "10px", borderTop: "1px solid var(--border)" }}>
         {displayTopics.map((topic) => (
           <span
             key={topic}
-            className="bg-[#2a2a2f] hover:bg-[#323238] text-gray-300 px-2.5 py-0.5 text-[10px] font-bold tracking-wide rounded-full transition-colors"
+            style={{
+              background: "var(--bg-elevated)",
+              color: "var(--text-secondary)",
+              padding: "2px 10px",
+              fontSize: "10px",
+              fontWeight: 700,
+              letterSpacing: "0.04em",
+              borderRadius: "20px",
+              fontFamily: "var(--font-sans)",
+              border: "1px solid var(--border)",
+              transition: "all 0.15s",
+            }}
           >
             {topic}
           </span>

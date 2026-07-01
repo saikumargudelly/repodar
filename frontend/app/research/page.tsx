@@ -143,22 +143,7 @@ export default function ResearchListPage() {
 
   return (
     <div style={{ height: pageHeight, display: "flex", flexDirection: "column", background: C.bg, color: C.text, overflow: "hidden" }}>
-      <style>{`
-        ::-webkit-scrollbar {
-          width: 6px;
-          height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
-          background: #30363d;
-          border-radius: 3px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-          background: #8b949e;
-        }
-      `}</style>
+
 
       {/* Global Header */}
       <div style={{
@@ -172,8 +157,13 @@ export default function ResearchListPage() {
         flexShrink: 0
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ fontSize: "20px" }}>🔬</span>
-          <h1 style={{ fontFamily: "var(--font-sans)", fontSize: isMobile ? "14px" : "16px", fontWeight: 700, color: "#ffffff", margin: 0 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", color: "var(--accent-blue)" }}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 18h8M3 22h18M14 22a7 7 0 1 0-14 0M9 14h2M9 12a3 3 0 0 1 6 0V6" />
+              <path d="M12 2v4M11 4h2" />
+            </svg>
+          </span>
+          <h1 style={{ fontFamily: "var(--font-sans)", fontSize: isMobile ? "14px" : "16px", fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
             Research mode
           </h1>
           <span style={{
@@ -232,7 +222,7 @@ export default function ResearchListPage() {
                     display: "inline-flex",
                     alignItems: "center",
                     padding: "6px 14px",
-                    borderRadius: "20px",
+                    borderRadius: "6px",
                     fontSize: "12px",
                     fontWeight: 600,
                     fontFamily: "var(--font-sans)",
@@ -297,7 +287,7 @@ export default function ResearchListPage() {
                       display: "inline-flex",
                       alignItems: "center",
                       padding: "6px 14px",
-                      borderRadius: "20px",
+                      borderRadius: "6px",
                       fontSize: "12px",
                       fontWeight: 600,
                       fontFamily: "var(--font-sans)",
@@ -325,14 +315,21 @@ export default function ResearchListPage() {
                     style={{
                       background: C.bgCard,
                       border: `1px solid ${C.border}`,
+                      borderLeft: `3px solid ${C.border}`,
                       borderRadius: "10px",
-                      padding: "16px",
+                      padding: "16px 16px 16px 14px",
                       cursor: "pointer",
                       transition: "all 0.15s",
                       position: "relative",
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.textSub; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = C.textSub;
+                      e.currentTarget.style.borderLeftColor = C.textSub;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = C.border;
+                      e.currentTarget.style.borderLeftColor = C.border;
+                    }}
                   >
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px", marginBottom: "8px" }}>
                       <div style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "14px", color: C.text, lineHeight: 1.3 }}>
