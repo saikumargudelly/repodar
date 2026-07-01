@@ -528,9 +528,12 @@ export default function RadarPage() {
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
-                    {["#", "REPO", "STAGE", "BREAKOUT", "TREND", "ACCEL", "ETA", "SIGNALS", "HEALTH"].map((h) => (
-                      <th key={h} style={TH_STYLE}>{h}</th>
-                    ))}
+                    {["#", "REPO", "STAGE", "BREAKOUT", "TREND", "ACCEL", "ETA", "SIGNALS", "HEALTH"].map((h) => {
+                      const isRight = ["BREAKOUT", "TREND", "ACCEL", "ETA"].includes(h);
+                      return (
+                        <th key={h} style={{ ...TH_STYLE, textAlign: isRight ? "right" : "left" }}>{h}</th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
