@@ -94,3 +94,8 @@ Thumbs.db
 
 # Local cache/state
 *last_search_discovery.txt
+
+# Custom ignores
+repodar.dump
+repodar.sql
+test.txt

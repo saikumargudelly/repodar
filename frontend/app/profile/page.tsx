@@ -44,7 +44,7 @@ function normalizeForm(state: FormState): FormState {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { isLoaded, userId } = useAuth();
+  const { isLoaded, userId, getToken } = useAuth();
   const { user } = useUser();
   const queryClient = useQueryClient();
   const [resetting, setResetting] = useState(false);
@@ -58,10 +58,15 @@ export default function ProfilePage() {
 
   const handleResetOnboarding = async () => {
     if (!userId) return;
+    const token = await getToken();
+    if (!token) {
+      setFeedback("Authentication token missing. Please sign in again.");
+      return;
+    }
     setResetting(true);
     setFeedback("");
     try {
-      await api.resetOnboarding(userId);
+      await api.resetOnboarding(token);
       queryClient.invalidateQueries({ queryKey: ["profile-preferences", userId] });
       router.push("/onboarding?reset=true");
     } catch (err: any) {
@@ -80,7 +85,11 @@ export default function ProfilePage() {
 
   const preferencesQuery = useQuery({
     queryKey: ["profile-preferences", userId],
-    queryFn: () => api.getProfilePreferences(userId!),
+    queryFn: async () => {
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
+      return api.getProfilePreferences(token);
+    },
     enabled: !!userId,
     staleTime: 60 * 1000,
   });
@@ -99,7 +108,11 @@ export default function ProfilePage() {
   }, [preferencesQuery.data, user?.primaryEmailAddress?.emailAddress]);
 
   const saveMutation = useMutation({
-    mutationFn: (payload: ProfilePreferencesPatchBody) => api.updateProfilePreferences(userId!, payload),
+    mutationFn: async (payload: ProfilePreferencesPatchBody) => {
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
+      return api.updateProfilePreferences(token, payload);
+    },
     onSuccess: (updated) => {
       const next: FormState = {
         email: updated.email ?? "",

@@ -67,12 +67,8 @@ const QUICK_CHIPS = [
 
 export default function ResearchListPage() {
   const router = useRouter();
-  const { userId, isLoaded } = useAuth();
+  const { userId, isLoaded, getToken } = useAuth();
   
-  const effectiveUserId = useMemo(() => {
-    return isLoaded && userId ? userId : "default-user";
-  }, [isLoaded, userId]);
-
   const [sessions, setSessions] = useState<ResearchSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -92,17 +88,23 @@ export default function ResearchListPage() {
   }, []);
 
   useEffect(() => {
+    if (!isLoaded) return;
     setLoading(true);
-    api.research.listSessions(effectiveUserId)
+    getToken().then((token) => {
+      if (!token) throw new Error("No authentication token available");
+      return api.research.listSessions(token);
+    })
       .then(setSessions)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [effectiveUserId]);
+  }, [isLoaded, getToken]);
 
   const handleCreate = async () => {
     setCreating(true);
     try {
-      const s = await api.research.createSession(effectiveUserId, "Untitled Research");
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
+      const s = await api.research.createSession(token, "Untitled Research");
       router.push(`/research/${s.id}`);
     } catch (e) {
       console.error(e);
@@ -113,7 +115,9 @@ export default function ResearchListPage() {
   const handleChipClick = async (label: string, q: string) => {
     setCreating(true);
     try {
-      const s = await api.research.createSession(effectiveUserId, label);
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
+      const s = await api.research.createSession(token, label);
       router.push(`/research/${s.id}?q=${encodeURIComponent(q)}`);
     } catch (e) {
       console.error(e);
@@ -124,8 +128,14 @@ export default function ResearchListPage() {
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm("Delete this research session?")) return;
-    await api.research.deleteSession(id, effectiveUserId);
-    setSessions((prev) => prev.filter((s) => s.id !== id));
+    try {
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
+      await api.research.deleteSession(id, token);
+      setSessions((prev) => prev.filter((s) => s.id !== id));
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   // Determine standard page height based on the device's navigation margin-top behavior in AppShell

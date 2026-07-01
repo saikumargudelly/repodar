@@ -1185,7 +1185,7 @@ function AlertsPanel({
 export default function OverviewPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isLoaded: authLoaded, userId } = useAuth();
+  const { isLoaded: authLoaded, userId, getToken } = useAuth();
   const [period, setPeriod] = useState<Period>("7d");
   const [vertical, setVertical] = useState<Vertical>("ai_ml");
   const [userVerticals, setUserVerticals] = useState<string[]>([]);
@@ -1205,17 +1205,19 @@ export default function OverviewPage() {
   // Load user's preferred verticals from onboarding and set as default
   useEffect(() => {
     if (!authLoaded || !userId) return;
-    api.getOnboardingStatus(userId)
-      .then((status) => {
-        const prefs = status.selected_verticals ?? [];
-        setUserVerticals(prefs);
-        // Default to user's first preferred vertical if it's a valid Vertical key
-        const validKeys = VERTICALS.map((v) => v.key);
-        const firstPref = prefs.find((p) => validKeys.includes(p as Vertical));
-        if (firstPref) setVertical(firstPref as Vertical);
-      })
-      .catch(() => { /* not critical — keep default */ });
-  }, [authLoaded, userId]);
+    getToken().then((token) => {
+      if (!token) return;
+      return api.getOnboardingStatus(token)
+        .then((status) => {
+          const prefs = status.selected_verticals ?? [];
+          setUserVerticals(prefs);
+          // Default to user's first preferred vertical if it's a valid Vertical key
+          const validKeys = VERTICALS.map((v) => v.key);
+          const firstPref = prefs.find((p) => validKeys.includes(p as Vertical));
+          if (firstPref) setVertical(firstPref as Vertical);
+        });
+    }).catch(() => { /* not critical — keep default */ });
+  }, [authLoaded, userId, getToken]);
 
   const { data: overview, isLoading: overviewLoading, error } = useQuery({
     queryKey: ["overview"],

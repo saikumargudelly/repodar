@@ -38,7 +38,7 @@ const VERTICAL_METADATA: Record<string, { element: string; color: string; shadow
 export default function OnboardingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isLoaded, userId } = useAuth();
+  const { isLoaded, userId, getToken } = useAuth();
   const { user } = useUser();
 
 
@@ -64,17 +64,23 @@ export default function OnboardingPage() {
     let cancelled = false;
     (async () => {
       try {
+        const token = await getToken();
+        if (!token) {
+          if (!cancelled) setError("Authentication token missing. Please sign in again.");
+          return;
+        }
+
         const resetRequested = searchParams.get("reset") === "true";
         if (resetRequested) {
           try {
-            await api.resetOnboarding(userId);
+            await api.resetOnboarding(token);
           } catch (resetErr) {
             console.warn("Failed to reset onboarding in backend:", resetErr);
           }
         }
 
         const [status, overview] = await Promise.all([
-          api.getOnboardingStatus(userId),
+          api.getOnboardingStatus(token),
           api.getOverview(),
         ]);
         if (cancelled) return;
@@ -113,7 +119,7 @@ export default function OnboardingPage() {
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, router, user?.primaryEmailAddress?.emailAddress, userId, searchParams]);
+  }, [isLoaded, router, user?.primaryEmailAddress?.emailAddress, userId, searchParams, getToken]);
 
   const progressIndex = STEP_ORDER.indexOf(step);
 
@@ -149,21 +155,26 @@ export default function OnboardingPage() {
 
   const saveCurrentStep = async () => {
     if (!userId) return;
+    const token = await getToken();
+    if (!token) {
+      setError("Authentication token missing. Please sign in again.");
+      return;
+    }
     setSaving(true);
     setError("");
 
     try {
       if (step === "interests") {
-        await api.saveOnboardingInterests(userId, selectedVerticals);
+        await api.saveOnboardingInterests(token, selectedVerticals);
         setStep("watchlist");
       } else if (step === "watchlist") {
-        await api.saveOnboardingWatchlist(userId, selectedRepos);
+        await api.saveOnboardingWatchlist(token, selectedRepos);
         setStep("alerts");
       } else if (step === "alerts") {
-        await api.saveOnboardingAlerts(userId, { email, frequency });
+        await api.saveOnboardingAlerts(token, { email, frequency });
         setStep("tour");
       } else {
-        await api.completeOnboarding(userId);
+        await api.completeOnboarding(token);
         router.replace("/overview");
       }
     } catch (err) {
@@ -176,10 +187,15 @@ export default function OnboardingPage() {
 
   const skipOnboarding = async () => {
     if (!userId) return;
+    const token = await getToken();
+    if (!token) {
+      setError("Authentication token missing. Please sign in again.");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
-      await api.skipOnboarding(userId);
+      await api.skipOnboarding(token);
       router.replace("/overview");
     } catch (err) {
       console.error(err);

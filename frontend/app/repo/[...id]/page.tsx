@@ -878,7 +878,7 @@ export default function RepoDeepDive() {
   const params = useParams<{ id: string[] }>();
   const repoId = Array.isArray(params.id) ? params.id.join("/") : params.id;
 
-  const { userId } = useAuth();
+  const { userId, getToken } = useAuth();
   const queryClient = useQueryClient();
   const [pinned, setPinned] = useState(false);
   const [activeTab, setActiveTab] = useState<"metrics" | "ecosystem">("metrics");
@@ -931,7 +931,11 @@ export default function RepoDeepDive() {
 
   const { data: watchStatus, refetch: refetchWatchStatus } = useQuery({
     queryKey: ["watch-status", userId, repoId],
-    queryFn: () => api.checkWatchlist(userId!, repoId),
+    queryFn: async () => {
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
+      return api.checkWatchlist(token, repoId);
+    },
     enabled: !!userId && !!repoId,
   });
 
@@ -940,11 +944,16 @@ export default function RepoDeepDive() {
       alert("Please sign in to watch repositories.");
       return;
     }
+    const token = await getToken();
+    if (!token) {
+      alert("Authentication token missing. Please sign in again.");
+      return;
+    }
     try {
       if (watchStatus?.watching && watchStatus.item) {
-        await api.removeFromWatchlist(userId, watchStatus.item.id);
+        await api.removeFromWatchlist(token, watchStatus.item.id);
       } else {
-        await api.addToWatchlist(userId, { repo_id: repoId });
+        await api.addToWatchlist(token, { repo_id: repoId });
       }
       refetchWatchStatus();
       queryClient.invalidateQueries({ queryKey: ["watchlist", userId] });

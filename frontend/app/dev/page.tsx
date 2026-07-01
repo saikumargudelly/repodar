@@ -9,7 +9,7 @@ import { useAuth } from "@clerk/nextjs";
 import { api, ApiKeyOut } from "@/lib/api";
 
 export default function DevPage() {
-  const { isLoaded, userId } = useAuth();
+  const { isLoaded, userId, getToken } = useAuth();
   const queryClient = useQueryClient();
   const [newKeyName, setNewKeyName] = useState("");
   const [rawKey, setRawKey] = useState<string | null>(null);
@@ -17,13 +17,21 @@ export default function DevPage() {
 
   const { data: keys, isLoading } = useQuery({
     queryKey: ["api-keys", userId],
-    queryFn: () => api.listApiKeys(userId!),
+    queryFn: async () => {
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
+      return api.listApiKeys(token);
+    },
     enabled: !!userId,
     staleTime: 30 * 1000,
   });
 
   const createMutation = useMutation({
-    mutationFn: () => api.createApiKey(userId!, { name: newKeyName.trim() || "My Key" }),
+    mutationFn: async () => {
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
+      return api.createApiKey(token, { name: newKeyName.trim() || "My Key" });
+    },
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["api-keys", userId] });
       setNewKeyName("");
@@ -32,7 +40,11 @@ export default function DevPage() {
   });
 
   const revokeMutation = useMutation({
-    mutationFn: (keyId: string) => api.revokeApiKey(userId!, keyId),
+    mutationFn: async (keyId: string) => {
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
+      return api.revokeApiKey(token, keyId);
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["api-keys", userId] }),
   });
 

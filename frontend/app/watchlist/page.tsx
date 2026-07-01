@@ -12,7 +12,7 @@ import { ProfessionalLoader } from "@/components/ProfessionalLoader";
 
 
 export default function WatchlistPage() {
-  const { isLoaded, userId } = useAuth();
+  const { isLoaded, userId, getToken } = useAuth();
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editThreshold, setEditThreshold] = useState<string>("");
@@ -21,23 +21,34 @@ export default function WatchlistPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["watchlist", userId],
-    queryFn: () => api.getWatchlist(userId!),
+    queryFn: async () => {
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
+      return api.getWatchlist(token);
+    },
     enabled: !!userId,
     staleTime: 2 * 60 * 1000,
   });
 
   const removeMutation = useMutation({
-    mutationFn: (id: string) => api.removeFromWatchlist(userId!, id),
+    mutationFn: async (id: string) => {
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
+      return api.removeFromWatchlist(token, id);
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["watchlist", userId] }),
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, threshold, email, webhook }: { id: string; threshold: string; email: string; webhook: string }) =>
-      api.updateWatchlistItem(userId!, id, {
+    mutationFn: async ({ id, threshold, email, webhook }: { id: string; threshold: string; email: string; webhook: string }) => {
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
+      return api.updateWatchlistItem(token, id, {
         alert_threshold: threshold ? Number(threshold) : null,
         notify_email: email || null,
         notify_webhook: webhook || null,
-      }),
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["watchlist", userId] });
       setEditingId(null);

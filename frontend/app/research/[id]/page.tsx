@@ -48,16 +48,15 @@ function RepoCard({
   isPinned,
   onAddToReport,
   sessionId,
-  userId,
 }: {
   repo: ResearchRepo;
   onPin: (r: ResearchRepo) => void;
   isPinned: boolean;
   onAddToReport?: (r: ResearchRepo) => void;
   sessionId?: string;
-  userId?: string;
 }) {
   const router = useRouter();
+  const { getToken } = useAuth();
   const starsK = repo.stars >= 1000 ? `${(repo.stars / 1000).toFixed(1)}k` : String(repo.stars);
   const [blogOpen, setBlogOpen] = useState(false);
   const [blogPlatform, setBlogPlatform] = useState<"reddit"|"twitter"|"linkedin">("reddit");
@@ -66,11 +65,13 @@ function RepoCard({
   const [blogCopied, setBlogCopied] = useState(false);
 
   const handleGenerateBlog = async () => {
-    if (!sessionId || !userId) return;
+    if (!sessionId) return;
     setGeneratingBlog(true);
     setBlogContent("");
     try {
-      const result = await api.research.generateBlog(sessionId, userId, blogPlatform, repo as unknown as Record<string, unknown>);
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
+      const result = await api.research.generateBlog(sessionId, token, blogPlatform, repo as unknown as Record<string, unknown>);
       setBlogContent(result.content);
     } catch (e) { console.error(e); }
     finally { setGeneratingBlog(false); }
@@ -379,13 +380,11 @@ function ChatBubble({
   onPin,
   pinnedNames,
   sessionId,
-  userId,
 }: {
   msg: ResearchMessage;
   onPin: (r: ResearchRepo) => void;
   pinnedNames: Set<string>;
   sessionId: string;
-  userId: string;
 }) {
   const isUser = msg.role === "user";
 
@@ -428,7 +427,7 @@ function ChatBubble({
       {!isUser && msg.repos && msg.repos.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%", paddingLeft: "4px" }}>
           {msg.repos.slice(0, 8).map((r) => (
-            <RepoCard key={r.full_name} repo={r} onPin={onPin} isPinned={pinnedNames.has(r.full_name)} sessionId={sessionId} userId={userId} />
+            <RepoCard key={r.full_name} repo={r} onPin={onPin} isPinned={pinnedNames.has(r.full_name)} sessionId={sessionId} />
           ))}
           {msg.repos.length > 8 && (
             <div style={{ fontFamily: "var(--font-sans)", fontSize: "11px", color: C.textSub, padding: "4px 8px" }}>
@@ -517,11 +516,7 @@ export default function ResearchSessionPage() {
   const { id: sessionId } = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { userId, isLoaded } = useAuth();
-
-  const effectiveUserId = useMemo(() => {
-    return isLoaded && userId ? userId : "default-user";
-  }, [isLoaded, userId]);
+  const { userId, isLoaded, getToken } = useAuth();
 
   // Session state
   const [title, setTitle] = useState("Untitled Research");
@@ -611,20 +606,25 @@ export default function ResearchSessionPage() {
   // Load session
   useEffect(() => {
     if (!isLoaded) return;
-    api.research.listSessions(effectiveUserId).then(setSessions).catch(console.error);
-    api.research.getSession(sessionId, effectiveUserId).then((data) => {
-      setTitle(data.title);
-      setTitleDraft(data.title);
-      setMessages(data.messages);
-      setPins(data.pins);
-      if (data.report) setReportMd(data.report.content_md);
+    getToken().then((token) => {
+      if (!token) return;
+      api.research.listSessions(token).then(setSessions).catch(console.error);
+      api.research.getSession(sessionId, token).then((data) => {
+        setTitle(data.title);
+        setTitleDraft(data.title);
+        setMessages(data.messages);
+        setPins(data.pins);
+        if (data.report) setReportMd(data.report.content_md);
+      }).catch(console.error);
     }).catch(console.error);
-  }, [isLoaded, effectiveUserId, sessionId]);
+  }, [isLoaded, sessionId, getToken]);
 
   const handleCreate = async () => {
     setCreating(true);
     try {
-      const s = await api.research.createSession(effectiveUserId, "Untitled Research");
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
+      const s = await api.research.createSession(token, "Untitled Research");
       router.push(`/research/${s.id}`);
     } catch (e) {
       console.error(e);
@@ -635,10 +635,16 @@ export default function ResearchSessionPage() {
   const handleDeleteSession = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm("Delete this research session?")) return;
-    await api.research.deleteSession(id, effectiveUserId);
-    setSessions((prev) => prev.filter((s) => s.id !== id));
-    if (id === sessionId) {
-      router.push("/research");
+    try {
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
+      await api.research.deleteSession(id, token);
+      setSessions((prev) => prev.filter((s) => s.id !== id));
+      if (id === sessionId) {
+        router.push("/research");
+      }
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -690,27 +696,43 @@ export default function ResearchSessionPage() {
   const handlePin = useCallback(async (repo: ResearchRepo) => {
     if (pinnedNames.has(repo.full_name)) return;
     try {
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
       const pin = await api.research.pinRepo(
-        sessionId, effectiveUserId, repo.full_name, repo as unknown as Record<string, unknown>
+        sessionId, token, repo.full_name, repo as unknown as Record<string, unknown>
       );
       setPins((prev) => [...prev, pin]);
     } catch (e) { console.error(e); }
-  }, [sessionId, effectiveUserId, pinnedNames]);
+  }, [sessionId, getToken, pinnedNames]);
 
   const handleUnpin = async (pinId: string) => {
-    await api.research.unpinRepo(sessionId, effectiveUserId, pinId);
-    setPins((prev) => prev.filter((p) => p.id !== pinId));
+    try {
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
+      await api.research.unpinRepo(sessionId, token, pinId);
+      setPins((prev) => prev.filter((p) => p.id !== pinId));
+    } catch (e) { console.error(e); }
   };
 
   const handleUpdatePinStage = async (pinId: string, stage: string) => {
-    const updated = await api.research.updatePin(sessionId, effectiveUserId, pinId, { stage });
-    setPins((prev) => prev.map((p) => (p.id === pinId ? updated : p)));
+    try {
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
+      const updated = await api.research.updatePin(sessionId, token, pinId, { stage });
+      setPins((prev) => prev.map((p) => (p.id === pinId ? updated : p)));
+    } catch (e) { console.error(e); }
   };
 
   // ── Send message via SSE ────────────────────────────────────────────────────
   const handleSend = useCallback(async (overrideInput?: string) => {
     const text = (overrideInput ?? input).trim();
     if (!text || sending) return;
+
+    const token = await getToken();
+    if (!token) {
+      alert("Authentication token missing. Please sign in again.");
+      return;
+    }
 
     setSending(true);
     setInput("");
@@ -731,7 +753,7 @@ export default function ResearchSessionPage() {
     // Close any existing SSE
     if (esRef.current) { esRef.current.close(); esRef.current = null; }
 
-    const url = api.research.streamUrl(sessionId, effectiveUserId, text);
+    const url = api.research.streamUrl(sessionId, token, text);
     const es = new EventSource(url);
     esRef.current = es;
 
@@ -774,11 +796,14 @@ export default function ResearchSessionPage() {
             setTitle(cleaned);
 
             // Persist the auto-named title to the backend database and update the sessions list (sidebar)
-            api.research.updateSession(sessionId, effectiveUserId, { title: cleaned })
-              .then(() => {
-                setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, title: cleaned } : s));
-              })
-              .catch(console.error);
+            getToken().then((token) => {
+              if (!token) return;
+              api.research.updateSession(sessionId, token, { title: cleaned })
+                .then(() => {
+                  setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, title: cleaned } : s));
+                })
+                .catch(console.error);
+            }).catch(console.error);
           }
 
           // Persist streamed message in UI
@@ -816,7 +841,7 @@ export default function ResearchSessionPage() {
       setStreamStatus(""); setSending(false);
       setStreamText(""); setStreamRepos([]);
     };
-  }, [input, effectiveUserId, sending, sessionId, streamQueryExp, title]);
+  }, [input, getToken, sending, sessionId, streamQueryExp, title]);
 
   const transcribeAudioBlob = useCallback(async (audioBlob: Blob, mimeType: string) => {
     setIsTranscribing(true);
@@ -831,8 +856,10 @@ export default function ResearchSessionPage() {
             ? "wav"
             : "webm";
 
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
       const transcript = await api.research.transcribeSpeech(
-        effectiveUserId,
+        token,
         audioBlob,
         `voice-${Date.now()}.${ext}`,
       );
@@ -851,7 +878,7 @@ export default function ResearchSessionPage() {
     } finally {
       setIsTranscribing(false);
     }
-  }, [handleSend, effectiveUserId]);
+  }, [handleSend, getToken]);
 
   const startVoiceDetection = useCallback((stream: MediaStream, recorder: MediaRecorder) => {
     if (typeof AudioContext === "undefined") {
@@ -1037,7 +1064,9 @@ export default function ResearchSessionPage() {
   const handleGenReport = async () => {
     setGeneratingReport(true);
     try {
-      const result = await api.research.generateReport(sessionId, effectiveUserId);
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
+      const result = await api.research.generateReport(sessionId, token);
       setReportMd(result.content_md);
       setActivePanel("report");
     } catch (e: unknown) {
@@ -1051,8 +1080,10 @@ export default function ResearchSessionPage() {
   const handleShare = async () => {
     setSharing(true);
     try {
-      const { token } = await api.research.createShare(sessionId, effectiveUserId, 7);
-      const link = `${window.location.origin}/research/share/${token}`;
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
+      const { token: shareToken } = await api.research.createShare(sessionId, token, 7);
+      const link = `${window.location.origin}/research/share/${shareToken}`;
       await navigator.clipboard.writeText(link);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -1077,9 +1108,15 @@ export default function ResearchSessionPage() {
   const saveTitle = async () => {
     const trimmed = titleDraft.trim();
     if (!trimmed || trimmed === title) { setEditingTitle(false); return; }
-    await api.research.updateSession(sessionId, effectiveUserId, { title: trimmed });
-    setTitle(trimmed);
-    setEditingTitle(false);
+    try {
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
+      await api.research.updateSession(sessionId, token, { title: trimmed });
+      setTitle(trimmed);
+      setEditingTitle(false);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1137,7 +1174,9 @@ export default function ResearchSessionPage() {
   const handleChipClick = async (label: string, q: string) => {
     setCreating(true);
     try {
-      const s = await api.research.createSession(effectiveUserId, label);
+      const token = await getToken();
+      if (!token) throw new Error("No authentication token available");
+      const s = await api.research.createSession(token, label);
       router.push(`/research/${s.id}?q=${encodeURIComponent(q)}`);
     } catch (e) {
       console.error(e);
@@ -1549,7 +1588,7 @@ export default function ResearchSessionPage() {
               {/* Message History */}
               <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                 {messages.map((msg) => (
-                  <ChatBubble key={msg.id} msg={msg} onPin={handlePin} pinnedNames={pinnedNames} sessionId={sessionId} userId={effectiveUserId} />
+                  <ChatBubble key={msg.id} msg={msg} onPin={handlePin} pinnedNames={pinnedNames} sessionId={sessionId} />
                 ))}
 
                 {/* Streaming bubble */}
