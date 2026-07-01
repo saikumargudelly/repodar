@@ -3,8 +3,10 @@
 import { useState, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { formatCompactNumber } from "@/lib/utils";
 import { api, Period, CrossRepoContributor, ContributorRepoEntry } from "@/lib/api";
 import { NinjaRankPill } from "@/components/NinjaRankPill";
+import { TableSkeleton } from "@/components/DashboardSkeleton";
 
 // B&W Theme Palette
 const C = {
@@ -201,10 +203,7 @@ function LeaderboardAndNetworkContent() {
   };
 
   const formatCommits = (val: number) => {
-    if (val >= 1000) {
-      return `${(val / 1000).toFixed(1)}k`;
-    }
-    return String(val);
+    return formatCompactNumber(val);
   };
 
   // Styled shared headers/elements
@@ -218,6 +217,10 @@ function LeaderboardAndNetworkContent() {
     fontWeight: 600,
     borderBottom: `1px solid ${C.border}`,
     whiteSpace: "nowrap",
+    position: "sticky",
+    top: 0,
+    zIndex: 2,
+    background: "var(--bg-surface)",
   };
 
   const TD_STYLE: React.CSSProperties = {
@@ -227,7 +230,7 @@ function LeaderboardAndNetworkContent() {
   };
 
   return (
-    <div className="page-root" style={{ background: C.bg, minHeight: "100vh", color: C.text }}>
+    <div className="page-root page-fade-in" style={{ background: C.bg, minHeight: "100vh", color: C.text }}>
       {/* ─── Header ────────────────────────────────────────────── */}
       <div className="leaderboard-header-row">
         <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
@@ -465,9 +468,7 @@ function LeaderboardAndNetworkContent() {
 
           {/* Table */}
           {lbLoading ? (
-            <div style={{ fontFamily: "var(--font-mono)", color: C.textMuted, padding: "60px 0", textAlign: "center", fontSize: "12px", letterSpacing: "0.06em" }}>
-              // LOADING LEADERBOARD DATA<span className="terminal-cursor" />
-            </div>
+            <TableSkeleton />
           ) : (
             <div className="panel table-scroll">
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -499,7 +500,7 @@ function LeaderboardAndNetworkContent() {
                             <span style={{ fontWeight: 400, color: C.textMuted }}>{row.owner}/</span>{row.name}
                           </div>
                           <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: C.textMuted, marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {row.category}{row.stars >= 1000 ? ` · ${(row.stars / 1000).toFixed(1)}k st` : ` · ${row.stars} st`}
+                            {row.category} · {formatCompactNumber(row.stars)} st
                           </div>
                         </td>
                         <td style={{ ...TD_STYLE, textAlign: "right", fontFamily: "var(--font-mono)", fontWeight: 700, color: C.green }}>
@@ -677,9 +678,7 @@ function LeaderboardAndNetworkContent() {
           <div className={`network-grid${selectedLogin ? " has-selection" : ""}`}>
             {/* List */}
             {networkLoading ? (
-              <div style={{ fontFamily: "var(--font-mono)", color: C.textMuted, padding: "60px 0", textAlign: "center", fontSize: "12px", letterSpacing: "0.06em" }}>
-                // MAPPING THE NETWORK<span className="terminal-cursor" />
-              </div>
+              <TableSkeleton />
             ) : (
               <div className="panel table-scroll">
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -807,8 +806,10 @@ function LeaderboardAndNetworkContent() {
                 </div>
 
                 {reposLoading ? (
-                  <div style={{ fontFamily: "var(--font-mono)", color: C.textMuted, fontSize: "11px", textAlign: "center", padding: "20px 0" }}>
-                    // LOADING REPOSITORIES...
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "10px 0" }}>
+                    <div className="skeleton-box" style={{ height: "16px", width: "80%" }} />
+                    <div className="skeleton-box" style={{ height: "16px", width: "60%" }} />
+                    <div className="skeleton-box" style={{ height: "16px", width: "70%" }} />
                   </div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "400px", overflowY: "auto" }}>

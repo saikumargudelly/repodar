@@ -17,7 +17,8 @@ import { SustainBadge } from "@/components/Nav";
 import { ModernCategoryCards } from "@/components/charts/ModernCategoryCards";
 import { ModernPRChart } from "@/components/charts/ModernPRChart";
 import { ModernCategoryTrendScore } from "@/components/charts/ModernCategoryTrendScore";
-import { ProfessionalLoader } from "@/components/ProfessionalLoader";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
+import { formatCompactNumber } from "@/lib/utils";
 
 
 const C = {
@@ -445,13 +446,7 @@ function LeaderboardTable({
 
   // Local helper to format large numbers
   const formatNum = (num: number): string => {
-    if (num >= 1000000) {
-      return `${(num / 1000000).toFixed(1).replace(/\.0$/, "")}M`;
-    }
-    if (num >= 1000) {
-      return `${(num / 1000).toFixed(1).replace(/\.0$/, "")}k`;
-    }
-    return String(num);
+    return formatCompactNumber(num);
   };
 
   // Local helper to format stars change
@@ -1157,75 +1152,91 @@ function AlertsPanel({
         </button>
 
         {/* Right: dismiss all + hint */}
-        {!collapsed && (
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            {unread > 0 && (
-              <button onClick={handleDismissAll} className="link-btn-cyber">
-                Dismiss All
-              </button>
-            )}
-            <span style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: "var(--text-muted)" }}>
-              Last {alerts.length} alerts · click to view
-            </span>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            opacity: collapsed ? 0 : 1,
+            pointerEvents: collapsed ? "none" : "auto",
+            transition: "opacity 0.2s ease-in-out"
+          }}
+        >
+          {unread > 0 && (
+            <button onClick={handleDismissAll} className="link-btn-cyber">
+              Dismiss All
+            </button>
+          )}
+          <span style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: "var(--text-muted)" }}>
+            Last {alerts.length} alerts · click to view
+          </span>
+        </div>
+      </div>
+
+      <div
+        style={{
+          maxHeight: collapsed ? "0" : "800px",
+          opacity: collapsed ? 0 : 1,
+          overflow: "hidden",
+          transition: "max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease-in-out",
+        }}
+      >
+        {alerts.length === 0 ? (
+          <p style={{ color: "var(--text-muted)", fontFamily: "var(--font-sans)", fontSize: "13px", textAlign: "center", padding: "16px 20px" }}>
+            No active alerts — scores will trigger alerts after sufficient data accumulates.
+          </p>
+        ) : (
+          <div>
+            {alerts.map((alert) => {
+              const prefix = `${alert.owner}/${alert.name} `;
+              const detailText = alert.headline.startsWith(prefix)
+                ? alert.headline.slice(prefix.length)
+                : alert.headline;
+              return (
+                <div
+                  key={alert.id}
+                  onClick={() => {
+                    if (!alert.is_read) {
+                      onMarkRead(alert.id);
+                    }
+                    router.push(`/repo/${alert.owner}/${alert.name}`);
+                  }}
+                  className={`alert-row-cyber${alert.is_read ? " read" : ""}`}
+                  style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "12px", width: "100%" }}
+                >
+                  <span style={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>
+                    {ALERT_ICONS[alert.alert_type] ?? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                      </svg>
+                    )}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: "var(--font-sans)", fontSize: "13px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: "2px" }}>
+                      <strong style={{ color: "var(--accent-blue)", fontWeight: 600 }}>{alert.owner}/{alert.name}</strong>
+                    </div>
+                    <div style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: "var(--text-secondary)", marginBottom: "3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {detailText}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)" }}>
+                      <span style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--accent-blue)", padding: "1px 6px", fontSize: "11px", borderRadius: "4px" }}>
+                        {alert.category}
+                      </span>
+                      {new Date(alert.triggered_at).toLocaleString()}
+                    </div>
+                  </div>
+                  {!alert.is_read && (
+                    <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent-red)", flexShrink: 0 }} />
+                  )}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.6 }}>
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
-
-      {!collapsed && (alerts.length === 0 ? (
-        <p style={{ color: "var(--text-muted)", fontFamily: "var(--font-sans)", fontSize: "13px", textAlign: "center", padding: "16px 20px" }}>
-          No active alerts — scores will trigger alerts after sufficient data accumulates.
-        </p>
-      ) : (
-        <div>
-          {alerts.map((alert) => {
-            const prefix = `${alert.owner}/${alert.name} `;
-            const detailText = alert.headline.startsWith(prefix)
-              ? alert.headline.slice(prefix.length)
-              : alert.headline;
-            return (
-              <div
-                key={alert.id}
-                onClick={() => {
-                  if (!alert.is_read) {
-                    onMarkRead(alert.id);
-                  }
-                  router.push(`/repo/${alert.owner}/${alert.name}`);
-                }}
-                className={`alert-row-cyber${alert.is_read ? " read" : ""}`}
-                style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "12px", width: "100%" }}
-              >
-                <span style={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>
-                  {ALERT_ICONS[alert.alert_type] ?? (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                    </svg>
-                  )}
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: "var(--font-sans)", fontSize: "13px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: "2px" }}>
-                    <strong style={{ color: "var(--accent-blue)", fontWeight: 600 }}>{alert.owner}/{alert.name}</strong>
-                  </div>
-                  <div style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: "var(--text-secondary)", marginBottom: "3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {detailText}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)" }}>
-                    <span style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--accent-blue)", padding: "1px 6px", fontSize: "11px", borderRadius: "4px" }}>
-                      {alert.category}
-                    </span>
-                    {new Date(alert.triggered_at).toLocaleString()}
-                  </div>
-                </div>
-                {!alert.is_read && (
-                  <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent-red)", flexShrink: 0 }} />
-                )}
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.6 }}>
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-              </div>
-            );
-          })}
-        </div>
-      ))}
     </div>
   );
 }
@@ -1332,25 +1343,46 @@ export default function OverviewPage() {
   };
 
   if (overviewLoading) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
-        <ProfessionalLoader size={45} text="Channeling chakra..." />
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
 
   if (error || !overview) {
     return (
-      <div style={{ paddingTop: "40px" }}>
-        <div className="panel" style={{ padding: "24px" }}>
-          <p style={{ color: "var(--accent-red)", fontFamily: "var(--font-sans)", fontWeight: 600, marginBottom: "8px", fontSize: "14px" }}>
-            Backend not reachable
-          </p>
-          <p style={{ color: "var(--text-secondary)", fontSize: "13px", fontFamily: "var(--font-sans)", lineHeight: 1.7 }}>
-            Start the FastAPI server: <code style={{ color: "var(--accent-blue)", fontFamily: "var(--font-mono)" }}>make dev-backend</code><br />
-            Run first-time setup: <code style={{ color: "var(--accent-blue)", fontFamily: "var(--font-mono)" }}>POST /admin/run-all</code> from the API docs at <code style={{ color: "var(--accent-blue)", fontFamily: "var(--font-mono)" }}>localhost:8000/docs</code>
-          </p>
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh", padding: "24px" }}>
+        <div className="panel" style={{ padding: "32px", maxWidth: "460px", width: "100%", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "16px" }}>
+          <div style={{ width: "48px", height: "48px", borderRadius: "50%", background: "rgba(248,81,73,0.1)", border: "1px solid var(--accent-red)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-red)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+          </div>
+          <div>
+            <h2 style={{ fontFamily: "var(--font-sans)", fontSize: "16px", fontWeight: 700, color: "var(--text-primary)", margin: "0 0 8px 0" }}>Backend Service Offline</h2>
+            <p style={{ color: "var(--text-secondary)", fontSize: "13px", fontFamily: "var(--font-sans)", lineHeight: 1.6, margin: 0 }}>
+              Start the FastAPI server: <code style={{ color: "var(--accent-blue)", fontFamily: "var(--font-mono)", fontSize: "11px" }}>make dev-backend</code><br />
+              Or run first-time setup: <code style={{ color: "var(--accent-blue)", fontFamily: "var(--font-mono)", fontSize: "11px" }}>POST /admin/run-all</code> via <code style={{ color: "var(--accent-blue)", fontFamily: "var(--font-mono)", fontSize: "11px" }}>localhost:8000/docs</code>
+            </p>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="btn-cyber btn-cyber-cyan"
+            style={{
+              padding: "8px 20px",
+              fontSize: "12px",
+              fontWeight: 600,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              marginTop: "8px"
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.3s ease-in-out" }}>
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+            </svg>
+            Retry Connection
+          </button>
         </div>
       </div>
     );
@@ -1362,7 +1394,7 @@ export default function OverviewPage() {
   const verticalLabel = VERTICALS.find((v) => v.key === vertical)?.label ?? "AI / ML";
 
   return (
-    <div style={{ paddingTop: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
+    <div className="page-fade-in" style={{ paddingTop: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
       {/* Floating compare bar */}
       {compareSelection.length >= 2 && (
         <div style={{

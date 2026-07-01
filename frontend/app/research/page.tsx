@@ -142,7 +142,7 @@ export default function ResearchListPage() {
   const pageHeight = isMobile ? "calc(100vh - 56px - 26px)" : "calc(100vh - 26px)";
 
   return (
-    <div style={{ height: pageHeight, display: "flex", flexDirection: "column", background: C.bg, color: C.text, overflow: "hidden" }}>
+    <div className="page-fade-in" style={{ height: pageHeight, display: "flex", flexDirection: "column", background: C.bg, color: C.text, overflow: "hidden" }}>
 
 
       {/* Global Header */}

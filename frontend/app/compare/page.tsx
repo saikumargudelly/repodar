@@ -194,7 +194,7 @@ function AddRepoBox({ onAdd }: { onAdd: (id: string) => void }) {
 }
 
 // Empty state
-function EmptyState() {
+function EmptyState({ onLoadSample }: { onLoadSample: () => void }) {
   return (
     <div className="panel" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", padding: "56px 32px", textAlign: "center" }}>
       <div className="narutorun-container" style={{ padding: "0 0 8px 0" }}>
@@ -216,6 +216,19 @@ function EmptyState() {
       <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: C.textMuted }}>
         // e.g. <span style={{ color: C.text }}>langchain-ai/langchain</span> · <span style={{ color: C.text }}>openai/openai-python</span>
       </div>
+      <button
+        onClick={onLoadSample}
+        className="btn-cyber btn-cyber-cyan"
+        style={{
+          padding: "8px 20px",
+          fontSize: "12px",
+          fontWeight: 600,
+          marginTop: "12px",
+          cursor: "pointer"
+        }}
+      >
+        Load Sample Comparison
+      </button>
     </div>
   );
 }
@@ -335,6 +348,12 @@ function ComparePageInner() {
     router.replace(`/compare?repos=${next.join(",")}`);
   };
 
+  const loadSample = () => {
+    const sample = ["langchain-ai/langchain", "meta-llama/llama"];
+    setIds(sample);
+    router.replace(`/compare?repos=${sample.join(",")}`);
+  };
+
   const radarData = useMemo(() => {
     return repos && repos.length >= 2 ? buildRadarData(repos) : [];
   }, [repos]);
@@ -344,7 +363,7 @@ function ComparePageInner() {
   }, [repos]);
 
   return (
-    <div className="page-root" style={{ background: C.bg, minHeight: "100vh", color: C.text }}>
+    <div className="page-root page-fade-in" style={{ background: C.bg, minHeight: "100vh", color: C.text }}>
       {/* Header */}
       <div style={{ marginBottom: "20px" }}>
         <div className="section-title-cyber">
@@ -399,7 +418,7 @@ function ComparePageInner() {
       )}
 
       {/* Empty state when less than 2 repos */}
-      {!isLoading && !error && ids.length < 2 && <EmptyState />}
+      {!isLoading && !error && ids.length < 2 && <EmptyState onLoadSample={loadSample} />}
 
       {/* Main comparison content */}
       {repos && repos.length >= 2 && (

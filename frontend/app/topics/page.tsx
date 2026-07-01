@@ -222,11 +222,14 @@ export default function TopicsPage() {
                 />
                 <Tooltip
                   contentStyle={{
-                    background: "var(--bg-surface)",
+                    background: "rgba(22, 27, 34, 0.75)",
+                    backdropFilter: "blur(12px)",
+                    WebkitBackdropFilter: "blur(12px)",
                     border: "1px solid var(--border)",
                     borderRadius: "8px",
                     fontSize: "11px",
                     color: "var(--text-primary)",
+                    boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
                   }}
                   formatter={(v: any) => [`+${v}/d`, "Velocity"]}
                 />

@@ -5,6 +5,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api, EarlyRadarRepo, RadarRepo } from "@/lib/api";
 import { NinjaRankPill } from "@/components/NinjaRankPill";
+import { TableSkeleton } from "@/components/DashboardSkeleton";
+import { formatCompactNumber } from "@/lib/utils";
 
 function downloadBlob(content: string, filename: string, mime: string) {
   const blob = new Blob([content], { type: mime });
@@ -233,10 +235,11 @@ export default function RadarPage() {
   const TD_MONO: React.CSSProperties = { fontFamily: "var(--font-mono)", padding: "10px 12px" };
   const TH_STYLE: React.CSSProperties = { fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "0.07em",
     color: C.textMuted, padding: "8px 12px", textAlign: "left", fontWeight: 600,
-    borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap" };
+    borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap",
+    position: "sticky", top: 0, zIndex: 2, background: "var(--bg-surface)" };
 
   return (
-    <div className="page-root">
+    <div className="page-root page-fade-in">
 
       {/* ── Tab bar ─────────────────────────────────────── */}
       <div style={{ display: "flex", borderBottom: `1px solid ${C.border}`, marginBottom: "24px" }}>
@@ -596,11 +599,7 @@ function SectionHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: s
 }
 
 function LoadingMsg({ text }: { text: string }) {
-  return (
-    <div style={{ fontFamily: "var(--font-mono)", color: C.textMuted, textAlign: "center", padding: "60px 0", fontSize: "12px", letterSpacing: "0.06em" }}>
-      // {text}<span className="terminal-cursor" />
-    </div>
-  );
+  return <TableSkeleton />;
 }
 
 function GhostBtn({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
@@ -737,7 +736,7 @@ function RadarRow({ repo, rank, onClick, TDM }: { repo: RadarRepo; rank: number;
           <span style={{ fontWeight: 400, color: C.textMuted }}>{repo.owner}/</span>{repo.name}
         </div>
         <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: C.textMuted, marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {repo.stars >= 1000 ? `${(repo.stars/1000).toFixed(1)}k stars` : `${repo.stars} stars`} · {repo.age_days}d old
+          {formatCompactNumber(repo.stars)} stars · {repo.age_days}d old
         </div>
       </td>
       <td style={{ ...TDM, fontSize: "11px", color: C.textMuted }}>{repo.category}</td>
@@ -773,7 +772,7 @@ function EarlyRow({ repo, rank, onClick, TDM }: { repo: EarlyRadarRepo; rank: nu
           <span style={{ fontWeight: 400, color: C.textMuted }}>{repo.owner.slice(0,1)}/</span>{repo.name}
         </div>
         <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: C.textMuted, marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {repo.category}{repo.stars >= 1000 ? ` · ${(repo.stars/1000).toFixed(1)}k st` : ` · ${repo.stars} st`}
+          {repo.category} · {formatCompactNumber(repo.stars)} st
         </div>
       </td>
 

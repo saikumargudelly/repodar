@@ -145,6 +145,19 @@ export function Sidebar() {
   });
   const unreadCount = alertsData?.length ?? 0;
 
+  // Sync tab title with alert count
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      const baseTitle = "Repodar";
+      const currentTitle = document.title.replace(/^\(\d+\+?\)\s*/, "");
+      if (unreadCount > 0) {
+        document.title = `(${unreadCount > 99 ? "99+" : unreadCount}) ${currentTitle || baseTitle}`;
+      } else {
+        document.title = currentTitle || baseTitle;
+      }
+    }
+  }, [unreadCount]);
+
   // Extract user details
   const profileName = user?.firstName ?? user?.fullName ?? "Saikumar";
   const profileEmail = user?.primaryEmailAddress?.emailAddress ?? "";

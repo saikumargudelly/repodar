@@ -5,6 +5,7 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import ReactMarkdown from "react-markdown";
 import { api, ResearchMessage, ResearchPin, ResearchRepo, ResearchSession } from "@/lib/api";
+import { useToast } from "@/components/ToastProvider";
 
 function MD({ children }: { children: string }) {
   return <ReactMarkdown>{children}</ReactMarkdown>;
@@ -517,6 +518,7 @@ export default function ResearchSessionPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { userId, isLoaded, getToken } = useAuth();
+  const { showToast } = useToast();
 
   // Session state
   const [title, setTitle] = useState("Untitled Research");
@@ -730,7 +732,7 @@ export default function ResearchSessionPage() {
 
     const token = await getToken();
     if (!token) {
-      alert("Authentication token missing. Please sign in again.");
+      showToast("Authentication token missing. Please sign in again.", "error");
       return;
     }
 
@@ -1070,7 +1072,7 @@ export default function ResearchSessionPage() {
       setReportMd(result.content_md);
       setActivePanel("report");
     } catch (e: unknown) {
-      alert((e as Error).message ?? "Failed to generate report.");
+      showToast((e as Error).message ?? "Failed to generate report.", "error");
     } finally {
       setGeneratingReport(false);
     }
@@ -1088,7 +1090,7 @@ export default function ResearchSessionPage() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (e: unknown) {
-      alert((e as Error).message ?? "Failed to create share link.");
+      showToast((e as Error).message ?? "Failed to create share link.", "error");
     } finally {
       setSharing(false);
     }

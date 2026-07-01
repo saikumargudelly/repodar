@@ -1173,9 +1173,20 @@ p, span, div, td, th, a, label, li {
   border-bottom: 1px solid var(--border);
 }
 
-/* Table row hover */
-.tr-cyber { transition: background 0.1s; }
-.tr-cyber:hover { background: var(--bg-elevated) !important; }
+/* Table row hover and left border accent */
+.tr-cyber {
+  transition: background-color 0.15s;
+}
+.tr-cyber:hover {
+  background-color: var(--bg-elevated) !important;
+}
+.tr-cyber td:first-child {
+  border-left: 3px solid transparent;
+  transition: border-left-color 0.15s;
+}
+.tr-cyber:hover td:first-child {
+  border-left-color: var(--accent-blue);
+}
 
 /* Small category tag */
 .cyber-tag {
@@ -2311,3 +2322,97 @@ p, span, div, td, th, a, label, li {
   background: var(--text-muted);
 }
 
+
+
+/* ── Batch 1 (Polish & Craft) ── */
+::selection {
+  background: rgba(88, 166, 255, 0.25);
+  color: var(--text-primary);
+}
+
+*:focus-visible:not(input, textarea, select, .cl-root-box, [data-clerk-element]) {
+  outline: 2px solid var(--accent-blue) !important;
+  outline-offset: 2.5px !important;
+}
+
+button:active, .sustain-row:active, .alert-row-cyber:active, .tr-cyber:active {
+  transform: scale(0.985);
+  transition: transform 0.08s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes toastSlideInUp {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.toast-hud {
+  animation: toastSlideInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── Batch 3 (Transitions & Collapsibles) ── */
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.bento-trend-detail {
+  animation: slideInRight 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.page-fade-in {
+  animation: fadeInUp 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── Batch 5 (High-Craft Extras) ── */
+.graph-node-g {
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), filter 0.15s;
+  transform-origin: center;
+}
+.graph-node-g:hover {
+  transform: scale(1.05);
+  filter: brightness(1.2);
+}
+
+[data-tooltip] {
+  position: relative;
+}
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: rgba(22, 27, 34, 0.88);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: var(--font-sans);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1), transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+}
+[data-tooltip]:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ── Batch 6 (Loading Skeletons) ── */
+@keyframes skeletonShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton-box {
+  background: linear-gradient(90deg, var(--bg-surface) 25%, var(--bg-elevated) 50%, var(--bg-surface) 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.5s infinite linear;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}

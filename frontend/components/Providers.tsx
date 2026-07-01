@@ -36,6 +36,8 @@ function ThemeProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+import { ToastProvider } from "./ToastProvider";
+
 // ── Query Client ─────────────────────────────────────────────────────────────
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -54,7 +56,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
-        {children}
+        <ToastProvider>
+          {children}
+        </ToastProvider>
         {process.env.NODE_ENV === "development" && (
           <ReactQueryDevtools initialIsOpen={false} />
         )}

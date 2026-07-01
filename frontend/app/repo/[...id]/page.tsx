@@ -15,9 +15,18 @@ import {
 import { ForecastChart } from "@/components/forecast/ForecastChart";
 import { RecommendationsPanel } from "@/components/recommendations/RecommendationsPanel";
 import ReactMarkdown from "react-markdown";
+import { useToast } from "@/components/ToastProvider";
 
 const tooltipStyle = {
-  contentStyle: { background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "6px", fontSize: "12px" },
+  contentStyle: {
+    background: "rgba(22, 27, 34, 0.75)",
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
+    border: "1px solid var(--border)",
+    borderRadius: "8px",
+    fontSize: "12px",
+    boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
+  },
   labelStyle: { color: "var(--text-muted)" },
 };
 
@@ -504,6 +513,7 @@ function SocialMentionsFeed({ mentions }: { mentions: SocialMentionItem[] }) {
 }
 
 function EcosystemTabContent({ repoId, repo }: { repoId: string; repo: any }) {
+  const { showToast } = useToast();
   const [reportMd, setReportMd] = useState<string | null>(null);
   const [generatingReport, setGeneratingReport] = useState(false);
 
@@ -520,7 +530,7 @@ function EcosystemTabContent({ repoId, repo }: { repoId: string; repo: any }) {
       setReportMd(res.content_md);
     } catch (err) {
       console.error(err);
-      alert("Failed to generate ecosystem report.");
+      showToast("Failed to generate ecosystem report.", "error");
     } finally {
       setGeneratingReport(false);
     }
@@ -690,7 +700,7 @@ function EcosystemTabContent({ repoId, repo }: { repoId: string; repo: any }) {
               const displayName = labelParts.length > 1 ? labelParts[1] : n.label;
 
               return (
-                <g key={`node-${idx}`} style={{ cursor: "pointer" }} onClick={() => {
+                <g key={`node-${idx}`} className="graph-node-g" style={{ cursor: "pointer" }} onClick={() => {
                   if (n.type !== "pivot") {
                     // Navigate or search
                     window.open(`https://github.com/${n.label}`, "_blank");
@@ -850,7 +860,7 @@ function EcosystemTabContent({ repoId, repo }: { repoId: string; repo: any }) {
             <button
               onClick={() => {
                 navigator.clipboard.writeText(reportMd);
-                alert("Report copied to clipboard!");
+                showToast("Report copied to clipboard!", "success");
               }}
               style={{
                 background: "none",
@@ -875,6 +885,7 @@ function EcosystemTabContent({ repoId, repo }: { repoId: string; repo: any }) {
 }
 
 export default function RepoDeepDive() {
+  const { showToast } = useToast();
   const params = useParams<{ id: string[] }>();
   const repoId = Array.isArray(params.id) ? params.id.join("/") : params.id;
 
@@ -941,12 +952,12 @@ export default function RepoDeepDive() {
 
   const toggleWatch = async () => {
     if (!userId) {
-      alert("Please sign in to watch repositories.");
+      showToast("Please sign in to watch repositories.", "warning");
       return;
     }
     const token = await getToken();
     if (!token) {
-      alert("Authentication token missing. Please sign in again.");
+      showToast("Authentication token missing. Please sign in again.", "error");
       return;
     }
     try {
@@ -1020,7 +1031,7 @@ export default function RepoDeepDive() {
   }
 
   return (
-    <div className="page-root" style={{ display: "flex", flexDirection: "column", gap: "14px", paddingBottom: "40px" }}>
+    <div className="page-root page-fade-in" style={{ display: "flex", flexDirection: "column", gap: "14px", paddingBottom: "40px" }}>
       {/* 1. Header */}
       <div className="repo-header-container">
         <div>
@@ -1057,6 +1068,7 @@ export default function RepoDeepDive() {
         <div className="repo-header-actions" style={{ display: "inline-flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
           <button
             onClick={toggleWatch}
+            data-tooltip={watchStatus?.watching ? "Stop watching this repository" : "Add to your watchlist"}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -1079,6 +1091,7 @@ export default function RepoDeepDive() {
 
           <button
             onClick={() => setPinned(!pinned)}
+            data-tooltip={pinned ? "Remove from dashboard pins" : "Pin to dashboard overview"}
             style={{
               display: "inline-flex",
               alignItems: "center",
