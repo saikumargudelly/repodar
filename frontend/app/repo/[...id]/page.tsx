@@ -1174,90 +1174,98 @@ export default function RepoDeepDive() {
       </div>
 
       {/* 2. 6-Column Metric Grid */}
-      <div className="metric-pills-grid">
-        <MetricCard
-          label="Trend score"
-          value={repo.trend_score?.toFixed(4) ?? "—"}
-          valueColor="var(--amber)"
-          subLabel={`${trendChangePct >= 0 ? "+" : ""}${trendChangePct.toFixed(1)}% vs prior`}
-          subColor={trendChangePct >= 0 ? "var(--green)" : "var(--pink)"}
-        />
-        <MetricCard
-          label="Stars / day (7d)"
-          value={Math.round(repo.star_velocity_7d ?? 0).toLocaleString()}
-          subLabel={`${velChangePct >= 0 ? "+" : ""}${velChangePct.toFixed(0)}% vs prior week`}
-          subColor={velChangePct >= 0 ? "var(--green)" : "var(--pink)"}
-        />
-        <MetricCard
-          label="Acceleration"
-          value={repo.acceleration?.toFixed(3) ?? "—"}
-          subLabel={repo.acceleration && repo.acceleration > 0.001 ? "accelerating momentum" : repo.acceleration && repo.acceleration < -0.001 ? "decelerating momentum" : "flat momentum"}
-          subColor="var(--text-muted)"
-        />
-        <MetricCard
-          label="Sustainability"
-          value={repo.sustainability_score != null ? `${(repo.sustainability_score * 100).toFixed(0)}%` : "—"}
-          subLabel={repo.sustainability_score && repo.sustainability_score < 0.4 ? "low retention" : repo.sustainability_score && repo.sustainability_score < 0.7 ? "medium retention" : "high retention"}
-          subColor="var(--text-muted)"
-        />
-        <MetricCard
-          label="Fork / star ratio"
-          value={repo.fork_to_star_ratio?.toFixed(3) ?? "—"}
-          subLabel={`${(latest?.forks ?? repo.forks ?? 0).toLocaleString()} forks`}
-          subColor="var(--text-muted)"
-        />
-        <MetricCard
-          label="Total stars"
-          value={(latest?.stars ?? repo.stars ?? 0).toLocaleString()}
-          valueColor="var(--green)"
-          subLabel={`+${(latest?.daily_star_delta ?? 0).toLocaleString()} today`}
-          subColor="var(--green)"
-        />
+      {/* 2. Sticky 6-Column Metric Grid */}
+      <div style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 90,
+        background: "var(--bg-primary)",
+        paddingTop: "6px",
+        paddingBottom: "12px",
+        borderBottom: "1px solid var(--border)",
+      }}>
+        <div className="metric-pills-grid" style={{ marginBottom: 0 }}>
+          <MetricCard
+            label="Trend score"
+            value={repo.trend_score?.toFixed(4) ?? "—"}
+            valueColor="var(--amber)"
+            subLabel={`${trendChangePct >= 0 ? "+" : ""}${trendChangePct.toFixed(1)}% vs prior`}
+            subColor={trendChangePct >= 0 ? "var(--green)" : "var(--pink)"}
+          />
+          <MetricCard
+            label="Stars / day (7d)"
+            value={Math.round(repo.star_velocity_7d ?? 0).toLocaleString()}
+            subLabel={`${velChangePct >= 0 ? "+" : ""}${velChangePct.toFixed(0)}% vs prior week`}
+            subColor={velChangePct >= 0 ? "var(--green)" : "var(--pink)"}
+          />
+          <MetricCard
+            label="Acceleration"
+            value={repo.acceleration?.toFixed(3) ?? "—"}
+            subLabel={repo.acceleration && repo.acceleration > 0.001 ? "accelerating momentum" : repo.acceleration && repo.acceleration < -0.001 ? "decelerating momentum" : "flat momentum"}
+            subColor="var(--text-muted)"
+          />
+          <MetricCard
+            label="Sustainability"
+            value={repo.sustainability_score != null ? `${(repo.sustainability_score * 100).toFixed(0)}%` : "—"}
+            subLabel={repo.sustainability_score && repo.sustainability_score < 0.4 ? "low retention" : repo.sustainability_score && repo.sustainability_score < 0.7 ? "medium retention" : "high retention"}
+            subColor="var(--text-muted)"
+          />
+          <MetricCard
+            label="Fork / star ratio"
+            value={repo.fork_to_star_ratio?.toFixed(3) ?? "—"}
+            subLabel={`${(latest?.forks ?? repo.forks ?? 0).toLocaleString()} forks`}
+            subColor="var(--text-muted)"
+          />
+          <MetricCard
+            label="Total stars"
+            value={(latest?.stars ?? repo.stars ?? 0).toLocaleString()}
+            valueColor="var(--green)"
+            subLabel={`+${(latest?.daily_star_delta ?? 0).toLocaleString()} today`}
+            subColor="var(--green)"
+          />
+        </div>
       </div>
-
       {/* Tab Switcher */}
       <div style={{
         display: "flex",
         gap: "24px",
         borderBottom: "1px solid var(--border)",
-        marginTop: "10px",
-        marginBottom: "18px",
-        position: "sticky",
-        top: "0",
-        background: "var(--bg-main)",
-        zIndex: 10,
-        paddingTop: "6px"
+        marginTop: "16px",
+        marginBottom: "20px",
+        paddingBottom: "1px",
       }}>
         <button
           onClick={() => setActiveTab("metrics")}
           style={{
-            padding: "10px 4px",
-            fontSize: "14px",
-            fontWeight: activeTab === "metrics" ? 600 : 400,
+            padding: "8px 4px 12px 4px",
+            fontSize: "13.5px",
+            fontWeight: activeTab === "metrics" ? 500 : 400,
             color: activeTab === "metrics" ? "var(--text-primary)" : "var(--text-muted)",
-            borderBottom: activeTab === "metrics" ? "2px solid var(--accent-blue)" : "none",
+            borderBottom: activeTab === "metrics" ? "2px solid var(--text-primary)" : "2px solid transparent",
             background: "none",
             border: "none",
             cursor: "pointer",
             fontFamily: "var(--font-sans)",
-            transition: "all 0.2s"
+            transition: "all 0.15s ease",
+            marginBottom: "-1px",
           }}
         >
-          Repository Metrics &amp; Analysis
+          Metrics &amp; Analytics
         </button>
         <button
           onClick={() => setActiveTab("ecosystem")}
           style={{
-            padding: "10px 4px",
-            fontSize: "14px",
-            fontWeight: activeTab === "ecosystem" ? 600 : 400,
+            padding: "8px 4px 12px 4px",
+            fontSize: "13.5px",
+            fontWeight: activeTab === "ecosystem" ? 500 : 400,
             color: activeTab === "ecosystem" ? "var(--text-primary)" : "var(--text-muted)",
-            borderBottom: activeTab === "ecosystem" ? "2px solid var(--accent-blue)" : "none",
+            borderBottom: activeTab === "ecosystem" ? "2px solid var(--text-primary)" : "2px solid transparent",
             background: "none",
             border: "none",
             cursor: "pointer",
             fontFamily: "var(--font-sans)",
-            transition: "all 0.2s"
+            transition: "all 0.15s ease",
+            marginBottom: "-1px",
           }}
         >
           Ecosystem Intelligence

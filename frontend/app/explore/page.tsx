@@ -95,13 +95,11 @@ export default function ExplorePage() {
   return (
     <div style={{ maxWidth: "80rem", margin: "0 auto", padding: "32px 0" }}>
       {/* Title & Matched Count */}
-      <div style={{ display: "flex", alignItems: "baseline", gap: "12px", marginBottom: "24px" }}>
-        <h1 style={{ fontSize: "24px", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.02em", margin: 0 }}>
-          Explore repositories
-        </h1>
-        <span style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: 500, fontFamily: "var(--font-sans)" }}>
-          {data?.total !== undefined ? `${data.total} matched` : "12 matched"}
-        </span>
+      <div style={{ marginBottom: "24px" }}>
+        <div className="page-eyebrow">
+          {data?.total !== undefined ? `${data.total} repositories matched` : "—"}
+        </div>
+        <h1 className="page-title">Explore</h1>
       </div>
 
       {/* Filter Toolbar (Search, Categories, Sort) */}

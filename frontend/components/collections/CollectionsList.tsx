@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/nextjs";
 import { api, Collection } from "@/lib/api";
 import { useState } from "react";
-import { ProfessionalLoader } from "@/components/ProfessionalLoader";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 
 export function TrendingCollections() {
@@ -26,8 +26,8 @@ export function TrendingCollections() {
 
   if (isLoading) {
     return (
-      <div style={{ padding: "60px 0" }}>
-        <ProfessionalLoader size={45} text="Loading collections..." />
+      <div style={{ padding: "24px 0" }}>
+        <Skeleton shape="table" />
       </div>
     );
   }

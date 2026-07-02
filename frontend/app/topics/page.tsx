@@ -104,7 +104,7 @@ export default function TopicsPage() {
   return (
     <div style={{ maxWidth: "80rem", margin: "0 auto", padding: "32px 0" }}>
       {/* ── Page Header ── */}
-      <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", gap: "16px", flexWrap: "wrap", marginBottom: "24px" }}>
+      <div className="topics-header" style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", gap: "16px", flexWrap: "wrap", marginBottom: "24px" }}>
         <div>
           <h1 style={{ fontSize: "24px", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.02em", margin: 0 }}>Topic intelligence</h1>
           <p style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: 500, fontFamily: "var(--font-sans)", marginTop: "4px" }}>
@@ -468,12 +468,15 @@ export default function TopicsPage() {
                 <h3 style={{ fontSize: "10px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: "var(--font-mono)", margin: "0 0 8px 0" }}>Repositories</h3>
 
                 {reposLoading ? (
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 0", gap: "12px" }}>
-                    <div style={{ width: "32px", height: "32px", border: `2px solid var(--border)`, borderTopColor: "var(--accent-blue)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-                    <span style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>Loading repositories...</span>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 0", gap: "10px" }}>
+                    <div className="spinner" />
+                    <span style={{ fontSize: "13px", color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>Loading repositories…</span>
                   </div>
                 ) : (topicRepos ?? []).length === 0 ? (
-                  <div style={{ textAlign: "center", padding: "48px 0", fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>No repositories found for #{selectedTopic}</div>
+                  <div className="empty-state">
+                    <div className="empty-state-title">No repositories found</div>
+                    <div className="empty-state-desc">No repositories are tagged #{selectedTopic} yet.</div>
+                  </div>
                 ) : (
                   (topicRepos ?? []).map((repo: TopicRepo, idx) => (
                     <div

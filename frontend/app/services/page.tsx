@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { api, A2AService } from "@/lib/api";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 const STATUS_COLOR: Record<string, { color: string; bg: string }> = {
   active:      { color: "var(--green)",  bg: "var(--green)18" },
@@ -74,15 +75,13 @@ export default function ServicesPage() {
     <div className="page-root">
       {/* Header */}
       <div>
-        <div className="section-title-cyber">A2A SERVICE CATALOG<span className="terminal-cursor" /></div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)", marginTop: "6px" }}>
-          // Discover and register AI services exposing A2A capability cards
-        </div>
+        <div className="page-eyebrow">Discover and register AI services exposing A2A capability cards</div>
+        <h1 className="page-title">A2A Service Catalog</h1>
       </div>
 
       {/* Register form */}
       <div className="panel">
-        <div className="panel-header"><span className="panel-title">◈ REGISTER A SERVICE</span></div>
+        <div className="panel-header"><span className="panel-title">Register a Service</span></div>
         <form onSubmit={handleRegister}
           style={{ padding: "0 20px 20px", display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
           <input type="url" placeholder="https://your-service.example.com"
@@ -90,8 +89,8 @@ export default function ServicesPage() {
             className="cyber-input" style={{ flex: 1, minWidth: "260px" }} />
           <button type="submit" disabled={regLoading}
             className="btn-cyber btn-cyber-cyan"
-            style={{ padding: "8px 20px", opacity: regLoading ? 0.6 : 1 }}>
-            {regLoading ? "REGISTERING…" : "REGISTER"}
+            style={{ opacity: regLoading ? 0.6 : 1 }}>
+            {regLoading ? "Registering…" : "Register"}
           </button>
         </form>
         {regMsg && (
@@ -104,44 +103,41 @@ export default function ServicesPage() {
 
       {/* Filters */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "center" }}>
-        <input type="text" placeholder="SEARCH BY CAPABILITY"
+        <input type="text" placeholder="Search by capability"
           value={searchCap}
           onChange={(e) => { setSearchCap(e.target.value); setCategory(""); setProvider(""); setStatusFilter(""); }}
           className="cyber-input" style={{ width: "200px" }} />
-        <input type="text" placeholder="CATEGORY"
+        <input type="text" placeholder="Category"
           value={category}
           onChange={(e) => { setCategory(e.target.value); setSearchCap(""); }}
           className="cyber-input" style={{ width: "160px" }} />
-        <input type="text" placeholder="PROVIDER"
+        <input type="text" placeholder="Provider"
           value={provider}
           onChange={(e) => { setProvider(e.target.value); setSearchCap(""); }}
           className="cyber-input" style={{ width: "160px" }} />
         <select value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); setSearchCap(""); }}
           className="cyber-select">
-          <option value="">ALL STATUSES</option>
-          <option value="active">ACTIVE</option>
-          <option value="unreachable">UNREACHABLE</option>
-          <option value="invalid">INVALID</option>
+          <option value="">All statuses</option>
+          <option value="active">Active</option>
+          <option value="unreachable">Unreachable</option>
+          <option value="invalid">Invalid</option>
         </select>
-        <button onClick={load} className="btn-cyber" style={{ padding: "7px 14px" }}>REFRESH</button>
+        <button onClick={load} className="btn-cyber btn-cyber-cyan">Refresh</button>
       </div>
 
       {/* Results */}
       {loading ? (
-        <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", textAlign: "center",
-          padding: "60px 0", fontSize: "12px", letterSpacing: "0.06em" }}>
-          // LOADING SERVICES<span className="terminal-cursor" />
-        </div>
+        <Skeleton shape="table" />
       ) : error ? (
-        <div style={{ fontFamily: "var(--font-mono)", color: "var(--pink)", textAlign: "center",
-          padding: "40px 0", fontSize: "12px" }}>✕ {error}</div>
+        <div style={{ color: "var(--accent-red)", textAlign: "center", padding: "40px 0", fontSize: "12px" }}>✕ {error}</div>
       ) : services.length === 0 ? (
-        <div className="panel" style={{ textAlign: "center", padding: "40px 20px" }}>
-          <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", fontSize: "11px",
-            letterSpacing: "0.08em" }}>
-            // NO SERVICES FOUND
-            {!searchCap && !category && !provider && !statusFilter && " — REGISTER THE FIRST ONE ABOVE"}
+        <div className="empty-state">
+          <div className="empty-state-title">No services found</div>
+          <div className="empty-state-desc">
+            {!searchCap && !category && !provider && !statusFilter
+              ? "Register your first service above."
+              : "No services match your current filters."}
           </div>
         </div>
       ) : (

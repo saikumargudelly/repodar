@@ -86,10 +86,8 @@ export default function DevPage() {
     <div className="page-root">
       {/* Header */}
       <div>
-        <div className="section-title-cyber">DEVELOPER API<span className="terminal-cursor" /></div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)", marginTop: "6px" }}>
-          // Manage your API keys · pass as <span style={{ color: "var(--cyan)" }}>X-Api-Key</span> header
-        </div>
+        <div className="page-eyebrow">Manage your API keys · pass as X-Api-Key header</div>
+        <h1 className="page-title">Developer API</h1>
       </div>
 
       {/* Rate limits */}
@@ -217,8 +215,8 @@ export default function DevPage() {
             width: "100%", maxWidth: "540px", padding: "28px" }}>
             <div style={{ display: "flex", justifyContent: "space-between",
               alignItems: "center", marginBottom: "16px" }}>
-              <div className="section-title-cyber" style={{ fontSize: "14px" }}>
-                ◈ KEY CREATED
+              <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-primary)" }}>
+                Key Created
               </div>
               <button onClick={() => setRawKey(null)}
                 style={{ background: "none", border: "none", color: "var(--text-muted)",

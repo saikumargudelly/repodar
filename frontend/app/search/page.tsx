@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { api, NLSearchResult, NLSearchRepo, ParsedFilters } from "@/lib/api";
-import { SustainBadge } from "@/components/Nav";
+import { StatusDot } from "@/components/ui/StatusDot";
 
 const EXAMPLE_QUERIES = [
   "Show me fast inference engines with high momentum this week",
@@ -146,7 +146,7 @@ function RepoRow({ repo, rank }: { repo: NLSearchRepo; rank: number }) {
       </td>
       <td style={{ padding: "10px 16px" }}>
         {repo.sustainability_label
-          ? <SustainBadge label={repo.sustainability_label} />
+          ? <StatusDot label={repo.sustainability_label} size="sm" />
           : <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: "10px" }}>—</span>}
       </td>
     </tr>
@@ -183,10 +183,8 @@ export default function SearchPage() {
     <div className="page-root">
       {/* Header */}
       <div>
-        <div className="section-title-cyber">NL SEARCH<span className="terminal-cursor" /></div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)", marginTop: "6px" }}>
-          // Describe what you&apos;re looking for — AI parses filters, searches tracked repos + live GitHub
-        </div>
+        <div className="page-eyebrow">Describe what you&apos;re looking for — AI parses filters, searches tracked repos + live GitHub</div>
+        <h1 className="page-title">Natural Language Search</h1>
       </div>
 
       {/* Search bar */}

@@ -10,7 +10,8 @@ import {
   ResponsiveContainer, Tooltip, Legend,
 } from "recharts";
 import { api, CompareEntry, RepoHistory } from "@/lib/api";
-import { NinjaRankPill } from "@/components/NinjaRankPill";
+import { StatusDot } from "@/components/ui/StatusDot";
+import { SEQUENTIAL_PALETTE } from "@/lib/chartColors";
 
 // B&W Theme Palette
 const C = {
@@ -26,8 +27,8 @@ const C = {
   red: "var(--accent-red)",
 };
 
-// Curated comparison colors: strictly B&W + status accents
-const COLORS = ["#e6edf3", "#8b949e", "#d29922", "#3fb950", "#f85149"];
+// Curated comparison colors from unified palette
+const COLORS = SEQUENTIAL_PALETTE;
 
 // Spinner component matching the B&W theme
 function Spinner({ label }: { label?: string }) {
@@ -90,7 +91,7 @@ function buildRadarData(repos: CompareEntry[]) {
 // Health status indicator
 function HealthLabel({ label }: { label: string | null }) {
   if (!label) return <span style={{ color: C.textMuted, fontSize: "12px", fontFamily: "var(--font-mono)" }}>—</span>;
-  return <NinjaRankPill label={label} />;
+  return <StatusDot label={label} />;
 }
 
 // Metric row
@@ -196,25 +197,12 @@ function AddRepoBox({ onAdd }: { onAdd: (id: string) => void }) {
 // Empty state
 function EmptyState({ onLoadSample }: { onLoadSample: () => void }) {
   return (
-    <div className="panel" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", padding: "56px 32px", textAlign: "center" }}>
-      <div className="narutorun-container" style={{ padding: "0 0 8px 0" }}>
-        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="var(--color-text-tertiary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="narutorun-svg">
-          <circle cx="29" cy="12" r="3" />
-          <path d="M 27 9 L 24 7 L 26 10 L 23 10 L 26 12" />
-          <path d="M 29 9 L 32 6 L 31 10 L 34 8 L 32 11" />
-          <path d="M 25 13 C 23 13, 21 11, 19 12 C 17 13, 16 15, 14 14" />
-          <path d="M 29 15 L 18 28" />
-          <path d="M 27 17 L 10 21" />
-          <path d="M 27 17 L 8 23" />
-          <path d="M 18 28 L 26 34 L 20 44" />
-          <path d="M 18 28 L 10 35 L 4 33" />
-        </svg>
-      </div>
-      <div style={{ fontFamily: "var(--font-sans)", fontSize: "14px", color: C.textSub, fontWeight: 500 }}>
+    <div className="panel" style={{ padding: "64px 32px", textAlign: "center" }}>
+      <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "8px", color: "var(--text-primary)" }}>
         Add at least 2 repositories to compare
       </div>
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: C.textMuted }}>
-        // e.g. <span style={{ color: C.text }}>langchain-ai/langchain</span> · <span style={{ color: C.text }}>openai/openai-python</span>
+      <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "20px" }}>
+        Enter repository names (e.g. langchain-ai/langchain vs openai/openai-python) to see side-by-side telemetry comparison.
       </div>
       <button
         onClick={onLoadSample}
@@ -223,7 +211,6 @@ function EmptyState({ onLoadSample }: { onLoadSample: () => void }) {
           padding: "8px 20px",
           fontSize: "12px",
           fontWeight: 600,
-          marginTop: "12px",
           cursor: "pointer"
         }}
       >
@@ -366,12 +353,8 @@ function ComparePageInner() {
     <div className="page-root page-fade-in" style={{ background: C.bg, minHeight: "100vh", color: C.text }}>
       {/* Header */}
       <div style={{ marginBottom: "20px" }}>
-        <div className="section-title-cyber">
-          REPO COMPARISON<span className="terminal-cursor" />
-        </div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: C.textMuted, marginTop: "6px" }}>
-          // Side-by-side analysis — select up to 5 repos
-        </div>
+        <div className="page-eyebrow">Side-by-side analysis — select up to 5 repos</div>
+        <h1 className="page-title">Repo Comparison</h1>
       </div>
 
       {/* Add repos panel */}

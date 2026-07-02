@@ -6,6 +6,9 @@ import { useAuth } from "@clerk/nextjs";
 import { Nav } from "@/components/Nav";
 import { Sidebar } from "@/components/Sidebar";
 import { StatusBar } from "@/components/StatusBar";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+import { AlertSidePanel } from "@/components/ui/AlertSidePanel";
 
 const PUBLIC_PREFIXES = [
   "/",
@@ -45,8 +48,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { isLoaded, userId } = useAuth();
   const publicPath = isPublicPath(pathname);
   const noShellPath = isNoShellPath(pathname);
-  
+
   const [isMobile, setIsMobile] = useState(false);
+  const [alertsPanelOpen, setAlertsPanelOpen] = useState(false);
+
+  const { data: alertsData } = useQuery({
+    queryKey: ["sidebar-alerts"],
+    queryFn: () => api.getAlerts(true, 200),
+    enabled: isLoaded && !!userId,
+    refetchInterval: 30000,
+  });
+  const unreadCount = alertsData?.length ?? 0;
+
+  // Any page component can dispatch this event to open the alerts panel
+  useEffect(() => {
+    const handler = () => setAlertsPanelOpen(true);
+    window.addEventListener("repodar:open-alerts", handler);
+    return () => window.removeEventListener("repodar:open-alerts", handler);
+  }, []);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth <= 768);
@@ -57,14 +76,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isLoaded) return;
-
-    // Redirect unauthenticated users to sign-in on protected pages
     if (!userId && !publicPath) {
       router.push("/sign-in");
     }
   }, [isLoaded, userId, publicPath, router]);
 
-  // Show loading state while auth is loading
   if (!isLoaded) {
     return (
       <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--bg-primary)", color: "var(--text-secondary)" }}>
@@ -73,12 +89,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // If unauthenticated and on protected page, don't render content yet (will redirect)
   if (!userId && !publicPath) {
     return null;
   }
 
-  // Skip rendering sidebar shell if it's an auth/marketing route
   if (noShellPath) {
     return <>{children}</>;
   }
@@ -86,7 +100,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Sidebar />
-      <Nav />
+      <Nav onOpenAlerts={() => setAlertsPanelOpen(true)} />
       <main
         className="main-content"
         style={{
@@ -100,6 +114,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       <StatusBar />
+      <AlertSidePanel isOpen={alertsPanelOpen} onClose={() => setAlertsPanelOpen(false)} />
     </>
   );
 }

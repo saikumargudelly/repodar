@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { use, useEffect, useState, useRef } from "react";
 import { api, SnapshotDetail } from "@/lib/api";
-import { ProfessionalLoader } from "@/components/ProfessionalLoader";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { toPng } from "html-to-image";
 
 /* ─────────────────────────────────────────────────────────────
@@ -448,8 +448,8 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
 
       {/* ── Body ── */}
       {isLoading ? (
-        <div style={{ padding: "80px 0" }}>
-          <ProfessionalLoader size={40} text="Generating weekly intelligence report..." />
+        <div style={{ padding: "24px 0" }}>
+          <Skeleton shape="table" />
         </div>
       ) : error ? (
         <div style={{ fontFamily: "Inter, sans-serif", color: "var(--accent-red)", padding: "48px", fontSize: "12px", border: "1px dashed var(--border)", borderRadius: "8px", textAlign: "center" }}>

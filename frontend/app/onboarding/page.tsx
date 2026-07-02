@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { api, DigestFrequency } from "@/lib/api";
-import { ProfessionalLoader } from "@/components/ProfessionalLoader";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 
 type Step = "interests" | "watchlist" | "alerts" | "tour";
@@ -215,7 +215,9 @@ export default function OnboardingPage() {
         color: "var(--color-text-primary, #e6edf3)",
         fontFamily: "var(--font-sans, system-ui)",
       }}>
-        <ProfessionalLoader size={50} text="Preparing onboarding setup..." />
+        <div style={{ width: "300px" }}>
+          <Skeleton shape="text" lines={3} />
+        </div>
       </div>
     );
   }

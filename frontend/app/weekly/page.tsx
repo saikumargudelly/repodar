@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { api, SnapshotSummary } from "@/lib/api";
-import { ProfessionalLoader } from "@/components/ProfessionalLoader";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function WeeklyIndexPage() {
   const { data: snapshots, isLoading } = useQuery<SnapshotSummary[]>({
@@ -14,20 +14,8 @@ export default function WeeklyIndexPage() {
   return (
     <div className="page-root">
       <div>
-        <div style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: "10px",
-          letterSpacing: "0.15em",
-          color: "var(--cyan)",
-          fontWeight: 700,
-          textTransform: "uppercase",
-          marginTop: "16px"
-        }}>
-          // INTEL ARCHIVE
-        </div>
-        <div className="section-title-cyber" style={{ fontSize: "32px", marginTop: "4px" }}>
-          Weekly Intelligence Digests<span className="terminal-cursor" />
-        </div>
+        <div className="page-eyebrow">Archive index · Published weekly</div>
+        <h1 className="page-title">Weekly Intelligence Digests</h1>
         <p style={{
           fontFamily: "var(--font-sans)",
           fontSize: "14px",
@@ -41,29 +29,16 @@ export default function WeeklyIndexPage() {
       </div>
 
       {isLoading ? (
-        <div style={{ padding: "80px 0" }}>
-          <ProfessionalLoader size={45} text="Loading weekly snapshots..." />
+        <div style={{ padding: "24px 0" }}>
+          <Skeleton shape="table" />
         </div>
       ) : !snapshots || snapshots.length === 0 ? (
-        <div className="panel" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", padding: "56px 32px", textAlign: "center" }}>
-          <div className="narutorun-container" style={{ padding: "0 0 8px 0" }}>
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="var(--color-text-tertiary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="narutorun-svg">
-              <circle cx="29" cy="12" r="3" />
-              <path d="M 27 9 L 24 7 L 26 10 L 23 10 L 26 12" />
-              <path d="M 29 9 L 32 6 L 31 10 L 34 8 L 32 11" />
-              <path d="M 25 13 C 23 13, 21 11, 19 12 C 17 13, 16 15, 14 14" />
-              <path d="M 29 15 L 18 28" />
-              <path d="M 27 17 L 10 21" />
-              <path d="M 27 17 L 8 23" />
-              <path d="M 18 28 L 26 34 L 20 44" />
-              <path d="M 18 28 L 10 35 L 4 33" />
-            </svg>
-          </div>
-          <div style={{ fontFamily: "var(--font-sans)", fontSize: "14px", color: "var(--text-secondary)", fontWeight: 500 }}>
+        <div className="panel" style={{ padding: "64px 32px", textAlign: "center" }}>
+          <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "8px", color: "var(--text-primary)" }}>
             No snapshots available yet
           </div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)" }}>
-            // Snapshots publish automatically every Monday at 06:00 UTC.
+          <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+            Snapshots publish automatically every Monday at 06:00 UTC.
           </div>
         </div>
       ) : (

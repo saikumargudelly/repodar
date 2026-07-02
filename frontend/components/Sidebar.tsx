@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth, useUser, SignOutButton } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { CommandPalette } from "@/components/ui/CommandPalette";
 
 // Icons matching the design mockup and spec
 const OverviewIcon = (
@@ -95,33 +96,18 @@ const WeeklyIcon = (
   </svg>
 );
 
-const NAV_SECTIONS = [
-  {
-    title: "DISCOVER",
-    items: [
-      { href: "/overview", label: "Overview", icon: OverviewIcon },
-      { href: "/explore", label: "Explore", icon: ExploreIcon },
-      { href: "/topics", label: "Topics", icon: TopicsIcon },
-      { href: "/radar", label: "Radar", icon: RadarIcon, badge: { text: "20", type: "peach" } },
-    ],
-  },
-  {
-    title: "ANALYZE",
-    items: [
-      { href: "/leaderboard", label: "Leaderboard & network", icon: LeaderboardIcon },
-      { href: "/compare", label: "Compare", icon: CompareIcon },
-      { href: "/research", label: "Research", icon: ResearchIcon, badge: { text: "β", type: "dark" } },
-    ],
-  },
-  {
-    title: "WORKSPACE",
-    items: [
-      { href: "/collections", label: "Collections", icon: CollectionsIcon },
-      { href: "/watchlist", label: "Watchlist", icon: WatchlistIcon },
-      { href: "/orgs", label: "Org health", icon: OrgHealthIcon },
-      { href: "/weekly", label: "Weekly", icon: WeeklyIcon, badge: { text: "New", type: "dark" } },
-    ],
-  },
+const ProfileIcon = (
+  <svg width="17" height="17" viewBox="0 0 14 14" fill="none" className="nav-icon-profile">
+    <circle cx="7" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.4"/>
+    <path d="M2 12c0-2.21 2.24-4 5-4s5 1.79 5 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+  </svg>
+);
+
+const NAV_ITEMS = [
+  { href: "/overview", label: "Overview", icon: OverviewIcon },
+  { href: "/radar", label: "Radar", icon: RadarIcon },
+  { href: "/watchlist", label: "Watchlist", icon: WatchlistIcon },
+  { href: "/research", label: "Research", icon: ResearchIcon, badge: { text: "β", type: "dark" } },
 ];
 
 export function Sidebar() {
@@ -135,6 +121,7 @@ export function Sidebar() {
 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   // Fetch unread alerts for dynamic radar badge
   const { data: alertsData } = useQuery({
@@ -276,90 +263,107 @@ export function Sidebar() {
         )}
       </div>
 
-      {/* ── Nav sections and items ───────────────────────────────── */}
-      <nav style={{ flex: 1, padding: "12px 8px", display: "flex", flexDirection: "column", gap: "16px", overflowY: "auto" }}>
-        {NAV_SECTIONS.map((section) => (
-          <div key={section.title} style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-            {/* Section Header */}
-            <div 
-              style={{
-                fontFamily: "var(--font-sans)",
-                fontSize: "12px",
-                fontWeight: 700,
-                letterSpacing: "0.08em",
+      {/* Search shortcut button (command palette) */}
+      <div style={{ padding: "0 10px", margin: "8px 0" }}>
+        <button
+          onClick={() => setCommandPaletteOpen(true)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            width: "100%",
+            padding: "8px 10px",
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid var(--border)",
+            borderRadius: "6px",
+            color: "var(--text-muted)",
+            fontSize: "12.5px",
+            cursor: "pointer",
+            textAlign: "left",
+            fontFamily: "var(--font-sans)",
+            justifyContent: collapsed && !isMobile ? "center" : "space-between",
+            transition: "all 0.15s ease"
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elevated)"; e.currentTarget.style.borderColor = "var(--text-muted)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "var(--border)"; }}
+        >
+          {collapsed && !isMobile ? (
+            <span>🔍</span>
+          ) : (
+            <>
+              <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>🔍 <span style={{ color: "var(--text-muted)" }}>Search...</span></span>
+              <kbd style={{
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid var(--border)",
+                borderRadius: "3px",
+                padding: "1px 5px",
+                fontSize: "9px",
+                fontFamily: "var(--font-mono)",
                 color: "var(--text-secondary)",
-                textTransform: "uppercase",
-                padding: collapsed && !isMobile ? "0" : "0 10px 6px",
-                marginTop: collapsed && !isMobile ? "0" : "4px",
-                maxHeight: collapsed && !isMobile ? "0" : "30px",
-                opacity: collapsed && !isMobile ? 0 : 1,
-                overflow: "hidden",
-                transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                lineHeight: 1
+              }}>⌘K</kbd>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* ── Nav items ───────────────────────────────── */}
+      <nav style={{ flex: 1, padding: "12px 8px", display: "flex", flexDirection: "column", gap: "4px", overflowY: "auto" }}>
+        {NAV_ITEMS.map((item) => {
+          const isActive = isNavActive(item.href);
+          const badgeText = item.href === "/radar" ? (unreadCount > 0 ? (unreadCount > 99 ? "99+" : String(unreadCount)) : null) : (item.badge?.text ?? null);
+          const badgeType = item.badge?.type ?? "dark";
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`sidebar-nav-link ${isActive ? "active" : ""}`}
+              style={{
+                padding: collapsed && !isMobile ? "9px 0" : "9px 12px",
+                fontWeight: isActive ? 500 : 400,
+                color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
+                background: isActive ? "rgba(255, 255, 255, 0.035)" : "transparent",
+                justifyContent: collapsed && !isMobile ? "center" : "flex-start",
               }}
             >
-              {section.title}
-            </div>
-            
-             {section.items.map((item) => {
-              const isActive = isNavActive(item.href);
-              const badgeText = item.href === "/radar" ? (unreadCount > 0 ? (unreadCount > 99 ? "99+" : String(unreadCount)) : null) : (item.badge?.text ?? null);
-              const badgeType = item.badge?.type ?? "dark";
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`sidebar-nav-link ${isActive ? "active" : ""}`}
-                  style={{
-                    padding: collapsed && !isMobile ? "9px 0" : "9px 10px",
-                    fontWeight: isActive ? 700 : 400,
-                    color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
-                    background: isActive ? "rgba(255, 255, 255, 0.04)" : "transparent",
-                    justifyContent: collapsed && !isMobile ? "center" : "flex-start",
-                    borderLeft: isActive ? "3px solid var(--text-primary)" : "3px solid transparent",
-                    borderRight: collapsed && !isMobile ? "3px solid transparent" : "none",
-                  }}
-                >
-                  <span style={{ display: "flex", alignItems: "center", justifyContent: "center", color: isActive ? "var(--text-primary)" : "var(--text-muted)", flexShrink: 0, width: "17px" }}>
-                    {item.icon}
-                  </span>
-                  <span className="sidebar-label" style={{ flex: 1, fontFamily: "var(--font-sans)", fontSize: "13px", letterSpacing: "0" }}>{item.label}</span>
-                  {badgeText && (
-                    <span style={{
-                      fontSize: "10px",
-                      fontWeight: 600,
-                      padding: collapsed && !isMobile ? "0" : (badgeText === "β" ? "1px 5px" : "2px 8px"),
-                      borderRadius: "10px",
-                      lineHeight: 1,
-                      marginRight: collapsed && !isMobile ? "0" : "4px",
-                      display: collapsed && !isMobile ? "none" : "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      maxHeight: collapsed && !isMobile ? "0" : "18px",
-                      maxWidth: collapsed && !isMobile ? "0" : "40px",
-                      opacity: collapsed && !isMobile ? 0 : 1,
-                      overflow: "hidden",
-                      transition: "all 0.25s ease",
-                      flexShrink: 0,
-                      ...(badgeType === "peach" ? {
-                        background: "#ffebe9",
-                        color: "#a51d24",
-                      } : {
-                        background: "rgba(255, 255, 255, 0.08)",
-                        color: "var(--text-secondary)",
-                        border: "1px solid var(--border)",
-                      })
-                    }}>
-                      {badgeText}
-                    </span>
-                  )}
-                  {collapsed && !isMobile && (
-                    <span className="sidebar-tooltip">{item.label}</span>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        ))}
+              <span style={{ display: "flex", alignItems: "center", justifyContent: "center", color: isActive ? "var(--text-primary)" : "var(--text-muted)", flexShrink: 0, width: "17px" }}>
+                {item.icon}
+              </span>
+              <span className="sidebar-label" style={{ flex: 1, fontFamily: "var(--font-sans)", fontSize: "13px", letterSpacing: "0" }}>{item.label}</span>
+              {badgeText && (
+                <span style={{
+                  fontSize: "10px",
+                  fontWeight: 600,
+                  padding: collapsed && !isMobile ? "0" : (badgeText === "β" ? "1px 5px" : "2px 8px"),
+                  borderRadius: "10px",
+                  lineHeight: 1,
+                  marginRight: collapsed && !isMobile ? "0" : "4px",
+                  display: collapsed && !isMobile ? "none" : "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  maxHeight: collapsed && !isMobile ? "0" : "18px",
+                  maxWidth: collapsed && !isMobile ? "0" : "40px",
+                  opacity: collapsed && !isMobile ? 0 : 1,
+                  overflow: "hidden",
+                  transition: "all 0.25s ease",
+                  flexShrink: 0,
+                  ...(badgeType === "peach" ? {
+                    background: "#ffebe9",
+                    color: "#a51d24",
+                  } : {
+                    background: "rgba(255, 255, 255, 0.08)",
+                    color: "var(--text-secondary)",
+                    border: "1px solid var(--border)",
+                  })
+                }}>
+                  {badgeText}
+                </span>
+              )}
+              {collapsed && !isMobile && (
+                <span className="sidebar-tooltip">{item.label}</span>
+              )}
+            </Link>
+          );
+        })}
       </nav>
 
       {/* Footer Profile Card */}
@@ -819,6 +823,8 @@ export function Sidebar() {
           </div>
         </>
       )}
+
+      <CommandPalette isOpen={commandPaletteOpen} setIsOpen={setCommandPaletteOpen} />
     </>
   );
 }

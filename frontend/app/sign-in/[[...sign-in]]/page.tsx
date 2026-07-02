@@ -227,8 +227,8 @@ export default function SignInPage() {
         </div>
 
         {!isReady && (
-          <p style={{ marginTop: "16px", color: "var(--color-text-tertiary, #6e7681)", fontSize: "12px", textAlign: "center", fontFamily: "var(--font-mono)" }}>
-            // LOADING Clerk Auth module...
+          <p style={{ marginTop: "16px", color: "var(--color-text-tertiary, #6e7681)", fontSize: "12px", textAlign: "center", fontFamily: "var(--font-sans)" }}>
+            Initializing authentication…
           </p>
         )}
 

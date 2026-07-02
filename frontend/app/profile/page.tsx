@@ -236,10 +236,8 @@ export default function ProfilePage() {
   return (
     <div className="page-root" style={{ maxWidth: "980px", margin: "0 auto", width: "100%" }}>
       <div>
-        <div className="section-title-cyber">PROFILE<span className="terminal-cursor" /></div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)", marginTop: "6px" }}>
-          // Manage your personalization and digest subscriptions
-        </div>
+        <div className="page-eyebrow">Manage your personalization and digest subscriptions</div>
+        <h1 className="page-title">Profile Settings</h1>
       </div>
 
       <div className="panel" style={{ padding: "18px", display: "flex", justifyContent: "space-between", gap: "18px", flexWrap: "wrap", alignItems: "center" }}>

@@ -13,12 +13,13 @@ import {
   api, Period, Vertical, CategoryMetrics, SustainabilityEntry, LeaderboardEntry,
   RadarRepo, AlertResponse,
 } from "@/lib/api";
-import { SustainBadge } from "@/components/Nav";
+import { StatusDot } from "@/components/ui/StatusDot";
 import { ModernCategoryCards } from "@/components/charts/ModernCategoryCards";
 import { ModernPRChart } from "@/components/charts/ModernPRChart";
 import { ModernCategoryTrendScore } from "@/components/charts/ModernCategoryTrendScore";
-import { DashboardSkeleton } from "@/components/DashboardSkeleton";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { formatCompactNumber } from "@/lib/utils";
+import { categoryColor as getCategoryColor } from "@/lib/chartColors";
 
 
 const C = {
@@ -34,28 +35,7 @@ const C = {
   red: "var(--accent-red)",
 };
 
-const CATEGORY_COLORS: Record<string, string> = {
-  "LLM Models": "#3b82f6",
-  "Agent Frameworks": "#8b5cf6",
-  "Inference Engines": "#f59e0b",
-  "Vector Databases": "#10b981",
-  "Model Serving / Runtimes": "#06b6d4",
-  "Distributed Compute / Infra": "#f97316",
-  "Evaluation Frameworks": "#84cc16",
-  "Fine-tuning Toolkits": "#ec4899",
-  "AI / ML": "#3b82f6",
-  // Non-AI verticals
-  "DevTools": "#38bdf8",
-  "Web Frameworks": "#a78bfa",
-  "Web & Mobile": "#a78bfa",
-  "Security": "#f87171",
-  "Data Engineering": "#34d399",
-  "Data & Infra": "#34d399",
-  "Blockchain": "#fbbf24",
-  "OSS Tools": "#fb923c",
-  "Science & Research": "#84cc16",
-  "Creative & Gaming": "#ec4899",
-};
+// CATEGORY_COLORS is now derived from unified getCategoryColor theme helper
 
 const PERIODS: { key: Period; label: string }[] = [
   { key: "1d", label: "Today" },
@@ -424,16 +404,12 @@ function LeaderboardTable({
   entries,
   period,
   isLoading,
-  compareSelection,
-  onToggleCompare,
   isPinned,
   onTogglePin,
 }: {
   entries: LeaderboardEntry[];
   period: Period;
   isLoading: boolean;
-  compareSelection: string[];
-  onToggleCompare: (repo_id: string) => void;
   isPinned: (repo_id: string) => boolean;
   onTogglePin: (entry: LeaderboardEntry) => void;
 }) {
@@ -690,7 +666,6 @@ function LeaderboardTable({
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", fontFamily: "var(--font-sans)" }}>
           <thead>
             <tr style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
-              {/* checkbox */}<th style={{ padding: "9px 12px", width: "28px" }} />
               {/* rank */}<th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 600, fontSize: "11px", letterSpacing: "0.03em", whiteSpace: "nowrap", textTransform: "uppercase" }}>#</th>
               {/* repo */}<th style={{ padding: "9px 12px", fontWeight: 600, fontSize: "11px", letterSpacing: "0.03em", whiteSpace: "nowrap", textTransform: "uppercase" }}>Repo</th>
               {/* category */}<th className="col-hide-mobile" style={{ padding: "9px 12px", fontWeight: 600, fontSize: "11px", letterSpacing: "0.03em", whiteSpace: "nowrap", textTransform: "uppercase" }}>Category</th>
@@ -703,12 +678,10 @@ function LeaderboardTable({
           </thead>
           <tbody>
             {processedEntries.map((repo: LeaderboardEntry, idx: number) => {
-              const slug = `${repo.owner}/${repo.name}`;
-              const selected = compareSelection.includes(slug);
               const pinned = isPinned(repo.repo_id);
               const years = Math.max(1, Math.round(repo.age_days / 365));
               const agePercentage = Math.min((repo.age_days / (365 * 12)) * 100, 100);
-              const categoryColor = CATEGORY_COLORS[repo.category] ?? "#6b7280";
+              const categoryColor = getCategoryColor(repo.category);
 
               return (
                 <tr
@@ -716,36 +689,9 @@ function LeaderboardTable({
                   className="repo-row"
                   style={{
                     borderBottom: "1px solid var(--border)",
-                    background: selected ? "rgba(255, 255, 255, 0.02)" : "transparent",
+                    background: "transparent",
                   }}
                 >
-                  {/* Compare checkbox */}
-                  <td style={{ padding: "12px 8px 10px 16px", width: "28px", verticalAlign: "top" }}>
-                    <div
-                      onClick={() => onToggleCompare(slug)}
-                      style={{
-                        width: "14px",
-                        height: "14px",
-                        borderRadius: "3px",
-                        border: `1.5px solid ${selected ? "var(--text-primary)" : "var(--border)"}`,
-                        background: selected ? "var(--text-primary)" : "transparent",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        cursor: "pointer",
-                        transition: "all 0.15s ease",
-                        userSelect: "none",
-                        marginTop: "2px",
-                      }}
-                      title="Add to comparison"
-                    >
-                      {selected && (
-                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="var(--bg-primary)" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      )}
-                    </div>
-                  </td>
 
                   {/* Rank */}
                   <td
@@ -927,7 +873,7 @@ function SustainabilityRanking({ repos }: { repos: SustainabilityEntry[] }) {
               <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--amber)" }}>
                 {(repo.sustainability_score * 100).toFixed(0)}%
               </span>
-              <SustainBadge label={repo.sustainability_label} />
+              <StatusDot label={repo.sustainability_label} size="sm" />
             </div>
           </div>
           );
@@ -984,7 +930,7 @@ function EcosystemMapChart({ repos, title = "AI Ecosystem Map" }: { repos: Radar
         <div className="ecosystem-legend">
           {categories.map((c) => (
             <span key={c} style={{ display: "flex", alignItems: "center", gap: "4px", fontFamily: "var(--font-sans)", color: "var(--text-muted)" }}>
-              <span style={{ width: 7, height: 7, background: CATEGORY_COLORS[c] ?? "#888", display: "inline-block", borderRadius: "50%", flexShrink: 0 }} />
+              <span style={{ width: 7, height: 7, background: getCategoryColor(c), display: "inline-block", borderRadius: "50%", flexShrink: 0 }} />
               {c}
             </span>
           ))}
@@ -1017,7 +963,7 @@ function EcosystemMapChart({ repos, title = "AI Ecosystem Map" }: { repos: Radar
                     <p style={{ margin: "0 0 4px", fontWeight: 600, color: "var(--text-primary)" }}>{d.owner}/{d.name}</p>
                     <p style={{ margin: "0 0 2px", color: "var(--cyan)" }}>TREND: <strong>{d.x}</strong></p>
                     <p style={{ margin: "0 0 2px", color: "var(--amber)" }}>SUSTAIN: <strong>{d.y}</strong></p>
-                    <p style={{ margin: 0, color: CATEGORY_COLORS[d.category] ?? "#888", fontSize: "10px", letterSpacing: "0.06em" }}>{d.category}</p>
+                    <p style={{ margin: 0, color: getCategoryColor(d.category), fontSize: "10px", letterSpacing: "0.06em" }}>{d.category}</p>
                   </div>
                 );
               }}
@@ -1027,7 +973,7 @@ function EcosystemMapChart({ repos, title = "AI Ecosystem Map" }: { repos: Radar
                 key={cat}
                 name={cat}
                 data={byCategory[cat]}
-                fill={CATEGORY_COLORS[cat] ?? "#888"}
+                fill={getCategoryColor(cat)}
                 opacity={0.85}
               />
             ))}
@@ -1249,9 +1195,15 @@ export default function OverviewPage() {
   const [vertical, setVertical] = useState<Vertical>("ai_ml");
   const [userVerticals, setUserVerticals] = useState<string[]>([]);
   const [showMine, setShowMine] = useState(false);
-  const [compareSelection, setCompareSelection] = useState<string[]>([]);
-  const [alertsOpen, setAlertsOpen] = useState(false);
   const { items: watchlist, toggle: togglePin, isPinned } = useWatchlist();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth <= 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   // Read vertical from URL ?vertical=xxx (set by sidebar links)
   useEffect(() => {
@@ -1300,50 +1252,21 @@ export default function OverviewPage() {
     staleTime: 5 * 60 * 1000,   // re-fetch at most every 5 min
   });
 
-  // Trend alerts
-  const [alerts, setAlerts] = useState<AlertResponse[]>([]);
+  // Unread alerts count for the inline bell button
   const { data: alertsData } = useQuery({
-    queryKey: ["alerts"],
-    queryFn: () => api.getAlerts(false, 20),
-    refetchInterval: 60_000,    // poll for new alerts every 60 s
+    queryKey: ["sidebar-alerts"],
+    queryFn: () => api.getAlerts(true, 200),
+    enabled: authLoaded && !!userId,
+    refetchInterval: 30000,
   });
-  useEffect(() => {
-    if (alertsData) setAlerts(alertsData);
-  }, [alertsData]);
+  const unreadAlerts = alertsData?.length ?? 0;
 
-  const unreadCount = alerts.filter((a) => !a.is_read).length;
 
-  const handleMarkAlertRead = async (alertId: string) => {
-    try {
-      await api.markAlertRead(alertId);
-      setAlerts((prev) => prev.map((a) => a.id === alertId ? { ...a, is_read: true } : a));
-    } catch { /* silent fail — UI still optimistic */ }
-  };
 
-  const handleDismissAllAlerts = async () => {
-    // Optimistic update first
-    setAlerts((prev) => prev.map((a) => ({ ...a, is_read: true })));
-    try {
-      await api.markAllAlertsRead();
-    } catch { /* silent fail */ }
-  };
 
-  const toggleCompare = (repo_id: string) => {
-    setCompareSelection((prev) =>
-      prev.includes(repo_id)
-        ? prev.filter((x) => x !== repo_id)
-        : prev.length < 5 ? [...prev, repo_id] : prev
-    );
-  };
-
-  const openCompare = () => {
-    if (compareSelection.length >= 2) {
-      router.push(`/compare?repos=${compareSelection.join(",")}`);
-    }
-  };
 
   if (overviewLoading) {
-    return <DashboardSkeleton />;
+    return <Skeleton shape="page" />;
   }
 
 
@@ -1395,43 +1318,9 @@ export default function OverviewPage() {
 
   return (
     <div className="page-fade-in" style={{ paddingTop: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
-      {/* Floating compare bar */}
-      {compareSelection.length >= 2 && (
-        <div style={{
-          position: "fixed", bottom: "32px", left: "50%", transform: "translateX(-50%)",
-          background: "var(--bg-surface)", border: "1px solid var(--border)",
-          borderRadius: "8px",
-          padding: "10px 20px",
-          display: "flex", alignItems: "center", gap: "16px", zIndex: 300,
-          boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
-          maxWidth: "calc(100vw - 32px)", flexWrap: "wrap", justifyContent: "center",
-        }}>
-          <span style={{ fontFamily: "var(--font-sans)", fontSize: "13px", fontWeight: 600, color: "var(--accent-blue)" }}>
-            {compareSelection.length} repos selected
-          </span>
-          <button
-            onClick={openCompare}
-            className="btn-cyber btn-cyber-cyan"
-            style={{ fontSize: "10px" }}
-          >
-            Compare →
-          </button>
-          <button
-            onClick={() => setCompareSelection([])}
-            className="link-btn-cyber"
-          >
-            Clear
-          </button>
-        </div>
-      )}
 
-      {/* Trend Alerts Drawer */}
-      {alertsOpen && (
-        <div
-          onClick={() => setAlertsOpen(false)}
-          style={{ position: "fixed", inset: 0, zIndex: 390 }}
-        />
-      )}
+
+
 
 
       {/* Header */}
@@ -1462,10 +1351,70 @@ export default function OverviewPage() {
               <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
             </svg>
           </div>
-          <PeriodSelector selected={period} onChange={setPeriod} />
+          {isMobile ? (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <button
+                onClick={() => router.push("/leaderboard")}
+                className="btn-cyber btn-cyber-cyan"
+                style={{ fontSize: "11px", display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 12px" }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
+                  <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+                  <path d="M4 22h16"/>
+                  <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
+                </svg>
+                Leaderboard
+              </button>
+              <button
+                onClick={() => router.push("/compare")}
+                className="btn-cyber btn-cyber-cyan"
+                style={{ fontSize: "11px", display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 12px" }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/>
+                </svg>
+                Compare
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              <button
+                onClick={() => router.push("/leaderboard")}
+                className="btn-cyber btn-cyber-cyan"
+                style={{ fontSize: "11px", display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 12px" }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
+                  <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+                  <path d="M4 22h16"/>
+                  <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
+                </svg>
+                Leaderboard
+              </button>
+              <button
+                onClick={() => router.push("/compare")}
+                className="btn-cyber btn-cyber-cyan"
+                style={{ fontSize: "11px", display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 12px" }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/>
+                </svg>
+                Compare
+              </button>
+              <PeriodSelector selected={period} onChange={setPeriod} />
+            </div>
+          )}
         </div>
 
-        {/* Row 2: Subtitle & Badge + Trends button */}
+        {/* Mobile Period Selector Row */}
+        {isMobile && (
+          <div style={{ marginBottom: "12px", width: "100%" }}>
+            <PeriodSelector selected={period} onChange={setPeriod} />
+          </div>
+        )}
+
+        {/* Row 2: Subtitle & Badge + Alerts Bell */}
         <div className="overview-subtitle-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", marginBottom: "6px" }}>
           <div style={{
             fontFamily: "var(--font-sans)", fontSize: "13px",
@@ -1491,160 +1440,57 @@ export default function OverviewPage() {
             </span>
           </div>
 
-          <div style={{ position: "relative" }}>
+          {/* Alerts bell — right-aligned, fires custom event to open panel, desktop only */}
+          {!isMobile && (
             <button
-              onClick={() => setAlertsOpen((o) => !o)}
-              title="Trend Alerts"
-              onMouseEnter={(e) => {
-                if (!alertsOpen) {
-                  e.currentTarget.style.color = C.text;
-                  e.currentTarget.style.borderColor = C.textSub;
-                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.02)";
-                }
-                const svg = e.currentTarget.querySelector("svg");
-                if (svg) svg.style.transform = "translate(2px, -2px)";
-              }}
-              onMouseLeave={(e) => {
-                if (!alertsOpen) {
-                  e.currentTarget.style.color = C.textSub;
-                  e.currentTarget.style.borderColor = C.border;
-                  e.currentTarget.style.background = "transparent";
-                }
-                const svg = e.currentTarget.querySelector("svg");
-                if (svg) svg.style.transform = "translate(0, 0)";
-              }}
+              onClick={() => window.dispatchEvent(new CustomEvent("repodar:open-alerts"))}
               style={{
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
                 gap: "6px",
-                padding: "6px 14px",
+                padding: "4px 10px",
                 borderRadius: "6px",
-                fontSize: "12px",
-                fontWeight: 600,
-                fontFamily: "var(--font-sans)",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
+                border: "1px solid var(--border)",
                 background: "transparent",
-                border: `1px solid ${alertsOpen ? C.text : C.border}`,
-                color: alertsOpen ? C.text : C.textSub,
+                color: "var(--text-secondary)",
+                cursor: "pointer",
+                fontSize: "12px",
+                fontFamily: "var(--font-sans)",
+                fontWeight: 500,
+                transition: "border-color 0.15s, color 0.15s",
+                flexShrink: 0,
               }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--text-muted)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+              title="Open alerts"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.2s ease" }}>
-                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-                <polyline points="16 7 22 7 22 13" />
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
               </svg>
-              <span>Trends</span>
-              {unreadCount > 0 && (
+              Alerts
+              {unreadAlerts > 0 && (
                 <span style={{
-                  background: C.red,
+                  padding: "1px 5px",
+                  borderRadius: "8px",
+                  background: "var(--accent-red)",
                   color: "#fff",
                   fontSize: "10px",
                   fontWeight: 700,
-                  width: "18px",
-                  height: "18px",
-                  borderRadius: "50%",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  lineHeight: 1,
-                  marginLeft: "4px",
-                  animation: "pulse-badge 1.8s infinite",
+                  lineHeight: 1.4,
                 }}>
-                  {unreadCount}
+                  {unreadAlerts > 99 ? "99+" : unreadAlerts}
                 </span>
               )}
             </button>
-
-            <div
-              className="trends-popup"
-              style={{
-                opacity: alertsOpen ? 1 : 0,
-                pointerEvents: alertsOpen ? "auto" : "none",
-                transform: alertsOpen ? "translateY(0)" : "translateY(-6px)",
-              }}
-            >
-              <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, backgroundColor: "var(--bg-surface)", zIndex: 10 }}>
-                <span style={{ fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: "13px", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "7px" }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-                    <polyline points="16 7 22 7 22 13" />
-                  </svg>
-                  Trend Alerts
-                  {unreadCount > 0 && (
-                    <span style={{ background: "var(--accent-red)", color: "#fff", fontSize: "10px", fontWeight: 700, padding: "1px 5px", borderRadius: "10px" }}>
-                      {unreadCount}
-                    </span>
-                  )}
-                </span>
-                {unreadCount > 0 && (
-                  <button onClick={handleDismissAllAlerts} className="link-btn-cyber" style={{ fontSize: "11px" }}>
-                    Dismiss all
-                  </button>
-                )}
-              </div>
-              {alerts.length === 0 ? (
-                <p style={{ color: "var(--text-muted)", fontFamily: "var(--font-sans)", fontSize: "13px", textAlign: "center", padding: "24px 20px" }}>
-                  No active alerts
-                </p>
-              ) : (
-                <div>
-                  {alerts.map((alert) => {
-                    const prefix = `${alert.owner}/${alert.name} `;
-                    const detailText = alert.headline.startsWith(prefix)
-                      ? alert.headline.slice(prefix.length)
-                      : alert.headline;
-                    return (
-                      <div
-                        key={alert.id}
-                        onClick={() => {
-                          if (!alert.is_read) {
-                            handleMarkAlertRead(alert.id);
-                          }
-                          router.push(`/repo/${alert.owner}/${alert.name}`);
-                          setAlertsOpen(false);
-                        }}
-                        className={`alert-row-cyber${alert.is_read ? " read" : ""}`}
-                        style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "12px", width: "100%" }}
-                      >
-                        <span style={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>
-                          {ALERT_ICONS[alert.alert_type] ?? (
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                            </svg>
-                          )}
-                        </span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontFamily: "var(--font-sans)", fontSize: "13px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: "2px" }}>
-                            <strong style={{ color: "var(--accent-blue)", fontWeight: 600 }}>{alert.owner}/{alert.name}</strong>
-                          </div>
-                          <div style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: "var(--text-secondary)", marginBottom: "3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {detailText}
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px", fontFamily: "var(--font-sans)", fontSize: "11px", color: "var(--text-muted)" }}>
-                            <span style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--accent-blue)", padding: "1px 6px", fontSize: "11px", borderRadius: "4px" }}>{alert.category}</span>
-                            {new Date(alert.triggered_at).toLocaleDateString()}
-                          </div>
-                        </div>
-                        {!alert.is_read && (
-                          <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent-red)", flexShrink: 0 }} />
-                        )}
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.6 }}>
-                          <polyline points="9 18 15 12 9 6" />
-                        </svg>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Row 3: Vertical selector — always full width */}
         <div style={{ marginTop: "0px" }}>
           <VerticalSelector
             selected={vertical}
-            onChange={(v) => { setVertical(v); setCompareSelection([]); }}
+            onChange={(v) => { setVertical(v); }}
             userVerticals={userVerticals}
             showMine={showMine}
             setShowMine={setShowMine}
@@ -1727,8 +1573,6 @@ export default function OverviewPage() {
               entries={leaderboard?.entries ?? []}
               period={period}
               isLoading={leaderboardLoading}
-              compareSelection={compareSelection}
-              onToggleCompare={toggleCompare}
               isPinned={isPinned}
               onTogglePin={(entry) => togglePin({
                 repo_id: entry.repo_id,

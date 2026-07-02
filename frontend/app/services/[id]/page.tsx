@@ -39,10 +39,10 @@ export default function ServiceDetailPage() {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center",
-        height: "60vh", fontFamily: "var(--font-mono)", fontSize: "12px",
-        color: "var(--text-muted)", letterSpacing: "0.06em" }}>
-        // LOADING SERVICE DATA<span className="terminal-cursor" />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
+        <p style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+          Loading service data...
+        </p>
       </div>
     );
   }
@@ -51,8 +51,8 @@ export default function ServiceDetailPage() {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center",
         justifyContent: "center", height: "60vh", gap: "16px" }}>
-        <div style={{ fontFamily: "var(--font-mono)", color: "var(--pink)", fontSize: "13px" }}>
-          ✕ {error ?? "SERVICE NOT FOUND"}
+        <div style={{ color: "var(--accent-red)", fontSize: "13px" }}>
+          ✕ {error ?? "Service not found"}
         </div>
         <Link href="/services" style={{ fontFamily: "var(--font-mono)", fontSize: "11px",
           color: "var(--cyan)", textDecoration: "none" }}>
@@ -79,9 +79,9 @@ export default function ServiceDetailPage() {
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start",
             justifyContent: "space-between", gap: "12px", marginBottom: "10px" }}>
             <div>
-              <div className="section-title-cyber" style={{ fontSize: "18px", marginBottom: "4px" }}>
+              <h2 style={{ fontFamily: "var(--font-sans)", fontSize: "18px", fontWeight: 600, color: "var(--text-primary)", margin: 0, marginBottom: "4px" }}>
                 {service.name}
-              </div>
+              </h2>
               {service.provider && (
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px",
                   color: "var(--text-muted)" }}>by {service.provider}</div>
@@ -196,13 +196,11 @@ export default function ServiceDetailPage() {
       {/* Capabilities */}
       <div className="panel">
         <div className="panel-header">
-          <span className="panel-title">◈ CAPABILITIES ({service.capabilities.length})</span>
+          <span className="panel-title">Capabilities ({service.capabilities.length})</span>
         </div>
         {service.capabilities.length === 0 ? (
-          <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)",
-            textAlign: "center", padding: "40px 20px", fontSize: "11px",
-            letterSpacing: "0.06em" }}>
-            // NO CAPABILITIES INDEXED YET
+          <div style={{ color: "var(--text-muted)", textAlign: "center", padding: "40px 20px", fontSize: "12px" }}>
+            No capabilities indexed yet.
           </div>
         ) : (
           <div className="table-scroll" style={{ padding: "0 0 4px" }}>

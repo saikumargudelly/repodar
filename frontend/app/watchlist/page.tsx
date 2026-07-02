@@ -7,8 +7,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
 import { api, WatchlistItemOut } from "@/lib/api";
-import { SustainBadge } from "@/components/Nav";
-import { TableSkeleton } from "@/components/DashboardSkeleton";
+import { StatusDot } from "@/components/ui/StatusDot";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 
 export default function WatchlistPage() {
@@ -92,45 +92,30 @@ export default function WatchlistPage() {
     <div className="page-root page-fade-in">
       {/* Header */}
       <div>
-        <div className="section-title-cyber">WATCHLIST<span className="terminal-cursor" /></div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)", marginTop: "6px" }}>
-          // {items.length} repo{items.length !== 1 ? "s" : ""} tracked
-        </div>
+        <div className="page-eyebrow">{items.length} repo{items.length !== 1 ? "s" : ""} tracked</div>
+        <h1 className="page-title">Watchlist</h1>
       </div>
 
       {/* Loading */}
-      {isLoading && <TableSkeleton />}
+      {isLoading && <Skeleton shape="table" />}
 
       {/* Error */}
       {error && (
         <div className="panel" style={{ border: "1px solid var(--pink)" }}>
           <p style={{ fontFamily: "var(--font-mono)", color: "var(--pink)", margin: 0, fontSize: "12px" }}>
-            ✕ FAILED TO LOAD WATCHLIST
+            ✕ Failed to load watchlist
           </p>
         </div>
       )}
 
       {/* Empty state */}
       {!isLoading && items.length === 0 && (
-        <div className="panel" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", padding: "56px 32px", textAlign: "center" }}>
-          <div className="narutorun-container" style={{ padding: "0 0 8px 0" }}>
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="var(--color-text-tertiary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="narutorun-svg">
-              <circle cx="29" cy="12" r="3" />
-              <path d="M 27 9 L 24 7 L 26 10 L 23 10 L 26 12" />
-              <path d="M 29 9 L 32 6 L 31 10 L 34 8 L 32 11" />
-              <path d="M 25 13 C 23 13, 21 11, 19 12 C 17 13, 16 15, 14 14" />
-              <path d="M 29 15 L 18 28" />
-              <path d="M 27 17 L 10 21" />
-              <path d="M 27 17 L 8 23" />
-              <path d="M 18 28 L 26 34 L 20 44" />
-              <path d="M 18 28 L 10 35 L 4 33" />
-            </svg>
-          </div>
-          <div style={{ fontFamily: "var(--font-sans)", fontSize: "14px", color: "var(--text-secondary)", fontWeight: 500 }}>
+        <div className="panel" style={{ padding: "64px 32px", textAlign: "center" }}>
+          <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "8px", color: "var(--text-primary)" }}>
             Your watchlist is empty
           </div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)" }}>
-            // Navigate to any repo page and click Watch
+          <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "20px" }}>
+            Navigate to any repository page and click Watch to start tracking it.
           </div>
           <Link
             href="/overview"
@@ -139,11 +124,8 @@ export default function WatchlistPage() {
               padding: "8px 20px",
               fontSize: "12px",
               fontWeight: 600,
-              marginTop: "12px",
+              display: "inline-block",
               textDecoration: "none",
-              display: "inline-flex",
-              alignItems: "center",
-              cursor: "pointer"
             }}
           >
             Explore Repositories
@@ -201,8 +183,7 @@ export default function WatchlistPage() {
                     <td style={{ padding: "12px 16px", textAlign: "right", fontFamily: "var(--font-mono)", fontWeight: 600 }}>
                       {item.stars?.toLocaleString() ?? "—"}
                     </td>
-                    <td style={{ padding: "12px 16px", textAlign: "right", fontFamily: "var(--font-mono)",
-                      color: "var(--amber)" }}>
+                    <td style={{ padding: "12px 16px", textAlign: "right", fontFamily: "var(--font-mono)" }}>
                       {item.trend_score != null ? item.trend_score.toFixed(4) : "—"}
                     </td>
                     <td style={{ padding: "12px 16px", textAlign: "right", fontFamily: "var(--font-mono)",
@@ -210,7 +191,7 @@ export default function WatchlistPage() {
                       {item.acceleration != null ? item.acceleration.toFixed(2) : "—"}
                     </td>
                     <td style={{ padding: "12px 16px" }}>
-                      {item.sustainability_label ? <SustainBadge label={item.sustainability_label} /> : "—"}
+                      {item.sustainability_label ? <StatusDot label={item.sustainability_label} size="sm" /> : "—"}
                     </td>
                     <td style={{ padding: "12px 16px", fontFamily: "var(--font-mono)", fontSize: "10px",
                       color: "var(--text-muted)" }}>

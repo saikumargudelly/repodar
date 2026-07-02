@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { api, AlertResponse } from "@/lib/api";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 const ALERT_TYPE_LABELS: Record<string, string> = {
   star_spike_24h:  "⚡ 24h Star Spike",
@@ -274,27 +275,11 @@ export default function AlertsPage() {
     <div className="page-root">
       {/* Header */}
       <div>
-        <div className="section-title-cyber">
-          BREAKOUT ALERTS
-          {unreadCount > 0 && (
-            <span style={{
-              marginLeft: "14px",
-              background: "var(--cyan)",
-              color: "#000",
-              fontFamily: "var(--font-mono)",
-              fontSize: "11px",
-              fontWeight: 700,
-              padding: "2px 8px",
-              borderRadius: "3px",
-            }}>
-              {unreadCount} NEW
-            </span>
-          )}
-          <span className="terminal-cursor" />
+        <div className="page-eyebrow">
+          System-wide breakout telemetry and activity alerts
+          {unreadCount > 0 && ` · ${unreadCount} new`}
         </div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)", marginTop: "6px" }}>
-          // Repos that crossed momentum threshold in the last 24–48h
-        </div>
+        <h1 className="page-title">Alerts</h1>
       </div>
 
       {/* Subscribe form */}
@@ -359,14 +344,11 @@ export default function AlertsPage() {
 
       {/* Alert list */}
       {isLoading ? (
-        <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", padding: "40px 0",
-          textAlign: "center", fontSize: "12px", letterSpacing: "0.06em" }}>
-          // LOADING ALERTS<span className="terminal-cursor" />
-        </div>
+        <Skeleton shape="table" />
       ) : filtered.length === 0 ? (
-        <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", padding: "40px 0",
-          textAlign: "center", fontSize: "12px", letterSpacing: "0.06em" }}>
-          // NO BREAKOUT ALERTS YET — pipeline will populate on next run
+        <div style={{ color: "var(--text-muted)", padding: "40px 0",
+          textAlign: "center", fontSize: "13px", fontFamily: "var(--font-sans)" }}>
+          No active breakout alerts yet. The pipeline will populate on the next run.
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>

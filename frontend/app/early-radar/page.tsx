@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { api, EarlyRadarRepo } from "@/lib/api";
-import { SustainBadge } from "@/components/Nav";
+import { StatusDot } from "@/components/ui/StatusDot";
 
 const CATEGORIES = [
   "All",
@@ -54,14 +54,9 @@ export default function EarlyRadarPage() {
   return (
     <div className="page-root">
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-        <div className="section-title-cyber">BEFORE IT TRENDS<span className="terminal-cursor" /></div>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", fontWeight: 700,
-          color: "var(--cyan)", border: "1px solid var(--cyan)", padding: "2px 8px",
-          letterSpacing: "0.1em" }}>EARLY RADAR</span>
-      </div>
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)", marginBottom: "14px" }}>
-        {"// Young repos with strong momentum - catch the next breakout"}
+      <div style={{ marginBottom: "20px" }}>
+        <div className="page-eyebrow">Young repositories with strong momentum — catch the next breakout</div>
+        <h1 className="page-title">Before It Trends</h1>
       </div>
 
       {/* Filters Toggle for Mobile */}
@@ -168,23 +163,21 @@ export default function EarlyRadarPage() {
       </div>
 
       {!isLoading && (
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)",
-          letterSpacing: "0.06em", marginBottom: "14px" }}>
-          {`// ${repos.length} REPOS MATCHED`}
+        <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "14px" }}>
+          {`${repos.length} repositories matched`}
         </div>
       )}
 
       {isLoading && (
-        <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-muted)", padding: "60px 0",
-          textAlign: "center", fontSize: "12px", letterSpacing: "0.06em" }}>
-          {"// SCANNING FOR EARLY BREAKOUTS"}<span className="terminal-cursor" />
+        <div style={{ color: "var(--text-muted)", padding: "40px 0", textAlign: "center", fontSize: "12px" }}>
+          Scanning for early breakouts...
         </div>
       )}
 
       {error && (
         <div className="panel" style={{ border: "1px solid var(--pink)", textAlign: "center", marginBottom: "14px" }}>
-          <span style={{ fontFamily: "var(--font-mono)", color: "var(--pink)", fontSize: "12px" }}>
-            ✕ FAILED TO LOAD — backend may still be indexing
+          <span style={{ color: "var(--pink)", fontSize: "12px" }}>
+            ✕ Failed to load data — backend may still be indexing
           </span>
         </div>
       )}
@@ -290,7 +283,7 @@ export default function EarlyRadarPage() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px",
                     color: "var(--text-muted)" }}>trend: {repo.trend_score.toFixed(4)}</span>
-                  <SustainBadge label={repo.sustainability_label} />
+                  <StatusDot label={repo.sustainability_label} size="sm" />
                 </div>
               </div>
             );
@@ -299,9 +292,8 @@ export default function EarlyRadarPage() {
       )}
 
       {!isLoading && !error && repos.length === 0 && (
-        <div className="panel" style={{ textAlign: "center", padding: "60px 20px" }}>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--text-muted)",
-            letterSpacing: "0.08em" }}>{"// NO REPOS MATCHED - TRY LOOSENING FILTERS"}</div>
+        <div className="panel" style={{ textAlign: "center", padding: "64px 20px" }}>
+          <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>No repositories matched. Try loosening filters.</div>
         </div>
       )}
     </div>

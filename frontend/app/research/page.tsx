@@ -146,7 +146,7 @@ export default function ResearchListPage() {
 
 
       {/* Global Header */}
-      <div style={{
+      <div className="research-header" style={{
         height: "56px",
         background: C.bgCard,
         borderBottom: `1px solid ${C.border}`,

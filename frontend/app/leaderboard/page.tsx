@@ -5,8 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { formatCompactNumber } from "@/lib/utils";
 import { api, Period, CrossRepoContributor, ContributorRepoEntry } from "@/lib/api";
-import { NinjaRankPill } from "@/components/NinjaRankPill";
-import { TableSkeleton } from "@/components/DashboardSkeleton";
+import { StatusDot } from "@/components/ui/StatusDot";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 // B&W Theme Palette
 const C = {
@@ -468,7 +468,7 @@ function LeaderboardAndNetworkContent() {
 
           {/* Table */}
           {lbLoading ? (
-            <TableSkeleton />
+            <Skeleton shape="table" />
           ) : (
             <div className="panel table-scroll">
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -506,14 +506,14 @@ function LeaderboardAndNetworkContent() {
                         <td style={{ ...TD_STYLE, textAlign: "right", fontFamily: "var(--font-mono)", fontWeight: 700, color: C.green }}>
                           +{row.star_gain?.toLocaleString() ?? "0"}
                         </td>
-                        <td className="col-hide-mobile" style={{ ...TD_STYLE, textAlign: "right", fontFamily: "var(--font-mono)", color: C.amber }}>
+                        <td className="col-hide-mobile" style={{ ...TD_STYLE, textAlign: "right", fontFamily: "var(--font-mono)", color: C.text }}>
                           {row.trend_score?.toFixed(4) ?? "—"}
                         </td>
                         <td className="col-hide-mobile" style={{ ...TD_STYLE, textAlign: "right", fontFamily: "var(--font-mono)", color: C.text }}>
                           {row.sustainability_score ? `${(row.sustainability_score * 100).toFixed(0)}%` : "—"}
                         </td>
                         <td style={{ ...TD_STYLE, textAlign: "right", whiteSpace: "nowrap" }}>
-                          <NinjaRankPill label={row.sustainability_label} />
+                          <StatusDot label={row.sustainability_label} />
                         </td>
                       </tr>
                     );
@@ -678,7 +678,7 @@ function LeaderboardAndNetworkContent() {
           <div className={`network-grid${selectedLogin ? " has-selection" : ""}`}>
             {/* List */}
             {networkLoading ? (
-              <TableSkeleton />
+              <Skeleton shape="table" />
             ) : (
               <div className="panel table-scroll">
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
