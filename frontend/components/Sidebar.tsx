@@ -121,6 +121,8 @@ export function Sidebar() {
 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const [moreToolsMenuOpen, setMoreToolsMenuOpen] = useState(false);
+  const moreToolsMenuRef = useRef<HTMLDivElement>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   // Fetch unread alerts for dynamic radar badge
@@ -201,6 +203,21 @@ export function Sidebar() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [profileMenuOpen]);
+
+  // Click outside listener for more tools menu
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (moreToolsMenuRef.current && !moreToolsMenuRef.current.contains(e.target as Node)) {
+        setMoreToolsMenuOpen(false);
+      }
+    }
+    if (moreToolsMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [moreToolsMenuOpen]);
 
   // Whether a nav item is the active route (supports nested paths like /collections/xyz)
   const isNavActive = (href: string) =>
@@ -364,6 +381,196 @@ export function Sidebar() {
             </Link>
           );
         })}
+
+        {/* More Tools Dropdown and Trigger */}
+        <div ref={moreToolsMenuRef} style={{ position: "relative", width: "100%" }}>
+          <button
+            onClick={() => setMoreToolsMenuOpen(!moreToolsMenuOpen)}
+            className={`sidebar-nav-link ${moreToolsMenuOpen ? "active" : ""}`}
+            style={{
+              width: "100%",
+              border: "none",
+              background: moreToolsMenuOpen ? "rgba(255, 255, 255, 0.035)" : "transparent",
+              cursor: "pointer",
+              padding: collapsed && !isMobile ? "9px 0" : "9px 12px",
+              fontWeight: 400,
+              color: "var(--text-secondary)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: collapsed && !isMobile ? "center" : "flex-start",
+              transition: "background 0.15s, color 0.15s",
+            }}
+          >
+            <span style={{ display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", flexShrink: 0, width: "17px" }}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="4" y="4" width="6" height="6" rx="1" />
+                <rect x="14" y="4" width="6" height="6" rx="1" />
+                <rect x="4" y="14" width="6" height="6" rx="1" />
+                <polygon points="14 17 17 14 20 17 17 20" />
+              </svg>
+            </span>
+            <span className="sidebar-label" style={{ flex: 1, fontFamily: "var(--font-sans)", fontSize: "13px", letterSpacing: "0", textAlign: "left", marginLeft: collapsed && !isMobile ? "0" : "10px", display: collapsed && !isMobile ? "none" : "block" }}>More Tools</span>
+            {!collapsed && (
+              <span style={{ fontSize: "9px", color: "var(--text-muted)", marginRight: "4px" }}>
+                {moreToolsMenuOpen ? "▼" : "▶"}
+              </span>
+            )}
+            {collapsed && !isMobile && (
+              <span className="sidebar-tooltip">More Tools</span>
+            )}
+          </button>
+
+          {/* More Tools Dropdown Popup */}
+          {moreToolsMenuOpen && (
+            <div
+              style={{
+                position: "absolute",
+                bottom: collapsed && !isMobile ? "0px" : "auto",
+                top: collapsed && !isMobile ? "auto" : "calc(100% + 4px)",
+                left: collapsed && !isMobile ? "calc(100% + 8px)" : "0px",
+                right: collapsed && !isMobile ? "auto" : "0px",
+                minWidth: "180px",
+                background: "var(--bg-surface)",
+                border: "1px solid var(--border)",
+                borderRadius: "8px",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.45)",
+                zIndex: 200,
+                overflow: "hidden",
+                animation: "fadeSlideDown 0.15s ease",
+              }}
+            >
+              {/* Explore Link */}
+              <Link
+                href="/explore"
+                onClick={() => setMoreToolsMenuOpen(false)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  padding: "10px 14px",
+                  color: "var(--text-primary)",
+                  background: pathname === "/explore" ? "var(--bg-elevated)" : "transparent",
+                  textDecoration: "none",
+                  fontFamily: "var(--font-sans)",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  transition: "background 0.12s",
+                }}
+                onMouseEnter={(e) => { if (pathname !== "/explore") (e.currentTarget as HTMLElement).style.background = "var(--bg-elevated)"; }}
+                onMouseLeave={(e) => { if (pathname !== "/explore") (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+              >
+                <span style={{ display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
+                  {ExploreIcon}
+                </span>
+                Explore
+              </Link>
+
+              {/* Topics Link */}
+              <Link
+                href="/topics"
+                onClick={() => setMoreToolsMenuOpen(false)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  padding: "10px 14px",
+                  color: "var(--text-primary)",
+                  background: pathname === "/topics" ? "var(--bg-elevated)" : "transparent",
+                  textDecoration: "none",
+                  fontFamily: "var(--font-sans)",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  transition: "background 0.12s",
+                }}
+                onMouseEnter={(e) => { if (pathname !== "/topics") (e.currentTarget as HTMLElement).style.background = "var(--bg-elevated)"; }}
+                onMouseLeave={(e) => { if (pathname !== "/topics") (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+              >
+                <span style={{ display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
+                  {TopicsIcon}
+                </span>
+                Topics
+              </Link>
+
+              {/* Org Scanner Link */}
+              <Link
+                href="/orgs"
+                onClick={() => setMoreToolsMenuOpen(false)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  padding: "10px 14px",
+                  color: "var(--text-primary)",
+                  background: pathname === "/orgs" ? "var(--bg-elevated)" : "transparent",
+                  textDecoration: "none",
+                  fontFamily: "var(--font-sans)",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  transition: "background 0.12s",
+                }}
+                onMouseEnter={(e) => { if (pathname !== "/orgs") (e.currentTarget as HTMLElement).style.background = "var(--bg-elevated)"; }}
+                onMouseLeave={(e) => { if (pathname !== "/orgs") (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+              >
+                <span style={{ display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
+                  {OrgHealthIcon}
+                </span>
+                Org Scanner
+              </Link>
+
+              {/* WeeklySnapshots Link */}
+              <Link
+                href="/weekly"
+                onClick={() => setMoreToolsMenuOpen(false)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  padding: "10px 14px",
+                  color: "var(--text-primary)",
+                  background: pathname === "/weekly" ? "var(--bg-elevated)" : "transparent",
+                  textDecoration: "none",
+                  fontFamily: "var(--font-sans)",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  transition: "background 0.12s",
+                }}
+                onMouseEnter={(e) => { if (pathname !== "/weekly") (e.currentTarget as HTMLElement).style.background = "var(--bg-elevated)"; }}
+                onMouseLeave={(e) => { if (pathname !== "/weekly") (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+              >
+                <span style={{ display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
+                  {WeeklyIcon}
+                </span>
+                Weekly Digests
+              </Link>
+
+              {/* Collections Link */}
+              <Link
+                href="/collections"
+                onClick={() => setMoreToolsMenuOpen(false)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  padding: "10px 14px",
+                  color: "var(--text-primary)",
+                  background: pathname === "/collections" ? "var(--bg-elevated)" : "transparent",
+                  textDecoration: "none",
+                  fontFamily: "var(--font-sans)",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  transition: "background 0.12s",
+                }}
+                onMouseEnter={(e) => { if (pathname !== "/collections") (e.currentTarget as HTMLElement).style.background = "var(--bg-elevated)"; }}
+                onMouseLeave={(e) => { if (pathname !== "/collections") (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+              >
+                <span style={{ display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
+                  {CollectionsIcon}
+                </span>
+                Collections
+              </Link>
+            </div>
+          )}
+        </div>
       </nav>
 
       {/* Footer Profile Card */}
