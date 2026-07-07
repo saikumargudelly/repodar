@@ -449,11 +449,15 @@ def generate_deep_summary(
         {"role": "system", "content": DEEP_SUMMARY_SYSTEM},
         {"role": "user", "content": prompt},
     ]
-    raw = sync_chat_completion(
-        messages=messages,
-        temperature=0.3,
-        max_tokens=700,
-    )
+    try:
+        raw = sync_chat_completion(
+            messages=messages,
+            temperature=0.3,
+            max_tokens=700,
+        )
+    except Exception as e:
+        logger.warning(f"Deep summary LLM call failed for {owner}/{repo_name}, using fallback: {e}")
+        return fallback
     if not raw:
         return fallback
     try:

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { api, EarlyRadarRepo } from "@/lib/api";
@@ -25,6 +25,21 @@ export default function EarlyRadarPage() {
   const [maxAge, setMaxAge] = useState(90);
   const [maxStars, setMaxStars] = useState(1000);
   const [minAccel, setMinAccel] = useState(0);
+
+  // Debounced parameters
+  const [debouncedMaxAge, setDebouncedMaxAge] = useState(90);
+  const [debouncedMaxStars, setDebouncedMaxStars] = useState(1000);
+  const [debouncedMinAccel, setDebouncedMinAccel] = useState(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedMaxAge(maxAge);
+      setDebouncedMaxStars(maxStars);
+      setDebouncedMinAccel(minAccel);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [maxAge, maxStars, minAccel]);
+
   const [category, setCategory] = useState("All");
   const [sortBy, setSortBy] = useState<
     "breakout_score" | "acceleration" | "star_velocity_7d" | "velocity_ratio" | "novelty_score" | "trend_score"
@@ -34,12 +49,12 @@ export default function EarlyRadarPage() {
   const [showFilters, setShowFilters] = useState(false);
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["early-radar", maxAge, maxStars, minAccel, category, sortBy, momentumStage, preViralOnly],
+    queryKey: ["early-radar", debouncedMaxAge, debouncedMaxStars, debouncedMinAccel, category, sortBy, momentumStage, preViralOnly],
     queryFn: () =>
       api.getEarlyRadar({
-        max_age_days: maxAge,
-        max_stars: maxStars,
-        min_acceleration: minAccel,
+        max_age_days: debouncedMaxAge,
+        max_stars: debouncedMaxStars,
+        min_acceleration: debouncedMinAccel,
         category: category !== "All" ? category : undefined,
         sort_by: sortBy,
         momentum_stage: momentumStage !== "all" ? momentumStage : undefined,

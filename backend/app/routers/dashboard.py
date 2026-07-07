@@ -635,8 +635,28 @@ def get_overview(db: Session = Depends(get_db)):
     )
 
 
+def _radar_cache_key_builder(
+    func: Callable,
+    namespace: str = "",
+    *,
+    request = None,
+    response = None,
+    args: Optional[tuple] = None,
+    kwargs: Optional[dict] = None,
+) -> str:
+    del func, request, response, args
+    kwargs = kwargs or {}
+    new_only = kwargs.get("new_only", False)
+    category = kwargs.get("category") or "All"
+    vertical = kwargs.get("vertical") or "None"
+    sort_by = kwargs.get("sort_by", "trend_score")
+    sort_dir = kwargs.get("sort_dir", "desc")
+    limit = kwargs.get("limit", 50)
+    return f"{namespace}:radar:{new_only}:{category}:{vertical}:{sort_by}:{sort_dir}:{limit}"
+
+
 @router.get("/radar", response_model=List[RadarRepo])
-@cache(expire=300, namespace="dashboard")
+@cache(expire=300, namespace="dashboard", key_builder=_radar_cache_key_builder)
 async def get_breakout_radar(
     new_only: bool = Query(False, description="Only repos younger than 180 days"),
     category: Optional[str] = Query(None, description="Filter by category"),
@@ -785,8 +805,44 @@ def _map_to_early_category(db_cat: str) -> str:
     return "model_training"
 
 
+def _early_radar_cache_key_builder(
+    func: Callable,
+    namespace: str = "",
+    *,
+    request = None,
+    response = None,
+    args: Optional[tuple] = None,
+    kwargs: Optional[dict] = None,
+) -> str:
+    del func, request, response, args
+    kwargs = kwargs or {}
+    params = [
+        str(kwargs.get("max_age_days", 180)),
+        str(kwargs.get("min_age_days", 3)),
+        str(kwargs.get("max_stars", 50000)),
+        str(kwargs.get("min_stars", 10)),
+        str(kwargs.get("min_acceleration", 0.0)),
+        str(kwargs.get("min_star_velocity_7d", 0.0)),
+        str(kwargs.get("min_velocity_ratio", 0.0)),
+        str(kwargs.get("min_breakout_score", 0.0)),
+        str(kwargs.get("min_sustainability_score", 0.0)),
+        str(kwargs.get("require_contributor_growth", False)),
+        str(kwargs.get("require_fork_momentum", False)),
+        str(kwargs.get("require_sustained_velocity", False)),
+        str(kwargs.get("require_consistent_growth", False)),
+        str(kwargs.get("category") or "None"),
+        str(kwargs.get("language") or "None"),
+        str(kwargs.get("topics") or "None"),
+        str(kwargs.get("momentum_stage") or "None"),
+        str(kwargs.get("require_pre_viral", False)),
+        str(kwargs.get("sort_by", "breakout_score")),
+        str(kwargs.get("limit", 50)),
+    ]
+    return f"{namespace}:early-radar:{':'.join(params)}"
+
+
 @router.get("/early-radar", response_model=List[EarlyRadarRepo])
-@cache(expire=300, namespace="dashboard")
+@cache(expire=300, namespace="dashboard", key_builder=_early_radar_cache_key_builder)
 async def get_early_radar(
     max_age_days: int = Query(
         180,

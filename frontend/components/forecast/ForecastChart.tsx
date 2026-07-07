@@ -45,7 +45,18 @@ export function ForecastChart({ owner, name }: Props) {
   const labelClass = growthLabelColors[forecast.growth_label] ?? "text-space-300 bg-space-800";
 
   return (
-    <div className="panel card-pad">
+    <div
+      className="panel card-pad"
+      style={{
+        background: "rgba(38, 37, 36, 0.2)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        border: "1px solid var(--border)",
+        borderRadius: "8px",
+        padding: "16px 20px",
+        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+      }}
+    >
       <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>

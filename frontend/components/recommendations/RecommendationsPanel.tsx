@@ -35,7 +35,18 @@ export function RecommendationsPanel({ repoOwner, repoName }: Props) {
   if (!recommendations || recommendations.length === 0) return null;
 
   return (
-    <div className="panel card-pad">
+    <div 
+      className="panel card-pad"
+      style={{
+        background: "rgba(38, 37, 36, 0.2)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        border: "1px solid var(--border)",
+        borderRadius: "8px",
+        padding: "16px 20px",
+        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)"
+      }}
+    >
       <div className="panel-header" style={{ borderBottom: "none", padding: "0 0 16px 0", marginBottom: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span className="panel-title" style={{ fontSize: "14px", fontWeight: 600 }}>
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ marginRight: "6px", display: "inline-block", verticalAlign: "middle" }}><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>

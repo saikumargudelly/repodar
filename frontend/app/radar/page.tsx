@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
@@ -62,6 +62,20 @@ export default function RadarPage() {
   const [maxStars, setMaxStars] = useState(50000);
   const [minAccel, setMinAccel] = useState(0);
 
+  // Debounced parameters
+  const [debouncedMaxAge, setDebouncedMaxAge] = useState(180);
+  const [debouncedMaxStars, setDebouncedMaxStars] = useState(50000);
+  const [debouncedMinAccel, setDebouncedMinAccel] = useState(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedMaxAge(maxAge);
+      setDebouncedMaxStars(maxStars);
+      setDebouncedMinAccel(minAccel);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [maxAge, maxStars, minAccel]);
+
   // Queries
   const { data: radarData, isLoading: radarLoading } = useQuery({
     queryKey: ["radar-established"],
@@ -70,11 +84,11 @@ export default function RadarPage() {
   });
 
   const { data: earlyData, isLoading: earlyLoading } = useQuery({
-    queryKey: ["radar-early-unified", maxAge, maxStars, minAccel],
+    queryKey: ["radar-early-unified", debouncedMaxAge, debouncedMaxStars, debouncedMinAccel],
     queryFn: () => api.getEarlyRadar({
-      max_age_days: maxAge,
-      max_stars: maxStars,
-      min_acceleration: minAccel,
+      max_age_days: debouncedMaxAge,
+      max_stars: debouncedMaxStars,
+      min_acceleration: debouncedMinAccel,
       limit: 100,
     }),
     staleTime: 5 * 60 * 1000,
