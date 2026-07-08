@@ -20,7 +20,7 @@ export function UseCasesCard({ useCases }: UseCasesCardProps) {
         borderRadius: "8px",
         padding: "16px 20px",
         boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-        height: "100%"
+        flex: 1
       }}
     >
       <div style={{ borderBottom: "none", padding: "0 0 12px 0", marginBottom: 0 }}>
