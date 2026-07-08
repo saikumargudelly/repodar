@@ -171,7 +171,7 @@ export default function RepoDeepDive() {
   const repoName = repo?.name || (repoId.split("/").slice(1).join("/") ?? "");
   
   const { data: deepSummary, isLoading: deepLoading } = useQuery<DeepSummary>({
-    queryKey: ["deep-summary", repoId],
+    queryKey: ["deep-summary", repoId, owner, repoName],
     queryFn: () => api.getDeepSummary(owner, repoName),
     enabled: !!repoId && !!owner && !!repoName,
     staleTime: 1000 * 60 * 30, // 30 min cache
