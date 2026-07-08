@@ -167,8 +167,8 @@ export default function RepoDeepDive() {
     enabled: !!repoId,
   });
 
-  const owner = repoId.split("/")[0] ?? "";
-  const repoName = repoId.split("/").slice(1).join("/") ?? "";
+  const owner = repo?.owner || (repoId.split("/")[0] ?? "");
+  const repoName = repo?.name || (repoId.split("/").slice(1).join("/") ?? "");
   
   const { data: deepSummary, isLoading: deepLoading } = useQuery<DeepSummary>({
     queryKey: ["deep-summary", repoId],
@@ -226,10 +226,9 @@ export default function RepoDeepDive() {
 
   useEffect(() => {
     if (!repo || repo.category !== "untracked" || deltaRunState !== "idle") return;
-    const parts = repoId.split("/");
-    if (parts.length < 2) return;
-    const [runOwner, ...rest] = parts;
-    const runName = rest.join("/");
+    const runOwner = repo.owner || (repoId.split("/")[0] ?? "");
+    const runName = repo.name || (repoId.split("/").slice(1).join("/") ?? "");
+    if (!runOwner || !runName) return;
     setDeltaRunState("running");
     api.deltaRun(runOwner, runName)
       .then(() => {
