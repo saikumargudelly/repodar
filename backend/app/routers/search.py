@@ -25,7 +25,7 @@ from app.utils.db import get_latest_metric_subquery, get_latest_daily_metric_sub
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/search", tags=["Search"])
 
-from app.utils.llm import sync_chat_completion, GROQ_API_KEY
+from app.utils.llm import sync_chat_completion, async_chat_completion, GROQ_API_KEY
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 
 _GITHUB_HEADERS = {
@@ -165,7 +165,7 @@ Query: "Godot or Bevy game engine tools"
 
 # ─── LLM query parser ────────────────────────────────────────────────────────
 
-def _parse_query(query: str) -> Optional[dict]:
+async def _parse_query(query: str) -> Optional[dict]:
     """Use Groq LLM to parse a natural language query into structured filters."""
     if not GROQ_API_KEY:
         return None
@@ -174,7 +174,7 @@ def _parse_query(query: str) -> Optional[dict]:
             {"role": "system", "content": _PARSE_SYSTEM},
             {"role": "user",   "content": query},
         ]
-        raw = sync_chat_completion(
+        raw = await async_chat_completion(
             messages=messages,
             temperature=0.1,
             max_tokens=400,
@@ -536,9 +536,9 @@ def _sanitize(parsed: dict) -> dict:
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
 @router.post("/parse", response_model=ParsedFilters)
-def parse_query(query: str = Query(..., description="Natural language query")):
+async def parse_query(query: str = Query(..., description="Natural language query")):
     """Parse a natural language query into structured filters (does NOT run search)."""
-    parsed = _parse_query(query)
+    parsed = await _parse_query(query)
     if not parsed:
         parsed = _keyword_fallback_parse(query)
     else:
@@ -565,7 +565,7 @@ async def natural_language_search(
     from app.models import Repository, ComputedMetric, DailyMetric
 
     # ── 1. Parse query ────────────────────────────────────────────────────────
-    parsed = _parse_query(query)
+    parsed = await _parse_query(query)
     if parsed:
         _sanitize(parsed)
     else:
@@ -627,7 +627,7 @@ async def natural_language_search(
             repo_q = repo_q.filter(or_(*kw_conds))
 
         # Execute single optimized query
-        rows = repo_q.all()
+        rows = await asyncio.to_thread(repo_q.all)
 
         for repo, ts, accel, vel7, sust_score, sust_label, dm_stars in rows:
             stars = dm_stars or 0

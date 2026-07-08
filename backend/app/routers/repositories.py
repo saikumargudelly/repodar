@@ -444,7 +444,7 @@ async def get_deep_summary(
     repo_id = f"{owner}/{name}"
 
     # Get basic repo info from DB or GitHub
-    repo = db.query(Repository).filter_by(id=repo_id).first()
+    repo = await asyncio.to_thread(db.query(Repository).filter_by(id=repo_id).first)
     description = repo.description if repo else None
     primary_language = repo.primary_language if repo else None
     topics_str = repo.topics if repo else None
@@ -536,7 +536,7 @@ async def get_deep_summary(
 
     # Generate deep summary via LLM
     from app.services.explanation import generate_deep_summary
-    analysis = generate_deep_summary(
+    analysis = await generate_deep_summary(
         owner=owner,
         repo_name=name,
         description=description,

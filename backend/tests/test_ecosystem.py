@@ -72,7 +72,7 @@ async def test_relationship_graph_engine(db_session):
     db_session.commit()
 
     # Trigger relationship building
-    result = await RelationshipGraphEngine.build_relationships(repo_pivot, db_session)
+    result = RelationshipGraphEngine.build_relationships(repo_pivot, db_session)
     assert "categories" in result
     assert "relationships" in result
 

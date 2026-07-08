@@ -8,7 +8,7 @@ import logging
 from typing import Optional
 
 from dotenv import load_dotenv
-from app.utils.llm import sync_chat_completion, GROQ_API_KEY
+from app.utils.llm import sync_chat_completion, async_chat_completion, GROQ_API_KEY
 
 load_dotenv()
 
@@ -402,7 +402,7 @@ Derive the tech stack from languages used, tags, description, and dependency lis
 Output ONLY the JSON object. Do not include markdown code fences (```json ... ```)."""
 
 
-def generate_deep_summary(
+async def generate_deep_summary(
     owner: str,
     repo_name: str,
     description: Optional[str],
@@ -450,7 +450,7 @@ def generate_deep_summary(
         {"role": "user", "content": prompt},
     ]
     try:
-        raw = sync_chat_completion(
+        raw = await async_chat_completion(
             messages=messages,
             temperature=0.3,
             max_tokens=700,

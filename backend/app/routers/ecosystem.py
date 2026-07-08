@@ -4,6 +4,7 @@ Exposes endpoints for ecosystem mapping, alternatives, and companion technologie
 """
 
 import json
+import asyncio
 import logging
 from typing import Optional, List, Dict, Any
 
@@ -42,7 +43,7 @@ def _find_repo_by_ref(ref: str, db: Session) -> Repository:
     return r
 
 
-async def _ensure_ecosystem_cached(repo: Repository, db: Session) -> Dict[str, Any]:
+def _ensure_ecosystem_cached(repo: Repository, db: Session) -> Dict[str, Any]:
     """Ensures that classification and relationship maps are cached in the DB."""
     if not repo.categories or not repo.ecosystem_data_json:
         logger.info(f"Ecosystem cache miss for {repo.owner}/{repo.name} — classifying now...")
@@ -52,7 +53,7 @@ async def _ensure_ecosystem_cached(repo: Repository, db: Session) -> Dict[str, A
         repo.categories = categories
 
         # 2. Build relationship graph
-        graph = await RelationshipGraphEngine.build_relationships(repo, db)
+        graph = RelationshipGraphEngine.build_relationships(repo, db)
         
         # Cache to database JSONB columns
         repo.ecosystem_data_json = {
@@ -68,7 +69,7 @@ async def _ensure_ecosystem_cached(repo: Repository, db: Session) -> Dict[str, A
 
 
 @router.get("/ecosystem/{repo:path}")
-async def get_ecosystem_map(
+def get_ecosystem_map(
     repo: str = Path(..., description="Repository full name (owner/name) or ID"),
     db: Session = Depends(get_db)
 ):
@@ -76,7 +77,7 @@ async def get_ecosystem_map(
     Get the technology classification, relationship links, and strength score.
     """
     r = _find_repo_by_ref(repo, db)
-    cache_data = await _ensure_ecosystem_cached(r, db)
+    cache_data = _ensure_ecosystem_cached(r, db)
 
     primary_category = r.category or (cache_data["categories"][0] if cache_data["categories"] else "OSS Tools")
     strength = EcosystemStrengthScorer.calculate_category_strength(primary_category, db)
@@ -92,7 +93,7 @@ async def get_ecosystem_map(
 
 
 @router.get("/alternatives/{repo:path}")
-async def get_repo_alternatives(
+def get_repo_alternatives(
     repo: str = Path(..., description="Repository full name (owner/name) or ID"),
     db: Session = Depends(get_db)
 ):
@@ -100,7 +101,7 @@ async def get_repo_alternatives(
     Find direct alternatives and emerging competitors ranked by Jaccard similarity and Confidence Score.
     """
     r = _find_repo_by_ref(repo, db)
-    cache_data = await _ensure_ecosystem_cached(r, db)
+    cache_data = _ensure_ecosystem_cached(r, db)
 
     # Filter alternatives
     alternatives = [
@@ -112,7 +113,7 @@ async def get_repo_alternatives(
 
 
 @router.get("/related-technologies/{repo:path}")
-async def get_related_technologies(
+def get_related_technologies(
     repo: str = Path(..., description="Repository full name (owner/name) or ID"),
     db: Session = Depends(get_db)
 ):
@@ -120,7 +121,7 @@ async def get_related_technologies(
     Find companion technologies and popular stack combinations.
     """
     r = _find_repo_by_ref(repo, db)
-    cache_data = await _ensure_ecosystem_cached(r, db)
+    cache_data = _ensure_ecosystem_cached(r, db)
 
     # Filter companions
     companions = [
@@ -139,8 +140,8 @@ async def generate_ecosystem_brief(
     """
     Generate an Ecosystem Research Brief.
     """
-    r = _find_repo_by_ref(repo, db)
-    await _ensure_ecosystem_cached(r, db)
+    r = await asyncio.to_thread(_find_repo_by_ref, repo, db)
+    await asyncio.to_thread(_ensure_ecosystem_cached, r, db)
     report_md = await EcosystemReportGenerator.generate_report(r, db)
 
     return {"content_md": report_md}

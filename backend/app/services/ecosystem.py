@@ -5,6 +5,7 @@ category-level strength scoring, and ecosystem report generation.
 """
 
 import json
+import asyncio
 import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
@@ -162,7 +163,7 @@ class RelationshipGraphEngine:
         return features
 
     @classmethod
-    async def build_relationships(cls, pivot: Repository, db: Session) -> Dict[str, Any]:
+    def build_relationships(cls, pivot: Repository, db: Session) -> Dict[str, Any]:
         """Build relationships deterministically using metadata (Jaccard similarity + Categories)."""
         pivot_categories = pivot.categories or EcosystemClassifier.classify_repo(pivot)
         pivot_features = cls._build_feature_set(pivot)
@@ -334,10 +335,10 @@ class EcosystemReportGenerator:
         """Call Groq to enrich and summarize ecosystem-level metrics into a Markdown brief."""
         categories = repo.categories or EcosystemClassifier.classify_repo(repo)
         primary_category = repo.category or (categories[0] if categories else "OSS Tools")
-        strength = EcosystemStrengthScorer.calculate_category_strength(primary_category, db)
+        strength = await asyncio.to_thread(EcosystemStrengthScorer.calculate_category_strength, primary_category, db)
 
         # Retrieve alternatives and companions
-        rels = await RelationshipGraphEngine.build_relationships(repo, db)
+        rels = await asyncio.to_thread(RelationshipGraphEngine.build_relationships, repo, db)
         alternatives = [r for r in rels["relationships"] if r["relationship"] == "alternative"][:4]
         companions = [r for r in rels["relationships"] if r["relationship"] == "companion"][:4]
 
