@@ -454,6 +454,7 @@ async def generate_deep_summary(
             messages=messages,
             temperature=0.3,
             max_tokens=700,
+            response_format={"type": "json_object"},
         )
     except Exception as e:
         logger.warning(f"Deep summary LLM call failed for {owner}/{repo_name}, using fallback: {e}")

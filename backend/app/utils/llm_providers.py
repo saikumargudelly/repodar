@@ -11,18 +11,59 @@ logger = logging.getLogger(__name__)
 # Configurable timeouts
 TIMEOUT_SECONDS = 20.0
 
-# API Keys and endpoints
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
-CEREBRAS_API_KEY = os.getenv("CEREBRAS_API_KEY", "").strip()
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
+# API Keys and endpoints (initialized to None to support dynamic env loading and test mocking)
+GEMINI_API_KEY = None
+CEREBRAS_API_KEY = None
+GROQ_API_KEY = None
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
-CEREBRAS_MODEL = os.getenv("CEREBRAS_MODEL", "llama3.1-70b").strip()
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
+GEMINI_MODEL = None
+CEREBRAS_MODEL = None
+GROQ_MODEL = None
+
+def _get_gemini_key() -> str:
+    val = globals().get("GEMINI_API_KEY")
+    if val is None:
+        return os.getenv("GEMINI_API_KEY", "").strip()
+    return val
+
+def _get_gemini_model() -> str:
+    val = globals().get("GEMINI_MODEL")
+    if val is None:
+        return os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
+    return val
+
+def _get_cerebras_key() -> str:
+    val = globals().get("CEREBRAS_API_KEY")
+    if val is None:
+        return os.getenv("CEREBRAS_API_KEY", "").strip()
+    return val
+
+def _get_cerebras_model() -> str:
+    val = globals().get("CEREBRAS_MODEL")
+    if val is None:
+        return os.getenv("CEREBRAS_MODEL", "llama3.1-70b").strip()
+    return val
+
+def _get_groq_key() -> str:
+    val = globals().get("GROQ_API_KEY")
+    if val is None:
+        return os.getenv("GROQ_API_KEY", "").strip()
+    return val
+
+def _get_groq_model() -> str:
+    val = globals().get("GROQ_MODEL")
+    if val is None:
+        return os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
+    return val
 
 # Shared HTTP Clients for connection pooling
 _async_client = httpx.AsyncClient(timeout=TIMEOUT_SECONDS)
 _sync_client = httpx.Client(timeout=TIMEOUT_SECONDS)
+
+
+class FormatValidationError(ValueError):
+    """Raised when the LLM response does not match the expected format (e.g. invalid JSON)."""
+    pass
 
 
 class BaseLLMProvider(ABC):
@@ -62,7 +103,7 @@ class GeminiProvider(BaseLLMProvider):
         return "Gemini"
 
     def is_configured(self) -> bool:
-        return bool(GEMINI_API_KEY)
+        return bool(_get_gemini_key())
 
     def _prepare_request(
         self,
@@ -85,6 +126,7 @@ class GeminiProvider(BaseLLMProvider):
                     "parts": [{"text": content}]
                 })
 
+        model = _get_gemini_model()
         body = {
             "contents": contents,
             "generationConfig": {
@@ -98,6 +140,12 @@ class GeminiProvider(BaseLLMProvider):
             }
         if response_format and response_format.get("type") == "json_object":
             body["generationConfig"]["responseMimeType"] = "application/json"
+
+        # Disable thinking budget for Gemini 2.5 reasoning models to prevent truncated outputs
+        if "2.5" in model:
+            body["generationConfig"]["thinkingConfig"] = {
+                "thinkingBudget": 0
+            }
 
         return body
 
@@ -121,7 +169,9 @@ class GeminiProvider(BaseLLMProvider):
         max_tokens: int = 800,
         response_format: Optional[Dict[str, str]] = None,
     ) -> str:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+        api_key = _get_gemini_key()
+        model = _get_gemini_model()
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
         body = self._prepare_request(messages, temperature, max_tokens, response_format)
         
         response = await _async_client.post(url, json=body)
@@ -135,7 +185,9 @@ class GeminiProvider(BaseLLMProvider):
         max_tokens: int = 800,
         response_format: Optional[Dict[str, str]] = None,
     ) -> str:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+        api_key = _get_gemini_key()
+        model = _get_gemini_model()
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
         body = self._prepare_request(messages, temperature, max_tokens, response_format)
         
         response = _sync_client.post(url, json=body)
@@ -149,7 +201,7 @@ class CerebrasProvider(BaseLLMProvider):
         return "Cerebras"
 
     def is_configured(self) -> bool:
-        return bool(CEREBRAS_API_KEY)
+        return bool(_get_cerebras_key())
 
     def _prepare_request(
         self,
@@ -158,8 +210,9 @@ class CerebrasProvider(BaseLLMProvider):
         max_tokens: int,
         response_format: Optional[Dict[str, str]],
     ) -> Dict[str, Any]:
+        model = _get_cerebras_model()
         body = {
-            "model": CEREBRAS_MODEL,
+            "model": model,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
@@ -182,8 +235,9 @@ class CerebrasProvider(BaseLLMProvider):
         response_format: Optional[Dict[str, str]] = None,
     ) -> str:
         url = "https://api.cerebras.ai/v1/chat/completions"
+        api_key = _get_cerebras_key()
         headers = {
-            "Authorization": f"Bearer {CEREBRAS_API_KEY}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
         body = self._prepare_request(messages, temperature, max_tokens, response_format)
@@ -200,8 +254,9 @@ class CerebrasProvider(BaseLLMProvider):
         response_format: Optional[Dict[str, str]] = None,
     ) -> str:
         url = "https://api.cerebras.ai/v1/chat/completions"
+        api_key = _get_cerebras_key()
         headers = {
-            "Authorization": f"Bearer {CEREBRAS_API_KEY}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
         body = self._prepare_request(messages, temperature, max_tokens, response_format)
@@ -217,7 +272,7 @@ class GroqProvider(BaseLLMProvider):
         return "Groq"
 
     def is_configured(self) -> bool:
-        return bool(GROQ_API_KEY)
+        return bool(_get_groq_key())
 
     def _prepare_request(
         self,
@@ -226,8 +281,9 @@ class GroqProvider(BaseLLMProvider):
         max_tokens: int,
         response_format: Optional[Dict[str, str]],
     ) -> Dict[str, Any]:
+        model = _get_groq_model()
         body = {
-            "model": GROQ_MODEL,
+            "model": model,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
@@ -250,8 +306,9 @@ class GroqProvider(BaseLLMProvider):
         response_format: Optional[Dict[str, str]] = None,
     ) -> str:
         url = "https://api.groq.com/openai/v1/chat/completions"
+        api_key = _get_groq_key()
         headers = {
-            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
         body = self._prepare_request(messages, temperature, max_tokens, response_format)
@@ -268,8 +325,9 @@ class GroqProvider(BaseLLMProvider):
         response_format: Optional[Dict[str, str]] = None,
     ) -> str:
         url = "https://api.groq.com/openai/v1/chat/completions"
+        api_key = _get_groq_key()
         headers = {
-            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
         body = self._prepare_request(messages, temperature, max_tokens, response_format)
@@ -310,6 +368,8 @@ def is_transient_error(exc: Exception) -> bool:
         status_code = exc.response.status_code
         # HTTP 429 and 5xx are transient
         return status_code == 429 or status_code >= 500
+    if isinstance(exc, FormatValidationError):
+        return True
     return False
 
 
@@ -339,6 +399,20 @@ async def execute_with_retry_async(
                 max_tokens=max_tokens,
                 response_format=response_format,
             )
+            
+            # Format validation
+            if response_format and response_format.get("type") == "json_object":
+                try:
+                    import json
+                    text_to_parse = res.strip()
+                    if text_to_parse.startswith("```"):
+                        text_to_parse = text_to_parse.split("```")[1]
+                        if text_to_parse.startswith("json"):
+                            text_to_parse = text_to_parse[4:]
+                    json.loads(text_to_parse)
+                except Exception as json_err:
+                    raise FormatValidationError(f"Invalid JSON returned: {json_err}") from json_err
+
             duration_ms = int((time.perf_counter() - start_time) * 1000)
             logger.info(f"{provider.name} -> Success ({duration_ms} ms)")
             return res
@@ -374,6 +448,20 @@ def execute_with_retry_sync(
                 max_tokens=max_tokens,
                 response_format=response_format,
             )
+            
+            # Format validation
+            if response_format and response_format.get("type") == "json_object":
+                try:
+                    import json
+                    text_to_parse = res.strip()
+                    if text_to_parse.startswith("```"):
+                        text_to_parse = text_to_parse.split("```")[1]
+                        if text_to_parse.startswith("json"):
+                            text_to_parse = text_to_parse[4:]
+                    json.loads(text_to_parse)
+                except Exception as json_err:
+                    raise FormatValidationError(f"Invalid JSON returned: {json_err}") from json_err
+
             duration_ms = int((time.perf_counter() - start_time) * 1000)
             logger.info(f"{provider.name} -> Success ({duration_ms} ms)")
             return res
