@@ -979,3 +979,9 @@ def get_runtime_health(db: Session = Depends(get_db)):
         "system": system_info,
         "process": process_info
     }
+
+
+@router.get("/metrics")
+def get_metrics():
+    from app.metrics import BackendMetrics
+    return BackendMetrics.get_summary()

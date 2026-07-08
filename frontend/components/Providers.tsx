@@ -47,7 +47,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
           queries: {
             staleTime: 5 * 60 * 1000,
             refetchOnWindowFocus: false,
-            retry: 1,
+            retry: (failureCount, error: any) => {
+              const errMsg = error?.message ?? "";
+              if (errMsg.includes("API 401") || errMsg.includes("API 422") || errMsg.includes("Authentication token")) {
+                return false;
+              }
+              return failureCount < 2;
+            },
+            retryDelay: (attemptIndex) => Math.min(1000 * Math.pow(2, attemptIndex), 30000),
           },
         },
       })

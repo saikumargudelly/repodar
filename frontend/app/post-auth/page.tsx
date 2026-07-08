@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
+import { useAuthSession } from "@/lib/useAuthSession";
 import { api } from "@/lib/api";
 import { ProfessionalLoader } from "@/components/ProfessionalLoader";
 
@@ -11,7 +11,7 @@ type SetupStage = "auth" | "keys" | "onboarding" | "complete";
 
 export default function PostAuthPage() {
   const router = useRouter();
-  const { isLoaded, userId, isSignedIn } = useAuth();
+  const { isLoaded, userId, isSignedIn, token, isReady } = useAuthSession();
   const started = useRef(false);
   const [stage, setStage] = useState<SetupStage>("auth");
 
@@ -21,6 +21,7 @@ export default function PostAuthPage() {
       router.replace("/sign-in");
       return;
     }
+    if (!isReady || !token) return; // Wait until token is fully ready
     started.current = true;
 
     (async () => {
@@ -30,7 +31,7 @@ export default function PostAuthPage() {
         
         // Ensure the user has an API key provisioned
         try {
-          await api.ensureApiKey(userId);
+          await api.ensureApiKey(token);
         } catch (error) {
           console.warn("Unable to ensure default API key:", error);
         }
@@ -40,7 +41,7 @@ export default function PostAuthPage() {
 
         // Determine if onboarding is complete
         try {
-          const status = await api.getOnboardingStatus(userId);
+          const status = await api.getOnboardingStatus(token);
           setStage("complete");
           if (status.onboarding_completed) {
             router.replace("/overview");
@@ -59,7 +60,7 @@ export default function PostAuthPage() {
         router.replace("/overview");
       }
     })();
-  }, [isLoaded, isSignedIn, router, userId]);
+  }, [isLoaded, isSignedIn, isReady, token, router, userId]);
 
   return (
     <div style={{

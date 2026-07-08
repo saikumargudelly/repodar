@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
+import { useAuthSession } from "@/lib/useAuthSession";
 import { api, DigestFrequency } from "@/lib/api";
 import { Skeleton } from "@/components/ui/Skeleton";
 
@@ -38,7 +39,8 @@ const VERTICAL_METADATA: Record<string, { element: string; color: string; shadow
 export default function OnboardingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isLoaded, userId, getToken } = useAuth();
+  const { isLoaded, userId, token, isReady } = useAuthSession();
+  const getToken = async () => token;
   const { user } = useUser();
 
 
@@ -60,15 +62,11 @@ export default function OnboardingPage() {
       router.replace("/sign-in");
       return;
     }
+    if (!isReady || !token) return;
 
     let cancelled = false;
     (async () => {
       try {
-        const token = await getToken();
-        if (!token) {
-          if (!cancelled) setError("Authentication token missing. Please sign in again.");
-          return;
-        }
 
         const resetRequested = searchParams.get("reset") === "true";
         if (resetRequested) {
@@ -119,7 +117,7 @@ export default function OnboardingPage() {
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, router, user?.primaryEmailAddress?.emailAddress, userId, searchParams, getToken]);
+  }, [isLoaded, isReady, token, router, user?.primaryEmailAddress?.emailAddress, userId, searchParams]);
 
   const progressIndex = STEP_ORDER.indexOf(step);
 

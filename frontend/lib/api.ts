@@ -3,14 +3,36 @@
  * Uses NEXT_PUBLIC_API_URL from .env.local.
  */
 
+import {
+  recordAuthFailure,
+  recordValidationFailure,
+  recordDuplicateRequest,
+  recordNetworkError,
+  recordLatency
+} from "./metrics";
+
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes client-side session cache
 
+const activeRequests = new Map<string, Promise<any>>();
+
 async function apiFetch<T>(path: string, options?: RequestInit, retries = 3): Promise<T> {
   const method = options?.method ?? "GET";
   
-  // Clear cache on any mutation request (POST, PATCH, PUT, DELETE)
+  // 1. Intercept and block invalid Authorization tokens
+  const rawHeaders = (options?.headers || {}) as Record<string, string>;
+  const authHeader = rawHeaders.Authorization || rawHeaders.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.substring(7).trim();
+    if (!token || token === "undefined" || token === "null" || token.split(".").length !== 3) {
+      console.warn(`[apiFetch] Blocked dispatching request to ${path} due to invalid/malformed token: "${token}"`);
+      recordAuthFailure();
+      throw new Error("Authentication token is invalid or not yet ready.");
+    }
+  }
+
+  // 2. Client-side mutation cache clearing
   if (method !== "GET" && typeof window !== "undefined") {
     try {
       const keys = Object.keys(sessionStorage);
@@ -22,7 +44,7 @@ async function apiFetch<T>(path: string, options?: RequestInit, retries = 3): Pr
     } catch { /* ignore */ }
   }
 
-  // Check cache for GET requests
+  // 3. Client-side cache check for GET requests
   const isCacheable = method === "GET" && (
     path.startsWith("/dashboard/") ||
     path.startsWith("/topics") ||
@@ -47,11 +69,24 @@ async function apiFetch<T>(path: string, options?: RequestInit, retries = 3): Pr
     } catch { /* ignore */ }
   }
 
+  // 4. Request Deduplication Key (Method + URL + QueryParams + Authenticated User Context)
+  const dedupeKey = `${method}:${path}:${authHeader || ""}:${options?.body ? JSON.stringify(options.body) : ""}`;
+
+  if (method === "GET") {
+    const existingPromise = activeRequests.get(dedupeKey);
+    if (existingPromise) {
+      recordDuplicateRequest();
+      return existingPromise;
+    }
+  }
+
   const headers = {
     "Content-Type": "application/json",
     ...(options?.headers as Record<string, string> | undefined),
   };
   
+  const startTime = Date.now();
+
   const performFetch = async (): Promise<T> => {
     let attempt = 0;
     while (attempt < retries) {
@@ -60,8 +95,18 @@ async function apiFetch<T>(path: string, options?: RequestInit, retries = 3): Pr
           ...options,
           headers,
         });
+
+        const latency = Date.now() - startTime;
+        recordLatency(path, latency);
         
         if (!res.ok) {
+          // Record metric failures
+          if (res.status === 401) {
+            recordAuthFailure();
+          } else if (res.status === 422) {
+            recordValidationFailure();
+          }
+
           // Retry on 5XX errors if we haven't maxed out attempts
           if (res.status >= 500 && attempt < retries - 1) {
             attempt++;
@@ -85,6 +130,8 @@ async function apiFetch<T>(path: string, options?: RequestInit, retries = 3): Pr
           } catch {
             // response body is not JSON — keep the generic message
           }
+          const structuredErr = `[API Error] ${method} ${path} | Status: ${res.status} | Details: ${detail}`;
+          console.error(structuredErr);
           throw new Error(detail);
         }
         
@@ -97,6 +144,7 @@ async function apiFetch<T>(path: string, options?: RequestInit, retries = 3): Pr
         }
         return await res.json() as T;
       } catch (error) {
+        recordNetworkError();
         if (attempt < retries - 1 && !(error instanceof Error && error.message.startsWith("API "))) {
           attempt++;
           await new Promise(r => setTimeout(r, 1000 * attempt));
@@ -108,13 +156,22 @@ async function apiFetch<T>(path: string, options?: RequestInit, retries = 3): Pr
     throw new Error("Max retries exceeded");
   };
 
-  const result = await performFetch();
+  const fetchPromise = performFetch();
+
+  if (method === "GET") {
+    activeRequests.set(dedupeKey, fetchPromise);
+    fetchPromise.finally(() => {
+      activeRequests.delete(dedupeKey);
+    });
+  }
+
+  const result = await fetchPromise;
 
   if (isCacheable && typeof window !== "undefined") {
     try {
       sessionStorage.setItem(cacheKey, JSON.stringify({
         value: result,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       }));
     } catch { /* ignore */ }
   }

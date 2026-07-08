@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { SignOutButton, useAuth, useUser } from "@clerk/nextjs";
-
+import { SignOutButton, useUser } from "@clerk/nextjs";
+import { useAuthSession } from "@/lib/useAuthSession";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, DigestFrequency, ProfilePreferencesPatchBody } from "@/lib/api";
 
@@ -44,7 +44,7 @@ function normalizeForm(state: FormState): FormState {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { isLoaded, userId, getToken } = useAuth();
+  const { isLoaded, userId, token, isReady } = useAuthSession();
   const { user } = useUser();
   const queryClient = useQueryClient();
   const [resetting, setResetting] = useState(false);
@@ -57,12 +57,7 @@ export default function ProfilePage() {
   const [feedback, setFeedback] = useState<string>("");
 
   const handleResetOnboarding = async () => {
-    if (!userId) return;
-    const token = await getToken();
-    if (!token) {
-      setFeedback("Authentication token missing. Please sign in again.");
-      return;
-    }
+    if (!userId || !token) return;
     setResetting(true);
     setFeedback("");
     try {
@@ -85,12 +80,11 @@ export default function ProfilePage() {
 
   const preferencesQuery = useQuery({
     queryKey: ["profile-preferences", userId],
-    queryFn: async () => {
-      const token = await getToken();
-      if (!token) throw new Error("No authentication token available");
+    queryFn: () => {
+      if (!token) throw new Error("Token not ready");
       return api.getProfilePreferences(token);
     },
-    enabled: !!userId,
+    enabled: isReady,
     staleTime: 60 * 1000,
   });
 
@@ -108,8 +102,7 @@ export default function ProfilePage() {
   }, [preferencesQuery.data, user?.primaryEmailAddress?.emailAddress]);
 
   const saveMutation = useMutation({
-    mutationFn: async (payload: ProfilePreferencesPatchBody) => {
-      const token = await getToken();
+    mutationFn: (payload: ProfilePreferencesPatchBody) => {
       if (!token) throw new Error("No authentication token available");
       return api.updateProfilePreferences(token, payload);
     },

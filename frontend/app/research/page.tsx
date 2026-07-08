@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
 import { api, ResearchSession } from "@/lib/api";
 
 // B&W Theme Palette
@@ -65,9 +64,11 @@ const QUICK_CHIPS = [
   }
 ];
 
+import { useAuthSession } from "@/lib/useAuthSession";
+
 export default function ResearchListPage() {
   const router = useRouter();
-  const { userId, isLoaded, getToken } = useAuth();
+  const { isLoaded, token, isReady } = useAuthSession();
   
   const [sessions, setSessions] = useState<ResearchSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,21 +90,21 @@ export default function ResearchListPage() {
 
   useEffect(() => {
     if (!isLoaded) return;
+    if (!isReady || !token) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
-    getToken().then((token) => {
-      if (!token) throw new Error("No authentication token available");
-      return api.research.listSessions(token);
-    })
+    api.research.listSessions(token)
       .then(setSessions)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [isLoaded, getToken]);
+  }, [isLoaded, isReady, token]);
 
   const handleCreate = async () => {
+    if (!token) return;
     setCreating(true);
     try {
-      const token = await getToken();
-      if (!token) throw new Error("No authentication token available");
       const s = await api.research.createSession(token, "Untitled Research");
       router.push(`/research/${s.id}`);
     } catch (e) {
@@ -113,10 +114,9 @@ export default function ResearchListPage() {
   };
 
   const handleChipClick = async (label: string, q: string) => {
+    if (!token) return;
     setCreating(true);
     try {
-      const token = await getToken();
-      if (!token) throw new Error("No authentication token available");
       const s = await api.research.createSession(token, label);
       router.push(`/research/${s.id}?q=${encodeURIComponent(q)}`);
     } catch (e) {
@@ -128,9 +128,8 @@ export default function ResearchListPage() {
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm("Delete this research session?")) return;
+    if (!token) return;
     try {
-      const token = await getToken();
-      if (!token) throw new Error("No authentication token available");
       await api.research.deleteSession(id, token);
       setSessions((prev) => prev.filter((s) => s.id !== id));
     } catch (e) {

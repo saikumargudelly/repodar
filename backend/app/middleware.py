@@ -31,20 +31,40 @@ class LoggingMiddleware:
             await self.app(scope, receive, send)
             return
 
+        import uuid
+        from app.metrics import BackendMetrics
+
+        headers = {k.decode('latin-1').lower(): v.decode('latin-1') for k, v in scope.get("headers", [])}
+        request_id = headers.get("x-request-id", str(uuid.uuid4()))
+        
+        # Safe state initialization for scope
+        if "state" not in scope:
+            scope["state"] = {}
+        scope["state"]["request_id"] = request_id
+
         start_time = time.time()
         
         async def send_wrapper(message):
             if message["type"] == "http.response.start":
                 process_time = time.time() - start_time
+                duration_ms = process_time * 1000
+                status_code = message["status"]
+
+                # Record metrics
+                BackendMetrics.record_latency(scope["path"], duration_ms)
+                if status_code == 422:
+                    BackendMetrics.record_validation_failure()
+                elif status_code == 401:
+                    BackendMetrics.record_auth_failure()
+
                 if process_time > 2.0:
                     import os
                     logger.warning(
-                        f"[SLOW REQUEST]\n"
-                        f"{scope['method']} {scope['path']}\n"
-                        f"Duration: {process_time:.2f}s\n"
+                        f"[SLOW REQUEST] ID: {request_id} | "
+                        f"{scope['method']} {scope['path']} | "
+                        f"Duration: {process_time:.2f}s | "
                         f"Worker PID: {os.getpid()}"
                     )
-                duration_ms = process_time * 1000
                 if duration_ms < 100:
                     category = "Excellent"
                 elif duration_ms < 300:
@@ -54,12 +74,19 @@ class LoggingMiddleware:
                 else:
                     category = "Optimize"
                 logger.info(
-                    f"HTTP {scope['method']} {scope['path']} - {message['status']} - "
-                    f"{duration_ms:.1f}ms [{category}]"
+                    f"HTTP {scope['method']} {scope['path']} - {status_code} - "
+                    f"ID: {request_id} - {duration_ms:.1f}ms [{category}]"
                 )
             await send(message)
 
-        await self.app(scope, receive, send_wrapper)
+        try:
+            await self.app(scope, receive, send_wrapper)
+        except Exception as exc:
+            logger.error(
+                f"[API Exception] ID: {request_id} | {scope['method']} {scope['path']} | "
+                f"Error: {exc}", exc_info=True
+            )
+            raise exc
 
 
 def _utcnow():

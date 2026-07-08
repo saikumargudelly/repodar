@@ -2,22 +2,28 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@clerk/nextjs";
+import { useAuthSession } from "@/lib/useAuthSession";
 import { api, AlertRule } from "@/lib/api";
 
 export function AlertRulesManager() {
   const queryClient = useQueryClient();
-  const { getToken } = useAuth();
+  const { token, isReady } = useAuthSession();
   const [showCreate, setShowCreate] = useState(false);
 
   const { data: rules, isLoading } = useQuery<AlertRule[]>({
     queryKey: ["alert-rules"],
-    queryFn: async () => api.getAlertRules(await getToken() ?? ""),
-    enabled: true,
+    queryFn: () => {
+      if (!token) throw new Error("No token available");
+      return api.getAlertRules(token);
+    },
+    enabled: isReady,
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => api.deleteAlertRule(await getToken() ?? "", id),
+    mutationFn: (id: string) => {
+      if (!token) throw new Error("No token available");
+      return api.deleteAlertRule(token, id);
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["alert-rules"] }),
   });
 
@@ -43,7 +49,7 @@ export function AlertRulesManager() {
         </button>
       </div>
 
-      {showCreate && <CreateAlertForm getToken={getToken} onSuccess={() => setShowCreate(false)} />}
+      {showCreate && <CreateAlertForm token={token} onSuccess={() => setShowCreate(false)} />}
 
       <div className="space-y-3">
         {rules?.map((rule) => (
@@ -80,14 +86,17 @@ export function AlertRulesManager() {
   );
 }
 
-function CreateAlertForm({ getToken, onSuccess }: { getToken: () => Promise<string | null>; onSuccess: () => void }) {
+function CreateAlertForm({ token, onSuccess }: { token: string | null; onSuccess: () => void }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [condition, setCondition] = useState("STAR_VELOCITY_500_3D");
   const [url, setUrl] = useState("");
 
   const createMutation = useMutation({
-    mutationFn: async (data: Omit<AlertRule, "id" | "is_active">) => api.createAlertRule(await getToken() ?? "", data),
+    mutationFn: (data: Omit<AlertRule, "id" | "is_active">) => {
+      if (!token) throw new Error("No token available");
+      return api.createAlertRule(token, data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["alert-rules"] });
       onSuccess();

@@ -5,14 +5,14 @@ export const dynamic = "force-dynamic";
 import { Fragment, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useAuth } from "@clerk/nextjs";
+import { useAuthSession } from "@/lib/useAuthSession";
 import { api, WatchlistItemOut } from "@/lib/api";
 import { StatusDot } from "@/components/ui/StatusDot";
 import { Skeleton } from "@/components/ui/Skeleton";
 
 
 export default function WatchlistPage() {
-  const { isLoaded, userId, getToken } = useAuth();
+  const { isLoaded, userId, token, isReady } = useAuthSession();
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editThreshold, setEditThreshold] = useState<string>("");
@@ -21,18 +21,16 @@ export default function WatchlistPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["watchlist", userId],
-    queryFn: async () => {
-      const token = await getToken();
-      if (!token) throw new Error("No authentication token available");
+    queryFn: () => {
+      if (!token) throw new Error("Token not ready");
       return api.getWatchlist(token);
     },
-    enabled: !!userId,
+    enabled: isReady,
     staleTime: 2 * 60 * 1000,
   });
 
   const removeMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const token = await getToken();
+    mutationFn: (id: string) => {
       if (!token) throw new Error("No authentication token available");
       return api.removeFromWatchlist(token, id);
     },
@@ -40,8 +38,7 @@ export default function WatchlistPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, threshold, email, webhook }: { id: string; threshold: string; email: string; webhook: string }) => {
-      const token = await getToken();
+    mutationFn: ({ id, threshold, email, webhook }: { id: string; threshold: string; email: string; webhook: string }) => {
       if (!token) throw new Error("No authentication token available");
       return api.updateWatchlistItem(token, id, {
         alert_threshold: threshold ? Number(threshold) : null,

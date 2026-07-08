@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
+import { useAuthSession } from "@/lib/useAuthSession";
 import ReactMarkdown from "react-markdown";
 import { api, ResearchMessage, ResearchPin, ResearchRepo, ResearchSession } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
@@ -517,7 +518,8 @@ export default function ResearchSessionPage() {
   const { id: sessionId } = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { userId, isLoaded, getToken } = useAuth();
+  const { userId, isLoaded, token, isReady } = useAuthSession();
+  const getToken = useCallback(async () => token, [token]);
   const { showToast } = useToast();
 
   // Session state
@@ -608,18 +610,16 @@ export default function ResearchSessionPage() {
   // Load session
   useEffect(() => {
     if (!isLoaded) return;
-    getToken().then((token) => {
-      if (!token) return;
-      api.research.listSessions(token).then(setSessions).catch(console.error);
-      api.research.getSession(sessionId, token).then((data) => {
-        setTitle(data.title);
-        setTitleDraft(data.title);
-        setMessages(data.messages);
-        setPins(data.pins);
-        if (data.report) setReportMd(data.report.content_md);
-      }).catch(console.error);
+    if (!isReady || !token) return;
+    api.research.listSessions(token).then(setSessions).catch(console.error);
+    api.research.getSession(sessionId, token).then((data) => {
+      setTitle(data.title);
+      setTitleDraft(data.title);
+      setMessages(data.messages);
+      setPins(data.pins);
+      if (data.report) setReportMd(data.report.content_md);
     }).catch(console.error);
-  }, [isLoaded, sessionId, getToken]);
+  }, [isLoaded, isReady, token, sessionId]);
 
   const handleCreate = async () => {
     setCreating(true);

@@ -1,9 +1,9 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@clerk/nextjs";
+import { useAuthSession } from "@/lib/useAuthSession";
 import { api, DeepSummary } from "@/lib/api";
 import { RecommendationsPanel } from "@/components/recommendations/RecommendationsPanel";
 import { useToast } from "@/components/ToastProvider";
@@ -138,7 +138,8 @@ export default function RepoDeepDive() {
   const params = useParams<{ id: string[] }>();
   const repoId = Array.isArray(params.id) ? params.id.join("/") : params.id;
 
-  const { userId, getToken } = useAuth();
+  const { userId, token, isReady } = useAuthSession();
+  const getToken = useCallback(async () => token, [token]);
   const queryClient = useQueryClient();
   const [pinned, setPinned] = useState(false);
   const [activeTab, setActiveTab] = useState<"metrics" | "ecosystem">("metrics");
@@ -196,7 +197,7 @@ export default function RepoDeepDive() {
       if (!token) throw new Error("No authentication token available");
       return api.checkWatchlist(token, repoId);
     },
-    enabled: !!userId && !!repoId,
+    enabled: isReady && !!repoId,
   });
 
   const toggleWatch = async () => {

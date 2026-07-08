@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
+import { useAuthSession } from "@/lib/useAuthSession";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, Cell, PieChart, Pie,
@@ -1190,7 +1190,7 @@ function AlertsPanel({
 export default function OverviewPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isLoaded: authLoaded, userId, getToken } = useAuth();
+  const { isLoaded: authLoaded, userId, token, isReady } = useAuthSession();
   const [period, setPeriod] = useState<Period>("7d");
   const [vertical, setVertical] = useState<Vertical>("ai_ml");
   const [userVerticals, setUserVerticals] = useState<string[]>([]);
@@ -1215,20 +1215,17 @@ export default function OverviewPage() {
 
   // Load user's preferred verticals from onboarding and set as default
   useEffect(() => {
-    if (!authLoaded || !userId) return;
-    getToken().then((token) => {
-      if (!token) return;
-      return api.getOnboardingStatus(token)
-        .then((status) => {
-          const prefs = status.selected_verticals ?? [];
-          setUserVerticals(prefs);
-          // Default to user's first preferred vertical if it's a valid Vertical key
-          const validKeys = VERTICALS.map((v) => v.key);
-          const firstPref = prefs.find((p) => validKeys.includes(p as Vertical));
-          if (firstPref) setVertical(firstPref as Vertical);
-        });
-    }).catch(() => { /* not critical — keep default */ });
-  }, [authLoaded, userId, getToken]);
+    if (!authLoaded || !isReady || !token) return;
+    api.getOnboardingStatus(token)
+      .then((status) => {
+        const prefs = status.selected_verticals ?? [];
+        setUserVerticals(prefs);
+        // Default to user's first preferred vertical if it's a valid Vertical key
+        const validKeys = VERTICALS.map((v) => v.key);
+        const firstPref = prefs.find((p) => validKeys.includes(p as Vertical));
+        if (firstPref) setVertical(firstPref as Vertical);
+      }).catch(() => { /* not critical — keep default */ });
+  }, [authLoaded, isReady, token]);
 
   const { data: overview, isLoading: overviewLoading, error } = useQuery({
     queryKey: ["overview"],

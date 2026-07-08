@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@clerk/nextjs";
+import { useAuthSession } from "@/lib/useAuthSession";
 import { api } from "@/lib/api";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
@@ -13,7 +13,7 @@ interface Props {
 }
 
 export function RecommendationsPanel({ repoOwner, repoName }: Props) {
-  const { getToken } = useAuth();
+  const { token, isReady } = useAuthSession();
   const isSimilar = !!(repoOwner && repoName);
 
   const { data: recommendations, isLoading } = useQuery({
@@ -23,8 +23,8 @@ export function RecommendationsPanel({ repoOwner, repoName }: Props) {
     queryFn: () =>
       isSimilar
         ? api.getSimilarRepos(repoOwner!, repoName!, 6)
-        : getToken().then(token => api.getRecommendations(token ?? "", 10)),
-    enabled: true,
+        : api.getRecommendations(token!, 10),
+    enabled: isSimilar || isReady,
     staleTime: 5 * 60_000,
   });
 

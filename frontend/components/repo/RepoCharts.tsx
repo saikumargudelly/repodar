@@ -7,6 +7,7 @@ import {
 } from "recharts";
 import { DailyMetricPoint, ComputedMetricPoint, SocialMentionItem } from "@/lib/api";
 import { formatCompactNumber } from "@/lib/utils";
+import { ChartContainer } from "./ChartContainer";
 
 const tooltipStyle = {
   contentStyle: {
@@ -78,7 +79,7 @@ export function StarHistoryChart({ data, mentions }: {
           total cumulative stars
         </span>
       </div>
-      <div style={{ width: "100%", height: "200px" }}>
+      <ChartContainer minHeight={200}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={enriched} margin={{ top: 10, right: 10, bottom: 0, left: -25 }}>
             <defs>
@@ -105,7 +106,7 @@ export function StarHistoryChart({ data, mentions }: {
             )}
           </AreaChart>
         </ResponsiveContainer>
-      </div>
+      </ChartContainer>
     </div>
   );
 }
@@ -135,7 +136,7 @@ export function DailyDeltaChart({ data }: { data: DailyMetricPoint[] }) {
           Daily star delta
         </span>
       </div>
-      <div style={{ width: "100%", height: "180px" }}>
+      <ChartContainer minHeight={180}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: -25 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
@@ -145,7 +146,7 @@ export function DailyDeltaChart({ data }: { data: DailyMetricPoint[] }) {
             <Bar dataKey="daily_star_delta" name="Stars Added" fill="var(--accent-green)" fillOpacity={0.7} radius={[2, 2, 0, 0]} />
           </ComposedChart>
         </ResponsiveContainer>
-      </div>
+      </ChartContainer>
     </div>
   );
 }
@@ -175,7 +176,7 @@ export function ContributorChart({ data }: { data: DailyMetricPoint[] }) {
           Contributor growth
         </span>
       </div>
-      <div style={{ width: "100%", height: "180px" }}>
+      <ChartContainer minHeight={180}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: -25 }}>
             <defs>
@@ -191,7 +192,7 @@ export function ContributorChart({ data }: { data: DailyMetricPoint[] }) {
             <Area type="monotone" dataKey="contributors" name="Total Contributors" stroke="var(--accent-green)" fill="url(#contribGrad)" strokeWidth={2} dot={false} />
           </AreaChart>
         </ResponsiveContainer>
-      </div>
+      </ChartContainer>
     </div>
   );
 }
@@ -221,7 +222,7 @@ export function VelocityChart({ data }: { data: ComputedMetricPoint[] }) {
           Velocity &amp; Acceleration
         </span>
       </div>
-      <div style={{ width: "100%", height: "180px" }}>
+      <ChartContainer minHeight={180}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: -25 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
@@ -232,7 +233,7 @@ export function VelocityChart({ data }: { data: ComputedMetricPoint[] }) {
             <Bar dataKey="acceleration" name="Acceleration" fill="var(--accent-yellow)" fillOpacity={0.6} radius={[2, 2, 0, 0]} />
           </ComposedChart>
         </ResponsiveContainer>
-      </div>
+      </ChartContainer>
     </div>
   );
 }
@@ -262,7 +263,7 @@ export function ScoreTimeline({ data }: { data: ComputedMetricPoint[] }) {
           Trend score timeline
         </span>
       </div>
-      <div style={{ width: "100%", height: "180px" }}>
+      <ChartContainer minHeight={180}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: -25 }}>
             <defs>
@@ -278,7 +279,7 @@ export function ScoreTimeline({ data }: { data: ComputedMetricPoint[] }) {
             <Area type="monotone" dataKey="trend_score" name="Trend Score" stroke="var(--accent-yellow)" fill="url(#scoreGrad)" strokeWidth={2} dot={false} />
           </AreaChart>
         </ResponsiveContainer>
-      </div>
+      </ChartContainer>
     </div>
   );
 }

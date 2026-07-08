@@ -59,6 +59,8 @@ def _jwks_client() -> PyJWKClient:
 
 # ── Core verification logic ───────────────────────────────────────────────────
 
+from app.metrics import BackendMetrics
+
 def _verify_clerk_token(token: str) -> str:
     """
     Verifies a Clerk-issued JWT and returns the user ID (`sub` claim).
@@ -76,16 +78,19 @@ def _verify_clerk_token(token: str) -> str:
             #   audience=os.getenv("CLERK_AUDIENCE", "")
         )
     except ExpiredSignatureError:
+        BackendMetrics.record_auth_failure()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired. Please sign in again.",
         )
     except DecodeError as exc:
+        BackendMetrics.record_auth_failure()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Token is malformed: {exc}",
         )
     except InvalidTokenError as exc:
+        BackendMetrics.record_auth_failure()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Token verification failed: {exc}",
@@ -100,6 +105,7 @@ def _verify_clerk_token(token: str) -> str:
     except Exception as exc:
         # Network failure fetching JWKS, etc.
         logger.warning("Unexpected auth error: %s", exc)
+        BackendMetrics.record_auth_failure()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication failed.",
@@ -107,6 +113,7 @@ def _verify_clerk_token(token: str) -> str:
 
     user_id: Optional[str] = payload.get("sub")
     if not user_id:
+        BackendMetrics.record_auth_failure()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token is missing the 'sub' claim.",
@@ -127,6 +134,7 @@ def get_current_user(
         user_id: str = Depends(get_current_user)
     """
     if not authorization:
+        BackendMetrics.record_auth_failure()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing Authorization header.",
@@ -134,9 +142,20 @@ def get_current_user(
         )
     scheme, _, token = authorization.partition(" ")
     if scheme.lower() != "bearer" or not token.strip():
+        BackendMetrics.record_auth_failure()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authorization header must use Bearer scheme.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return _verify_clerk_token(token.strip())
+    
+    t = token.strip()
+    if t.lower() == "undefined" or t.lower() == "null" or len(t.split(".")) != 3:
+        BackendMetrics.record_auth_failure()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token is malformed, missing, or invalid.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
+    return _verify_clerk_token(t)

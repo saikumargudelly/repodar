@@ -1236,7 +1236,7 @@ def get_category_metrics(
 @cache(expire=60, namespace="dashboard")
 def get_alerts(
     unread_only: bool = Query(False, description="Return only unread alerts"),
-    limit: int = Query(20, le=100),
+    limit: int = Query(20, le=500),
     db: Session = Depends(get_db),
 ):
     """

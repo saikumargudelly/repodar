@@ -5,11 +5,11 @@ export const dynamic = "force-dynamic";
 import { useState } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@clerk/nextjs";
+import { useAuthSession } from "@/lib/useAuthSession";
 import { api, ApiKeyOut } from "@/lib/api";
 
 export default function DevPage() {
-  const { isLoaded, userId, getToken } = useAuth();
+  const { isLoaded, userId, token, isReady } = useAuthSession();
   const queryClient = useQueryClient();
   const [newKeyName, setNewKeyName] = useState("");
   const [rawKey, setRawKey] = useState<string | null>(null);
@@ -17,18 +17,16 @@ export default function DevPage() {
 
   const { data: keys, isLoading } = useQuery({
     queryKey: ["api-keys", userId],
-    queryFn: async () => {
-      const token = await getToken();
-      if (!token) throw new Error("No authentication token available");
+    queryFn: () => {
+      if (!token) throw new Error("Token not ready");
       return api.listApiKeys(token);
     },
-    enabled: !!userId,
+    enabled: isReady,
     staleTime: 30 * 1000,
   });
 
   const createMutation = useMutation({
-    mutationFn: async () => {
-      const token = await getToken();
+    mutationFn: () => {
       if (!token) throw new Error("No authentication token available");
       return api.createApiKey(token, { name: newKeyName.trim() || "My Key" });
     },
@@ -40,8 +38,7 @@ export default function DevPage() {
   });
 
   const revokeMutation = useMutation({
-    mutationFn: async (keyId: string) => {
-      const token = await getToken();
+    mutationFn: (keyId: string) => {
       if (!token) throw new Error("No authentication token available");
       return api.revokeApiKey(token, keyId);
     },

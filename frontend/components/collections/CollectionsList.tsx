@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@clerk/nextjs";
+import { useAuthSession } from "@/lib/useAuthSession";
 import { api, Collection } from "@/lib/api";
 import { useState } from "react";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 
 export function TrendingCollections() {
   const queryClient = useQueryClient();
-  const { getToken, userId } = useAuth();
+  const { token, userId } = useAuthSession();
   const [showCreate, setShowCreate] = useState(false);
 
   const { data: collections, isLoading } = useQuery<Collection[]>({
@@ -19,8 +19,10 @@ export function TrendingCollections() {
   });
 
   const voteMutation = useMutation({
-    mutationFn: async ({ id, direction }: { id: string; direction: 1 | -1 }) =>
-      api.voteCollection(await getToken() ?? "", id, direction),
+    mutationFn: ({ id, direction }: { id: string; direction: 1 | -1 }) => {
+      if (!token) throw new Error("No authentication token available");
+      return api.voteCollection(token, id, direction);
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["collections", "trending"] }),
   });
 
@@ -74,7 +76,7 @@ export function TrendingCollections() {
 
       {/* Create form */}
       {showCreate && userId && (
-        <CreateCollectionForm getToken={getToken} onSuccess={() => setShowCreate(false)} />
+        <CreateCollectionForm token={token} onSuccess={() => setShowCreate(false)} />
       )}
 
       {/* Grid */}
@@ -265,14 +267,16 @@ export function TrendingCollections() {
   );
 }
 
-function CreateCollectionForm({ getToken, onSuccess }: { getToken: () => Promise<string | null>; onSuccess: () => void }) {
+function CreateCollectionForm({ token, onSuccess }: { token: string | null; onSuccess: () => void }) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
 
   const createMutation = useMutation({
-    mutationFn: async (data: { title: string; description: string; is_public: boolean; repo_ids: string[] }) =>
-      api.createCollection(await getToken() ?? "", data),
+    mutationFn: (data: { title: string; description: string; is_public: boolean; repo_ids: string[] }) => {
+      if (!token) throw new Error("No authentication token available");
+      return api.createCollection(token, data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["collections", "trending"] });
       onSuccess();
