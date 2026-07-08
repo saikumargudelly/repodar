@@ -310,6 +310,13 @@ async def lifespan(app: FastAPI):
 
     logger.info("Repodar starting up...")
 
+    # Validate LLM configurations
+    try:
+        from app.utils.llm_providers import validate_llm_configuration
+        await validate_llm_configuration()
+    except Exception as e:
+        logger.error(f"Failed to validate LLM configurations during startup: {e}")
+
     # Create all tables (idempotent)
     Base.metadata.create_all(bind=engine)
     ensure_db_schema_upgraded(engine)

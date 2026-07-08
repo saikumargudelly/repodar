@@ -429,8 +429,9 @@ class DeepSummaryResponse(BaseModel):
 
 from fastapi import Path
 
+from fastapi import Path, HTTPException
+
 @router.get("/{owner}/{name}/deep-summary", response_model=DeepSummaryResponse)
-@cache(expire=900, namespace="repo")
 async def get_deep_summary(
     owner: str = Path(..., pattern=r"^[A-Za-z0-9_.-]+$"),
     name: str = Path(..., pattern=r"^[A-Za-z0-9_.-]+$"),
@@ -443,11 +444,38 @@ async def get_deep_summary(
     """
     repo_id = f"{owner}/{name}"
 
+    # Try loading from cache first (only successful runs are cached)
+    from fastapi_cache import FastAPICache
+    cache_backend = FastAPICache.get_backend()
+    cache_key = f"repo:{owner}:{name}:deep-summary"
+    if cache_backend:
+        try:
+            cached_val = await cache_backend.get(cache_key)
+            if cached_val:
+                import json as _json
+                parsed = _json.loads(cached_val)
+                return DeepSummaryResponse(**parsed)
+        except Exception as cache_err:
+            logger.warning(f"Failed to read deep-summary cache: {cache_err}")
+
     # Get basic repo info from DB or GitHub
     repo = await asyncio.to_thread(db.query(Repository).filter_by(id=repo_id).first)
     description = repo.description if repo else None
     primary_language = repo.primary_language if repo else None
     topics_str = repo.topics if repo else None
+
+    # Get latest computed metrics context if available
+    cm = await asyncio.to_thread(
+        db.query(ComputedMetric)
+        .filter_by(repo_id=repo_id)
+        .order_by(ComputedMetric.date.desc())
+        .first
+    )
+    trend_score = cm.trend_score if cm else 0.0
+    star_velocity_7d = cm.star_velocity_7d if cm else 0.0
+    acceleration = cm.acceleration if cm else 0.0
+    sustainability_score = cm.sustainability_score if cm else 0.0
+    sustainability_label = cm.sustainability_label if cm else "YELLOW"
 
     async with aiohttp.ClientSession() as session:
         headers = _GH_HEADERS.copy()
@@ -535,19 +563,35 @@ async def get_deep_summary(
                 github_topics = [t.strip() for t in topics_str.split(",") if t.strip()]
 
     # Generate deep summary via LLM
-    from app.services.explanation import generate_deep_summary
-    analysis = await generate_deep_summary(
-        owner=owner,
-        repo_name=name,
-        description=description,
-        language=primary_language,
-        topics=topics_str,
-        github_topics=github_topics,
-        languages=languages,
-        readme=readme_text,
-    )
+    from app.services.explanation import generate_deep_summary, LLMPipelineError
+    try:
+        analysis = await generate_deep_summary(
+            owner=owner,
+            repo_name=name,
+            description=description,
+            language=primary_language,
+            topics=topics_str,
+            github_topics=github_topics,
+            languages=languages,
+            readme=readme_text,
+            trend_score=trend_score,
+            star_velocity_7d=star_velocity_7d,
+            acceleration=acceleration,
+            sustainability_score=sustainability_score,
+            sustainability_label=sustainability_label,
+        )
+    except LLMPipelineError as llm_err:
+        raise HTTPException(
+            status_code=502,
+            detail=f"AI Deep Analysis generation failed: {str(llm_err)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"An unexpected error occurred during AI analysis: {str(e)}"
+        )
 
-    return DeepSummaryResponse(
+    response_data = DeepSummaryResponse(
         repo_id=repo_id,
         owner=owner,
         name=name,
@@ -560,6 +604,17 @@ async def get_deep_summary(
         languages=languages,
         generated_at=datetime.now(timezone.utc).isoformat(),
     )
+
+    # Save only successful analysis response to cache
+    if cache_backend:
+        try:
+            import json as _json
+            serializable = response_data.model_dump() if hasattr(response_data, "model_dump") else response_data
+            await cache_backend.set(cache_key, _json.dumps(serializable), expire=900)
+        except Exception as cache_err:
+            logger.warning(f"Failed to write deep-summary cache: {cache_err}")
+
+    return response_data
 
 
 # ─── Repo Detail (must be last — uses :path which matches anything) ───────────

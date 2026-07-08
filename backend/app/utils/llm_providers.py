@@ -20,6 +20,21 @@ GEMINI_MODEL = None
 CEREBRAS_MODEL = None
 GROQ_MODEL = None
 
+SUPPORTED_MODELS = {
+    "Gemini": {
+        "models": ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
+        "default": "gemini-2.5-flash"
+    },
+    "Cerebras": {
+        "models": ["llama3.1-8b", "llama3.1-70b", "llama-3.3-70b"],
+        "default": "llama3.1-70b"
+    },
+    "Groq": {
+        "models": ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile", "mixtral-8x7b-32768"],
+        "default": "llama-3.3-70b-versatile"
+    }
+}
+
 def _get_gemini_key() -> str:
     val = globals().get("GEMINI_API_KEY")
     if val is None:
@@ -29,7 +44,12 @@ def _get_gemini_key() -> str:
 def _get_gemini_model() -> str:
     val = globals().get("GEMINI_MODEL")
     if val is None:
-        return os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
+        val = os.getenv("GEMINI_MODEL", "").strip()
+    if not val:
+        return SUPPORTED_MODELS["Gemini"]["default"]
+    if val not in SUPPORTED_MODELS["Gemini"]["models"]:
+        logger.warning(f"Configured Gemini model '{val}' is not supported. Falling back to '{SUPPORTED_MODELS['Gemini']['default']}'.")
+        return SUPPORTED_MODELS["Gemini"]["default"]
     return val
 
 def _get_cerebras_key() -> str:
@@ -41,7 +61,12 @@ def _get_cerebras_key() -> str:
 def _get_cerebras_model() -> str:
     val = globals().get("CEREBRAS_MODEL")
     if val is None:
-        return os.getenv("CEREBRAS_MODEL", "llama3.1-70b").strip()
+        val = os.getenv("CEREBRAS_MODEL", "").strip()
+    if not val:
+        return SUPPORTED_MODELS["Cerebras"]["default"]
+    if val not in SUPPORTED_MODELS["Cerebras"]["models"]:
+        logger.warning(f"Configured Cerebras model '{val}' is not supported. Falling back to '{SUPPORTED_MODELS['Cerebras']['default']}'.")
+        return SUPPORTED_MODELS["Cerebras"]["default"]
     return val
 
 def _get_groq_key() -> str:
@@ -53,7 +78,12 @@ def _get_groq_key() -> str:
 def _get_groq_model() -> str:
     val = globals().get("GROQ_MODEL")
     if val is None:
-        return os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
+        val = os.getenv("GROQ_MODEL", "").strip()
+    if not val:
+        return SUPPORTED_MODELS["Groq"]["default"]
+    if val not in SUPPORTED_MODELS["Groq"]["models"]:
+        logger.warning(f"Configured Groq model '{val}' is not supported. Falling back to '{SUPPORTED_MODELS['Groq']['default']}'.")
+        return SUPPORTED_MODELS["Groq"]["default"]
     return val
 
 # Shared HTTP Clients for connection pooling
@@ -345,6 +375,8 @@ PROVIDERS_REGISTRY = {
 }
 
 
+_failed_providers = set()
+
 def get_active_providers() -> List[BaseLLMProvider]:
     order_str = os.getenv("LLM_PROVIDER_ORDER", "gemini,cerebras,groq")
     order = [p.strip().lower() for p in order_str.split(",") if p.strip()]
@@ -352,6 +384,8 @@ def get_active_providers() -> List[BaseLLMProvider]:
     active = []
     for name in order:
         if name in PROVIDERS_REGISTRY:
+            if name in _failed_providers:
+                continue
             provider_cls = PROVIDERS_REGISTRY[name]
             provider = provider_cls()
             if provider.is_configured():
@@ -359,6 +393,40 @@ def get_active_providers() -> List[BaseLLMProvider]:
             else:
                 logger.debug(f"LLM Provider {provider.name} is skipped because it is not configured.")
     return active
+
+async def validate_llm_configuration():
+    """
+    Validates active LLM providers by firing a lightweight test prompt.
+    If a provider fails (unauthorized, rate-limited, etc.), adds it to _failed_providers.
+    """
+    logger.info("Initializing startup functional validation for configured LLM providers...")
+    test_messages = [{"role": "user", "content": "ping"}]
+    
+    order_str = os.getenv("LLM_PROVIDER_ORDER", "gemini,cerebras,groq")
+    order = [p.strip().lower() for p in order_str.split(",") if p.strip()]
+    
+    for name in order:
+        if name in PROVIDERS_REGISTRY:
+            provider_cls = PROVIDERS_REGISTRY[name]
+            provider = provider_cls()
+            if not provider.is_configured():
+                logger.info(f"LLM Provider {provider.name} is not configured.")
+                continue
+                
+            logger.info(f"Testing connectivity for LLM Provider: {provider.name}...")
+            start_time = time.perf_counter()
+            try:
+                await provider.chat_completion(test_messages, temperature=0.1, max_tokens=2)
+                duration_ms = int((time.perf_counter() - start_time) * 1000)
+                logger.info(f"[LLM Start Validation] {provider.name} connectivity check passed in {duration_ms}ms.")
+            except Exception as exc:
+                duration_ms = int((time.perf_counter() - start_time) * 1000)
+                error_msg = get_error_message(exc)
+                logger.warning(
+                    f"[LLM Start Validation] Provider {provider.name} FAILED functional check in {duration_ms}ms: {error_msg}. "
+                    f"Removing {provider.name} from active provider chain."
+                )
+                _failed_providers.add(name)
 
 
 def is_transient_error(exc: Exception) -> bool:
@@ -512,11 +580,9 @@ class FallbackLLMProvider(BaseLLMProvider):
                 )
             except Exception as exc:
                 last_exception = exc
-                if not is_transient_error(exc):
-                    raise exc
                 if i < len(providers) - 1:
                     next_provider = providers[i + 1]
-                    logger.info(f"Falling back to {next_provider.name}")
+                    logger.info(f"Falling back to {next_provider.name} (due to error: {exc})")
                 else:
                     logger.error("All providers in fallback chain failed.")
         
@@ -543,11 +609,9 @@ class FallbackLLMProvider(BaseLLMProvider):
                 )
             except Exception as exc:
                 last_exception = exc
-                if not is_transient_error(exc):
-                    raise exc
                 if i < len(providers) - 1:
                     next_provider = providers[i + 1]
-                    logger.info(f"Falling back to {next_provider.name}")
+                    logger.info(f"Falling back to {next_provider.name} (due to error: {exc})")
                 else:
                     logger.error("All providers in fallback chain failed.")
         

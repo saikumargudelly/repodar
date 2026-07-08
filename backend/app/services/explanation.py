@@ -375,6 +375,10 @@ Your analysis must be:
 3. Formatted strictly as valid, parser-safe JSON with no wrapping markdown block quotes or trailing annotations.
 4. Objective and free of marketing fluff or buzzwords."""
 
+class LLMPipelineError(RuntimeError):
+    """Raised when all configured LLM providers fail or return invalid output."""
+    pass
+
 DEEP_SUMMARY_TEMPLATE = """Analyze the provided GitHub repository details and README excerpt to generate a dense, accurate architectural summary.
 
 Repository: {owner}/{repo_name}
@@ -384,6 +388,13 @@ Topics/tags: {topics}
 GitHub topics: {github_topics}
 Languages used (bytes): {languages}
 README excerpt (first 3000 chars): {readme}
+
+Quantitative momentum and sustainability metrics:
+- Trend Score: {trend_score}
+- 7d Star Velocity: {star_velocity_7d} stars/day
+- Star Acceleration: {acceleration}
+- Sustainability Score: {sustainability_score}/1.0
+- Sustainability Label: {sustainability_label}
 
 Return exactly this JSON structure:
 {{
@@ -411,23 +422,17 @@ async def generate_deep_summary(
     github_topics: list,
     languages: dict,
     readme: str,
+    trend_score: float = 0.0,
+    star_velocity_7d: float = 0.0,
+    acceleration: float = 0.0,
+    sustainability_score: float = 0.0,
+    sustainability_label: str = "YELLOW",
 ) -> dict:
     """
     Generate a structured deep summary with what/why/how/tech_stack/use_cases.
-    Falls back to a basic structure if Groq is unavailable or fails.
+    Raises LLMPipelineError if all providers fail.
     """
     import json
-
-    fallback = {
-        "what": description or f"{owner}/{repo_name} is a GitHub repository.",
-        "why": "Refer to the project's README and documentation for details.",
-        "how": f"Built primarily with {language or 'multiple technologies'}.",
-        "tech_stack": ([language] if language else []) + list(languages.keys())[:5],
-        "use_cases": [],
-    }
-
-    if not GROQ_API_KEY:
-        return fallback
 
     languages_str = ", ".join(
         f"{lang}: {round(bytes_ / 1024, 1)}KB"
@@ -443,6 +448,11 @@ async def generate_deep_summary(
         github_topics=", ".join(github_topics) if github_topics else "None",
         languages=languages_str,
         readme=readme[:3000] if readme else "Not available",
+        trend_score=round(trend_score, 4),
+        star_velocity_7d=round(star_velocity_7d, 2),
+        acceleration=round(acceleration, 4),
+        sustainability_score=round(sustainability_score, 2),
+        sustainability_label=sustainability_label,
     )
 
     messages = [
@@ -457,10 +467,13 @@ async def generate_deep_summary(
             response_format={"type": "json_object"},
         )
     except Exception as e:
-        logger.warning(f"Deep summary LLM call failed for {owner}/{repo_name}, using fallback: {e}")
-        return fallback
+        logger.error(f"Deep summary LLM call failed for {owner}/{repo_name}: {e}")
+        raise LLMPipelineError(f"LLM call failed: {e}") from e
+
     if not raw:
-        return fallback
+        logger.error(f"Deep summary returned empty result for {owner}/{repo_name}")
+        raise LLMPipelineError("LLM returned an empty response")
+
     try:
         # Strip any accidental markdown fences
         if raw.startswith("```"):
@@ -471,8 +484,8 @@ async def generate_deep_summary(
         # Ensure all keys present
         for key in ("what", "why", "how", "tech_stack", "use_cases"):
             if key not in result:
-                result[key] = fallback[key]
+                raise LLMPipelineError(f"LLM response missing key: {key}")
         return result
     except Exception as e:
-        logger.error(f"Deep summary failed for {owner}/{repo_name}: {e}")
-        return fallback
+        logger.error(f"Deep summary JSON parsing failed for {owner}/{repo_name}: {e}. Raw response: {repr(raw)}")
+        raise LLMPipelineError(f"JSON validation failed: {e}") from e

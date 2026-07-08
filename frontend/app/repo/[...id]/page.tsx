@@ -171,7 +171,7 @@ export default function RepoDeepDive() {
   const owner = repo?.owner || (repoId.split("/")[0] ?? "");
   const repoName = repo?.name || (repoId.split("/").slice(1).join("/") ?? "");
   
-  const { data: deepSummary, isLoading: deepLoading } = useQuery<DeepSummary>({
+  const { data: deepSummary, isLoading: deepLoading, isError: deepError } = useQuery<DeepSummary>({
     queryKey: ["deep-summary", repoId, owner, repoName],
     queryFn: () => api.getDeepSummary(owner, repoName),
     enabled: !!repoId && !!owner && !!repoName,
@@ -357,6 +357,7 @@ export default function RepoDeepDive() {
               <AIIntelligenceCard 
                 deepSummary={deepSummary} 
                 deepLoading={deepLoading} 
+                deepError={deepError}
                 repoSummary={repo.repo_summary}
                 formatDateFriendly={formatDateFriendly}
               />
