@@ -138,8 +138,16 @@ def _persist_discovered_repos_sync(seen_slugs: dict, now: datetime, run_full_sea
     reactivated = 0
     refreshed = 0
     try:
-        all_repos = db.query(Repository).all()
-        existing_map = {f"{r.owner.lower()}/{r.name.lower()}": r for r in all_repos}
+        # Phase 3 optimization: project only the 4 fields needed for slug deduplication.
+        # Avoids loading JSONB/Text columns (commit_activity_json, ecosystem_data_json,
+        # repo_summary, topics, tech_stack_json) that are never read here.
+        _repo_rows = db.query(
+            Repository.id,
+            Repository.owner,
+            Repository.name,
+            Repository.is_active,
+        ).all()
+        existing_map = {f"{r.owner.lower()}/{r.name.lower()}": r for r in _repo_rows}
 
         active_to_refresh_ids = []
         inactive_to_reactivate_ids = []
@@ -236,7 +244,15 @@ def _persist_discovered_repos_sync(seen_slugs: dict, now: datetime, run_full_sea
 def _get_active_repos_sync() -> tuple[list[dict], dict[str, str]]:
     db = SessionLocal()
     try:
-        repos = db.query(Repository).filter(Repository.is_active == True).all()  # noqa: E712
+        # Phase 3 optimization: project only the 4 fields _get_active_repos_sync actually reads.
+        # Before: full ORM load including all JSONB columns
+        # After: named-tuple rows with id, owner, name, last_fetched_at only
+        repos = db.query(
+            Repository.id,
+            Repository.owner,
+            Repository.name,
+            Repository.last_fetched_at,
+        ).filter(Repository.is_active == True).all()  # noqa: E712
         since_map: dict[str, str] = {}
         for r in repos:
             if r.last_fetched_at:
@@ -250,7 +266,11 @@ def _get_active_repos_sync() -> tuple[list[dict], dict[str, str]]:
 def _persist_daily_metrics_sync(metrics_list: list, today: date, now: datetime) -> tuple[dict, list]:
     db = SessionLocal()
     try:
-        repos = db.query(Repository).filter(Repository.is_active == True).all()  # noqa: E712
+        # Phase 3 optimization: project only repo.id for the repo_map lookup.
+        # _persist_daily_metrics_sync accesses only r.id from this collection.
+        repos = db.query(
+            Repository.id,
+        ).filter(Repository.is_active == True).all()  # noqa: E712
         
         today_start = datetime.combine(today, datetime.min.time())
         today_end   = datetime.combine(today, datetime.max.time())

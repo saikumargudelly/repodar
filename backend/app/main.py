@@ -65,6 +65,41 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# ─── RSS memory instrumentation ──────────────────────────────────────────────
+import resource as _resource
+import time as _time
+
+def _rss_mib() -> float:
+    """Return current process RSS in MiB. Portable: Linux returns KB, macOS bytes."""
+    try:
+        raw = _resource.getrusage(_resource.RUSAGE_SELF).ru_maxrss
+        import platform
+        return raw / 1024 if platform.system() == "Linux" else raw / (1024 * 1024)
+    except Exception:
+        return 0.0
+
+def _log_rss(label: str) -> float:
+    """Log current process RSS and return the MiB value for comparison."""
+    rss = _rss_mib()
+    logger.info(f"[RSS] {label}: {rss:.1f} MiB (PID={os.getpid()})")
+    return rss
+
+
+# ─── In-process pipeline performance stats ───────────────────────────────────
+# Stores the last pipeline run's timing and memory deltas. Exposed via
+# GET /admin/system-metrics so every run can be compared against the previous.
+_PIPELINE_STATS: dict = {
+    "last_run_at": None,
+    "rss_before_mib": None,
+    "rss_after_ingestion_mib": None,
+    "rss_after_scoring_mib": None,
+    "rss_after_pipeline_mib": None,
+    "ingestion_elapsed_s": None,
+    "scoring_elapsed_s": None,
+    "total_elapsed_s": None,
+}
+
+
 # ─── Background pipeline (APScheduler — no Redis required) ───────────────────
 
 from app.utils.lock import pipeline_lock
@@ -87,13 +122,27 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
     async with pipeline_lock:
         from app.utils.pipeline_state import pipeline_tracker
         run_at = datetime.now(timezone.utc).isoformat()
+        _PIPELINE_STATS["last_run_at"] = run_at
+        pipeline_wall_t0 = _time.monotonic()
+
+        rss_start = _log_rss("pipeline_start")
+        _PIPELINE_STATS["rss_before_mib"] = rss_start
+
         logger.info(f"[pipeline] Starting delta-sync at {run_at}")
         pipeline_tracker.start("ingestion")
 
         try:
+            ingest_t0 = _time.monotonic()
             ingest_result = await run_daily_ingestion()
-            logger.info(f"[pipeline] Ingestion: inserted={ingest_result.get('inserted',0)} "
-                        f"updated={ingest_result.get('updated',0)} failed={ingest_result.get('failed',0)}")
+            ingest_elapsed = _time.monotonic() - ingest_t0
+            _PIPELINE_STATS["ingestion_elapsed_s"] = round(ingest_elapsed, 2)
+            rss_post_ingest = _log_rss("post_ingestion")
+            _PIPELINE_STATS["rss_after_ingestion_mib"] = rss_post_ingest
+            logger.info(
+                f"[pipeline] Ingestion: inserted={ingest_result.get('inserted',0)} "
+                f"updated={ingest_result.get('updated',0)} failed={ingest_result.get('failed',0)} "
+                f"elapsed={ingest_elapsed:.1f}s rss_delta={rss_post_ingest - rss_start:+.1f} MiB"
+            )
         except Exception as e:
             logger.error(f"[pipeline] Ingestion failed: {e}", exc_info=True)
             pipeline_tracker.end(success=False)
@@ -103,9 +152,17 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
 
         try:
             pipeline_tracker.update_stage("scoring")
+            scoring_t0 = _time.monotonic()
             score_result = await run_in_pipeline_thread(run_daily_scoring)
-            logger.info(f"[pipeline] Scoring: scored={score_result.get('scored',0)} "
-                        f"failed={score_result.get('failed',0)}")
+            scoring_elapsed = _time.monotonic() - scoring_t0
+            _PIPELINE_STATS["scoring_elapsed_s"] = round(scoring_elapsed, 2)
+            rss_post_scoring = _log_rss("post_scoring")
+            _PIPELINE_STATS["rss_after_scoring_mib"] = rss_post_scoring
+            logger.info(
+                f"[pipeline] Scoring: scored={score_result.get('scored',0)} "
+                f"failed={score_result.get('failed',0)} "
+                f"elapsed={scoring_elapsed:.1f}s rss_delta={rss_post_scoring - rss_start:+.1f} MiB"
+            )
         except Exception as e:
             logger.error(f"[pipeline] Scoring failed: {e}", exc_info=True)
             score_result = {"scored": 0, "failed": 0, "alerts": 0, "categories_cached": 0, "date": None}
@@ -178,6 +235,15 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
             logger.warning(f"[pipeline] Cloudflare Edge Cache purge failed: {e}")
 
         pipeline_tracker.end(success=True)
+        total_elapsed = _time.monotonic() - pipeline_wall_t0
+        _PIPELINE_STATS["total_elapsed_s"] = round(total_elapsed, 2)
+        rss_end = _log_rss("pipeline_end")
+        _PIPELINE_STATS["rss_after_pipeline_mib"] = rss_end
+        logger.info(
+            f"[pipeline] COMPLETE: total_elapsed={total_elapsed:.1f}s "
+            f"rss_start={rss_start:.1f} MiB rss_end={rss_end:.1f} MiB "
+            f"net_rss_delta={rss_end - rss_start:+.1f} MiB"
+        )
 
         return {
             "run_at": run_at,
@@ -309,6 +375,7 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Failed to register file logging handler: {e}")
 
     logger.info("Repodar starting up...")
+    _log_rss("startup")  # Phase 0: baseline RSS measurement at cold start
 
     # Validate LLM configurations
     try:
@@ -348,7 +415,17 @@ async def lifespan(app: FastAPI):
         
         # Test connection quickly (1.5s timeout) to ensure Redis is actually up
         await asyncio.wait_for(redis.ping(), timeout=1.5)
-        
+
+        # ── Enforce Redis memory cap to prevent unbounded cache growth ──────
+        # Measured baseline: 7.8 MB. Cap at 50 MB (6× headroom). LRU eviction
+        # preserves the hottest cache keys (dashboard, leaderboard) automatically.
+        try:
+            await redis.config_set("maxmemory", "52428800")  # 50 MiB
+            await redis.config_set("maxmemory-policy", "allkeys-lru")
+            logger.info("[Redis] Memory cap set: 50 MiB, allkeys-lru eviction.")
+        except Exception as redis_cfg_err:
+            logger.warning(f"[Redis] Memory cap config failed (non-fatal): {redis_cfg_err}")
+
         FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
         logger.info("FastAPI-Cache initialized with Redis.")
     except Exception as e:

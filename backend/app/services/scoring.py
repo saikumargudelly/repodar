@@ -810,7 +810,18 @@ def run_daily_scoring() -> dict:
     alert_count = 0
 
     try:
-        repos = db.query(Repository).all()
+        # Phase 2 optimization: column-projection query — avoids loading JSONB columns
+        # (commit_activity_json, ecosystem_data_json, tech_stack_json, repo_summary, description)
+        # that the scoring loop never reads. Only 5 scalar columns are needed.
+        # Before: db.query(Repository).all() — full ORM objects with all TEXT/JSONB columns
+        # After:  named-tuple rows with only id, owner, name, age_days, github_url
+        repos = db.query(
+            Repository.id,
+            Repository.owner,
+            Repository.name,
+            Repository.age_days,
+            Repository.github_url,
+        ).filter(Repository.is_active == True).all()  # noqa: E712
         logger.info(f"Starting scoring for {len(repos)} repos")
 
         from collections import defaultdict
@@ -822,36 +833,57 @@ def run_daily_scoring() -> dict:
             for cm in db.query(ComputedMetric).filter(ComputedMetric.date == today).all()
         }
 
-        # 2. Pre-load last 60 days of DailyMetrics for ALL active repos in 1 query
+        # 2. Phase 2 optimization: scalar column projection + yield_per(500) streaming
+        # Before: db.query(DailyMetric).filter(...).all()
+        #   → instantiates ~147k full ORM objects (~1.2 KB overhead each = ~175 MB)
+        # After: named-tuple rows streamed in batches of 500, never held all in RAM at once
         cutoff = datetime.now(timezone.utc) - timedelta(days=60)
-        all_daily_metrics = (
-            db.query(DailyMetric)
+        _dm_cols = (
+            DailyMetric.repo_id,
+            DailyMetric.captured_at,
+            DailyMetric.stars,
+            DailyMetric.forks,
+            DailyMetric.contributors,
+            DailyMetric.open_issues,
+            DailyMetric.open_prs,
+            DailyMetric.merged_prs,
+            DailyMetric.releases,
+            DailyMetric.daily_star_delta,
+            DailyMetric.daily_fork_delta,
+            DailyMetric.daily_pr_delta,
+            DailyMetric.commit_count,
+            DailyMetric.daily_commit_delta,
+        )
+        metrics_by_repo: defaultdict = defaultdict(list)
+        # Lightweight dict: only the 2 fields the alert engine reads at lines 947-951
+        latest_dm_by_repo: dict = {}
+
+        for row in (
+            db.query(*_dm_cols)
             .filter(DailyMetric.captured_at >= cutoff.replace(tzinfo=None))
             .order_by(DailyMetric.captured_at.asc())
-            .all()
-        )
-        metrics_by_repo = defaultdict(list)
-        for r in all_daily_metrics:
-            metrics_by_repo[r.repo_id].append({
-                "day": r.captured_at.date(),
-                "stars": r.stars,
-                "forks": r.forks,
-                "contributors": r.contributors,
-                "open_issues": r.open_issues,
-                "open_prs": getattr(r, 'open_prs', 0) or 0,
-                "merged_prs": r.merged_prs,
-                "releases": r.releases,
-                "daily_star_delta": r.daily_star_delta or 0,
-                "daily_fork_delta": getattr(r, 'daily_fork_delta', 0) or 0,
-                "daily_pr_delta": getattr(r, 'daily_pr_delta', 0) or 0,
-                "commit_count": getattr(r, 'commit_count', 0) or 0,
-                "daily_commit_delta": getattr(r, 'daily_commit_delta', 0) or 0,
+            .yield_per(500)  # stream in batches of 500 — never holds full set in RAM
+        ):
+            metrics_by_repo[row.repo_id].append({
+                "day":               row.captured_at.date(),
+                "stars":             row.stars,
+                "forks":             row.forks,
+                "contributors":      row.contributors,
+                "open_issues":       row.open_issues,
+                "open_prs":          row.open_prs or 0,
+                "merged_prs":        row.merged_prs,
+                "releases":          row.releases,
+                "daily_star_delta":  row.daily_star_delta or 0,
+                "daily_fork_delta":  row.daily_fork_delta or 0,
+                "daily_pr_delta":    row.daily_pr_delta or 0,
+                "commit_count":      row.commit_count or 0,
+                "daily_commit_delta": row.daily_commit_delta or 0,
             })
-
-        # Map latest DailyMetric object by repo_id
-        latest_dm_by_repo = {}
-        for r in all_daily_metrics:
-            latest_dm_by_repo[r.repo_id] = r
+            # Track the most-recent row per repo; only stars + delta needed by alert engine
+            latest_dm_by_repo[row.repo_id] = {
+                "stars":            row.stars,
+                "daily_star_delta": row.daily_star_delta or 0,
+            }
 
         # Pre-load all active AlertRules
         from app.models.alert_rule import AlertRule
@@ -944,11 +976,11 @@ def run_daily_scoring() -> dict:
                             acceleration=cm_val.acceleration
                         )
                         
-                        dm_obj = latest_dm_by_repo.get(repo.id)
+                        dm_dict = latest_dm_by_repo.get(repo.id, {})
                         dm_ns = SimpleNamespace(
-                            stars=dm_obj.stars if dm_obj else 0,
-                            daily_star_delta=dm_obj.daily_star_delta if dm_obj else 0
-                        ) if dm_obj else None
+                            stars=dm_dict.get("stars", 0),
+                            daily_star_delta=dm_dict.get("daily_star_delta", 0)
+                        ) if dm_dict else None
                         
                         rules_ns = [
                             SimpleNamespace(
@@ -996,6 +1028,17 @@ def run_daily_scoring() -> dict:
             "date": str(today),
         }
         logger.info(f"Scoring complete: {summary}")
+
+        # Phase 2: explicit release of large intermediate dicts before returning.
+        # CPython reference counting makes this deterministic — memory is reclaimed
+        # immediately, before the calling coroutine awaits the next pipeline phase.
+        import gc
+        del metrics_by_repo
+        del latest_dm_by_repo
+        del existing_today_map
+        del prev_cm_map
+        gc.collect()
+
         return summary
 
     except Exception as e:

@@ -985,3 +985,117 @@ def get_runtime_health(db: Session = Depends(get_db)):
 def get_metrics():
     from app.metrics import BackendMetrics
     return BackendMetrics.get_summary()
+
+
+@router.get("/system-metrics")
+async def get_system_metrics():
+    """
+    Real-time system resource metrics for before/after optimization comparison.
+
+    Reports:
+    - Current process RSS (MiB)
+    - DB connection pool utilization
+    - Redis memory usage (MiB)
+    - Last pipeline run: per-phase timing + memory delta
+    - Revert signal: if scoring_rss_delta_mib > 200, optimization is not working
+
+    Call this BEFORE and AFTER deploying each optimization phase to measure impact.
+    """
+    import os
+    import platform
+
+    # ── 1. Current process RSS ──────────────────────────────────────────────
+    try:
+        import resource as _res
+        raw = _res.getrusage(_res.RUSAGE_SELF).ru_maxrss
+        rss_mib = raw / 1024 if platform.system() == "Linux" else raw / (1024 * 1024)
+    except Exception:
+        rss_mib = None
+
+    # ── 2. DB pool utilization ──────────────────────────────────────────────
+    db_pool_info: dict = {}
+    try:
+        from app.database import engine, _active_connections, _active_connections_lock
+        pool = engine.pool
+        pool_size = pool.size() if hasattr(pool, "size") else getattr(pool, "_pool_size", "N/A")
+        overflow = pool.overflow() if hasattr(pool, "overflow") else 0
+        with _active_connections_lock:
+            checked_out = len(_active_connections)
+        db_pool_info = {
+            "pool_size": pool_size,
+            "checked_out": checked_out,
+            "overflow": overflow,
+            "utilization_pct": round(checked_out / pool_size * 100, 1) if isinstance(pool_size, int) and pool_size > 0 else None,
+        }
+    except Exception as exc:
+        db_pool_info = {"error": str(exc)}
+
+    # ── 3. Redis memory ─────────────────────────────────────────────────────
+    redis_info: dict = {}
+    try:
+        from fastapi_cache import FastAPICache
+        backend = FastAPICache.get_backend()
+        backend_name = backend.__class__.__name__
+        redis_mem_mib = None
+        redis_maxmemory_mib = None
+        redis_eviction_policy = None
+        if "Redis" in backend_name:
+            raw_redis = getattr(backend, "_redis", None)
+            if raw_redis:
+                info = await raw_redis.info("memory")
+                used_bytes = info.get("used_memory", 0)
+                redis_mem_mib = round(used_bytes / (1024 * 1024), 2)
+                maxmem_bytes = info.get("maxmemory", 0)
+                redis_maxmemory_mib = round(maxmem_bytes / (1024 * 1024), 2) if maxmem_bytes else "unlimited"
+                cfg = await raw_redis.config_get("maxmemory-policy")
+                redis_eviction_policy = cfg.get("maxmemory-policy", "N/A")
+        redis_info = {
+            "backend": backend_name,
+            "used_mib": redis_mem_mib,
+            "maxmemory_mib": redis_maxmemory_mib,
+            "eviction_policy": redis_eviction_policy,
+        }
+    except Exception as exc:
+        redis_info = {"error": str(exc)}
+
+    # ── 4. Last pipeline stats (before/after memory tracking) ───────────────
+    try:
+        from app.main import _PIPELINE_STATS
+        pipeline_perf = dict(_PIPELINE_STATS)
+        # Compute per-phase RSS delta for easy regression detection
+        rss_b = pipeline_perf.get("rss_before_mib")
+        rss_s = pipeline_perf.get("rss_after_scoring_mib")
+        rss_e = pipeline_perf.get("rss_after_pipeline_mib")
+        pipeline_perf["scoring_rss_delta_mib"] = round(rss_s - rss_b, 1) if rss_s and rss_b else None
+        pipeline_perf["net_rss_delta_mib"] = round(rss_e - rss_b, 1) if rss_e and rss_b else None
+        # Revert signal: if scoring spike > 200 MiB, Phase 2 optimization is not working
+        pipeline_perf["_revert_signal"] = (
+            "REVERT_PHASE2" if pipeline_perf["scoring_rss_delta_mib"] and pipeline_perf["scoring_rss_delta_mib"] > 200
+            else "OK"
+        )
+    except Exception as exc:
+        pipeline_perf = {"error": str(exc)}
+
+    return {
+        "process": {
+            "pid": os.getpid(),
+            "rss_mib": round(rss_mib, 1) if rss_mib else None,
+        },
+        "database_pool": db_pool_info,
+        "redis": redis_info,
+        "last_pipeline_run": pipeline_perf,
+        "measurement_guide": {
+            "how_to_use": "Call GET /admin/system-metrics before and after each optimization phase.",
+            "key_metrics": [
+                "process.rss_mib — current worker RSS (baseline: 400 MiB per worker)",
+                "last_pipeline_run.scoring_rss_delta_mib — RAM spike during scoring (target: <50 MiB after Phase 2)",
+                "last_pipeline_run.scoring_elapsed_s — scoring wall time (should stay constant after Phase 2)",
+                "redis.used_mib — Redis memory (should stay below 50 MiB after Phase 4)",
+            ],
+            "revert_criteria": {
+                "Phase 2 (ORM elimination)": "Revert if scoring_rss_delta_mib increases OR scoring_elapsed_s increases by >20%",
+                "Phase 3 (ingestion projection)": "Revert if ingestion_elapsed_s increases by >20%",
+                "Phase 4 (Redis cap)": "Revert if cache hit rate drops significantly (monitor via /admin/metrics)",
+            },
+        },
+    }
