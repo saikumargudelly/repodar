@@ -871,44 +871,44 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
       ) : null}
 
       {/* ── Hidden LinkedIn Carousel Pages for Export ── */}
-      <div ref={carouselRef} style={{ position: "absolute", left: "-9999px", top: "-9999px" }}>
+      <div ref={carouselRef} style={{ position: "absolute", left: "-9999px", top: "-9999px" }} className="wd-root">
         {/* Slide 1: Cover */}
         <div data-page-index="1" style={slideStyle}>
           <div>
-            {renderSlideHeader("Ecosystem Breakthroughs", 1)}
-            <div style={{ marginTop: "40px", display: "flex", flexDirection: "column", gap: "32px" }}>
-              <div>
-                <h1 style={{ fontSize: "44px", fontWeight: 900, lineHeight: "1.1", color: "#fff", letterSpacing: "-0.02em", margin: "0 0 16px 0", fontFamily: "Inter, sans-serif" }}>Weekly AI/ML Ecosystem Breakthroughs</h1>
-                <p style={{ fontSize: "16px", color: "#8b949e", lineHeight: "1.5", margin: 0, fontFamily: "Inter, sans-serif" }}>Automated intelligence telemetry capturing the highest velocity open-source projects, community health metrics, and growth acceleration.</p>
+            {renderSlideHeader("Ecosystem Telemetry", 1)}
+            <div className="wd-masthead" style={{ marginTop: "40px", borderBottom: "none", paddingBottom: "0px", marginBottom: "0px" }}>
+              <p className="wd-pub-sub">AUTOMATED SNAPSHOT INTELLIGENCE</p>
+              <h1 className="wd-pub-name" style={{ fontSize: "52px", lineHeight: "1.1", margin: "16px 0" }}>Weekly AI/ML Radar</h1>
+              <div className="wd-top-bar" style={{ borderTop: "none", marginTop: "0px", paddingTop: "0px" }}>
+                <span>Ecosystem Telemetry Digest</span>
+                <span className="wd-edition-badge">Edition #{weekId}</span>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "16px", width: "100%" }}>
-                <div style={metricStyle}>
-                  <div style={{ fontSize: "28px", fontWeight: 700, color: "#fff", fontFamily: "Inter, sans-serif" }}>{allRepos.length}</div>
-                  <div style={{ fontSize: "11px", color: "#8b949e", textTransform: "uppercase", fontFamily: "Inter, sans-serif" }}>Repos Tracked</div>
-                </div>
-                <div style={metricStyle}>
-                  <div style={{ fontSize: "28px", fontWeight: 700, color: "#d29922", fontFamily: "Inter, sans-serif" }}>+{maxVelocity.toFixed(0)}</div>
-                  <div style={{ fontSize: "11px", color: "#8b949e", textTransform: "uppercase", fontFamily: "Inter, sans-serif" }}>Peak Stars/Day</div>
-                </div>
-                <div style={metricStyle}>
-                  <div style={{ fontSize: "28px", fontWeight: 700, color: "#fff", fontFamily: "Inter, sans-serif" }}>{avgAccel.toFixed(1)}x</div>
-                  <div style={{ fontSize: "11px", color: "#8b949e", textTransform: "uppercase", fontFamily: "Inter, sans-serif" }}>Avg Acceleration</div>
-                </div>
-                <div style={metricStyle}>
-                  <div style={{ fontSize: "28px", fontWeight: 700, color: "#3fb950", fontFamily: "Inter, sans-serif" }}>{healthyCount}</div>
-                  <div style={{ fontSize: "11px", color: "#8b949e", textTransform: "uppercase", fontFamily: "Inter, sans-serif" }}>Jonin Health</div>
-                </div>
+            </div>
+
+            <div style={{ marginTop: "40px" }}>
+              <h2 className="wd-lead-title" style={{ fontSize: "32px", marginBottom: "16px" }}>Ecosystem Breakthroughs</h2>
+              <p className="wd-lead-deck" style={{ fontSize: "15px", lineHeight: "1.6" }}>
+                Automated intelligence telemetry capturing the highest velocity open-source projects, community health metrics, and growth acceleration.
+              </p>
+            </div>
+
+            <div className="wd-stats-strip" style={{ marginTop: "40px", marginBottom: "0px" }}>
+              <div className="wd-stat-cell">
+                <div className="wd-stat-val">{allRepos.length}</div>
+                <div className="wd-stat-key">Repos Tracked</div>
               </div>
-              {featuredRepos.length >= 3 && (
-                <div style={{ background: "rgba(255,255,255,0.01)", border: "1px dashed rgba(255,255,255,0.1)", borderRadius: "8px", padding: "16px", fontFamily: "Inter, sans-serif" }}>
-                  <div style={{ fontSize: "11px", fontWeight: 700, color: "#00f0ff", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: "8px" }}>Top Breakout Highlights</div>
-                  <div style={{ display: "flex", gap: "24px", fontSize: "14px", fontWeight: 700 }}>
-                    <span>#1 <span style={{ color: "#00f0ff" }}>{featuredRepos[0]?.name}</span></span>
-                    <span>#2 <span style={{ color: "#00f0ff" }}>{featuredRepos[1]?.name}</span></span>
-                    <span>#3 <span style={{ color: "#00f0ff" }}>{featuredRepos[2]?.name}</span></span>
-                  </div>
-                </div>
-              )}
+              <div className="wd-stat-cell">
+                <div className="wd-stat-val">+{maxVelocity.toFixed(0)}</div>
+                <div className="wd-stat-key">Peak Stars/d</div>
+              </div>
+              <div className="wd-stat-cell">
+                <div className="wd-stat-val">{avgAccel.toFixed(1)}x</div>
+                <div className="wd-stat-key">Avg Accel</div>
+              </div>
+              <div className="wd-stat-cell">
+                <div className="wd-stat-val">{healthyCount}</div>
+                <div className="wd-stat-key">Healthy</div>
+              </div>
             </div>
           </div>
           {renderSlideFooter(1)}
@@ -918,10 +918,30 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
         <div data-page-index="2" style={slideStyle}>
           <div>
             {renderSlideHeader("Ecosystem Spotlight", 2)}
-            <div style={{ marginTop: "32px", display: "flex", flexDirection: "column", gap: "24px" }}>
-              <div style={{ fontSize: "14px", fontWeight: 700, color: "#00f0ff", textTransform: "uppercase", letterSpacing: "0.15em", fontFamily: "Inter, sans-serif" }}>Ecosystem Champion</div>
-              {featuredRepos[0] && renderSlideRepoCard(featuredRepos[0], 1, true)}
-            </div>
+            {featuredRepos[0] && (
+              <div className="wd-article" style={{ borderBottom: "none", paddingBottom: 0, marginTop: "24px" }}>
+                <div className="wd-art-rank">Rank #01 / Breakout Champion</div>
+                <h3 className="wd-art-headline" style={{ fontSize: "36px", margin: "12px 0" }}>
+                  {featuredRepos[0].owner}/<span style={{ color: "#00f0ff" }}>{featuredRepos[0].name}</span>
+                </h3>
+                <div className="wd-art-meta" style={{ fontSize: "13px", marginBottom: "16px" }}>
+                  <span className="wd-art-tag" style={{ fontSize: "11px", padding: "3px 8px" }}>{featuredRepos[0].category}</span>
+                  <span>•</span>
+                  <span>{featuredRepos[0].primary_language || "TypeScript"}</span>
+                </div>
+                <p className="wd-art-body" style={{ fontSize: "16px", lineHeight: "1.7", marginBottom: "24px" }}>
+                  {featuredRepos[0].description}
+                </p>
+                <div className="wd-metrics" style={{ fontSize: "13px", gap: "24px", marginBottom: "24px" }}>
+                  <span>Total Stars: <span className="wd-metric-val">{featuredRepos[0].stars?.toLocaleString()}</span></span>
+                  <span>Velocity: <span className="wd-metric-val">+{featuredRepos[0].star_velocity_7d?.toFixed(0)}/day</span></span>
+                  <span>Acceleration: <span className="wd-metric-val">{featuredRepos[0].acceleration?.toFixed(1)}x</span></span>
+                </div>
+                <blockquote className="wd-pullquote" style={{ fontSize: "14px", lineHeight: "1.65", padding: "8px 18px", borderLeft: "3px solid #00f0ff" }}>
+                  <strong>Analyst Note:</strong> {generateInsightCommentary(featuredRepos[0])}
+                </blockquote>
+              </div>
+            )}
           </div>
           {renderSlideFooter(2)}
         </div>
@@ -929,10 +949,47 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
         {/* Slide 3: Ranks #2-#3 */}
         <div data-page-index="3" style={slideStyle}>
           <div>
-            {renderSlideHeader("Featured Highlights", 3)}
-            <div style={{ marginTop: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
-              {featuredRepos[1] && renderSlideRepoCard(featuredRepos[1], 2)}
-              {featuredRepos[2] && renderSlideRepoCard(featuredRepos[2], 3)}
+            {renderSlideHeader("Featured Breakthroughs", 3)}
+            <div style={{ marginTop: "20px", display: "flex", flexDirection: "column", gap: "32px" }}>
+              {featuredRepos[1] && (
+                <div className="wd-article" style={{ borderBottom: "none", paddingBottom: 0 }}>
+                  <div className="wd-art-rank">Rank #02</div>
+                  <h3 className="wd-art-headline" style={{ fontSize: "24px", margin: "8px 0" }}>
+                    {featuredRepos[1].owner}/<span style={{ color: "#00f0ff" }}>{featuredRepos[1].name}</span>
+                  </h3>
+                  <div className="wd-art-meta">
+                    <span className="wd-art-tag">{featuredRepos[1].category}</span>
+                    <span>•</span>
+                    <span>{featuredRepos[1].primary_language || "Python"}</span>
+                  </div>
+                  <p className="wd-art-body" style={{ fontSize: "14px", lineHeight: "1.6" }}>{featuredRepos[1].description}</p>
+                  <div className="wd-metrics">
+                    <span>Stars: <span className="wd-metric-val">{featuredRepos[1].stars?.toLocaleString()}</span></span>
+                    <span>Velocity: <span className="wd-metric-val">+{featuredRepos[1].star_velocity_7d?.toFixed(0)}/day</span></span>
+                    <span>Acceleration: <span className="wd-metric-val">{featuredRepos[1].acceleration?.toFixed(1)}x</span></span>
+                  </div>
+                </div>
+              )}
+              
+              {featuredRepos[2] && (
+                <div className="wd-article" style={{ borderBottom: "none", paddingBottom: 0, borderTop: "1px solid var(--border)", paddingTop: "24px" }}>
+                  <div className="wd-art-rank">Rank #03</div>
+                  <h3 className="wd-art-headline" style={{ fontSize: "24px", margin: "8px 0" }}>
+                    {featuredRepos[2].owner}/<span style={{ color: "#00f0ff" }}>{featuredRepos[2].name}</span>
+                  </h3>
+                  <div className="wd-art-meta">
+                    <span className="wd-art-tag">{featuredRepos[2].category}</span>
+                    <span>•</span>
+                    <span>{featuredRepos[2].primary_language || "Python"}</span>
+                  </div>
+                  <p className="wd-art-body" style={{ fontSize: "14px", lineHeight: "1.6" }}>{featuredRepos[2].description}</p>
+                  <div className="wd-metrics">
+                    <span>Stars: <span className="wd-metric-val">{featuredRepos[2].stars?.toLocaleString()}</span></span>
+                    <span>Velocity: <span className="wd-metric-val">+{featuredRepos[2].star_velocity_7d?.toFixed(0)}/day</span></span>
+                    <span>Acceleration: <span className="wd-metric-val">{featuredRepos[2].acceleration?.toFixed(1)}x</span></span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           {renderSlideFooter(3)}
@@ -941,10 +998,47 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
         {/* Slide 4: Ranks #4-#5 */}
         <div data-page-index="4" style={slideStyle}>
           <div>
-            {renderSlideHeader("Featured Highlights", 4)}
-            <div style={{ marginTop: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
-              {featuredRepos[3] && renderSlideRepoCard(featuredRepos[3], 4)}
-              {featuredRepos[4] && renderSlideRepoCard(featuredRepos[4], 5)}
+            {renderSlideHeader("Featured Breakthroughs", 4)}
+            <div style={{ marginTop: "20px", display: "flex", flexDirection: "column", gap: "32px" }}>
+              {featuredRepos[3] && (
+                <div className="wd-article" style={{ borderBottom: "none", paddingBottom: 0 }}>
+                  <div className="wd-art-rank">Rank #04</div>
+                  <h3 className="wd-art-headline" style={{ fontSize: "24px", margin: "8px 0" }}>
+                    {featuredRepos[3].owner}/<span style={{ color: "#00f0ff" }}>{featuredRepos[3].name}</span>
+                  </h3>
+                  <div className="wd-art-meta">
+                    <span className="wd-art-tag">{featuredRepos[3].category}</span>
+                    <span>•</span>
+                    <span>{featuredRepos[3].primary_language || "Python"}</span>
+                  </div>
+                  <p className="wd-art-body" style={{ fontSize: "14px", lineHeight: "1.6" }}>{featuredRepos[3].description}</p>
+                  <div className="wd-metrics">
+                    <span>Stars: <span className="wd-metric-val">{featuredRepos[3].stars?.toLocaleString()}</span></span>
+                    <span>Velocity: <span className="wd-metric-val">+{featuredRepos[3].star_velocity_7d?.toFixed(0)}/day</span></span>
+                    <span>Acceleration: <span className="wd-metric-val">{featuredRepos[3].acceleration?.toFixed(1)}x</span></span>
+                  </div>
+                </div>
+              )}
+              
+              {featuredRepos[4] && (
+                <div className="wd-article" style={{ borderBottom: "none", paddingBottom: 0, borderTop: "1px solid var(--border)", paddingTop: "24px" }}>
+                  <div className="wd-art-rank">Rank #05</div>
+                  <h3 className="wd-art-headline" style={{ fontSize: "24px", margin: "8px 0" }}>
+                    {featuredRepos[4].owner}/<span style={{ color: "#00f0ff" }}>{featuredRepos[4].name}</span>
+                  </h3>
+                  <div className="wd-art-meta">
+                    <span className="wd-art-tag">{featuredRepos[4].category}</span>
+                    <span>•</span>
+                    <span>{featuredRepos[4].primary_language || "Python"}</span>
+                  </div>
+                  <p className="wd-art-body" style={{ fontSize: "14px", lineHeight: "1.6" }}>{featuredRepos[4].description}</p>
+                  <div className="wd-metrics">
+                    <span>Stars: <span className="wd-metric-val">{featuredRepos[4].stars?.toLocaleString()}</span></span>
+                    <span>Velocity: <span className="wd-metric-val">+{featuredRepos[4].star_velocity_7d?.toFixed(0)}/day</span></span>
+                    <span>Acceleration: <span className="wd-metric-val">{featuredRepos[4].acceleration?.toFixed(1)}x</span></span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           {renderSlideFooter(4)}
@@ -954,8 +1048,28 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
         <div data-page-index="5" style={slideStyle}>
           <div>
             {renderSlideHeader("Ecosystem Rankings", 5)}
-            <div style={{ marginTop: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
-              {featuredRepos.slice(5, 10).map((repo, idx) => renderSlideRepoCompact(repo, 6 + idx))}
+            <div className="wd-sidebar" style={{ marginTop: "24px" }}>
+              <div className="wd-sb-block" style={{ borderTop: "none", paddingTop: 0 }}>
+                <p className="wd-sb-title">Ranks 06 - 10</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                  {featuredRepos.slice(5, 10).map((repo, idx) => {
+                    const bc = healthColor(repo.sustainability_label || "");
+                    return (
+                      <div key={repo.repo_id} style={{ display: "flex", gap: "12px", borderBottom: "1px solid var(--border)", paddingBottom: "12px" }}>
+                        <span className="wd-sb-rank">#{String(6 + idx).padStart(2, "0")}</span>
+                        <div style={{ flex: 1 }}>
+                          <span className="wd-sb-name">{repo.owner}/{repo.name}</span>
+                          <div className="wd-sb-sub" style={{ display: "flex", gap: "10px" }}>
+                            <span>★ {repo.stars?.toLocaleString()}</span>
+                            <span>⚡ +{repo.star_velocity_7d?.toFixed(0)}/day</span>
+                            <span style={{ color: bc, fontWeight: 700 }}>{healthLabel(repo.sustainability_label || "")}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
           {renderSlideFooter(5)}
@@ -965,61 +1079,61 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
         <div data-page-index="6" style={slideStyle}>
           <div>
             {renderSlideHeader("Ecosystem Analytics", 6)}
-            <div style={{ marginTop: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+            <div className="wd-sidebar" style={{ marginTop: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
+              
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "32px" }}>
                 
                 {/* Languages */}
-                <div style={chartCardStyle}>
-                  <div style={chartTitleStyle}>Language Distribution</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                    {topLangs.slice(0, 4).map(([lang, count], idx) => (
-                      <div key={lang} style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", fontFamily: "Inter, sans-serif" }}>
-                          <span style={{ color: "#8b949e" }}>{lang}</span>
-                          <span style={{ fontWeight: 700 }}>{count} repos</span>
+                <div className="wd-sb-block" style={{ borderTop: "2px solid var(--text-muted)", paddingTop: "12px" }}>
+                  <p className="wd-sb-title">Language Distribution</p>
+                  {topLangs.slice(0, 4).map(([lang, count]) => {
+                    const pct = Math.round((count / (topLangs[0][1] || 1)) * 100);
+                    return (
+                      <div key={lang} className="wd-lang-row">
+                        <div className="wd-lang-label">
+                          <span>{lang}</span>
+                          <span>{count} repos</span>
                         </div>
-                        <div style={{ height: "4px", background: "rgba(255,255,255,0.06)", borderRadius: "2px", overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: `${Math.round((count / (topLangs[0][1] || 1)) * 100)}%`, background: "#00f0ff", borderRadius: "2px" }} />
+                        <div className="wd-lang-bar-bg">
+                          <div className="wd-lang-bar-fill" style={{ width: `${pct}%`, background: "linear-gradient(to right, #00f0ff, #0072ff)" }} />
                         </div>
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
 
-                {/* Acceleration leaders */}
-                <div style={chartCardStyle}>
-                  <div style={chartTitleStyle}>Growth Accelerators</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                    {topAccel.slice(0, 4).map((repo, idx) => (
-                      <div key={repo.repo_id} style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", fontFamily: "Inter, sans-serif" }}>
-                          <span style={{ color: "#8b949e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100px" }}>{repo.name}</span>
-                          <span style={{ fontWeight: 700, color: "#00f0ff" }}>{repo.acceleration?.toFixed(1)}x</span>
-                        </div>
-                        <div style={{ height: "3px", background: "rgba(255,255,255,0.06)", borderRadius: "2px", overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: `${Math.min(100, ((repo.acceleration || 0) / (topAccel[0]?.acceleration || 1)) * 100)}%`, background: "linear-gradient(to right, #58a6ff, #1f6feb)", borderRadius: "2px" }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                {/* Accel */}
+                <div className="wd-sb-block" style={{ borderTop: "2px solid var(--text-muted)", paddingTop: "12px" }}>
+                  <p className="wd-sb-title">Growth Acceleration</p>
+                  {topAccel.slice(0, 4).map((repo) => (
+                    <div key={repo.repo_id} className="wd-accel-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span className="wd-sb-name" style={{ fontSize: "12px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "120px" }}>
+                        {repo.name}
+                      </span>
+                      <span style={{ fontFamily: "monospace", fontSize: "12px", fontWeight: 700, color: "#00f0ff" }}>
+                        {repo.acceleration?.toFixed(1)}x
+                      </span>
+                    </div>
+                  ))}
                 </div>
 
               </div>
 
-              {/* Health block */}
-              <div style={chartCardStyle}>
-                <div style={chartTitleStyle}>Ecosystem Cohort Health</div>
-                <div style={{ display: "flex", height: "8px", borderRadius: "999px", overflow: "hidden", gap: "2px", margin: "8px 0" }}>
+              {/* Health cohort */}
+              <div className="wd-sb-block" style={{ borderTop: "2px solid var(--text-muted)", paddingTop: "12px" }}>
+                <p className="wd-sb-title">Ecosystem Cohort Health</p>
+                <div style={{ display: "flex", height: "8px", borderRadius: "999px", overflow: "hidden", gap: "2px", margin: "12px 0 8px", background: "rgba(255,255,255,0.06)" }}>
                   {healthyCount > 0 && <div style={{ flex: healthyCount, background: "#3fb950" }} />}
                   {yellowCount > 0 && <div style={{ flex: yellowCount, background: "#d29922" }} />}
                   {redCount > 0 && <div style={{ flex: redCount, background: "#f85149" }} />}
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "#8b949e", fontFamily: "Inter, sans-serif" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--text-muted)" }}>
                   <span>🟢 Jonin ({healthyCount})</span>
                   <span>🟡 Chunin ({yellowCount})</span>
                   <span>🔴 Genin ({redCount})</span>
                 </div>
               </div>
+
             </div>
           </div>
           {renderSlideFooter(6)}
@@ -1029,40 +1143,41 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
         <div data-page-index="7" style={slideStyle}>
           <div>
             {renderSlideHeader("Ecosystem Momentum", 7)}
-            <div style={{ marginTop: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+            <div className="wd-sidebar" style={{ marginTop: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "32px" }}>
                 
-                {/* Left: Trending lists */}
-                <div style={chartCardStyle}>
-                  <div style={chartTitleStyle}>Also Trending (Ranks 11-18)</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                    {secondaryRepos.slice(0, 7).map((item: any) => (
-                      <div key={item.repo_id} style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "4px", fontFamily: "Inter, sans-serif" }}>
-                        <span style={{ color: "#8b949e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "120px" }}>#{item.rank} {item.name}</span>
-                        <span style={{ color: "#d29922", fontWeight: 700 }}>+{item.star_velocity_7d?.toFixed(0)}/d</span>
-                      </div>
-                    ))}
-                  </div>
+                {/* Also Trending */}
+                <div className="wd-sb-block" style={{ borderTop: "2px solid var(--text-muted)", paddingTop: "12px" }}>
+                  <p className="wd-sb-title">Also Trending (Ranks 11-17)</p>
+                  {secondaryRepos.slice(0, 7).map((item) => (
+                    <div key={item.repo_id} className="wd-accel-row" style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span className="wd-sb-name" style={{ fontSize: "11.5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "120px" }}>
+                        #{item.rank} {item.name}
+                      </span>
+                      <span style={{ fontSize: "11px", color: "#d29922", fontWeight: 700 }}>
+                        +{item.star_velocity_7d?.toFixed(0)}/d
+                      </span>
+                    </div>
+                  ))}
                 </div>
 
-                {/* Right: Watch list */}
-                <div style={chartCardStyle}>
-                  <div style={chartTitleStyle}>Alert Watch List</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                    {watchList.slice(0, 7).map((item: any) => (
-                      <div key={item.repo_id} style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "4px", fontFamily: "Inter, sans-serif" }}>
-                        <span style={{ color: "#8b949e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "120px" }}>{item.name}</span>
-                        <span style={{ color: "#f85149", fontWeight: 700 }}>{healthLabel(item.sustainability_label || "")} Risk</span>
-                      </div>
-                    ))}
-                  </div>
+                {/* Watch List */}
+                <div className="wd-sb-block" style={{ borderTop: "2px solid var(--text-muted)", paddingTop: "12px" }}>
+                  <p className="wd-sb-title">Alert Watch List</p>
+                  {watchList.slice(0, 4).map((item) => (
+                    <div key={item.repo_id} className="wd-watch-card" style={{ marginBottom: "8px", padding: "10px" }}>
+                      <div className="wd-watch-headline" style={{ fontSize: "12px" }}>{item.name}</div>
+                      <div className="wd-watch-body" style={{ fontSize: "10.5px" }}>{healthLabel(item.sustainability_label || "")} Risk status alert.</div>
+                    </div>
+                  ))}
                 </div>
 
               </div>
 
-              {/* Bottom: Analysis excerpt */}
-              <div style={{ background: "rgba(255,255,255,0.01)", borderLeft: "4px solid #00f0ff", padding: "16px", fontSize: "13px", color: "#8b949e", lineHeight: "1.5", fontFamily: "Inter, sans-serif" }}>
-                <b>Ecosystem Report Overview:</b> Our telemetry scanned {allRepos.length} AI and ML repositories this week, ranking projects by velocity and health.
+              <div className="wd-article" style={{ borderBottom: "none", paddingBottom: 0 }}>
+                <blockquote className="wd-pullquote" style={{ fontSize: "13px", lineHeight: "1.6" }}>
+                  <strong>Ecosystem Report Overview:</strong> Our telemetry scanned {allRepos.length} AI and ML repositories this week, ranking projects by velocity and health.
+                </blockquote>
               </div>
             </div>
           </div>
@@ -1073,31 +1188,28 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
         <div data-page-index="8" style={slideStyle}>
           <div>
             {renderSlideHeader("About & Methodology", 8)}
-            <div style={{ marginTop: "48px", display: "flex", flexDirection: "column", gap: "40px" }}>
+            <div style={{ marginTop: "40px", display: "flex", flexDirection: "column", gap: "36px" }}>
               <div>
-                <h2 style={{ fontSize: "28px", fontWeight: 700, color: "#fff", marginBottom: "12px", fontFamily: "Inter, sans-serif" }}>Ecosystem Methodology</h2>
-                <p style={{ fontSize: "15px", color: "#8b949e", lineHeight: "1.6", margin: 0, fontFamily: "Inter, sans-serif" }}>
+                <h2 className="wd-lead-title" style={{ fontSize: "28px", marginBottom: "12px" }}>Ecosystem Scoring Methodology</h2>
+                <p className="wd-lead-deck" style={{ fontSize: "14.5px", lineHeight: "1.6" }}>
                   Repodar scores ecosystem sustainability using issue resolution speed, release frequency, license types, and commit volume.
                 </p>
               </div>
 
-              <div style={{ background: "#262524", border: "1px solid #31302f", borderRadius: "8px", padding: "24px", display: "flex", flexDirection: "column", gap: "16px", fontFamily: "Inter, sans-serif" }}>
-                <div style={{ fontSize: "14px", fontWeight: 700, color: "#00f0ff" }}>Access Real-Time Intelligence</div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                    <span style={{ fontSize: "11px", color: "#8b949e" }}>PLATFORM WEBSITE</span>
-                    <span style={{ fontSize: "16px", fontWeight: 700, color: "#fff" }}>repodar.io</span>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "4px", textAlign: "right" }}>
-                    <span style={{ fontSize: "11px", color: "#8b949e" }}>OPEN SOURCE REPOSITORY</span>
-                    <span style={{ fontSize: "16px", fontWeight: 700, color: "#fff" }}>github.com/saikumargudelly/repodar</span>
-                  </div>
+              <div className="wd-stats-strip" style={{ gridTemplateColumns: "1fr 1fr", gap: "1px", marginBottom: 0 }}>
+                <div className="wd-stat-cell" style={{ padding: "20px" }}>
+                  <div className="wd-stat-val" style={{ fontSize: "16px" }}>repodar.io</div>
+                  <div className="wd-stat-key">Telemetry Platform</div>
+                </div>
+                <div className="wd-stat-cell" style={{ padding: "20px" }}>
+                  <div className="wd-stat-val" style={{ fontSize: "16px" }}>saikumargudelly/repodar</div>
+                  <div className="wd-stat-key">GitHub Repository</div>
                 </div>
               </div>
 
-              <div style={{ textAlign: "center", padding: "12px", fontStyle: "italic", fontSize: "13px", color: "#8b949e", fontFamily: "Inter, sans-serif" }}>
+              <blockquote className="wd-pullquote" style={{ textAlign: "center", borderLeft: "none", padding: "0 24px", fontSize: "13px" }}>
                 "Automated analysis, not human editorial."
-              </div>
+              </blockquote>
             </div>
           </div>
           {renderSlideFooter(8)}
