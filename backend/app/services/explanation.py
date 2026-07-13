@@ -15,27 +15,6 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 
-SYSTEM_PROMPT = """You are an AI infrastructure analyst writing for a technical analyst audience.
-Your tone is direct, precise, and data-driven — similar to a Bloomberg Intelligence brief.
-Never use hype words. State facts and infer signal from the data provided.
-Output exactly 3-5 sentences. No bullet points. No headers."""
-
-EXPLANATION_TEMPLATE = """Explain why the GitHub repo {owner}/{repo_name} is currently trending based on the following data:
-
-Category: {category}
-7-day star velocity: {star_velocity_7d} stars/day (avg)
-30-day star velocity: {star_velocity_30d} stars/day (avg)
-Star acceleration: {acceleration} (positive = accelerating)
-Contributor growth rate (7d): {contributor_growth_rate}
-Release boost detected: {release_boost}
-Sustainability label: {sustainability_label}
-Sustainability score: {sustainability_score}/1.0
-Primary language: {primary_language}
-
-Provide a 3-5 sentence analyst-grade explanation of what is driving this momentum,
-what the sustainability outlook is, and what it signals for the broader ecosystem category."""
-
-
 def generate_explanation(
     owner: str,
     repo_name: str,
@@ -51,26 +30,16 @@ def generate_explanation(
         logger.warning("Groq API key not configured — skipping explanation generation")
         return None
 
-    release_boost = "Yes" if metrics.get("trend_score", 0) > 0 and metrics.get("acceleration", 0) > 0 else "No"
+    from app.services.prompt_builder import build_trend_explanation_prompt
 
-    prompt = EXPLANATION_TEMPLATE.format(
+    messages = build_trend_explanation_prompt(
         owner=owner,
         repo_name=repo_name,
         category=category,
-        star_velocity_7d=round(metrics.get("star_velocity_7d", 0), 2),
-        star_velocity_30d=round(metrics.get("star_velocity_30d", 0), 2),
-        acceleration=round(metrics.get("acceleration", 0), 4),
-        contributor_growth_rate=round(metrics.get("contributor_growth_rate", 0), 4),
-        release_boost=release_boost,
-        sustainability_label=metrics.get("sustainability_label", "YELLOW"),
-        sustainability_score=round(metrics.get("sustainability_score", 0), 2),
-        primary_language=primary_language or "Unknown",
+        metrics=metrics,
+        primary_language=primary_language
     )
 
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": prompt},
-    ]
     res = sync_chat_completion(
         messages=messages,
         temperature=0.3,
@@ -169,25 +138,6 @@ def enrich_top_repos_with_explanations(top_n: int = 20) -> int:
 
 # ─── Repo Summary ─────────────────────────────────────────────────────────────
 
-SUMMARY_SYSTEM_PROMPT = """You are a senior developer writing a brief introduction for a technical audience.
-Be concrete, informative, and jargon-free. Do not use hype. No bullet points. No headers.
-Output exactly 3 sentences."""
-
-SUMMARY_TEMPLATE = """Write a 3-sentence plain-English summary for the GitHub repository {owner}/{repo_name}.
-
-GitHub description: {description}
-Category: {category}
-Primary language: {primary_language}
-Topics/tags: {topics}
-Current TrendScore: {trend_score}
-Stars gained in last 30 days: {star_delta_30d}
-Total contributors: {contributors}
-
-Sentence 1: What this project does and who it is for.
-Sentence 2: The primary use case or problem it solves.
-Sentence 3: Why it is gaining momentum right now, based on the signals above."""
-
-
 def generate_repo_summary(
     owner: str,
     repo_name: str,
@@ -203,22 +153,20 @@ def generate_repo_summary(
     if not GROQ_API_KEY:
         return None
 
-    prompt = SUMMARY_TEMPLATE.format(
+    from app.services.prompt_builder import build_repo_summary_prompt
+
+    messages = build_repo_summary_prompt(
         owner=owner,
         repo_name=repo_name,
-        description=description or "Not provided",
         category=category,
-        primary_language=primary_language or "Unknown",
-        topics=topics or "None",
-        trend_score=round(trend_score, 4),
-        star_delta_30d=round(star_delta_30d, 0),
-        contributors=contributors,
+        description=description,
+        primary_language=primary_language,
+        topics=topics,
+        trend_score=trend_score,
+        star_delta_30d=star_delta_30d,
+        contributors=contributors
     )
 
-    messages = [
-        {"role": "system", "content": SUMMARY_SYSTEM_PROMPT},
-        {"role": "user", "content": prompt},
-    ]
     res = sync_chat_completion(
         messages=messages,
         temperature=0.4,
@@ -370,56 +318,9 @@ def enrich_repos_with_summaries(top_n: int = 30, score_delta_threshold: float = 
 
 # ─── Deep Repo Summary ────────────────────────────────────────────────────────
 
-DEEP_SUMMARY_SYSTEM = """You are a Principal Software Architect conducting a rigorous, highly-detailed technical audit and architectural breakdown of GitHub repositories.
-Your analysis must be:
-1. Extremely precise, concrete, and technical. Avoid high-level abstractions or generic summaries.
-2. Rooted in codebase details: mention specific architectural patterns, libraries, protocols, database paradigms, runtime requirements, and configuration strategies.
-3. Formatted strictly as valid, parser-safe JSON with no wrapping markdown block quotes or trailing annotations.
-4. Objective and free of marketing fluff or buzzwords."""
-
 class LLMPipelineError(RuntimeError):
     """Raised when all configured LLM providers fail or return invalid output."""
     pass
-
-DEEP_SUMMARY_TEMPLATE = """Analyze the provided GitHub repository details and README excerpt to generate a dense, accurate architectural summary.
-
-Repository: {owner}/{repo_name}
-Description: {description}
-Primary language: {language}
-Topics/tags: {topics}
-GitHub topics: {github_topics}
-Languages used (bytes): {languages}
-README excerpt (first 3000 chars): {readme}
-
-Quantitative momentum and sustainability metrics:
-- Trend Score: {trend_score}
-- 7d Star Velocity: {star_velocity_7d} stars/day
-- Star Acceleration: {acceleration}
-- Sustainability Score: {sustainability_score}/1.0
-- Sustainability Label: {sustainability_label}
-
-Repository stats:
-- Stars: {stars}
-- Forks: {forks}
-- Contributors: {contributors_count}
-- Commit Activity: {commit_activity}
-- Ecosystem Context: {ecosystem_context}
-
-Return exactly this JSON structure:
-{{
-  "what": "A comprehensive, 2-3 sentence technical description of the project. State the exact type of software (e.g., CLI tool, library, microservice, framework, application client/server), its primary value proposition, core functional capabilities, and intended audience (e.g., developers, DevOps engineers, systems admins).",
-  "why": "A 2-3 sentence explanation of the specific technological gap or problem solved. Highlight the inefficiencies, limitations, or design constraints of existing alternatives (e.g., performance issues, synchronization overhead, complexity, lack of standard compliance) that led to this project's creation.",
-  "how": "A 2-3 sentence technical and architectural breakdown of its runtime flow, execution model, and core pipeline. Discuss how data flows through the application, specific APIs, protocols, concurrency models, or key modules that drive the logic.",
-  "tech_stack": ["List", "of", "all", "major", "technologies", "frameworks", "runtimes", "compilers", "databases", "transpilers", "message brokers", "protocols", "and", "key libraries/dependencies", "found"],
-  "use_cases": [
-    "A highly specific developer, deployment, or user-centric scenario 1.",
-    "A highly specific developer, deployment, or user-centric scenario 2.",
-    "A highly specific developer, deployment, or user-centric scenario 3."
-  ]
-}}
-
-Derive the tech stack from languages used, tags, description, and dependency lists/instructions in the README. Include system-level requirements or deployment environments where visible.
-Output ONLY the JSON object. Do not include markdown code fences (```json ... ```)."""
 
 
 async def generate_deep_summary(
@@ -444,46 +345,44 @@ async def generate_deep_summary(
 ) -> dict:
     """
     Generate a structured deep summary with what/why/how/tech_stack/use_cases.
+    Preprocesses inputs deterministically, audits prompt budget, and injects telemetry.
     Raises LLMPipelineError if all providers fail.
     """
     import json
+    import time
+    from app.services.context import build_repository_context
+    from app.services.prompt_builder import build_deep_summary_prompt
 
-    languages_str = ", ".join(
-        f"{lang}: {round(bytes_ / 1024, 1)}KB"
-        for lang, bytes_ in sorted(languages.items(), key=lambda x: -x[1])[:8]
-    ) or "Not available"
-
-    prompt = DEEP_SUMMARY_TEMPLATE.format(
+    # 1. Normalize context
+    context = build_repository_context(
+        repo_id=f"{owner}/{repo_name}",
         owner=owner,
-        repo_name=repo_name,
-        description=description or "Not provided",
-        language=language or "Unknown",
-        topics=topics or "None",
-        github_topics=", ".join(github_topics) if github_topics else "None",
-        languages=languages_str,
-        readme=readme[:3000] if readme else "Not available",
-        trend_score=round(trend_score, 4),
-        star_velocity_7d=round(star_velocity_7d, 2),
-        acceleration=round(acceleration, 4),
-        sustainability_score=round(sustainability_score, 2),
+        name=repo_name,
+        description=description,
+        primary_language=language,
+        languages=languages,
+        readme=readme,
+        commit_activity_json=commit_activity,
+        ecosystem_context=ecosystem_context,
+        trend_score=trend_score,
+        star_velocity_7d=star_velocity_7d,
+        acceleration=acceleration,
+        sustainability_score=sustainability_score,
         sustainability_label=sustainability_label,
         stars=stars,
         forks=forks,
-        contributors_count=contributors_count,
-        commit_activity=commit_activity or "Not available",
-        ecosystem_context=json.dumps(ecosystem_context) if ecosystem_context else "Not available",
+        contributors_count=contributors_count
     )
 
-    messages = [
-        {"role": "system", "content": DEEP_SUMMARY_SYSTEM},
-        {"role": "user", "content": prompt},
-    ]
+    # 2. Build and audit prompt under budget cap (e.g. 2000 tokens)
+    messages, audit_telemetry = build_deep_summary_prompt(context, budget_tokens=2000)
+
+    start_time = time.perf_counter()
     try:
         response = await async_chat_completion(
             messages=messages,
             temperature=0.3,
             max_tokens=700,
-            response_format={"type": "json_object"},
             json_required_keys=["what", "why", "how", "tech_stack", "use_cases"],
         )
         raw = response.text
@@ -505,6 +404,15 @@ async def generate_deep_summary(
                 if text_to_parse.startswith("json"):
                     text_to_parse = text_to_parse[4:]
         result = json.loads(text_to_parse.strip())
+        
+        # Inject Telemetry & Versioning
+        latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
+        result["prompt_version"] = audit_telemetry["prompt_version"]
+        result["prompt_tokens"] = response.prompt_tokens or audit_telemetry["prompt_tokens"]
+        result["completion_tokens"] = response.completion_tokens or 0
+        result["compression_ratio"] = audit_telemetry["compression_ratio"]
+        result["latency_ms"] = response.latency_ms or latency_ms
+        
         return result
     except Exception as e:
         logger.error(f"Deep summary JSON parsing failed for {owner}/{repo_name}: {e}. Raw response: {repr(raw)}")
