@@ -358,60 +358,7 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
     <div className="wd-root">
       <style>{css}</style>
 
-      {/* ── Hidden 4K poster ── */}
-      <div ref={posterRef} id="repodar-social-poster" style={{ position: "absolute", left: "-9999px", top: "-9999px", width: "1200px", height: `${800 + featuredRepos.length * 180}px`, background: "radial-gradient(circle at 50% 50%, #171d2b 0%, #0a0d14 100%)", color: "#e6edf3", padding: "64px", display: "flex", flexDirection: "column", justifyContent: "space-between", fontFamily: "Inter, -apple-system, sans-serif", boxSizing: "border-box", border: "1px solid #30363d" }}>
-        <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <div style={{ width: "48px", height: "48px", borderRadius: "8px", background: "linear-gradient(135deg, #00f0ff 0%, #0072ff 100%)", display: "flex", alignItems: "center", justifyContent: "center", color: "#0a0d14", fontWeight: 800, fontSize: "20px" }}>R</div>
-              <div>
-                <div style={{ fontSize: "18px", fontWeight: 800, letterSpacing: "0.05em", color: "#ffffff" }}>REPODAR</div>
-                <div style={{ fontSize: "11px", fontFamily: "monospace", color: "#8b949e", letterSpacing: "0.1em" }}>INTELLIGENCE SYSTEM</div>
-              </div>
-            </div>
-            <div style={{ border: "1px solid rgba(0,240,255,0.3)", background: "rgba(0,240,255,0.05)", color: "#00f0ff", padding: "6px 14px", borderRadius: "4px", fontSize: "12px", fontFamily: "monospace", fontWeight: 700 }}>WEEK {weekId}</div>
-          </div>
-          <div style={{ height: "2px", background: "linear-gradient(to right, #00f0ff, transparent)", marginTop: "24px", marginBottom: "40px" }} />
-          <h1 style={{ fontSize: "42px", fontWeight: 900, letterSpacing: "-0.02em", color: "#ffffff", margin: "0 0 12px", lineHeight: "1.1" }}>Weekly AI/ML Ecosystem Breakthroughs</h1>
-          <p style={{ fontSize: "16px", color: "#8b949e", margin: "0 0 48px", lineHeight: "1.5", maxWidth: "800px" }}>Automated intelligence telemetry capturing the highest velocity open-source projects, community health metrics, and growth acceleration.</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-            {featuredRepos.map((repo) => {
-              const bc = healthColor(repo.sustainability_label || "");
-              return (
-                <div key={repo.repo_id} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderLeft: `5px solid ${bc}`, borderRadius: "0 8px 8px 0", padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "18px", flex: 1 }}>
-                    <span style={{ fontSize: "26px", fontWeight: 800, color: "#00f0ff", opacity: 0.6, width: "40px", fontFamily: "monospace" }}>#{String(repo.rank).padStart(2, "0")}</span>
-                    <div>
-                      <div style={{ fontSize: "19px", fontWeight: 700, color: "#fff" }}>{repo.owner}/<span style={{ color: "#00f0ff" }}>{repo.name}</span></div>
-                      <div style={{ fontSize: "13px", color: "#8b949e", marginTop: "5px" }}>{repo.description || "No description available."}</div>
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: "28px", textAlign: "right" }}>
-                    <div>
-                      <div style={{ fontSize: "10px", color: "#8b949e", fontFamily: "monospace", letterSpacing: "0.05em" }}>7D VELOCITY</div>
-                      <div style={{ fontSize: "17px", fontWeight: 700, color: "#d29922", marginTop: "2px" }}>+{repo.star_velocity_7d?.toFixed(0)}<span style={{ fontSize: "11px", fontWeight: 400, color: "#8b949e" }}>/day</span></div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: "10px", color: "#8b949e", fontFamily: "monospace", letterSpacing: "0.05em" }}>HEALTH</div>
-                      <div style={{ fontSize: "17px", fontWeight: 700, color: bc, marginTop: "2px" }}>{healthLabel(repo.sustainability_label || "")}</div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        <div>
-          <div style={{ height: "1px", background: "rgba(255,255,255,0.08)", marginBottom: "28px" }} />
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontSize: "11px", color: "#8b949e", fontFamily: "monospace", letterSpacing: "0.08em" }}>AUTOMATED ANALYSIS · REPODAR ENGINE</div>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <div style={{ width: "28px", height: "4px", background: "#00f0ff" }} />
-              <div style={{ fontSize: "14px", fontWeight: 800, color: "#fff" }}>repodar.io</div>
-            </div>
-          </div>
-        </div>
-      </div>
+
 
       {/* ── Nav ── */}
       <div className="wd-nav">
@@ -456,7 +403,7 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
           Failed to retrieve Weekly Snapshot {weekId}. Please verify the identifier and try again.
         </div>
       ) : snapshot ? (
-        <>
+        <div ref={posterRef} style={{ background: "var(--bg-primary)", padding: "24px 32px 48px", borderRadius: "12px", boxSizing: "border-box" }}>
           {/* Lead */}
           <div style={{ marginBottom: 28 }}>
             <p className="wd-section-label">Top Story</p>
@@ -702,7 +649,7 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
             <span>© {new Date().getFullYear()} Repodar Intelligence System — automated analysis, not human editorial</span>
             <span>repodar.io · Edition #{weekId}</span>
           </div>
-        </>
+        </div>
       ) : null}
 
       {/* ── Export Modal ── */}
@@ -717,29 +664,13 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
               <button onClick={() => setIsModalOpen(false)} style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 20, lineHeight: 1, padding: 0 }}>✕</button>
             </div>
             <div style={{ border: "1px solid var(--border)", background: "var(--bg-primary)", borderRadius: "8px", overflow: "hidden", display: "flex", justifyContent: "center", alignItems: "center", padding: 20 }}>
-              <div style={{ width: 220, height: 146 + featuredRepos.length * 33, background: "radial-gradient(circle at 50% 50%, #171d2b 0%, #0a0d14 100%)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: 16, display: "flex", flexDirection: "column", justifyContent: "space-between", boxSizing: "border-box" }}>
-                <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      <div style={{ width: 14, height: 14, borderRadius: 2, background: "#00f0ff", display: "flex", alignItems: "center", justifyContent: "center", color: "#000", fontWeight: 800, fontSize: 7 }}>R</div>
-                      <span style={{ fontSize: 8, fontWeight: 800, color: "#fff" }}>REPODAR</span>
-                    </div>
-                    <span style={{ fontSize: 7, background: "rgba(0,240,255,0.1)", color: "#00f0ff", padding: "2px 4px", borderRadius: 2, fontFamily: "monospace" }}>W{weekId}</span>
-                  </div>
-                  <div style={{ height: 1, background: "rgba(255,255,255,0.08)", marginBottom: 8 }} />
-                  <div style={{ fontSize: 11, fontWeight: 800, color: "#fff", marginBottom: 8, lineHeight: 1.2 }}>Weekly AI/ML Radar</div>
-                  {featuredRepos.map((r) => (
-                    <div key={r.repo_id} style={{ display: "flex", justifyContent: "space-between", fontSize: 7, padding: "3px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                      <span style={{ color: "#ccc" }}>#{r.rank} {r.name}</span>
-                      <span style={{ color: "#d29922" }}>+{r.star_velocity_7d?.toFixed(0)}/d</span>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ fontSize: 6, color: "#555", fontFamily: "monospace", paddingTop: 6, borderTop: "1px solid rgba(255,255,255,0.05)" }}>repodar.io</div>
+              <div style={{ width: 240, height: 160, border: "1px dashed var(--border)", borderRadius: 6, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 24 }}>📄</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)" }}>Full Blog Report Page</span>
               </div>
             </div>
             <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: 0, fontFamily: "Inter, sans-serif", lineHeight: 1.6 }}>
-              Exports a <strong>1200×{800 + featuredRepos.length * 180} px</strong> vertical graphic at 3.2× scaling (4K equivalent) — ideal for LinkedIn and Twitter/X mobile feeds.
+              Exports the entire weekly blog page UI as a high-resolution 4K graphic (3.2× scaling) — perfect for LinkedIn, Twitter/X, and newsletter publication.
             </p>
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={handleExportPoster} disabled={exporting} className="wd-btn wd-btn-primary" style={{ flex: 1, padding: "10px 0", fontSize: 13, justifyContent: "center", borderRadius: 6 }}>
