@@ -26,8 +26,8 @@ SUPPORTED_MODELS = {
         "default": "gemini-2.5-flash"
     },
     "Cerebras": {
-        "models": ["llama3.1-8b", "llama3.1-70b", "llama-3.3-70b"],
-        "default": "llama3.1-70b"
+        "models": ["gemma-4-31b", "gpt-oss-120b", "zai-glm-4.7", "llama3.1-8b", "llama3.1-70b", "llama-3.3-70b"],
+        "default": "gemma-4-31b"
     },
     "Groq": {
         "models": ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile", "mixtral-8x7b-32768"],
@@ -800,11 +800,18 @@ async def validate_llm_configuration():
             except Exception as exc:
                 duration_ms = int((time.perf_counter() - start_time) * 1000)
                 error_msg = get_error_message(exc)
-                logger.warning(
-                    f"[LLM Start Validation] Provider {provider.name} FAILED functional check in {duration_ms}ms: {error_msg}. "
-                    f"Removing {provider.name} from active provider chain."
-                )
-                _failed_providers.add(name)
+                is_trans = is_transient_error(exc)
+                if not is_trans:
+                    logger.warning(
+                        f"[LLM Start Validation] Provider {provider.name} FAILED functional check in {duration_ms}ms: {error_msg}. "
+                        f"Removing {provider.name} from active provider chain permanently."
+                    )
+                    _failed_providers.add(name)
+                else:
+                    logger.warning(
+                        f"[LLM Start Validation] Provider {provider.name} FAILED functional check due to transient error: {error_msg}. "
+                        f"Keeping in active chain (will rely on active cooldown/fallback)."
+                    )
 
 
 def is_transient_error(exc: Exception) -> bool:
