@@ -7,6 +7,7 @@ import { useAuth, useUser, SignOutButton } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { CommandPalette } from "@/components/ui/CommandPalette";
+import { useUnreadAlerts } from "@/lib/useUnreadAlerts";
 
 // Icons matching the design mockup and spec
 const OverviewIcon = (
@@ -126,13 +127,7 @@ export function Sidebar() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   // Fetch unread alerts for dynamic radar badge
-  const { data: alertsData } = useQuery({
-    queryKey: ["sidebar-alerts"],
-    queryFn: () => api.getAlerts(true, 200),
-    enabled: authLoaded && !!userId,
-    refetchInterval: 30000,
-  });
-  const unreadCount = alertsData?.length ?? 0;
+  const { unreadCount } = useUnreadAlerts();
 
   // Sync tab title with alert count
   useEffect(() => {

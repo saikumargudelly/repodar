@@ -4,18 +4,13 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/nextjs";
 import { api } from "@/lib/api";
+import { useUnreadAlerts } from "@/lib/useUnreadAlerts";
 
 export function Nav({ onOpenAlerts }: { onOpenAlerts?: () => void }) {
   const [isMobile, setIsMobile] = useState(false);
   const { isLoaded, userId } = useAuth();
 
-  const { data: alertsData } = useQuery({
-    queryKey: ["sidebar-alerts"],
-    queryFn: () => api.getAlerts(true, 200),
-    enabled: isLoaded && !!userId,
-    refetchInterval: 30000,
-  });
-  const unreadCount = alertsData?.length ?? 0;
+  const { unreadCount } = useUnreadAlerts();
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth <= 768);

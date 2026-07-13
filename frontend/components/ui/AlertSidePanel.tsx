@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { api, AlertResponse } from "@/lib/api";
 
@@ -46,6 +46,7 @@ interface AlertSidePanelProps {
 
 export function AlertSidePanel({ isOpen, onClose }: AlertSidePanelProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [alerts, setAlerts] = useState<AlertResponse[]>([]);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -59,7 +60,7 @@ export function AlertSidePanel({ isOpen, onClose }: AlertSidePanelProps) {
   const { data: alertsData } = useQuery({
     queryKey: ["global-side-alerts"],
     queryFn: () => api.getAlerts(false, 30),
-    refetchInterval: 30000,
+    staleTime: 120 * 60 * 1000, // 2 hours
     enabled: isOpen,
   });
 
@@ -91,6 +92,8 @@ export function AlertSidePanel({ isOpen, onClose }: AlertSidePanelProps) {
     try {
       await api.markAlertRead(alertId);
       setAlerts((prev) => prev.map((a) => a.id === alertId ? { ...a, is_read: true } : a));
+      queryClient.invalidateQueries({ queryKey: ["sidebar-alerts"] });
+      queryClient.invalidateQueries({ queryKey: ["global-side-alerts"] });
     } catch (err) {
       console.error(err);
     }
@@ -100,6 +103,8 @@ export function AlertSidePanel({ isOpen, onClose }: AlertSidePanelProps) {
     setAlerts((prev) => prev.map((a) => ({ ...a, is_read: true })));
     try {
       await api.markAllAlertsRead();
+      queryClient.invalidateQueries({ queryKey: ["sidebar-alerts"] });
+      queryClient.invalidateQueries({ queryKey: ["global-side-alerts"] });
     } catch (err) {
       console.error(err);
     }

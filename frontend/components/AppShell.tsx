@@ -9,6 +9,7 @@ import { StatusBar } from "@/components/StatusBar";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { AlertSidePanel } from "@/components/ui/AlertSidePanel";
+import { useUnreadAlerts } from "@/lib/useUnreadAlerts";
 
 const PUBLIC_PREFIXES = [
   "/",
@@ -52,13 +53,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [isMobile, setIsMobile] = useState(false);
   const [alertsPanelOpen, setAlertsPanelOpen] = useState(false);
 
-  const { data: alertsData } = useQuery({
-    queryKey: ["sidebar-alerts"],
-    queryFn: () => api.getAlerts(true, 200),
-    enabled: isLoaded && !!userId,
-    refetchInterval: 30000,
-  });
-  const unreadCount = alertsData?.length ?? 0;
+  const { unreadCount } = useUnreadAlerts();
 
   // Any page component can dispatch this event to open the alerts panel
   useEffect(() => {

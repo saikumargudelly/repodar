@@ -251,16 +251,22 @@ export default function AlertsPage() {
   const { data: alerts, isLoading } = useQuery({
     queryKey: ["alerts", unreadOnly],
     queryFn: () => api.getAlerts(unreadOnly, 100),
-    refetchInterval: 60_000,
+    staleTime: 120 * 60 * 1000, // 2 hours
   });
 
   const markReadMut = useMutation({
     mutationFn: (id: string) => api.markAlertRead(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["alerts"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["alerts"] });
+      queryClient.invalidateQueries({ queryKey: ["sidebar-alerts"] });
+    },
   });
   const markAllReadMut = useMutation({
     mutationFn: () => api.markAllAlertsRead(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["alerts"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["alerts"] });
+      queryClient.invalidateQueries({ queryKey: ["sidebar-alerts"] });
+    },
   });
 
   const categories = Array.from(new Set((alerts ?? []).map((a) => a.category))).sort();
@@ -340,6 +346,25 @@ export default function AlertsPage() {
             Mark all read
           </button>
         )}
+        <button
+          onClick={() => {
+            queryClient.invalidateQueries({ queryKey: ["alerts"] });
+            queryClient.invalidateQueries({ queryKey: ["sidebar-alerts"] });
+          }}
+          style={{
+            marginLeft: unreadCount > 0 ? "10px" : "auto",
+            fontFamily: "var(--font-mono)",
+            fontSize: "11px",
+            color: "var(--accent-blue)",
+            background: "transparent",
+            border: "1px solid var(--accent-blue)",
+            borderRadius: "4px",
+            padding: "5px 12px",
+            cursor: "pointer",
+          }}
+        >
+          ↻ Refresh
+        </button>
       </div>
 
       {/* Alert list */}

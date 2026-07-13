@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthSession } from "@/lib/useAuthSession";
+import { useUnreadAlerts } from "@/lib/useUnreadAlerts";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, Cell, PieChart, Pie,
@@ -1250,13 +1251,7 @@ export default function OverviewPage() {
   });
 
   // Unread alerts count for the inline bell button
-  const { data: alertsData } = useQuery({
-    queryKey: ["sidebar-alerts"],
-    queryFn: () => api.getAlerts(true, 200),
-    enabled: authLoaded && !!userId,
-    refetchInterval: 30000,
-  });
-  const unreadAlerts = alertsData?.length ?? 0;
+  const { unreadCount: unreadAlerts } = useUnreadAlerts();
 
 
 
