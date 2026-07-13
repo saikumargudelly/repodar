@@ -491,8 +491,10 @@ class CerebrasProvider(BaseLLMProvider):
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
-        if response_format:
-            body["response_format"] = response_format
+        # Disable response_format for Cerebras as it causes token repetition loops (e.g. on gemma-4-31b)
+        # We rely instead on our strict prompting and robust JSON validation parser.
+        # if response_format:
+        #     body["response_format"] = response_format
         return body
 
     def _extract_text(self, resp_data: Any) -> str:
