@@ -77,6 +77,9 @@ function VeloBar({ value, max }: { value: number; max: number }) {
 export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId: string }> }) {
   const { weekId } = use(params);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [sharingStep, setSharingStep] = useState<"options" | "linkedin-guide">("options");
+  const [copiedSlide, setCopiedSlide] = useState<number | null>(null);
+  const [copiedText, setCopiedText] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [copied, setCopied] = useState(false);
   const posterRef = useRef<HTMLDivElement>(null);
@@ -245,29 +248,46 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
     }
   };
 
-  const handleShareToLinkedIn = async () => {
-    setExporting(true);
-    setExportProgress("Preparing post description...");
-    try {
-      // Create share text
-      const shareText = `📊 Repodar Weekly AI/ML Radar (Edition #${weekId}) is live!\n\nHere are this week's breakout open-source projects:\n1️⃣ ${featuredRepos[0] ? `${featuredRepos[0].owner}/${featuredRepos[0].name}` : ""}\n2️⃣ ${featuredRepos[1] ? `${featuredRepos[1].owner}/${featuredRepos[1].name}` : ""}\n3️⃣ ${featuredRepos[2] ? `${featuredRepos[2].owner}/${featuredRepos[2].name}` : ""}\n\nCheck out the full telemetry health indicators, language distributions, and growth acceleration metrics!\n\n#AI #ML #OpenSource #GitHub`;
-      
-      // Copy promotional text to clipboard
-      try {
-        await navigator.clipboard.writeText(shareText);
-      } catch (clipErr) {
-        console.warn("Failed to write text to clipboard", clipErr);
-      }
+  const handleShareToLinkedIn = () => {
+    setSharingStep("linkedin-guide");
+  };
 
-      setExportProgress("Redirecting to LinkedIn...");
-      const targetUrl = `${window.location.origin}/weekly/${weekId}`;
-      const linkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(targetUrl)}`;
-      window.open(linkedinUrl, "_blank");
+  const handleCopyPromoText = async () => {
+    try {
+      const shareText = `📊 Repodar Weekly AI/ML Radar (Edition #${weekId}) is live!\n\nHere are this week's breakout open-source projects:\n1️⃣ ${featuredRepos[0] ? `${featuredRepos[0].owner}/${featuredRepos[0].name}` : ""}\n2️⃣ ${featuredRepos[1] ? `${featuredRepos[1].owner}/${featuredRepos[1].name}` : ""}\n3️⃣ ${featuredRepos[2] ? `${featuredRepos[2].owner}/${featuredRepos[2].name}` : ""}\n\nCheck out the full telemetry health indicators, language distributions, and growth acceleration metrics at: repodar.io/weekly/${weekId}\n\n#AI #ML #OpenSource #GitHub`;
+      await navigator.clipboard.writeText(shareText);
+      setCopiedText(true);
+      setTimeout(() => setCopiedText(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy text", err);
+    }
+  };
+
+  const handleCopySlideToClipboard = async (index: number) => {
+    const container = carouselRef.current;
+    if (!container) return;
+    setExporting(true);
+    setExportProgress(`Copying Slide ${index} of 4...`);
+    try {
+      const node = container.querySelector(`[data-page-index="${index}"]`) as HTMLElement;
+      if (!node) return;
       
+      const dataUrl = await toPng(node, { pixelRatio: 2.0, quality: 0.95, cacheBust: true });
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+      
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          [blob.type]: blob
+        })
+      ]);
+      setCopiedSlide(index);
+      setTimeout(() => setCopiedSlide(null), 2000);
       setExportProgress(null);
     } catch (err) {
-      console.error("Failed to share to LinkedIn", err);
-      setExportProgress("Failed to share.");
+      console.error(`Failed to copy slide ${index}`, err);
+      setExportProgress(`Failed to copy slide ${index}.`);
+      setTimeout(() => setExportProgress(null), 2000);
     } finally {
       setExporting(false);
     }
@@ -902,53 +922,53 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
       <div ref={carouselRef} style={{ position: "absolute", left: "-9999px", top: "-9999px" }} className="wd-root">
         {/* Slide 1: Cover & Spotlight */}
         <div data-page-index="1" style={slideStyle}>
-          <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%" }}>
+          <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "1222px", boxSizing: "border-box" }}>
             {renderSlideHeader("Weekly Telemetry Digest", 1, 4)}
             
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "28px", justifyContent: "center" }}>
+            <div style={{ height: "920px", display: "flex", flexDirection: "column", justifyContent: "space-between", boxSizing: "border-box" }}>
               <div className="wd-masthead" style={{ borderBottom: "none", paddingBottom: "0px", marginBottom: "0px" }}>
-                <p className="wd-pub-sub" style={{ fontSize: "12px", letterSpacing: "0.22em" }}>AUTOMATED WEEKLY INTELLIGENCE</p>
-                <h1 className="wd-pub-name" style={{ fontSize: "44px", margin: "8px 0" }}>Weekly AI/ML Radar</h1>
-                <div className="wd-top-bar" style={{ borderTop: "none", marginTop: "0px", paddingTop: "0px", fontSize: "11px" }}>
+                <p className="wd-pub-sub" style={{ fontSize: "14px", letterSpacing: "0.22em" }}>AUTOMATED WEEKLY INTELLIGENCE</p>
+                <h1 className="wd-pub-name" style={{ fontSize: "52px", margin: "12px 0" }}>Weekly AI/ML Radar</h1>
+                <div className="wd-top-bar" style={{ borderTop: "none", marginTop: "0px", paddingTop: "0px", fontSize: "12px" }}>
                   <span>Ecosystem Telemetry</span>
                   <span className="wd-edition-badge">Edition #{weekId}</span>
                 </div>
               </div>
 
               <div className="wd-stats-strip" style={{ marginBottom: "0px" }}>
-                <div className="wd-stat-cell" style={{ padding: "12px" }}>
-                  <div className="wd-stat-val" style={{ fontSize: "20px" }}>{allRepos.length}</div>
+                <div className="wd-stat-cell" style={{ padding: "16px" }}>
+                  <div className="wd-stat-val" style={{ fontSize: "24px" }}>{allRepos.length}</div>
                   <div className="wd-stat-key">Tracked</div>
                 </div>
-                <div className="wd-stat-cell" style={{ padding: "12px" }}>
-                  <div className="wd-stat-val" style={{ fontSize: "20px" }}>+{maxVelocity.toFixed(0)}</div>
+                <div className="wd-stat-cell" style={{ padding: "16px" }}>
+                  <div className="wd-stat-val" style={{ fontSize: "24px" }}>+{maxVelocity.toFixed(0)}</div>
                   <div className="wd-stat-key">Peak Stars/d</div>
                 </div>
-                <div className="wd-stat-cell" style={{ padding: "12px" }}>
-                  <div className="wd-stat-val" style={{ fontSize: "20px" }}>{avgAccel.toFixed(1)}x</div>
+                <div className="wd-stat-cell" style={{ padding: "16px" }}>
+                  <div className="wd-stat-val" style={{ fontSize: "24px" }}>{avgAccel.toFixed(1)}x</div>
                   <div className="wd-stat-key">Avg Accel</div>
                 </div>
-                <div className="wd-stat-cell" style={{ padding: "12px" }}>
-                  <div className="wd-stat-val" style={{ fontSize: "20px" }}>{healthyCount}</div>
+                <div className="wd-stat-cell" style={{ padding: "16px" }}>
+                  <div className="wd-stat-val" style={{ fontSize: "24px" }}>{healthyCount}</div>
                   <div className="wd-stat-key">Healthy</div>
                 </div>
               </div>
 
               {featuredRepos[0] && (
                 <div className="wd-article" style={{ borderBottom: "none", paddingBottom: 0 }}>
-                  <div className="wd-art-rank" style={{ fontSize: "11px" }}>Rank #01 / Breakthrough Spotlight</div>
-                  <h3 className="wd-art-headline" style={{ fontSize: "28px", margin: "6px 0" }}>
+                  <div className="wd-art-rank" style={{ fontSize: "12px" }}>Rank #01 / Breakthrough Spotlight</div>
+                  <h3 className="wd-art-headline" style={{ fontSize: "36px", margin: "10px 0" }}>
                     {featuredRepos[0].owner}/<span style={{ color: "#00f0ff" }}>{featuredRepos[0].name}</span>
                   </h3>
-                  <div className="wd-art-meta" style={{ fontSize: "12px", marginBottom: "8px" }}>
-                    <span className="wd-art-tag">{featuredRepos[0].category}</span>
+                  <div className="wd-art-meta" style={{ fontSize: "13px", marginBottom: "12px" }}>
+                    <span className="wd-art-tag" style={{ fontSize: "11px", padding: "4px 8px" }}>{featuredRepos[0].category}</span>
                     <span>•</span>
                     <span>{featuredRepos[0].primary_language || "TypeScript"}</span>
                   </div>
-                  <p className="wd-art-body" style={{ fontSize: "13.5px", lineHeight: "1.6", marginBottom: "16px" }}>
+                  <p className="wd-art-body" style={{ fontSize: "15px", lineHeight: "1.65", marginBottom: "20px" }}>
                     {featuredRepos[0].description}
                   </p>
-                  <blockquote className="wd-pullquote" style={{ fontSize: "12.5px", lineHeight: "1.6", padding: "8px 16px", borderLeft: "3px solid #00f0ff" }}>
+                  <blockquote className="wd-pullquote" style={{ fontSize: "13.5px", lineHeight: "1.6", padding: "12px 20px", borderLeft: "3px solid #00f0ff" }}>
                     <strong>Analyst Note:</strong> {generateInsightCommentary(featuredRepos[0])}
                   </blockquote>
                 </div>
@@ -961,29 +981,34 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
 
         {/* Slide 2: Ranks 2-5 */}
         <div data-page-index="2" style={slideStyle}>
-          <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%" }}>
+          <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "1222px", boxSizing: "border-box" }}>
             {renderSlideHeader("Featured Breakthroughs", 2, 4)}
             
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: "24px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+            <div style={{ height: "920px", display: "flex", flexDirection: "column", justifyContent: "center", boxSizing: "border-box" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "28px" }}>
                 {[1, 2, 3, 4].map((idx) => {
                   const repo = featuredRepos[idx];
                   if (!repo) return null;
                   return (
-                    <div key={repo.repo_id} className="wd-article" style={{ borderBottom: "none", paddingBottom: 0, background: "#262524", border: "1px solid #31302f", borderRadius: "8px", padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between", height: "240px", boxSizing: "border-box" }}>
+                    <div key={repo.repo_id} className="wd-article" style={{ borderBottom: "none", paddingBottom: 0, background: "#262524", border: "1px solid #31302f", borderRadius: "8px", padding: "24px", display: "flex", flexDirection: "column", justifyContent: "space-between", height: "400px", boxSizing: "border-box" }}>
                       <div>
-                        <div className="wd-art-rank">Rank #0{idx + 1}</div>
-                        <h3 className="wd-art-headline" style={{ fontSize: "18px", margin: "6px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <div className="wd-art-rank" style={{ fontSize: "12px" }}>Rank #0{idx + 1}</div>
+                        <h3 className="wd-art-headline" style={{ fontSize: "24px", margin: "10px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {repo.name}
                         </h3>
-                        <p className="wd-art-body" style={{ fontSize: "12px", lineHeight: "1.5", margin: "0 0 10px 0", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                        <div className="wd-art-meta" style={{ fontSize: "11px", marginBottom: "16px" }}>
+                          <span className="wd-art-tag">{repo.category}</span>
+                          <span>•</span>
+                          <span>{repo.primary_language || "Python"}</span>
+                        </div>
+                        <p className="wd-art-body" style={{ fontSize: "13.5px", lineHeight: "1.6", margin: "0 0 16px 0", display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                           {repo.description || "No description available."}
                         </p>
                       </div>
-                      <div className="wd-metrics" style={{ fontSize: "11px", marginBottom: 0, gap: "10px" }}>
-                        <span>★ <span className="wd-metric-val">{repo.stars?.toLocaleString()}</span></span>
-                        <span>⚡ <span className="wd-metric-val">+{repo.star_velocity_7d?.toFixed(0)}/d</span></span>
-                        <span>📈 <span className="wd-metric-val">{repo.acceleration?.toFixed(1)}x</span></span>
+                      <div className="wd-metrics" style={{ fontSize: "12px", marginBottom: 0, gap: "16px" }}>
+                        <span>Stars: <span className="wd-metric-val">{repo.stars?.toLocaleString()}</span></span>
+                        <span>Velocity: <span className="wd-metric-val">+{repo.star_velocity_7d?.toFixed(0)}/d</span></span>
+                        <span>Accel: <span className="wd-metric-val">{repo.acceleration?.toFixed(1)}x</span></span>
                       </div>
                     </div>
                   );
@@ -997,25 +1022,25 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
 
         {/* Slide 3: Dashboard Layout */}
         <div data-page-index="3" style={slideStyle}>
-          <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%" }}>
+          <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "1222px", boxSizing: "border-box" }}>
             {renderSlideHeader("Ecosystem Rankings & Analytics", 3, 4)}
             
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: "24px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: "32px", alignItems: "start" }}>
+            <div style={{ height: "920px", display: "flex", flexDirection: "column", justifyContent: "space-between", boxSizing: "border-box" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: "40px", alignItems: "start" }}>
                 
                 {/* Left: Ranks 6-10 */}
                 <div className="wd-sidebar">
                   <div className="wd-sb-block" style={{ borderTop: "none", paddingTop: 0 }}>
-                    <p className="wd-sb-title" style={{ fontSize: "11px", marginBottom: "16px" }}>Ranks 06 - 10</p>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    <p className="wd-sb-title" style={{ fontSize: "12px", marginBottom: "20px" }}>Ranks 06 - 10</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                       {featuredRepos.slice(5, 10).map((repo, idx) => {
                         const bc = healthColor(repo.sustainability_label || "");
                         return (
-                          <div key={repo.repo_id} style={{ display: "flex", gap: "12px", borderBottom: "1px solid var(--border)", paddingBottom: "10px" }}>
-                            <span className="wd-sb-rank">#{String(6 + idx).padStart(2, "0")}</span>
+                          <div key={repo.repo_id} style={{ display: "flex", gap: "14px", borderBottom: "1px solid var(--border)", paddingBottom: "14px" }}>
+                            <span className="wd-sb-rank" style={{ fontSize: "14px" }}>#{String(6 + idx).padStart(2, "0")}</span>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <span className="wd-sb-name" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{repo.name}</span>
-                              <div className="wd-sb-sub" style={{ display: "flex", gap: "8px", fontSize: "9.5px", marginTop: "2px" }}>
+                              <span className="wd-sb-name" style={{ fontSize: "16px", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{repo.name}</span>
+                              <div className="wd-sb-sub" style={{ display: "flex", gap: "12px", fontSize: "11px", marginTop: "4px" }}>
                                 <span>★ {repo.stars?.toLocaleString()}</span>
                                 <span>⚡ +{repo.star_velocity_7d?.toFixed(0)}/d</span>
                                 <span style={{ color: bc, fontWeight: 700 }}>{healthLabel(repo.sustainability_label || "")}</span>
@@ -1029,53 +1054,57 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
                 </div>
 
                 {/* Right: Charts */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
                   {/* Languages */}
-                  <div className="wd-sb-block" style={{ borderTop: "2px solid var(--text-muted)", paddingTop: "12px" }}>
-                    <p className="wd-sb-title" style={{ fontSize: "11px", marginBottom: "12px" }}>Top Languages</p>
-                    {topLangs.slice(0, 3).map(([lang, count]) => {
-                      const pct = Math.round((count / (topLangs[0][1] || 1)) * 100);
-                      return (
-                        <div key={lang} className="wd-lang-row" style={{ marginBottom: "8px" }}>
-                          <div className="wd-lang-label" style={{ fontSize: "10.5px", marginBottom: "4px" }}>
-                            <span>{lang}</span>
-                            <span>{count} repos</span>
+                  <div className="wd-sb-block" style={{ borderTop: "2px solid var(--text-muted)", paddingTop: "16px" }}>
+                    <p className="wd-sb-title" style={{ fontSize: "12px", marginBottom: "16px" }}>Top Languages</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                      {topLangs.slice(0, 3).map(([lang, count]) => {
+                        const pct = Math.round((count / (topLangs[0][1] || 1)) * 100);
+                        return (
+                          <div key={lang} className="wd-lang-row" style={{ marginBottom: "0px" }}>
+                            <div className="wd-lang-label" style={{ fontSize: "12px", marginBottom: "6px" }}>
+                              <span>{lang}</span>
+                              <span>{count} repos</span>
+                            </div>
+                            <div className="wd-lang-bar-bg" style={{ height: "6px" }}>
+                              <div className="wd-lang-bar-fill" style={{ width: `${pct}%`, background: "linear-gradient(to right, #00f0ff, #0072ff)" }} />
+                            </div>
                           </div>
-                          <div className="wd-lang-bar-bg" style={{ height: "4px" }}>
-                            <div className="wd-lang-bar-fill" style={{ width: `${pct}%`, background: "linear-gradient(to right, #00f0ff, #0072ff)" }} />
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
 
                   {/* Accel */}
-                  <div className="wd-sb-block" style={{ borderTop: "2px solid var(--text-muted)", paddingTop: "12px" }}>
-                    <p className="wd-sb-title" style={{ fontSize: "11px", marginBottom: "12px" }}>Growth Accelerators</p>
-                    {topAccel.slice(0, 3).map((repo) => (
-                      <div key={repo.repo_id} className="wd-accel-row" style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
-                        <span className="wd-sb-name" style={{ fontSize: "11.5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "120px" }}>
-                          {repo.name}
-                        </span>
-                        <span style={{ fontSize: "11px", fontWeight: 700, color: "#00f0ff" }}>
-                          {repo.acceleration?.toFixed(1)}x
-                        </span>
-                      </div>
-                    ))}
+                  <div className="wd-sb-block" style={{ borderTop: "2px solid var(--text-muted)", paddingTop: "16px" }}>
+                    <p className="wd-sb-title" style={{ fontSize: "12px", marginBottom: "16px" }}>Growth Accelerators</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                      {topAccel.slice(0, 3).map((repo) => (
+                        <div key={repo.repo_id} className="wd-accel-row" style={{ display: "flex", justifyContent: "space-between", padding: "6px 0" }}>
+                          <span className="wd-sb-name" style={{ fontSize: "13px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "160px" }}>
+                            {repo.name}
+                          </span>
+                          <span style={{ fontSize: "12px", fontWeight: 700, color: "#00f0ff" }}>
+                            {repo.acceleration?.toFixed(1)}x
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
               </div>
 
               {/* Bottom: Health cohort */}
-              <div className="wd-sb-block" style={{ borderTop: "2px solid var(--text-muted)", paddingTop: "16px" }}>
-                <p className="wd-sb-title" style={{ fontSize: "11px", marginBottom: "10px" }}>Ecosystem Cohort Health</p>
-                <div style={{ display: "flex", height: "8px", borderRadius: "999px", overflow: "hidden", gap: "2px", margin: "8px 0", background: "rgba(255,255,255,0.06)" }}>
+              <div className="wd-sb-block" style={{ borderTop: "2px solid var(--text-muted)", paddingTop: "20px" }}>
+                <p className="wd-sb-title" style={{ fontSize: "12px", marginBottom: "12px" }}>Ecosystem Cohort Health</p>
+                <div style={{ display: "flex", height: "10px", borderRadius: "999px", overflow: "hidden", gap: "2px", margin: "12px 0 10px", background: "rgba(255,255,255,0.06)" }}>
                   {healthyCount > 0 && <div style={{ flex: healthyCount, background: "#3fb950" }} />}
                   {yellowCount > 0 && <div style={{ flex: yellowCount, background: "#d29922" }} />}
                   {redCount > 0 && <div style={{ flex: redCount, background: "#f85149" }} />}
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11.5px", color: "var(--text-muted)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "var(--text-muted)" }}>
                   <span>🟢 Jonin ({healthyCount})</span>
                   <span>🟡 Chunin ({yellowCount})</span>
                   <span>🔴 Genin ({redCount})</span>
@@ -1089,23 +1118,23 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
 
         {/* Slide 4: Momentum & Methodology */}
         <div data-page-index="4" style={slideStyle}>
-          <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%" }}>
+          <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "1222px", boxSizing: "border-box" }}>
             {renderSlideHeader("Ecosystem Momentum & Methodology", 4, 4)}
             
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: "32px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1.1fr", gap: "36px", alignItems: "start" }}>
+            <div style={{ height: "920px", display: "flex", flexDirection: "column", justifyContent: "space-between", boxSizing: "border-box" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1.1fr", gap: "40px", alignItems: "start" }}>
                 
                 {/* Left: Trending & Watch list */}
                 <div className="wd-sidebar">
                   <div className="wd-sb-block" style={{ borderTop: "none", paddingTop: 0 }}>
-                    <p className="wd-sb-title" style={{ fontSize: "11px", marginBottom: "12px" }}>Also Trending (Ranks 11-17)</p>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    <p className="wd-sb-title" style={{ fontSize: "12px", marginBottom: "16px" }}>Also Trending (Ranks 11-17)</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                       {secondaryRepos.slice(0, 6).map((item) => (
-                        <div key={item.repo_id} className="wd-accel-row" style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}>
-                          <span className="wd-sb-name" style={{ fontSize: "12px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "120px" }}>
+                        <div key={item.repo_id} className="wd-accel-row" style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
+                          <span className="wd-sb-name" style={{ fontSize: "13px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "160px" }}>
                             #{item.rank} {item.name}
                           </span>
-                          <span style={{ fontSize: "11px", color: "#d29922", fontWeight: 700 }}>
+                          <span style={{ fontSize: "12px", color: "#d29922", fontWeight: 700 }}>
                             +{item.star_velocity_7d?.toFixed(0)}/d
                           </span>
                         </div>
@@ -1117,19 +1146,19 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
                 {/* Right: Methodology & scoring */}
                 <div>
                   <div className="wd-sb-block" style={{ borderTop: "none", paddingTop: 0 }}>
-                    <p className="wd-sb-title" style={{ fontSize: "11px", marginBottom: "12px" }}>Scoring Methodology</p>
-                    <p style={{ fontSize: "13px", lineHeight: "1.6", color: "var(--text-secondary)", margin: "0 0 20px 0" }}>
+                    <p className="wd-sb-title" style={{ fontSize: "12px", marginBottom: "16px" }}>Scoring Methodology</p>
+                    <p style={{ fontSize: "14px", lineHeight: "1.65", color: "var(--text-secondary)", margin: "0 0 24px 0" }}>
                       Repodar scores ecosystem sustainability using issue resolution speed, release frequency, license types, and commit volume.
                     </p>
                     
                     <div className="wd-stats-strip" style={{ gridTemplateColumns: "1fr", gap: "1px", marginBottom: 0 }}>
-                      <div className="wd-stat-cell" style={{ padding: "12px", textAlign: "left" }}>
-                        <div className="wd-stat-val" style={{ fontSize: "15px" }}>repodar.io</div>
-                        <div className="wd-stat-key" style={{ fontSize: "9px", marginTop: "2px" }}>Telemetry Site</div>
+                      <div className="wd-stat-cell" style={{ padding: "16px", textAlign: "left" }}>
+                        <div className="wd-stat-val" style={{ fontSize: "18px" }}>repodar.io</div>
+                        <div className="wd-stat-key" style={{ fontSize: "11px", marginTop: "2px" }}>Telemetry Site</div>
                       </div>
-                      <div className="wd-stat-cell" style={{ padding: "12px", textAlign: "left" }}>
-                        <div className="wd-stat-val" style={{ fontSize: "15px" }}>saikumargudelly/repodar</div>
-                        <div className="wd-stat-key" style={{ fontSize: "9px", marginTop: "2px" }}>GitHub Codebase</div>
+                      <div className="wd-stat-cell" style={{ padding: "16px", textAlign: "left" }}>
+                        <div className="wd-stat-val" style={{ fontSize: "18px" }}>saikumargudelly/repodar</div>
+                        <div className="wd-stat-key" style={{ fontSize: "11px", marginTop: "2px" }}>GitHub Codebase</div>
                       </div>
                     </div>
                   </div>
@@ -1137,14 +1166,14 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
 
               </div>
 
-              <blockquote className="wd-pullquote" style={{ fontSize: "13.5px", lineHeight: "1.6" }}>
+              <blockquote className="wd-pullquote" style={{ fontSize: "14.5px", lineHeight: "1.7", padding: "16px 24px" }}>
                 <strong>Ecosystem Report Overview:</strong> Our telemetry scanned {allRepos.length} AI and ML repositories this week, ranking projects by velocity and health.
               </blockquote>
             </div>
 
             {renderSlideFooter(4, 4)}
-          </div>
-        </div>
+      </div>
+      </div>
       </div>
 
       {/* ── Export Modal ── */}
@@ -1156,7 +1185,7 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
                 <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: "var(--text-primary)", fontFamily: "Inter, sans-serif" }}>Weekly Report Publisher</h3>
                 <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "4px 0 0", fontFamily: "Inter, sans-serif" }}>Choose export layout format and output target</p>
               </div>
-              <button onClick={() => setIsModalOpen(false)} style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 20, lineHeight: 1, padding: 0 }}>✕</button>
+              <button onClick={() => { setIsModalOpen(false); setSharingStep("options"); }} style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 20, lineHeight: 1, padding: 0 }}>✕</button>
             </div>
             
             {exportProgress ? (
@@ -1164,6 +1193,66 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
                 <span style={{ fontSize: "32px", animation: "spin 2s linear infinite" }}>⏳</span>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", textAlign: "center", fontFamily: "Inter, sans-serif" }}>
                   {exportProgress}
+                </div>
+              </div>
+            ) : sharingStep === "linkedin-guide" ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <button onClick={() => setSharingStep("options")} style={{ background: "transparent", border: "none", color: "#00f0ff", cursor: "pointer", fontSize: "13px", fontWeight: 700, padding: 0 }}>← Back to options</button>
+                </div>
+                
+                <p style={{ fontSize: 12.5, color: "var(--text-secondary)", lineHeight: "1.5", margin: 0, fontFamily: "Inter, sans-serif" }}>
+                  Copy and paste slide graphics directly into LinkedIn to construct a swipeable image post without downloading files locally.
+                </p>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px", background: "rgba(0,240,255,0.02)", border: "1px dashed rgba(0,240,255,0.2)", borderRadius: "8px", padding: "14px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: "13px", fontWeight: 700, color: "#fff", fontFamily: "Inter, sans-serif" }}>Step 1: Copy Post Description</div>
+                      <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px", fontFamily: "Inter, sans-serif" }}>Pre-formatted weekly stats and tags.</div>
+                    </div>
+                    <button 
+                      onClick={handleCopyPromoText} 
+                      className="wd-btn" 
+                      style={{ padding: "6px 12px", fontSize: "11.5px", background: copiedText ? "#2ea44f" : "var(--bg-primary)", justifyContent: "center", minWidth: "90px" }}
+                    >
+                      {copiedText ? "✓ Copied!" : "Copy Text"}
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px" }}>
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: "#fff", marginBottom: "4px", fontFamily: "Inter, sans-serif" }}>Step 2: Copy Slide Images</div>
+                  {[1, 2, 3, 4].map((num) => (
+                    <div key={num} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: num > 1 ? "1px solid var(--border)" : "none", paddingTop: num > 1 ? "10px" : 0 }}>
+                      <span style={{ fontSize: "12px", color: "var(--text-secondary)", fontFamily: "Inter, sans-serif" }}>Slide {num} / 4</span>
+                      <button 
+                        onClick={() => handleCopySlideToClipboard(num)} 
+                        className="wd-btn" 
+                        style={{ padding: "6px 12px", fontSize: "11.5px", background: copiedSlide === num ? "#2ea44f" : "var(--bg-primary)", justifyContent: "center", minWidth: "90px" }}
+                      >
+                        {copiedSlide === num ? "✓ Copied!" : "Copy Image"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px", background: "rgba(255,255,255,0.01)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: "13px", fontWeight: 700, color: "#fff", fontFamily: "Inter, sans-serif" }}>Step 3: Post on LinkedIn</div>
+                      <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px", fontFamily: "Inter, sans-serif" }}>Opens LinkedIn composer in a new tab.</div>
+                    </div>
+                    <a 
+                      href="https://www.linkedin.com/feed/?shareActive=true" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="wd-btn" 
+                      style={{ padding: "8px 16px", fontSize: "12px", background: "linear-gradient(135deg, #00f0ff 0%, #0072ff 100%)", color: "#0a0d14", fontWeight: 700, justifyContent: "center", textDecoration: "none" }}
+                    >
+                      Open LinkedIn
+                    </a>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -1216,14 +1305,14 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
                   <span style={{ fontSize: "28px" }}>🔗</span>
                   <div>
                     <div style={{ fontSize: "14px", fontWeight: 700, color: "#fff", fontFamily: "Inter, sans-serif" }}>Share Carousel to LinkedIn</div>
-                    <div style={{ fontSize: "11.5px", color: "var(--text-muted)", fontFamily: "Inter, sans-serif", marginTop: "2px" }}>Pre-fills LinkedIn post with statistics and copies Slide 1 cover image to your clipboard.</div>
+                    <div style={{ fontSize: "11.5px", color: "var(--text-muted)", fontFamily: "Inter, sans-serif", marginTop: "2px" }}>Assists in posting a multi-slide carousel by copying graphics and text directly.</div>
                   </div>
                 </div>
               </div>
             )}
             
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>
-              <button onClick={() => setIsModalOpen(false)} disabled={exporting} className="wd-btn" style={{ padding: "10px 16px", fontSize: 13, borderRadius: 6, width: "100%", justifyContent: "center" }}>Close</button>
+              <button onClick={() => { setIsModalOpen(false); setSharingStep("options"); }} disabled={exporting} className="wd-btn" style={{ padding: "10px 16px", fontSize: 13, borderRadius: 6, width: "100%", justifyContent: "center" }}>Close</button>
             </div>
           </div>
         </div>
