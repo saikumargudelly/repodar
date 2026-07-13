@@ -136,7 +136,7 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
     setExportProgress("Preparing carousel pages...");
     try {
       const fileUrls: string[] = [];
-      const totalSlides = 8;
+      const totalSlides = 4;
       
       for (let i = 1; i <= totalSlides; i++) {
         setExportProgress(`Rendering slide ${i} of ${totalSlides}...`);
@@ -220,7 +220,7 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
         format: [1080, 1350]
       });
 
-      const totalSlides = 8;
+      const totalSlides = 4;
       for (let i = 1; i <= totalSlides; i++) {
         setExportProgress(`Rendering page ${i} of ${totalSlides} for PDF...`);
         const node = container.querySelector(`[data-page-index="${i}"]`) as HTMLElement;
@@ -339,14 +339,14 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
     paddingBottom: "8px"
   };
 
-  const renderSlideFooter = (index: number) => (
+  const renderSlideFooter = (index: number, total: number = 4) => (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #31302f", paddingTop: "12px", fontSize: "11px", color: "#8b949e", fontFamily: "monospace" }}>
       <span>repodar.io · Repodar Intelligence System</span>
-      <span style={{ background: "rgba(0,240,255,0.1)", color: "#00f0ff", padding: "2px 8px", borderRadius: "4px", fontWeight: 700 }}>{index} / 8</span>
+      <span style={{ background: "rgba(0,240,255,0.1)", color: "#00f0ff", padding: "2px 8px", borderRadius: "4px", fontWeight: 700 }}>{index} / {total}</span>
     </div>
   );
 
-  const renderSlideHeader = (slideTitle: string, index: number) => (
+  const renderSlideHeader = (slideTitle: string, index: number, total: number = 4) => (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -358,7 +358,7 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
         </div>
         <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
           <div style={{ border: "1px solid rgba(0,240,255,0.3)", background: "rgba(0,240,255,0.05)", color: "#00f0ff", padding: "4px 10px", borderRadius: "4px", fontSize: "11px", fontFamily: "monospace", fontWeight: 700 }}>WEEK {weekId}</div>
-          <div style={{ border: "1px solid #31302f", background: "rgba(255,255,255,0.02)", color: "#8b949e", padding: "4px 10px", borderRadius: "4px", fontSize: "11px", fontFamily: "monospace", fontWeight: 700 }}>{index}/8</div>
+          <div style={{ border: "1px solid #31302f", background: "rgba(255,255,255,0.02)", color: "#8b949e", padding: "4px 10px", borderRadius: "4px", fontSize: "11px", fontFamily: "monospace", fontWeight: 700 }}>{index}/{total}</div>
         </div>
       </div>
       <div style={{ height: "2px", background: "linear-gradient(to right, #00f0ff, transparent)", marginTop: "16px", marginBottom: "24px" }} />
@@ -1304,8 +1304,8 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
                 >
                   <span style={{ fontSize: "28px" }}>🗂️</span>
                   <div>
-                    <div style={{ fontSize: "14px", fontWeight: 700, color: "#fff", fontFamily: "Inter, sans-serif" }}>LinkedIn Carousel Pack (8 PNGs)</div>
-                    <div style={{ fontSize: "11.5px", color: "var(--text-muted)", fontFamily: "Inter, sans-serif", marginTop: "2px" }}>8 separate portrait slides (1080×1350) + manifest.json metadata package.</div>
+                    <div style={{ fontSize: "14px", fontWeight: 700, color: "#fff", fontFamily: "Inter, sans-serif" }}>LinkedIn Carousel Pack (4 PNGs)</div>
+                    <div style={{ fontSize: "11.5px", color: "var(--text-muted)", fontFamily: "Inter, sans-serif", marginTop: "2px" }}>4 separate portrait slides (1080×1350) + manifest.json metadata package.</div>
                   </div>
                 </div>
 
@@ -1317,8 +1317,8 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
                 >
                   <span style={{ fontSize: "28px" }}>📕</span>
                   <div>
-                    <div style={{ fontSize: "14px", fontWeight: 700, color: "#fff", fontFamily: "Inter, sans-serif" }}>PDF Document (8-Page PDF)</div>
-                    <div style={{ fontSize: "11.5px", color: "var(--text-muted)", fontFamily: "Inter, sans-serif", marginTop: "2px" }}>Compiles the 8 portrait layout pages into a single printable PDF file.</div>
+                    <div style={{ fontSize: "14px", fontWeight: 700, color: "#fff", fontFamily: "Inter, sans-serif" }}>PDF Document (4-Page PDF)</div>
+                    <div style={{ fontSize: "11.5px", color: "var(--text-muted)", fontFamily: "Inter, sans-serif", marginTop: "2px" }}>Compiles the 4 portrait layout pages into a single printable PDF file.</div>
                   </div>
                 </div>
 
