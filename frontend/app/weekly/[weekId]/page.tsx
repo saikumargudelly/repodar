@@ -246,40 +246,22 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
   };
 
   const handleShareToLinkedIn = async () => {
-    const container = carouselRef.current;
-    if (!container) return;
     setExporting(true);
-    setExportProgress("Generating cover image for sharing...");
+    setExportProgress("Preparing post description...");
     try {
-      const node = container.querySelector(`[data-page-index="1"]`) as HTMLElement;
-      if (!node) return;
-      
-      const dataUrl = await toPng(node, { pixelRatio: 3.0, quality: 0.95, cacheBust: true });
-      
-      // Copy PNG to clipboard
-      setExportProgress("Copying cover image to clipboard...");
-      try {
-        const response = await fetch(dataUrl);
-        const blob = await response.blob();
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            [blob.type]: blob
-          })
-        ]);
-      } catch (clipErr) {
-        console.warn("Failed to write to clipboard directly, downloading instead", clipErr);
-        // Fallback: download the image
-        const link = document.createElement("a");
-        link.download = `repodar-weekly-${weekId}-cover.png`;
-        link.href = dataUrl;
-        link.click();
-      }
-      
       // Create share text
-      const shareText = `📊 Repodar Weekly AI/ML Radar (Edition #${weekId}) is live!\n\nHere are this week's breakout open-source projects:\n1️⃣ ${featuredRepos[0] ? `${featuredRepos[0].owner}/${featuredRepos[0].name}` : ""}\n2️⃣ ${featuredRepos[1] ? `${featuredRepos[1].owner}/${featuredRepos[1].name}` : ""}\n3️⃣ ${featuredRepos[2] ? `${featuredRepos[2].owner}/${featuredRepos[2].name}` : ""}\n\nCheck out the full telemetry health indicators, language distributions, and growth acceleration metrics: repodar.io/weekly/${weekId}\n\n#AI #ML #OpenSource #GitHub`;
+      const shareText = `📊 Repodar Weekly AI/ML Radar (Edition #${weekId}) is live!\n\nHere are this week's breakout open-source projects:\n1️⃣ ${featuredRepos[0] ? `${featuredRepos[0].owner}/${featuredRepos[0].name}` : ""}\n2️⃣ ${featuredRepos[1] ? `${featuredRepos[1].owner}/${featuredRepos[1].name}` : ""}\n3️⃣ ${featuredRepos[2] ? `${featuredRepos[2].owner}/${featuredRepos[2].name}` : ""}\n\nCheck out the full telemetry health indicators, language distributions, and growth acceleration metrics!\n\n#AI #ML #OpenSource #GitHub`;
       
-      setExportProgress("Opening LinkedIn...");
-      const linkedinUrl = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(shareText)}`;
+      // Copy promotional text to clipboard
+      try {
+        await navigator.clipboard.writeText(shareText);
+      } catch (clipErr) {
+        console.warn("Failed to write text to clipboard", clipErr);
+      }
+
+      setExportProgress("Redirecting to LinkedIn...");
+      const targetUrl = `${window.location.origin}/weekly/${weekId}`;
+      const linkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(targetUrl)}`;
       window.open(linkedinUrl, "_blank");
       
       setExportProgress(null);
@@ -918,347 +900,250 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
 
       {/* ── Hidden LinkedIn Carousel Pages for Export ── */}
       <div ref={carouselRef} style={{ position: "absolute", left: "-9999px", top: "-9999px" }} className="wd-root">
-        {/* Slide 1: Cover */}
+        {/* Slide 1: Cover & Spotlight */}
         <div data-page-index="1" style={slideStyle}>
-          <div>
-            {renderSlideHeader("Ecosystem Telemetry", 1)}
-            <div className="wd-masthead" style={{ marginTop: "40px", borderBottom: "none", paddingBottom: "0px", marginBottom: "0px" }}>
-              <p className="wd-pub-sub">AUTOMATED SNAPSHOT INTELLIGENCE</p>
-              <h1 className="wd-pub-name" style={{ fontSize: "52px", lineHeight: "1.1", margin: "16px 0" }}>Weekly AI/ML Radar</h1>
-              <div className="wd-top-bar" style={{ borderTop: "none", marginTop: "0px", paddingTop: "0px" }}>
-                <span>Ecosystem Telemetry Digest</span>
-                <span className="wd-edition-badge">Edition #{weekId}</span>
+          <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%" }}>
+            {renderSlideHeader("Weekly Telemetry Digest", 1, 4)}
+            
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "28px", justifyContent: "center" }}>
+              <div className="wd-masthead" style={{ borderBottom: "none", paddingBottom: "0px", marginBottom: "0px" }}>
+                <p className="wd-pub-sub" style={{ fontSize: "12px", letterSpacing: "0.22em" }}>AUTOMATED WEEKLY INTELLIGENCE</p>
+                <h1 className="wd-pub-name" style={{ fontSize: "44px", margin: "8px 0" }}>Weekly AI/ML Radar</h1>
+                <div className="wd-top-bar" style={{ borderTop: "none", marginTop: "0px", paddingTop: "0px", fontSize: "11px" }}>
+                  <span>Ecosystem Telemetry</span>
+                  <span className="wd-edition-badge">Edition #{weekId}</span>
+                </div>
               </div>
+
+              <div className="wd-stats-strip" style={{ marginBottom: "0px" }}>
+                <div className="wd-stat-cell" style={{ padding: "12px" }}>
+                  <div className="wd-stat-val" style={{ fontSize: "20px" }}>{allRepos.length}</div>
+                  <div className="wd-stat-key">Tracked</div>
+                </div>
+                <div className="wd-stat-cell" style={{ padding: "12px" }}>
+                  <div className="wd-stat-val" style={{ fontSize: "20px" }}>+{maxVelocity.toFixed(0)}</div>
+                  <div className="wd-stat-key">Peak Stars/d</div>
+                </div>
+                <div className="wd-stat-cell" style={{ padding: "12px" }}>
+                  <div className="wd-stat-val" style={{ fontSize: "20px" }}>{avgAccel.toFixed(1)}x</div>
+                  <div className="wd-stat-key">Avg Accel</div>
+                </div>
+                <div className="wd-stat-cell" style={{ padding: "12px" }}>
+                  <div className="wd-stat-val" style={{ fontSize: "20px" }}>{healthyCount}</div>
+                  <div className="wd-stat-key">Healthy</div>
+                </div>
+              </div>
+
+              {featuredRepos[0] && (
+                <div className="wd-article" style={{ borderBottom: "none", paddingBottom: 0 }}>
+                  <div className="wd-art-rank" style={{ fontSize: "11px" }}>Rank #01 / Breakthrough Spotlight</div>
+                  <h3 className="wd-art-headline" style={{ fontSize: "28px", margin: "6px 0" }}>
+                    {featuredRepos[0].owner}/<span style={{ color: "#00f0ff" }}>{featuredRepos[0].name}</span>
+                  </h3>
+                  <div className="wd-art-meta" style={{ fontSize: "12px", marginBottom: "8px" }}>
+                    <span className="wd-art-tag">{featuredRepos[0].category}</span>
+                    <span>•</span>
+                    <span>{featuredRepos[0].primary_language || "TypeScript"}</span>
+                  </div>
+                  <p className="wd-art-body" style={{ fontSize: "13.5px", lineHeight: "1.6", marginBottom: "16px" }}>
+                    {featuredRepos[0].description}
+                  </p>
+                  <blockquote className="wd-pullquote" style={{ fontSize: "12.5px", lineHeight: "1.6", padding: "8px 16px", borderLeft: "3px solid #00f0ff" }}>
+                    <strong>Analyst Note:</strong> {generateInsightCommentary(featuredRepos[0])}
+                  </blockquote>
+                </div>
+              )}
             </div>
 
-            <div style={{ marginTop: "40px" }}>
-              <h2 className="wd-lead-title" style={{ fontSize: "32px", marginBottom: "16px" }}>Ecosystem Breakthroughs</h2>
-              <p className="wd-lead-deck" style={{ fontSize: "15px", lineHeight: "1.6" }}>
-                Automated intelligence telemetry capturing the highest velocity open-source projects, community health metrics, and growth acceleration.
-              </p>
-            </div>
-
-            <div className="wd-stats-strip" style={{ marginTop: "40px", marginBottom: "0px" }}>
-              <div className="wd-stat-cell">
-                <div className="wd-stat-val">{allRepos.length}</div>
-                <div className="wd-stat-key">Repos Tracked</div>
-              </div>
-              <div className="wd-stat-cell">
-                <div className="wd-stat-val">+{maxVelocity.toFixed(0)}</div>
-                <div className="wd-stat-key">Peak Stars/d</div>
-              </div>
-              <div className="wd-stat-cell">
-                <div className="wd-stat-val">{avgAccel.toFixed(1)}x</div>
-                <div className="wd-stat-key">Avg Accel</div>
-              </div>
-              <div className="wd-stat-cell">
-                <div className="wd-stat-val">{healthyCount}</div>
-                <div className="wd-stat-key">Healthy</div>
-              </div>
-            </div>
+            {renderSlideFooter(1, 4)}
           </div>
-          {renderSlideFooter(1)}
         </div>
 
-        {/* Slide 2: Spotlight #1 */}
+        {/* Slide 2: Ranks 2-5 */}
         <div data-page-index="2" style={slideStyle}>
-          <div>
-            {renderSlideHeader("Ecosystem Spotlight", 2)}
-            {featuredRepos[0] && (
-              <div className="wd-article" style={{ borderBottom: "none", paddingBottom: 0, marginTop: "24px" }}>
-                <div className="wd-art-rank">Rank #01 / Breakout Champion</div>
-                <h3 className="wd-art-headline" style={{ fontSize: "36px", margin: "12px 0" }}>
-                  {featuredRepos[0].owner}/<span style={{ color: "#00f0ff" }}>{featuredRepos[0].name}</span>
-                </h3>
-                <div className="wd-art-meta" style={{ fontSize: "13px", marginBottom: "16px" }}>
-                  <span className="wd-art-tag" style={{ fontSize: "11px", padding: "3px 8px" }}>{featuredRepos[0].category}</span>
-                  <span>•</span>
-                  <span>{featuredRepos[0].primary_language || "TypeScript"}</span>
-                </div>
-                <p className="wd-art-body" style={{ fontSize: "16px", lineHeight: "1.7", marginBottom: "24px" }}>
-                  {featuredRepos[0].description}
-                </p>
-                <div className="wd-metrics" style={{ fontSize: "13px", gap: "24px", marginBottom: "24px" }}>
-                  <span>Total Stars: <span className="wd-metric-val">{featuredRepos[0].stars?.toLocaleString()}</span></span>
-                  <span>Velocity: <span className="wd-metric-val">+{featuredRepos[0].star_velocity_7d?.toFixed(0)}/day</span></span>
-                  <span>Acceleration: <span className="wd-metric-val">{featuredRepos[0].acceleration?.toFixed(1)}x</span></span>
-                </div>
-                <blockquote className="wd-pullquote" style={{ fontSize: "14px", lineHeight: "1.65", padding: "8px 18px", borderLeft: "3px solid #00f0ff" }}>
-                  <strong>Analyst Note:</strong> {generateInsightCommentary(featuredRepos[0])}
-                </blockquote>
+          <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%" }}>
+            {renderSlideHeader("Featured Breakthroughs", 2, 4)}
+            
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: "24px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+                {[1, 2, 3, 4].map((idx) => {
+                  const repo = featuredRepos[idx];
+                  if (!repo) return null;
+                  return (
+                    <div key={repo.repo_id} className="wd-article" style={{ borderBottom: "none", paddingBottom: 0, background: "#262524", border: "1px solid #31302f", borderRadius: "8px", padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between", height: "240px", boxSizing: "border-box" }}>
+                      <div>
+                        <div className="wd-art-rank">Rank #0{idx + 1}</div>
+                        <h3 className="wd-art-headline" style={{ fontSize: "18px", margin: "6px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {repo.name}
+                        </h3>
+                        <p className="wd-art-body" style={{ fontSize: "12px", lineHeight: "1.5", margin: "0 0 10px 0", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                          {repo.description || "No description available."}
+                        </p>
+                      </div>
+                      <div className="wd-metrics" style={{ fontSize: "11px", marginBottom: 0, gap: "10px" }}>
+                        <span>★ <span className="wd-metric-val">{repo.stars?.toLocaleString()}</span></span>
+                        <span>⚡ <span className="wd-metric-val">+{repo.star_velocity_7d?.toFixed(0)}/d</span></span>
+                        <span>📈 <span className="wd-metric-val">{repo.acceleration?.toFixed(1)}x</span></span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            )}
+            </div>
+
+            {renderSlideFooter(2, 4)}
           </div>
-          {renderSlideFooter(2)}
         </div>
 
-        {/* Slide 3: Ranks #2-#3 */}
+        {/* Slide 3: Dashboard Layout */}
         <div data-page-index="3" style={slideStyle}>
-          <div>
-            {renderSlideHeader("Featured Breakthroughs", 3)}
-            <div style={{ marginTop: "20px", display: "flex", flexDirection: "column", gap: "32px" }}>
-              {featuredRepos[1] && (
-                <div className="wd-article" style={{ borderBottom: "none", paddingBottom: 0 }}>
-                  <div className="wd-art-rank">Rank #02</div>
-                  <h3 className="wd-art-headline" style={{ fontSize: "24px", margin: "8px 0" }}>
-                    {featuredRepos[1].owner}/<span style={{ color: "#00f0ff" }}>{featuredRepos[1].name}</span>
-                  </h3>
-                  <div className="wd-art-meta">
-                    <span className="wd-art-tag">{featuredRepos[1].category}</span>
-                    <span>•</span>
-                    <span>{featuredRepos[1].primary_language || "Python"}</span>
-                  </div>
-                  <p className="wd-art-body" style={{ fontSize: "14px", lineHeight: "1.6" }}>{featuredRepos[1].description}</p>
-                  <div className="wd-metrics">
-                    <span>Stars: <span className="wd-metric-val">{featuredRepos[1].stars?.toLocaleString()}</span></span>
-                    <span>Velocity: <span className="wd-metric-val">+{featuredRepos[1].star_velocity_7d?.toFixed(0)}/day</span></span>
-                    <span>Acceleration: <span className="wd-metric-val">{featuredRepos[1].acceleration?.toFixed(1)}x</span></span>
-                  </div>
-                </div>
-              )}
-              
-              {featuredRepos[2] && (
-                <div className="wd-article" style={{ borderBottom: "none", paddingBottom: 0, borderTop: "1px solid var(--border)", paddingTop: "24px" }}>
-                  <div className="wd-art-rank">Rank #03</div>
-                  <h3 className="wd-art-headline" style={{ fontSize: "24px", margin: "8px 0" }}>
-                    {featuredRepos[2].owner}/<span style={{ color: "#00f0ff" }}>{featuredRepos[2].name}</span>
-                  </h3>
-                  <div className="wd-art-meta">
-                    <span className="wd-art-tag">{featuredRepos[2].category}</span>
-                    <span>•</span>
-                    <span>{featuredRepos[2].primary_language || "Python"}</span>
-                  </div>
-                  <p className="wd-art-body" style={{ fontSize: "14px", lineHeight: "1.6" }}>{featuredRepos[2].description}</p>
-                  <div className="wd-metrics">
-                    <span>Stars: <span className="wd-metric-val">{featuredRepos[2].stars?.toLocaleString()}</span></span>
-                    <span>Velocity: <span className="wd-metric-val">+{featuredRepos[2].star_velocity_7d?.toFixed(0)}/day</span></span>
-                    <span>Acceleration: <span className="wd-metric-val">{featuredRepos[2].acceleration?.toFixed(1)}x</span></span>
+          <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%" }}>
+            {renderSlideHeader("Ecosystem Rankings & Analytics", 3, 4)}
+            
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: "24px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: "32px", alignItems: "start" }}>
+                
+                {/* Left: Ranks 6-10 */}
+                <div className="wd-sidebar">
+                  <div className="wd-sb-block" style={{ borderTop: "none", paddingTop: 0 }}>
+                    <p className="wd-sb-title" style={{ fontSize: "11px", marginBottom: "16px" }}>Ranks 06 - 10</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                      {featuredRepos.slice(5, 10).map((repo, idx) => {
+                        const bc = healthColor(repo.sustainability_label || "");
+                        return (
+                          <div key={repo.repo_id} style={{ display: "flex", gap: "12px", borderBottom: "1px solid var(--border)", paddingBottom: "10px" }}>
+                            <span className="wd-sb-rank">#{String(6 + idx).padStart(2, "0")}</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <span className="wd-sb-name" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{repo.name}</span>
+                              <div className="wd-sb-sub" style={{ display: "flex", gap: "8px", fontSize: "9.5px", marginTop: "2px" }}>
+                                <span>★ {repo.stars?.toLocaleString()}</span>
+                                <span>⚡ +{repo.star_velocity_7d?.toFixed(0)}/d</span>
+                                <span style={{ color: bc, fontWeight: 700 }}>{healthLabel(repo.sustainability_label || "")}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
-              )}
-            </div>
-          </div>
-          {renderSlideFooter(3)}
-        </div>
 
-        {/* Slide 4: Ranks #4-#5 */}
-        <div data-page-index="4" style={slideStyle}>
-          <div>
-            {renderSlideHeader("Featured Breakthroughs", 4)}
-            <div style={{ marginTop: "20px", display: "flex", flexDirection: "column", gap: "32px" }}>
-              {featuredRepos[3] && (
-                <div className="wd-article" style={{ borderBottom: "none", paddingBottom: 0 }}>
-                  <div className="wd-art-rank">Rank #04</div>
-                  <h3 className="wd-art-headline" style={{ fontSize: "24px", margin: "8px 0" }}>
-                    {featuredRepos[3].owner}/<span style={{ color: "#00f0ff" }}>{featuredRepos[3].name}</span>
-                  </h3>
-                  <div className="wd-art-meta">
-                    <span className="wd-art-tag">{featuredRepos[3].category}</span>
-                    <span>•</span>
-                    <span>{featuredRepos[3].primary_language || "Python"}</span>
-                  </div>
-                  <p className="wd-art-body" style={{ fontSize: "14px", lineHeight: "1.6" }}>{featuredRepos[3].description}</p>
-                  <div className="wd-metrics">
-                    <span>Stars: <span className="wd-metric-val">{featuredRepos[3].stars?.toLocaleString()}</span></span>
-                    <span>Velocity: <span className="wd-metric-val">+{featuredRepos[3].star_velocity_7d?.toFixed(0)}/day</span></span>
-                    <span>Acceleration: <span className="wd-metric-val">{featuredRepos[3].acceleration?.toFixed(1)}x</span></span>
-                  </div>
-                </div>
-              )}
-              
-              {featuredRepos[4] && (
-                <div className="wd-article" style={{ borderBottom: "none", paddingBottom: 0, borderTop: "1px solid var(--border)", paddingTop: "24px" }}>
-                  <div className="wd-art-rank">Rank #05</div>
-                  <h3 className="wd-art-headline" style={{ fontSize: "24px", margin: "8px 0" }}>
-                    {featuredRepos[4].owner}/<span style={{ color: "#00f0ff" }}>{featuredRepos[4].name}</span>
-                  </h3>
-                  <div className="wd-art-meta">
-                    <span className="wd-art-tag">{featuredRepos[4].category}</span>
-                    <span>•</span>
-                    <span>{featuredRepos[4].primary_language || "Python"}</span>
-                  </div>
-                  <p className="wd-art-body" style={{ fontSize: "14px", lineHeight: "1.6" }}>{featuredRepos[4].description}</p>
-                  <div className="wd-metrics">
-                    <span>Stars: <span className="wd-metric-val">{featuredRepos[4].stars?.toLocaleString()}</span></span>
-                    <span>Velocity: <span className="wd-metric-val">+{featuredRepos[4].star_velocity_7d?.toFixed(0)}/day</span></span>
-                    <span>Acceleration: <span className="wd-metric-val">{featuredRepos[4].acceleration?.toFixed(1)}x</span></span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-          {renderSlideFooter(4)}
-        </div>
-
-        {/* Slide 5: Ranks #6-#10 */}
-        <div data-page-index="5" style={slideStyle}>
-          <div>
-            {renderSlideHeader("Ecosystem Rankings", 5)}
-            <div className="wd-sidebar" style={{ marginTop: "24px" }}>
-              <div className="wd-sb-block" style={{ borderTop: "none", paddingTop: 0 }}>
-                <p className="wd-sb-title">Ranks 06 - 10</p>
-                <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                  {featuredRepos.slice(5, 10).map((repo, idx) => {
-                    const bc = healthColor(repo.sustainability_label || "");
-                    return (
-                      <div key={repo.repo_id} style={{ display: "flex", gap: "12px", borderBottom: "1px solid var(--border)", paddingBottom: "12px" }}>
-                        <span className="wd-sb-rank">#{String(6 + idx).padStart(2, "0")}</span>
-                        <div style={{ flex: 1 }}>
-                          <span className="wd-sb-name">{repo.owner}/{repo.name}</span>
-                          <div className="wd-sb-sub" style={{ display: "flex", gap: "10px" }}>
-                            <span>★ {repo.stars?.toLocaleString()}</span>
-                            <span>⚡ +{repo.star_velocity_7d?.toFixed(0)}/day</span>
-                            <span style={{ color: bc, fontWeight: 700 }}>{healthLabel(repo.sustainability_label || "")}</span>
+                {/* Right: Charts */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                  {/* Languages */}
+                  <div className="wd-sb-block" style={{ borderTop: "2px solid var(--text-muted)", paddingTop: "12px" }}>
+                    <p className="wd-sb-title" style={{ fontSize: "11px", marginBottom: "12px" }}>Top Languages</p>
+                    {topLangs.slice(0, 3).map(([lang, count]) => {
+                      const pct = Math.round((count / (topLangs[0][1] || 1)) * 100);
+                      return (
+                        <div key={lang} className="wd-lang-row" style={{ marginBottom: "8px" }}>
+                          <div className="wd-lang-label" style={{ fontSize: "10.5px", marginBottom: "4px" }}>
+                            <span>{lang}</span>
+                            <span>{count} repos</span>
+                          </div>
+                          <div className="wd-lang-bar-bg" style={{ height: "4px" }}>
+                            <div className="wd-lang-bar-fill" style={{ width: `${pct}%`, background: "linear-gradient(to right, #00f0ff, #0072ff)" }} />
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-          {renderSlideFooter(5)}
-        </div>
+                      );
+                    })}
+                  </div>
 
-        {/* Slide 6: Charts */}
-        <div data-page-index="6" style={slideStyle}>
-          <div>
-            {renderSlideHeader("Ecosystem Analytics", 6)}
-            <div className="wd-sidebar" style={{ marginTop: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
-              
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "32px" }}>
-                
-                {/* Languages */}
-                <div className="wd-sb-block" style={{ borderTop: "2px solid var(--text-muted)", paddingTop: "12px" }}>
-                  <p className="wd-sb-title">Language Distribution</p>
-                  {topLangs.slice(0, 4).map(([lang, count]) => {
-                    const pct = Math.round((count / (topLangs[0][1] || 1)) * 100);
-                    return (
-                      <div key={lang} className="wd-lang-row">
-                        <div className="wd-lang-label">
-                          <span>{lang}</span>
-                          <span>{count} repos</span>
-                        </div>
-                        <div className="wd-lang-bar-bg">
-                          <div className="wd-lang-bar-fill" style={{ width: `${pct}%`, background: "linear-gradient(to right, #00f0ff, #0072ff)" }} />
-                        </div>
+                  {/* Accel */}
+                  <div className="wd-sb-block" style={{ borderTop: "2px solid var(--text-muted)", paddingTop: "12px" }}>
+                    <p className="wd-sb-title" style={{ fontSize: "11px", marginBottom: "12px" }}>Growth Accelerators</p>
+                    {topAccel.slice(0, 3).map((repo) => (
+                      <div key={repo.repo_id} className="wd-accel-row" style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
+                        <span className="wd-sb-name" style={{ fontSize: "11.5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "120px" }}>
+                          {repo.name}
+                        </span>
+                        <span style={{ fontSize: "11px", fontWeight: 700, color: "#00f0ff" }}>
+                          {repo.acceleration?.toFixed(1)}x
+                        </span>
                       </div>
-                    );
-                  })}
-                </div>
-
-                {/* Accel */}
-                <div className="wd-sb-block" style={{ borderTop: "2px solid var(--text-muted)", paddingTop: "12px" }}>
-                  <p className="wd-sb-title">Growth Acceleration</p>
-                  {topAccel.slice(0, 4).map((repo) => (
-                    <div key={repo.repo_id} className="wd-accel-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span className="wd-sb-name" style={{ fontSize: "12px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "120px" }}>
-                        {repo.name}
-                      </span>
-                      <span style={{ fontFamily: "monospace", fontSize: "12px", fontWeight: 700, color: "#00f0ff" }}>
-                        {repo.acceleration?.toFixed(1)}x
-                      </span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
 
               </div>
 
-              {/* Health cohort */}
-              <div className="wd-sb-block" style={{ borderTop: "2px solid var(--text-muted)", paddingTop: "12px" }}>
-                <p className="wd-sb-title">Ecosystem Cohort Health</p>
-                <div style={{ display: "flex", height: "8px", borderRadius: "999px", overflow: "hidden", gap: "2px", margin: "12px 0 8px", background: "rgba(255,255,255,0.06)" }}>
+              {/* Bottom: Health cohort */}
+              <div className="wd-sb-block" style={{ borderTop: "2px solid var(--text-muted)", paddingTop: "16px" }}>
+                <p className="wd-sb-title" style={{ fontSize: "11px", marginBottom: "10px" }}>Ecosystem Cohort Health</p>
+                <div style={{ display: "flex", height: "8px", borderRadius: "999px", overflow: "hidden", gap: "2px", margin: "8px 0", background: "rgba(255,255,255,0.06)" }}>
                   {healthyCount > 0 && <div style={{ flex: healthyCount, background: "#3fb950" }} />}
                   {yellowCount > 0 && <div style={{ flex: yellowCount, background: "#d29922" }} />}
                   {redCount > 0 && <div style={{ flex: redCount, background: "#f85149" }} />}
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--text-muted)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11.5px", color: "var(--text-muted)" }}>
                   <span>🟢 Jonin ({healthyCount})</span>
                   <span>🟡 Chunin ({yellowCount})</span>
                   <span>🔴 Genin ({redCount})</span>
                 </div>
               </div>
-
             </div>
+
+            {renderSlideFooter(3, 4)}
           </div>
-          {renderSlideFooter(6)}
         </div>
 
-        {/* Slide 7: Ecosystem Momentum */}
-        <div data-page-index="7" style={slideStyle}>
-          <div>
-            {renderSlideHeader("Ecosystem Momentum", 7)}
-            <div className="wd-sidebar" style={{ marginTop: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "32px" }}>
+        {/* Slide 4: Momentum & Methodology */}
+        <div data-page-index="4" style={slideStyle}>
+          <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%" }}>
+            {renderSlideHeader("Ecosystem Momentum & Methodology", 4, 4)}
+            
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: "32px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1.1fr", gap: "36px", alignItems: "start" }}>
                 
-                {/* Also Trending */}
-                <div className="wd-sb-block" style={{ borderTop: "2px solid var(--text-muted)", paddingTop: "12px" }}>
-                  <p className="wd-sb-title">Also Trending (Ranks 11-17)</p>
-                  {secondaryRepos.slice(0, 7).map((item) => (
-                    <div key={item.repo_id} className="wd-accel-row" style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span className="wd-sb-name" style={{ fontSize: "11.5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "120px" }}>
-                        #{item.rank} {item.name}
-                      </span>
-                      <span style={{ fontSize: "11px", color: "#d29922", fontWeight: 700 }}>
-                        +{item.star_velocity_7d?.toFixed(0)}/d
-                      </span>
+                {/* Left: Trending & Watch list */}
+                <div className="wd-sidebar">
+                  <div className="wd-sb-block" style={{ borderTop: "none", paddingTop: 0 }}>
+                    <p className="wd-sb-title" style={{ fontSize: "11px", marginBottom: "12px" }}>Also Trending (Ranks 11-17)</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      {secondaryRepos.slice(0, 6).map((item) => (
+                        <div key={item.repo_id} className="wd-accel-row" style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}>
+                          <span className="wd-sb-name" style={{ fontSize: "12px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "120px" }}>
+                            #{item.rank} {item.name}
+                          </span>
+                          <span style={{ fontSize: "11px", color: "#d29922", fontWeight: 700 }}>
+                            +{item.star_velocity_7d?.toFixed(0)}/d
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </div>
                 </div>
 
-                {/* Watch List */}
-                <div className="wd-sb-block" style={{ borderTop: "2px solid var(--text-muted)", paddingTop: "12px" }}>
-                  <p className="wd-sb-title">Alert Watch List</p>
-                  {watchList.slice(0, 4).map((item) => (
-                    <div key={item.repo_id} className="wd-watch-card" style={{ marginBottom: "8px", padding: "10px" }}>
-                      <div className="wd-watch-headline" style={{ fontSize: "12px" }}>{item.name}</div>
-                      <div className="wd-watch-body" style={{ fontSize: "10.5px" }}>{healthLabel(item.sustainability_label || "")} Risk status alert.</div>
+                {/* Right: Methodology & scoring */}
+                <div>
+                  <div className="wd-sb-block" style={{ borderTop: "none", paddingTop: 0 }}>
+                    <p className="wd-sb-title" style={{ fontSize: "11px", marginBottom: "12px" }}>Scoring Methodology</p>
+                    <p style={{ fontSize: "13px", lineHeight: "1.6", color: "var(--text-secondary)", margin: "0 0 20px 0" }}>
+                      Repodar scores ecosystem sustainability using issue resolution speed, release frequency, license types, and commit volume.
+                    </p>
+                    
+                    <div className="wd-stats-strip" style={{ gridTemplateColumns: "1fr", gap: "1px", marginBottom: 0 }}>
+                      <div className="wd-stat-cell" style={{ padding: "12px", textAlign: "left" }}>
+                        <div className="wd-stat-val" style={{ fontSize: "15px" }}>repodar.io</div>
+                        <div className="wd-stat-key" style={{ fontSize: "9px", marginTop: "2px" }}>Telemetry Site</div>
+                      </div>
+                      <div className="wd-stat-cell" style={{ padding: "12px", textAlign: "left" }}>
+                        <div className="wd-stat-val" style={{ fontSize: "15px" }}>saikumargudelly/repodar</div>
+                        <div className="wd-stat-key" style={{ fontSize: "9px", marginTop: "2px" }}>GitHub Codebase</div>
+                      </div>
                     </div>
-                  ))}
+                  </div>
                 </div>
 
               </div>
 
-              <div className="wd-article" style={{ borderBottom: "none", paddingBottom: 0 }}>
-                <blockquote className="wd-pullquote" style={{ fontSize: "13px", lineHeight: "1.6" }}>
-                  <strong>Ecosystem Report Overview:</strong> Our telemetry scanned {allRepos.length} AI and ML repositories this week, ranking projects by velocity and health.
-                </blockquote>
-              </div>
-            </div>
-          </div>
-          {renderSlideFooter(7)}
-        </div>
-
-        {/* Slide 8: About & Methodology */}
-        <div data-page-index="8" style={slideStyle}>
-          <div>
-            {renderSlideHeader("About & Methodology", 8)}
-            <div style={{ marginTop: "40px", display: "flex", flexDirection: "column", gap: "36px" }}>
-              <div>
-                <h2 className="wd-lead-title" style={{ fontSize: "28px", marginBottom: "12px" }}>Ecosystem Scoring Methodology</h2>
-                <p className="wd-lead-deck" style={{ fontSize: "14.5px", lineHeight: "1.6" }}>
-                  Repodar scores ecosystem sustainability using issue resolution speed, release frequency, license types, and commit volume.
-                </p>
-              </div>
-
-              <div className="wd-stats-strip" style={{ gridTemplateColumns: "1fr 1fr", gap: "1px", marginBottom: 0 }}>
-                <div className="wd-stat-cell" style={{ padding: "20px" }}>
-                  <div className="wd-stat-val" style={{ fontSize: "16px" }}>repodar.io</div>
-                  <div className="wd-stat-key">Telemetry Platform</div>
-                </div>
-                <div className="wd-stat-cell" style={{ padding: "20px" }}>
-                  <div className="wd-stat-val" style={{ fontSize: "16px" }}>saikumargudelly/repodar</div>
-                  <div className="wd-stat-key">GitHub Repository</div>
-                </div>
-              </div>
-
-              <blockquote className="wd-pullquote" style={{ textAlign: "center", borderLeft: "none", padding: "0 24px", fontSize: "13px" }}>
-                "Automated analysis, not human editorial."
+              <blockquote className="wd-pullquote" style={{ fontSize: "13.5px", lineHeight: "1.6" }}>
+                <strong>Ecosystem Report Overview:</strong> Our telemetry scanned {allRepos.length} AI and ML repositories this week, ranking projects by velocity and health.
               </blockquote>
             </div>
+
+            {renderSlideFooter(4, 4)}
           </div>
-          {renderSlideFooter(8)}
         </div>
       </div>
 
