@@ -1141,6 +1141,9 @@ class FallbackLLMProvider(BaseLLMProvider):
             else:
                 logger.warning(f"[LLM Health] Skipping provider {p.name} due to active cooldown.")
         if not providers:
+            logger.warning("All providers are in cooldown. Bypassing cooldown to attempt requests.")
+            providers = raw_providers
+        if not providers:
             raise RuntimeError("No active LLM providers configured in fallback chain.")
 
         last_exception = None
@@ -1176,6 +1179,9 @@ class FallbackLLMProvider(BaseLLMProvider):
                 providers.append(p)
             else:
                 logger.warning(f"[LLM Health] Skipping provider {p.name} due to active cooldown.")
+        if not providers:
+            logger.warning("All providers are in cooldown. Bypassing cooldown to attempt requests.")
+            providers = raw_providers
         if not providers:
             raise RuntimeError("No active LLM providers configured in fallback chain.")
 
