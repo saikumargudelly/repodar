@@ -245,6 +245,52 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
     }
   };
 
+  const handleShareToLinkedIn = async () => {
+    const container = carouselRef.current;
+    if (!container) return;
+    setExporting(true);
+    setExportProgress("Generating cover image for sharing...");
+    try {
+      const node = container.querySelector(`[data-page-index="1"]`) as HTMLElement;
+      if (!node) return;
+      
+      const dataUrl = await toPng(node, { pixelRatio: 3.0, quality: 0.95, cacheBust: true });
+      
+      // Copy PNG to clipboard
+      setExportProgress("Copying cover image to clipboard...");
+      try {
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            [blob.type]: blob
+          })
+        ]);
+      } catch (clipErr) {
+        console.warn("Failed to write to clipboard directly, downloading instead", clipErr);
+        // Fallback: download the image
+        const link = document.createElement("a");
+        link.download = `repodar-weekly-${weekId}-cover.png`;
+        link.href = dataUrl;
+        link.click();
+      }
+      
+      // Create share text
+      const shareText = `📊 Repodar Weekly AI/ML Radar (Edition #${weekId}) is live!\n\nHere are this week's breakout open-source projects:\n1️⃣ ${featuredRepos[0] ? `${featuredRepos[0].owner}/${featuredRepos[0].name}` : ""}\n2️⃣ ${featuredRepos[1] ? `${featuredRepos[1].owner}/${featuredRepos[1].name}` : ""}\n3️⃣ ${featuredRepos[2] ? `${featuredRepos[2].owner}/${featuredRepos[2].name}` : ""}\n\nCheck out the full telemetry health indicators, language distributions, and growth acceleration metrics: repodar.io/weekly/${weekId}\n\n#AI #ML #OpenSource #GitHub`;
+      
+      setExportProgress("Opening LinkedIn...");
+      const linkedinUrl = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(shareText)}`;
+      window.open(linkedinUrl, "_blank");
+      
+      setExportProgress(null);
+    } catch (err) {
+      console.error("Failed to share to LinkedIn", err);
+      setExportProgress("Failed to share.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // Carousel helpers and styles
   const slideStyle: React.CSSProperties = {
     width: "1080px",
@@ -1273,6 +1319,19 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
                   <div>
                     <div style={{ fontSize: "14px", fontWeight: 700, color: "#fff", fontFamily: "Inter, sans-serif" }}>PDF Document (8-Page PDF)</div>
                     <div style={{ fontSize: "11.5px", color: "var(--text-muted)", fontFamily: "Inter, sans-serif", marginTop: "2px" }}>Compiles the 8 portrait layout pages into a single printable PDF file.</div>
+                  </div>
+                </div>
+
+                <div 
+                  onClick={handleShareToLinkedIn}
+                  style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--border)", borderRadius: "8px", padding: "16px", display: "flex", alignItems: "center", gap: "16px", cursor: "pointer", transition: "background 0.2s" }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
+                >
+                  <span style={{ fontSize: "28px" }}>🔗</span>
+                  <div>
+                    <div style={{ fontSize: "14px", fontWeight: 700, color: "#fff", fontFamily: "Inter, sans-serif" }}>Share Carousel to LinkedIn</div>
+                    <div style={{ fontSize: "11.5px", color: "var(--text-muted)", fontFamily: "Inter, sans-serif", marginTop: "2px" }}>Pre-fills LinkedIn post with statistics and copies Slide 1 cover image to your clipboard.</div>
                   </div>
                 </div>
               </div>
