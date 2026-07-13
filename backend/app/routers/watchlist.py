@@ -165,14 +165,33 @@ def add_to_watchlist(
     _assert_safe_url(body.notify_webhook)
 
     # Validate repo exists
-    repo = db.query(Repository).filter_by(id=body.repo_id).first()
+    resolved_uuid = None
+    import uuid
+    try:
+        uuid.UUID(body.repo_id)
+        resolved_uuid = body.repo_id
+    except ValueError:
+        if "/" in body.repo_id:
+            parts = body.repo_id.split("/", 1)
+            owner, name = parts[0], parts[1]
+            repo = db.query(Repository).filter(
+                Repository.owner.ilike(owner),
+                Repository.name.ilike(name)
+            ).first()
+            if repo:
+                resolved_uuid = repo.id
+
+    if not resolved_uuid:
+        raise HTTPException(status_code=404, detail=f"Repository {body.repo_id} not found")
+
+    repo = db.query(Repository).filter_by(id=resolved_uuid).first()
     if not repo:
         raise HTTPException(status_code=404, detail=f"Repository {body.repo_id} not found")
 
     # Deduplicate
     existing = (
         db.query(WatchlistItem)
-        .filter_by(user_id=user_id, repo_id=body.repo_id)
+        .filter_by(user_id=user_id, repo_id=resolved_uuid)
         .first()
     )
     if existing:
@@ -180,7 +199,7 @@ def add_to_watchlist(
 
     item = WatchlistItem(
         user_id=user_id,
-        repo_id=body.repo_id,
+        repo_id=resolved_uuid,
         alert_threshold=body.alert_threshold,
         notify_email=body.notify_email,
         notify_webhook=body.notify_webhook,
@@ -241,16 +260,35 @@ def remove_from_watchlist(
     db.commit()
 
 
-@router.get("/check/{repo_id}", response_model=WatchlistCheckOut)
+@router.get("/check/{repo_id:path}", response_model=WatchlistCheckOut)
 def check_watchlist(
     repo_id: str,
     user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Quick check if a specific repo is in the user's watchlist. Returns item_id or null."""
+    resolved_uuid = None
+    import uuid
+    try:
+        uuid.UUID(repo_id)
+        resolved_uuid = repo_id
+    except ValueError:
+        if "/" in repo_id:
+            parts = repo_id.split("/", 1)
+            owner, name = parts[0], parts[1]
+            repo = db.query(Repository).filter(
+                Repository.owner.ilike(owner),
+                Repository.name.ilike(name)
+            ).first()
+            if repo:
+                resolved_uuid = repo.id
+
+    if not resolved_uuid:
+        return WatchlistCheckOut(watching=False, item=None)
+
     item = (
         db.query(WatchlistItem)
-        .filter_by(user_id=user_id, repo_id=repo_id)
+        .filter_by(user_id=user_id, repo_id=resolved_uuid)
         .first()
     )
     return WatchlistCheckOut(
