@@ -187,34 +187,92 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
     }
   };
 
+  const handleExportSinglePage = async () => {
+    const node = posterRef.current;
+    if (!node) return;
+    setExporting(true);
+    setExportProgress("Rendering full page to PNG...");
+    try {
+      const dataUrl = await toPng(node, { pixelRatio: 3.2, quality: 1.0, cacheBust: true });
+      const link = document.createElement("a");
+      link.download = `repodar-weekly-${weekId}-full.png`;
+      link.href = dataUrl;
+      link.click();
+      setExportProgress(null);
+    } catch (err) {
+      console.error("Failed to generate full page PNG", err);
+      setExportProgress("Failed to export full page.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    const container = carouselRef.current;
+    if (!container) return;
+    setExporting(true);
+    setExportProgress("Preparing pages for PDF...");
+    try {
+      const { jsPDF } = await import("jspdf");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "px",
+        format: [1080, 1350]
+      });
+
+      const totalSlides = 8;
+      for (let i = 1; i <= totalSlides; i++) {
+        setExportProgress(`Rendering page ${i} of ${totalSlides} for PDF...`);
+        const node = container.querySelector(`[data-page-index="${i}"]`) as HTMLElement;
+        if (!node) continue;
+        
+        const dataUrl = await toPng(node, { pixelRatio: 2.0, quality: 0.95, cacheBust: true });
+        if (i > 1) {
+          pdf.addPage([1080, 1350], "portrait");
+        }
+        pdf.addImage(dataUrl, "PNG", 0, 0, 1080, 1350);
+        await new Promise(r => setTimeout(r, 100));
+      }
+      
+      setExportProgress("Saving PDF...");
+      pdf.save(`repodar-weekly-${weekId}.pdf`);
+      setExportProgress(null);
+    } catch (err) {
+      console.error("Failed to generate PDF", err);
+      setExportProgress("Failed to export PDF.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // Carousel helpers and styles
   const slideStyle: React.CSSProperties = {
     width: "1080px",
     height: "1350px",
     padding: "64px",
     boxSizing: "border-box",
-    background: "radial-gradient(circle at 50% 50%, #171d2b 0%, #0a0d14 100%)",
+    background: "#1e1d1c",
     color: "#e6edf3",
     display: "flex",
     flexDirection: "column",
     justifyContent: "space-between",
     fontFamily: "Inter, -apple-system, sans-serif",
-    border: "1px solid #30363d",
+    border: "1px solid #31302f",
     position: "relative",
     overflow: "hidden"
   };
 
   const metricStyle: React.CSSProperties = {
-    background: "rgba(255,255,255,0.02)",
-    border: "1px solid rgba(255,255,255,0.05)",
+    background: "#262524",
+    border: "1px solid #31302f",
     borderRadius: "6px",
     padding: "16px",
     textAlign: "center"
   };
 
   const chartCardStyle: React.CSSProperties = {
-    background: "rgba(255,255,255,0.02)",
-    border: "1px solid rgba(255,255,255,0.05)",
+    background: "#262524",
+    border: "1px solid #31302f",
     borderRadius: "8px",
     padding: "20px",
     boxSizing: "border-box",
@@ -231,12 +289,12 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
     margin: 0,
     textTransform: "uppercase",
     letterSpacing: "0.05em",
-    borderBottom: "1px solid rgba(255,255,255,0.05)",
+    borderBottom: "1px solid #31302f",
     paddingBottom: "8px"
   };
 
   const renderSlideFooter = (index: number) => (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "12px", fontSize: "11px", color: "#8b949e", fontFamily: "monospace" }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #31302f", paddingTop: "12px", fontSize: "11px", color: "#8b949e", fontFamily: "monospace" }}>
       <span>repodar.io · Repodar Intelligence System</span>
       <span style={{ background: "rgba(0,240,255,0.1)", color: "#00f0ff", padding: "2px 8px", borderRadius: "4px", fontWeight: 700 }}>{index} / 8</span>
     </div>
@@ -254,7 +312,7 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
         </div>
         <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
           <div style={{ border: "1px solid rgba(0,240,255,0.3)", background: "rgba(0,240,255,0.05)", color: "#00f0ff", padding: "4px 10px", borderRadius: "4px", fontSize: "11px", fontFamily: "monospace", fontWeight: 700 }}>WEEK {weekId}</div>
-          <div style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", color: "#8b949e", padding: "4px 10px", borderRadius: "4px", fontSize: "11px", fontFamily: "monospace", fontWeight: 700 }}>{index}/8</div>
+          <div style={{ border: "1px solid #31302f", background: "rgba(255,255,255,0.02)", color: "#8b949e", padding: "4px 10px", borderRadius: "4px", fontSize: "11px", fontFamily: "monospace", fontWeight: 700 }}>{index}/8</div>
         </div>
       </div>
       <div style={{ height: "2px", background: "linear-gradient(to right, #00f0ff, transparent)", marginTop: "16px", marginBottom: "24px" }} />
@@ -264,22 +322,22 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
   const renderSlideRepoCard = (repo: any, rank: number, showComment: boolean = false) => {
     const bc = healthColor(repo.sustainability_label || "");
     return (
-      <div key={repo.repo_id} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderLeft: `5px solid ${bc}`, borderRadius: "0 8px 8px 0", padding: "20px 24px", display: "flex", flexDirection: "column", gap: "12px", width: "100%", boxSizing: "border-box", fontFamily: "Inter, sans-serif" }}>
+      <div key={repo.repo_id} style={{ background: "#262524", border: "1px solid #31302f", borderLeft: `5px solid ${bc}`, borderRadius: "0 8px 8px 0", padding: "20px 24px", display: "flex", flexDirection: "column", gap: "12px", width: "100%", boxSizing: "border-box", fontFamily: "Inter, sans-serif" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
             <span style={{ fontSize: "22px", fontWeight: 800, color: "#00f0ff", opacity: 0.6, fontFamily: "monospace" }}>#{String(rank).padStart(2, "0")}</span>
             <div style={{ fontSize: "19px", fontWeight: 700, color: "#fff" }}>{repo.owner}/<span style={{ color: "#00f0ff" }}>{repo.name}</span></div>
           </div>
-          <span style={{ fontSize: "11px", color: "#8b949e", background: "rgba(255,255,255,0.05)", padding: "3px 8px", borderRadius: "4px" }}>{repo.category}</span>
+          <span style={{ fontSize: "11px", color: "#bac3cc", background: "rgba(255,255,255,0.05)", padding: "3px 8px", borderRadius: "4px" }}>{repo.category}</span>
         </div>
-        <p style={{ fontSize: "13.5px", color: "#8b949e", margin: 0, lineHeight: "1.5" }}>{repo.description || "No description available."}</p>
-        <div style={{ display: "flex", gap: "24px", fontSize: "12px", color: "#8b949e" }}>
+        <p style={{ fontSize: "13.5px", color: "#bac3cc", margin: 0, lineHeight: "1.5" }}>{repo.description || "No description available."}</p>
+        <div style={{ display: "flex", gap: "24px", fontSize: "12px", color: "#bac3cc" }}>
           <span>★ <b>{repo.stars?.toLocaleString()}</b> total</span>
           <span>⚡ <span style={{ color: "#d29922" }}>+{repo.star_velocity_7d?.toFixed(0)}/day</span></span>
           <span>📈 <b>{repo.acceleration?.toFixed(1)}x</b> accel</span>
         </div>
         {showComment && (
-          <div style={{ borderLeft: "3px solid #00f0ff", paddingLeft: "12px", fontSize: "12px", fontStyle: "italic", color: "#8b949e", marginTop: "4px" }}>
+          <div style={{ borderLeft: "3px solid #00f0ff", paddingLeft: "12px", fontSize: "12px", fontStyle: "italic", color: "#bac3cc", marginTop: "4px" }}>
             <b>Analyst Note:</b> {generateInsightCommentary(repo)}
           </div>
         )}
@@ -290,7 +348,7 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
   const renderSlideRepoCompact = (repo: any, rank: number) => {
     const bc = healthColor(repo.sustainability_label || "");
     return (
-      <div key={repo.repo_id} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderLeft: `4px solid ${bc}`, borderRadius: "0 4px 4px 0", padding: "12px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", boxSizing: "border-box", fontFamily: "Inter, sans-serif" }}>
+      <div key={repo.repo_id} style={{ background: "#262524", border: "1px solid #31302f", borderLeft: `4px solid ${bc}`, borderRadius: "0 4px 4px 0", padding: "12px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", boxSizing: "border-box", fontFamily: "Inter, sans-serif" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0, flex: 1 }}>
           <span style={{ fontSize: "15px", fontWeight: 800, color: "#00f0ff", opacity: 0.6, width: "30px", fontFamily: "monospace" }}>#{String(rank).padStart(2, "0")}</span>
           <div style={{ fontSize: "14px", fontWeight: 700, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{repo.owner}/<span style={{ color: "#00f0ff" }}>{repo.name}</span></div>
@@ -1023,7 +1081,7 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
                 </p>
               </div>
 
-              <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "8px", padding: "24px", display: "flex", flexDirection: "column", gap: "16px", fontFamily: "Inter, sans-serif" }}>
+              <div style={{ background: "#262524", border: "1px solid #31302f", borderRadius: "8px", padding: "24px", display: "flex", flexDirection: "column", gap: "16px", fontFamily: "Inter, sans-serif" }}>
                 <div style={{ fontSize: "14px", fontWeight: 700, color: "#00f0ff" }}>Access Real-Time Intelligence</div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
@@ -1052,35 +1110,64 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
           <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "12px", width: "100%", maxWidth: "560px", padding: "28px", display: "flex", flexDirection: "column", gap: "18px", boxShadow: "0 24px 48px rgba(0,0,0,0.6)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
-                <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: "var(--text-primary)", fontFamily: "Inter, sans-serif" }}>LinkedIn Carousel Export</h3>
-                <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "4px 0 0", fontFamily: "Inter, sans-serif" }}>High-resolution Multi-page Carousel &amp; manifest.json</p>
+                <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: "var(--text-primary)", fontFamily: "Inter, sans-serif" }}>Weekly Report Publisher</h3>
+                <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "4px 0 0", fontFamily: "Inter, sans-serif" }}>Choose export layout format and output target</p>
               </div>
               <button onClick={() => setIsModalOpen(false)} style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 20, lineHeight: 1, padding: 0 }}>✕</button>
             </div>
-            <div style={{ border: "1px solid var(--border)", background: "var(--bg-primary)", borderRadius: "8px", overflow: "hidden", display: "flex", justifyContent: "center", alignItems: "center", padding: 20 }}>
-              <div style={{ width: 240, height: 160, border: "1px dashed var(--border)", borderRadius: 6, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 24 }}>📄</span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)" }}>
-                  {exporting ? "Generating Pages..." : "8 Portrait Pages Prepared"}
-                </span>
-              </div>
-            </div>
+            
             {exportProgress ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, fontFamily: "Inter, sans-serif" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--text-secondary)" }}>
-                  <span>{exportProgress}</span>
+              <div style={{ border: "1px solid var(--border)", background: "var(--bg-primary)", borderRadius: "8px", padding: "32px 20px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "16px" }}>
+                <span style={{ fontSize: "32px", animation: "spin 2s linear infinite" }}>⏳</span>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", textAlign: "center", fontFamily: "Inter, sans-serif" }}>
+                  {exportProgress}
                 </div>
               </div>
             ) : (
-              <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: 0, fontFamily: "Inter, sans-serif", lineHeight: 1.6 }}>
-                Exports the weekly snapshot as 8 separate portrait pages dynamically formatted for LinkedIn &amp; Twitter/X feeds, alongside a structured manifest.json.
-              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <div 
+                  onClick={handleExportSinglePage}
+                  style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--border)", borderRadius: "8px", padding: "16px", display: "flex", alignItems: "center", gap: "16px", cursor: "pointer", transition: "background 0.2s" }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
+                >
+                  <span style={{ fontSize: "28px" }}>📄</span>
+                  <div>
+                    <div style={{ fontSize: "14px", fontWeight: 700, color: "#fff", fontFamily: "Inter, sans-serif" }}>Single Full Page (4K PNG)</div>
+                    <div style={{ fontSize: "11.5px", color: "var(--text-muted)", fontFamily: "Inter, sans-serif", marginTop: "2px" }}>Exports the entire weekly blog page UI as a single tall high-resolution graphic.</div>
+                  </div>
+                </div>
+
+                <div 
+                  onClick={handleExportPoster}
+                  style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--border)", borderRadius: "8px", padding: "16px", display: "flex", alignItems: "center", gap: "16px", cursor: "pointer", transition: "background 0.2s" }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
+                >
+                  <span style={{ fontSize: "28px" }}>🗂️</span>
+                  <div>
+                    <div style={{ fontSize: "14px", fontWeight: 700, color: "#fff", fontFamily: "Inter, sans-serif" }}>LinkedIn Carousel Pack (8 PNGs)</div>
+                    <div style={{ fontSize: "11.5px", color: "var(--text-muted)", fontFamily: "Inter, sans-serif", marginTop: "2px" }}>8 separate portrait slides (1080×1350) + manifest.json metadata package.</div>
+                  </div>
+                </div>
+
+                <div 
+                  onClick={handleExportPDF}
+                  style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--border)", borderRadius: "8px", padding: "16px", display: "flex", alignItems: "center", gap: "16px", cursor: "pointer", transition: "background 0.2s" }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
+                >
+                  <span style={{ fontSize: "28px" }}>📕</span>
+                  <div>
+                    <div style={{ fontSize: "14px", fontWeight: 700, color: "#fff", fontFamily: "Inter, sans-serif" }}>PDF Document (8-Page PDF)</div>
+                    <div style={{ fontSize: "11.5px", color: "var(--text-muted)", fontFamily: "Inter, sans-serif", marginTop: "2px" }}>Compiles the 8 portrait layout pages into a single printable PDF file.</div>
+                  </div>
+                </div>
+              </div>
             )}
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={handleExportPoster} disabled={exporting} className="wd-btn wd-btn-primary" style={{ flex: 1, padding: "10px 0", fontSize: 13, justifyContent: "center", borderRadius: 6 }}>
-                {exporting ? "⏳ Rendering..." : "📥 Download Carousel Pack"}
-              </button>
-              <button onClick={() => setIsModalOpen(false)} className="wd-btn" style={{ padding: "10px 16px", fontSize: 13, borderRadius: 6 }}>Close</button>
+            
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>
+              <button onClick={() => setIsModalOpen(false)} disabled={exporting} className="wd-btn" style={{ padding: "10px 16px", fontSize: 13, borderRadius: 6, width: "100%", justifyContent: "center" }}>Close</button>
             </div>
           </div>
         </div>
