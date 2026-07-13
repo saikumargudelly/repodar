@@ -359,7 +359,7 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
       <style>{css}</style>
 
       {/* ── Hidden 4K poster ── */}
-      <div ref={posterRef} id="repodar-social-poster" style={{ position: "absolute", left: "-9999px", top: "-9999px", width: "1200px", height: "1600px", background: "radial-gradient(circle at 50% 50%, #171d2b 0%, #0a0d14 100%)", color: "#e6edf3", padding: "64px", display: "flex", flexDirection: "column", justifyContent: "space-between", fontFamily: "Inter, -apple-system, sans-serif", boxSizing: "border-box", border: "1px solid #30363d" }}>
+      <div ref={posterRef} id="repodar-social-poster" style={{ position: "absolute", left: "-9999px", top: "-9999px", width: "1200px", height: `${800 + featuredRepos.length * 180}px`, background: "radial-gradient(circle at 50% 50%, #171d2b 0%, #0a0d14 100%)", color: "#e6edf3", padding: "64px", display: "flex", flexDirection: "column", justifyContent: "space-between", fontFamily: "Inter, -apple-system, sans-serif", boxSizing: "border-box", border: "1px solid #30363d" }}>
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -375,7 +375,7 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
           <h1 style={{ fontSize: "42px", fontWeight: 900, letterSpacing: "-0.02em", color: "#ffffff", margin: "0 0 12px", lineHeight: "1.1" }}>Weekly AI/ML Ecosystem Breakthroughs</h1>
           <p style={{ fontSize: "16px", color: "#8b949e", margin: "0 0 48px", lineHeight: "1.5", maxWidth: "800px" }}>Automated intelligence telemetry capturing the highest velocity open-source projects, community health metrics, and growth acceleration.</p>
           <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-            {featuredRepos.slice(0, 5).map((repo) => {
+            {featuredRepos.map((repo) => {
               const bc = healthColor(repo.sustainability_label || "");
               return (
                 <div key={repo.repo_id} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderLeft: `5px solid ${bc}`, borderRadius: "0 8px 8px 0", padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -717,7 +717,7 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
               <button onClick={() => setIsModalOpen(false)} style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 20, lineHeight: 1, padding: 0 }}>✕</button>
             </div>
             <div style={{ border: "1px solid var(--border)", background: "var(--bg-primary)", borderRadius: "8px", overflow: "hidden", display: "flex", justifyContent: "center", alignItems: "center", padding: 20 }}>
-              <div style={{ width: 220, height: 293, background: "radial-gradient(circle at 50% 50%, #171d2b 0%, #0a0d14 100%)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: 16, display: "flex", flexDirection: "column", justifyContent: "space-between", boxSizing: "border-box" }}>
+              <div style={{ width: 220, height: 146 + featuredRepos.length * 33, background: "radial-gradient(circle at 50% 50%, #171d2b 0%, #0a0d14 100%)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: 16, display: "flex", flexDirection: "column", justifyContent: "space-between", boxSizing: "border-box" }}>
                 <div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -728,7 +728,7 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
                   </div>
                   <div style={{ height: 1, background: "rgba(255,255,255,0.08)", marginBottom: 8 }} />
                   <div style={{ fontSize: 11, fontWeight: 800, color: "#fff", marginBottom: 8, lineHeight: 1.2 }}>Weekly AI/ML Radar</div>
-                  {featuredRepos.slice(0, 5).map((r) => (
+                  {featuredRepos.map((r) => (
                     <div key={r.repo_id} style={{ display: "flex", justifyContent: "space-between", fontSize: 7, padding: "3px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                       <span style={{ color: "#ccc" }}>#{r.rank} {r.name}</span>
                       <span style={{ color: "#d29922" }}>+{r.star_velocity_7d?.toFixed(0)}/d</span>
@@ -739,7 +739,7 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
               </div>
             </div>
             <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: 0, fontFamily: "Inter, sans-serif", lineHeight: 1.6 }}>
-              Exports a <strong>1200×1600 px</strong> vertical graphic at 3× scaling — ideal for LinkedIn and Twitter/X mobile feeds.
+              Exports a <strong>1200×{800 + featuredRepos.length * 180} px</strong> vertical graphic at 3.2× scaling (4K equivalent) — ideal for LinkedIn and Twitter/X mobile feeds.
             </p>
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={handleExportPoster} disabled={exporting} className="wd-btn wd-btn-primary" style={{ flex: 1, padding: "10px 0", fontSize: 13, justifyContent: "center", borderRadius: 6 }}>
