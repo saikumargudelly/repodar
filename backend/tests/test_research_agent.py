@@ -10,6 +10,7 @@ import asyncio
 
 from app.services import research_agent
 from app.services.research_agent import ParsedIntent
+from app.utils.llm_providers import LLMResponse
 
 
 def _fake_repo(full_name: str = "example/repo") -> dict:
@@ -113,25 +114,33 @@ def test_parse_intent_passes_context_and_rules_to_llm(monkeypatch):
 
     async def _fake_chat_completion(messages, temperature, max_tokens, response_format=None):
         captured_messages.extend(messages)
-        return """{
-            "intent": "search",
-            "confidence": 0.95,
-            "entities": {
-                "repos": [],
-                "topics": ["home-automation"],
-                "languages": ["python"],
-                "verticals": [],
-                "time_period": "30d",
-                "min_stars": null,
-                "exclude_forks": null,
-                "exclude_archived": null
-            },
-            "github_queries": ["home-automation language:python pushed:>=2026-05-21"],
-            "query_explanation": "Searching for active Python home automation projects",
-            "needs_clarification": false,
-            "clarification_prompt": null,
-            "rejection_reason": null
-        }"""
+        return LLMResponse(
+            text="""{
+                "intent": "search",
+                "confidence": 0.95,
+                "entities": {
+                    "repos": [],
+                    "topics": ["home-automation"],
+                    "languages": ["python"],
+                    "verticals": [],
+                    "time_period": "30d",
+                    "min_stars": null,
+                    "exclude_forks": null,
+                    "exclude_archived": null
+                },
+                "github_queries": ["home-automation language:python pushed:>=2026-05-21"],
+                "query_explanation": "Searching for active Python home automation projects",
+                "needs_clarification": false,
+                "clarification_prompt": null,
+                "rejection_reason": null
+            }""",
+            provider="Groq",
+            model="llama-3.3-70b-versatile",
+            latency_ms=10.0,
+            status_code=200,
+            finish_reason="stop",
+            raw_response="{}"
+        )
 
     monkeypatch.setattr(research_agent, "async_chat_completion", _fake_chat_completion)
     monkeypatch.setattr(research_agent, "GROQ_API_KEY", "fake-key")
@@ -167,18 +176,26 @@ def test_parse_intent_with_repos_in_context(monkeypatch):
 
     async def _fake_chat_completion(messages, temperature, max_tokens, response_format=None):
         captured_messages.extend(messages)
-        return """{
-            "intent": "repo_detail",
-            "confidence": 0.95,
-            "entities": {
-                "repos": ["langchain-ai/langgraph"]
-            },
-            "github_queries": [],
-            "query_explanation": "Details for langchain-ai/langgraph",
-            "needs_clarification": false,
-            "clarification_prompt": null,
-            "rejection_reason": null
-        }"""
+        return LLMResponse(
+            text="""{
+                "intent": "repo_detail",
+                "confidence": 0.95,
+                "entities": {
+                    "repos": ["langchain-ai/langgraph"]
+                },
+                "github_queries": [],
+                "query_explanation": "Details for langchain-ai/langgraph",
+                "needs_clarification": false,
+                "clarification_prompt": null,
+                "rejection_reason": null
+            }""",
+            provider="Groq",
+            model="llama-3.3-70b-versatile",
+            latency_ms=10.0,
+            status_code=200,
+            finish_reason="stop",
+            raw_response="{}"
+        )
 
     monkeypatch.setattr(research_agent, "async_chat_completion", _fake_chat_completion)
     monkeypatch.setattr(research_agent, "GROQ_API_KEY", "fake-key")

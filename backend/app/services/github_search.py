@@ -413,11 +413,12 @@ async def _dynamic_topics(category: str, limit: int = 15) -> list[str]:
     """
     
     try:
-        content = await async_chat_completion(
+        res = await async_chat_completion(
             messages=[{"role": "user", "content": prompt}],
             temperature=0.2,
             response_format={"type": "json_object"},
         )
+        content = res.text if res else ""
         if not content:
             raise ValueError("No response from Groq")
         data = json.loads(content)

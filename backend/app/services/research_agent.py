@@ -238,12 +238,13 @@ async def parse_intent(message: str, context_turns: list[dict]) -> ParsedIntent:
     }
 
     try:
-        raw = await async_chat_completion(
+        res = await async_chat_completion(
             messages=payload["messages"],
             temperature=payload["temperature"],
             max_tokens=payload["max_tokens"],
             response_format=payload.get("response_format"),
         )
+        raw = res.text if res else ""
         if not raw:
             raise ValueError("No response from Groq")
         parsed = json.loads(raw)
@@ -1091,9 +1092,9 @@ async def _synthesize(
             temperature=0.2,
             max_tokens=800,
         )
-        if not res:
+        if not res or not res.text:
             raise ValueError("No response from Groq")
-        return res
+        return res.text
     except Exception as exc:
         logger.warning(f"Synthesis LLM failed ({exc}), using fallback")
         lines = [summary_line, ""]
@@ -1294,9 +1295,9 @@ async def generate_report(
             temperature=0.15,
             max_tokens=2000,
         )
-        if not res:
+        if not res or not res.text:
             raise ValueError("No response from Groq")
-        return res
+        return res.text
     except Exception as exc:
         logger.warning(f"Report generation LLM failed ({exc}): using fallback")
         return _report_fallback(session_title, pins, queries_used)
@@ -1628,9 +1629,9 @@ async def generate_social_post(
             temperature=0.55,
             max_tokens=700,
         )
-        if not res:
+        if not res or not res.text:
             raise ValueError("No response from Groq")
-        return res
+        return res.text
     except Exception as exc:
         logger.warning(f"Social post generation failed ({platform}): {exc}")
         return f"Failed to generate {platform} post. Please try again."

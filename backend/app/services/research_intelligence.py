@@ -92,14 +92,14 @@ Output JSON only with a single key "expansions" containing a list of strings."""
                     {"role": "system", "content": "You expand search terms. Return JSON containing 'expansions' only. No prose."},
                     {"role": "user", "content": prompt}
                 ]
-                raw_json = await async_chat_completion(
+                res = await async_chat_completion(
                     messages=messages,
                     temperature=0.1,
                     max_tokens=250,
                     response_format={"type": "json_object"}
                 )
-                if raw_json:
-                    data = json.loads(raw_json)
+                if res and res.text:
+                    data = json.loads(res.text)
                     expansions = data.get("expansions", [])
             except Exception as e:
                 logger.warning(f"Groq query expansion failed: {e}")

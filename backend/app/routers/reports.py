@@ -117,8 +117,8 @@ what ecosystem shifts are emerging, and what analysts should watch next week."""
         temperature=0.3,
         max_tokens=350,
     )
-    if res:
-        return res
+    if res and res.text:
+        return res.text
     return "Strategic insight generation unavailable: Rate limit or API error."
 
 

@@ -71,11 +71,12 @@ def generate_explanation(
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": prompt},
     ]
-    explanation = sync_chat_completion(
+    res = sync_chat_completion(
         messages=messages,
         temperature=0.3,
         max_tokens=300,
     )
+    explanation = res.text if res else None
     if explanation:
         logger.info(f"Generated explanation for {owner}/{repo_name}")
     return explanation
@@ -218,11 +219,12 @@ def generate_repo_summary(
         {"role": "system", "content": SUMMARY_SYSTEM_PROMPT},
         {"role": "user", "content": prompt},
     ]
-    summary = sync_chat_completion(
+    res = sync_chat_completion(
         messages=messages,
         temperature=0.4,
         max_tokens=200,
     )
+    summary = res.text if res else None
     if summary:
         logger.info(f"Generated summary for {owner}/{repo_name}")
     return summary
@@ -396,6 +398,13 @@ Quantitative momentum and sustainability metrics:
 - Sustainability Score: {sustainability_score}/1.0
 - Sustainability Label: {sustainability_label}
 
+Repository stats:
+- Stars: {stars}
+- Forks: {forks}
+- Contributors: {contributors_count}
+- Commit Activity: {commit_activity}
+- Ecosystem Context: {ecosystem_context}
+
 Return exactly this JSON structure:
 {{
   "what": "A comprehensive, 2-3 sentence technical description of the project. State the exact type of software (e.g., CLI tool, library, microservice, framework, application client/server), its primary value proposition, core functional capabilities, and intended audience (e.g., developers, DevOps engineers, systems admins).",
@@ -427,6 +436,11 @@ async def generate_deep_summary(
     acceleration: float = 0.0,
     sustainability_score: float = 0.0,
     sustainability_label: str = "YELLOW",
+    stars: int = 0,
+    forks: int = 0,
+    contributors_count: int = 0,
+    commit_activity: Optional[str] = None,
+    ecosystem_context: Optional[dict] = None,
 ) -> dict:
     """
     Generate a structured deep summary with what/why/how/tech_stack/use_cases.
@@ -453,6 +467,11 @@ async def generate_deep_summary(
         acceleration=round(acceleration, 4),
         sustainability_score=round(sustainability_score, 2),
         sustainability_label=sustainability_label,
+        stars=stars,
+        forks=forks,
+        contributors_count=contributors_count,
+        commit_activity=commit_activity or "Not available",
+        ecosystem_context=json.dumps(ecosystem_context) if ecosystem_context else "Not available",
     )
 
     messages = [
@@ -460,12 +479,14 @@ async def generate_deep_summary(
         {"role": "user", "content": prompt},
     ]
     try:
-        raw = await async_chat_completion(
+        response = await async_chat_completion(
             messages=messages,
             temperature=0.3,
             max_tokens=700,
             response_format={"type": "json_object"},
+            json_required_keys=["what", "why", "how", "tech_stack", "use_cases"],
         )
+        raw = response.text
     except Exception as e:
         logger.error(f"Deep summary LLM call failed for {owner}/{repo_name}: {e}")
         raise LLMPipelineError(f"LLM call failed: {e}") from e
@@ -476,15 +497,14 @@ async def generate_deep_summary(
 
     try:
         # Strip any accidental markdown fences
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        result = json.loads(raw)
-        # Ensure all keys present
-        for key in ("what", "why", "how", "tech_stack", "use_cases"):
-            if key not in result:
-                raise LLMPipelineError(f"LLM response missing key: {key}")
+        text_to_parse = raw.strip()
+        if text_to_parse.startswith("```"):
+            parts = text_to_parse.split("```")
+            if len(parts) >= 3:
+                text_to_parse = parts[1]
+                if text_to_parse.startswith("json"):
+                    text_to_parse = text_to_parse[4:]
+        result = json.loads(text_to_parse.strip())
         return result
     except Exception as e:
         logger.error(f"Deep summary JSON parsing failed for {owner}/{repo_name}: {e}. Raw response: {repr(raw)}")

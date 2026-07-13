@@ -402,7 +402,7 @@ No filler, no exclamation marks. Factual and analyst-grade only."""
                 temperature=0.2,
                 max_tokens=1500
             )
-            return res or "Failed to generate report narrative."
+            return res.text if res else "Failed to generate report narrative."
         except Exception as exc:
             logger.warning(f"Groq ecosystem report generation failed: {exc}")
             return "Failed to generate ecosystem report."

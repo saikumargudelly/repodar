@@ -174,11 +174,12 @@ async def _parse_query(query: str) -> Optional[dict]:
             {"role": "system", "content": _PARSE_SYSTEM},
             {"role": "user",   "content": query},
         ]
-        raw = await async_chat_completion(
+        res = await async_chat_completion(
             messages=messages,
             temperature=0.1,
             max_tokens=400,
         )
+        raw = res.text if res else ""
         if not raw:
             raise ValueError("No response from Groq")
         # Strip markdown code fences if present

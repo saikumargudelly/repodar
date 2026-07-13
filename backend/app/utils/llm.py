@@ -5,7 +5,7 @@ Resilient LLM Client Wrapper with Multi-Provider Fallback.
 import os
 import logging
 from typing import List, Dict, Any, Optional
-from app.utils.llm_providers import FallbackLLMProvider, get_active_providers, GROQ_API_KEY as ACTUAL_GROQ_API_KEY
+from app.utils.llm_providers import LLMResponse, FallbackLLMProvider, get_active_providers, GROQ_API_KEY as ACTUAL_GROQ_API_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -42,17 +42,24 @@ async def async_chat_completion(
     max_tokens: int = 800,
     response_format: Optional[Dict[str, str]] = None,
     fallback_text: Optional[str] = None,
-) -> Optional[str]:
+    json_required_keys: Optional[List[str]] = None,
+) -> LLMResponse:
     """
     Perform a safe, rate-limit-resilient async chat completion with multi-provider fallback.
-    Returns the generated text, or fallback_text if it fails after all retries.
     """
     if not GROQ_API_KEY:
         logger.warning("No LLM providers configured. Skipping LLM request.")
-        return fallback_text
+        return LLMResponse(
+            text=fallback_text or "",
+            provider="None",
+            model="None",
+            latency_ms=0.0,
+            status_code=None,
+            finish_reason=None,
+            raw_response="No LLM providers configured"
+        )
 
     # Pre-emptively cap input tokens by limiting message character count
-    # Average 4 characters per token; cap total prompt content to ~8,000 characters (~2,000 tokens)
     sanitized_messages = []
     for msg in messages:
         content = msg.get("content", "")
@@ -67,10 +74,21 @@ async def async_chat_completion(
             temperature=temperature,
             max_tokens=max_tokens,
             response_format=response_format,
+            json_required_keys=json_required_keys,
         )
     except Exception as exc:
+        if json_required_keys:
+            raise
         logger.error(f"LLM request failed across all providers: {exc}", exc_info=True)
-        return fallback_text
+        return LLMResponse(
+            text=fallback_text or "",
+            provider="None",
+            model="None",
+            latency_ms=0.0,
+            status_code=None,
+            finish_reason=None,
+            raw_response=str(exc)
+        )
 
 def sync_chat_completion(
     messages: List[Dict[str, str]],
@@ -78,14 +96,22 @@ def sync_chat_completion(
     max_tokens: int = 800,
     response_format: Optional[Dict[str, str]] = None,
     fallback_text: Optional[str] = None,
-) -> Optional[str]:
+    json_required_keys: Optional[List[str]] = None,
+) -> LLMResponse:
     """
     Perform a safe, rate-limit-resilient sync chat completion with multi-provider fallback.
-    Returns the generated text, or fallback_text if it fails after all retries.
     """
     if not GROQ_API_KEY:
         logger.warning("No LLM providers configured. Skipping LLM request.")
-        return fallback_text
+        return LLMResponse(
+            text=fallback_text or "",
+            provider="None",
+            model="None",
+            latency_ms=0.0,
+            status_code=None,
+            finish_reason=None,
+            raw_response="No LLM providers configured"
+        )
 
     sanitized_messages = []
     for msg in messages:
@@ -100,7 +126,18 @@ def sync_chat_completion(
             temperature=temperature,
             max_tokens=max_tokens,
             response_format=response_format,
+            json_required_keys=json_required_keys,
         )
     except Exception as exc:
+        if json_required_keys:
+            raise
         logger.error(f"LLM request failed across all providers: {exc}", exc_info=True)
-        return fallback_text
+        return LLMResponse(
+            text=fallback_text or "",
+            provider="None",
+            model="None",
+            latency_ms=0.0,
+            status_code=None,
+            finish_reason=None,
+            raw_response=str(exc)
+        )

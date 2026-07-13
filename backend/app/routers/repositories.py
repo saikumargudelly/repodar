@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 
 from app.database import get_db
-from app.models import Repository, ComputedMetric
+from app.models import Repository, ComputedMetric, DailyMetric
 
 load_dotenv()
 
@@ -477,6 +477,14 @@ async def get_deep_summary(
     sustainability_score = cm.sustainability_score if cm else 0.0
     sustainability_label = cm.sustainability_label if cm else "YELLOW"
 
+    # Get latest daily metrics context if available
+    latest_dm = await asyncio.to_thread(
+        db.query(DailyMetric)
+        .filter_by(repo_id=repo_id)
+        .order_by(DailyMetric.captured_at.desc())
+        .first
+    )
+
     async with aiohttp.ClientSession() as session:
         headers = _GH_HEADERS.copy()
 
@@ -579,6 +587,11 @@ async def get_deep_summary(
             acceleration=acceleration,
             sustainability_score=sustainability_score,
             sustainability_label=sustainability_label,
+            stars=latest_dm.stars if latest_dm else (repo.stars_snapshot if repo else 0),
+            forks=latest_dm.forks if latest_dm else 0,
+            contributors_count=len(contributors) if contributors else (latest_dm.contributors if latest_dm else 0),
+            commit_activity=repo.commit_activity_json if repo else None,
+            ecosystem_context=repo.ecosystem_data_json if repo else None,
         )
     except LLMPipelineError as llm_err:
         raise HTTPException(

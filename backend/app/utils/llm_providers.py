@@ -90,10 +90,181 @@ def _get_groq_model() -> str:
 _async_client = httpx.AsyncClient(timeout=TIMEOUT_SECONDS)
 _sync_client = httpx.Client(timeout=TIMEOUT_SECONDS)
 
+from dataclasses import dataclass
+import json
+from typing import Union, Callable
 
-class FormatValidationError(ValueError):
-    """Raised when the LLM response does not match the expected format (e.g. invalid JSON)."""
+# Custom Pipeline Exceptions
+class LLMOrchestrationError(RuntimeError):
+    """Base error for all LLM orchestration pipeline exceptions."""
     pass
+
+class ProviderRequestError(LLMOrchestrationError):
+    """HTTP or network-level error during the provider API request."""
+    pass
+
+class ResponseExtractionError(LLMOrchestrationError):
+    """Failed to extract text or metadata from the provider response payload."""
+    pass
+
+class EmptyResponseError(LLMOrchestrationError):
+    """Provider returned an empty or whitespace-only response text."""
+    pass
+
+class FormatValidationError(LLMOrchestrationError):
+    """Fallback compatibility wrapper for format errors."""
+    pass
+
+class JSONParseError(LLMOrchestrationError):
+    """Failed to parse output as valid JSON when JSON was required."""
+    pass
+
+class SchemaValidationError(LLMOrchestrationError):
+    """JSON output is missing required keys or fields."""
+    pass
+
+class BusinessValidationError(LLMOrchestrationError):
+    """JSON output fields failed semantic business validation (e.g. empty analysis sections)."""
+    pass
+
+
+@dataclass
+class LLMResponse:
+    text: str
+    provider: str
+    model: str
+    latency_ms: float
+    status_code: Optional[int]
+    finish_reason: Optional[str]
+    prompt_tokens: Optional[int] = None
+    completion_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
+    raw_response: Union[dict, str, None] = None
+
+
+@dataclass
+class ProviderStats:
+    successes: int = 0
+    failures: int = 0
+    total_latency_ms: float = 0.0
+    timeouts: int = 0
+    rate_limits: int = 0
+    json_failures: int = 0
+    schema_failures: int = 0
+    consecutive_failures: int = 0
+    cooldown_until: float = 0.0
+
+
+class ProviderHealthManager:
+    def __init__(self, cooldown_duration_sec: float = 60.0, max_consecutive_failures: int = 3):
+        self.cooldown_duration_sec = cooldown_duration_sec
+        self.max_consecutive_failures = max_consecutive_failures
+        self.stats: Dict[str, ProviderStats] = {}
+
+    def get_stats(self, provider_name: str) -> ProviderStats:
+        if provider_name not in self.stats:
+            self.stats[provider_name] = ProviderStats()
+        return self.stats[provider_name]
+
+    def is_healthy(self, provider_name: str) -> bool:
+        stats = self.get_stats(provider_name)
+        now = time.time()
+        if stats.cooldown_until > now:
+            return False
+        return True
+
+    def record_success(self, provider_name: str, latency_ms: float):
+        stats = self.get_stats(provider_name)
+        stats.successes += 1
+        stats.total_latency_ms += latency_ms
+        stats.consecutive_failures = 0
+        stats.cooldown_until = 0.0
+
+    def record_failure(self, provider_name: str, error_type: str):
+        stats = self.get_stats(provider_name)
+        stats.failures += 1
+        stats.consecutive_failures += 1
+        
+        if error_type == "timeout":
+            stats.timeouts += 1
+        elif error_type == "rate_limit":
+            stats.rate_limits += 1
+        elif error_type == "json_parsing":
+            stats.json_failures += 1
+        elif error_type == "schema_validation":
+            stats.schema_failures += 1
+
+        if stats.consecutive_failures >= self.max_consecutive_failures:
+            stats.cooldown_until = time.time() + self.cooldown_duration_sec
+            logger.warning(
+                f"[LLM Health] Provider {provider_name} has failed {stats.consecutive_failures} times consecutively. "
+                f"Placing in cooldown for {self.cooldown_duration_sec}s."
+            )
+
+health_manager = ProviderHealthManager()
+
+
+def validate_llm_output(
+    response_text: str,
+    require_json: bool = False,
+    required_keys: Optional[List[str]] = None,
+    min_content_length: Optional[int] = None,
+    custom_validator: Optional[Callable[[Any], bool]] = None,
+) -> None:
+    """
+    Validates LLM response. Raises specific orchestration exceptions.
+    """
+    # 1. Empty response check
+    if not response_text or not response_text.strip():
+        raise EmptyResponseError("LLM response text is empty or only whitespace.")
+
+    # 2. Min content length check
+    if min_content_length and len(response_text.strip()) < min_content_length:
+        raise BusinessValidationError(f"Response length {len(response_text)} is less than minimum {min_content_length}.")
+
+    if not require_json and not required_keys:
+        return
+
+    # 3. JSON Parsing
+    text_to_parse = response_text.strip()
+    if text_to_parse.startswith("```"):
+        parts = text_to_parse.split("```")
+        if len(parts) >= 3:
+            text_to_parse = parts[1]
+            if text_to_parse.startswith("json"):
+                text_to_parse = text_to_parse[4:]
+    
+    try:
+        parsed = json.loads(text_to_parse.strip())
+    except json.JSONDecodeError as e:
+        raise JSONParseError(f"Failed to parse JSON: {e}") from e
+
+    # 4. Schema validation (required keys)
+    if required_keys:
+        if not isinstance(parsed, dict):
+            raise SchemaValidationError(f"Expected a JSON object/dict, got: {type(parsed)}")
+        
+        for key in required_keys:
+            if key not in parsed:
+                raise SchemaValidationError(f"Missing required key: '{key}'")
+            
+            # 5. Business validation (empty analysis sections)
+            val = parsed[key]
+            if val is None:
+                raise BusinessValidationError(f"Required key '{key}' has null value.")
+            if isinstance(val, str) and not val.strip():
+                raise BusinessValidationError(f"Required key '{key}' has empty/whitespace string value.")
+            if isinstance(val, list) and not val:
+                raise BusinessValidationError(f"Required key '{key}' has empty list value.")
+
+    # 6. Custom Validator
+    if custom_validator:
+        try:
+            valid = custom_validator(parsed)
+            if not valid:
+                raise BusinessValidationError("Custom validation failed.")
+        except Exception as e:
+            raise BusinessValidationError(f"Custom validator raised error: {e}") from e
 
 
 class BaseLLMProvider(ABC):
@@ -113,7 +284,7 @@ class BaseLLMProvider(ABC):
         temperature: float = 0.2,
         max_tokens: int = 800,
         response_format: Optional[Dict[str, str]] = None,
-    ) -> str:
+    ) -> LLMResponse:
         pass
 
     @abstractmethod
@@ -123,8 +294,17 @@ class BaseLLMProvider(ABC):
         temperature: float = 0.2,
         max_tokens: int = 800,
         response_format: Optional[Dict[str, str]] = None,
-    ) -> str:
+    ) -> LLMResponse:
         pass
+
+    def _extract_text(self, resp_data: Any) -> str:
+        raise NotImplementedError()
+
+    def _extract_finish_reason(self, resp_data: Any) -> Optional[str]:
+        return None
+
+    def _extract_token_usage(self, resp_data: Any) -> tuple[Optional[int], Optional[int], Optional[int]]:
+        return None, None, None
 
 
 class GeminiProvider(BaseLLMProvider):
@@ -179,18 +359,38 @@ class GeminiProvider(BaseLLMProvider):
 
         return body
 
-    def _parse_response(self, resp_data: Dict[str, Any]) -> str:
+    def _extract_text(self, resp_data: Any) -> str:
         try:
             candidates = resp_data.get("candidates", [])
             if not candidates:
-                raise ValueError(f"No candidates returned by Gemini. Response: {resp_data}")
+                raise ResponseExtractionError(f"No candidates returned by Gemini. Response: {resp_data}")
             parts = candidates[0].get("content", {}).get("parts", [])
             if not parts:
-                raise ValueError(f"No content parts returned by Gemini. Response: {resp_data}")
+                raise ResponseExtractionError(f"No content parts returned by Gemini. Response: {resp_data}")
             text = parts[0].get("text", "")
             return text.strip()
         except (KeyError, IndexError, TypeError) as e:
-            raise ValueError(f"Unexpected response structure from Gemini: {resp_data}") from e
+            raise ResponseExtractionError(f"Unexpected response structure from Gemini: {resp_data}") from e
+
+    def _extract_finish_reason(self, resp_data: Any) -> Optional[str]:
+        try:
+            candidates = resp_data.get("candidates", [])
+            if candidates:
+                return candidates[0].get("finishReason")
+        except Exception:
+            pass
+        return None
+
+    def _extract_token_usage(self, resp_data: Any) -> tuple[Optional[int], Optional[int], Optional[int]]:
+        try:
+            meta = resp_data.get("usageMetadata", {})
+            prompt = meta.get("promptTokenCount")
+            completion = meta.get("candidatesTokenCount")
+            total = meta.get("totalTokenCount")
+            return prompt, completion, total
+        except Exception:
+            pass
+        return None, None, None
 
     async def chat_completion(
         self,
@@ -198,15 +398,37 @@ class GeminiProvider(BaseLLMProvider):
         temperature: float = 0.2,
         max_tokens: int = 800,
         response_format: Optional[Dict[str, str]] = None,
-    ) -> str:
+    ) -> LLMResponse:
         api_key = _get_gemini_key()
         model = _get_gemini_model()
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
         body = self._prepare_request(messages, temperature, max_tokens, response_format)
         
-        response = await _async_client.post(url, json=body)
-        response.raise_for_status()
-        return self._parse_response(response.json())
+        start_time = time.perf_counter()
+        try:
+            response = await _async_client.post(url, json=body)
+            response.raise_for_status()
+            resp_json = response.json()
+        except Exception as e:
+            raise ProviderRequestError(f"HTTP request failed: {e}") from e
+            
+        latency_ms = (time.perf_counter() - start_time) * 1000
+        text = self._extract_text(resp_json)
+        finish_reason = self._extract_finish_reason(resp_json)
+        p_tok, c_tok, t_tok = self._extract_token_usage(resp_json)
+
+        return LLMResponse(
+            text=text,
+            provider=self.name,
+            model=model,
+            latency_ms=latency_ms,
+            status_code=response.status_code,
+            finish_reason=finish_reason,
+            prompt_tokens=p_tok,
+            completion_tokens=c_tok,
+            total_tokens=t_tok,
+            raw_response=resp_json,
+        )
 
     def chat_completion_sync(
         self,
@@ -214,15 +436,37 @@ class GeminiProvider(BaseLLMProvider):
         temperature: float = 0.2,
         max_tokens: int = 800,
         response_format: Optional[Dict[str, str]] = None,
-    ) -> str:
+    ) -> LLMResponse:
         api_key = _get_gemini_key()
         model = _get_gemini_model()
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
         body = self._prepare_request(messages, temperature, max_tokens, response_format)
         
-        response = _sync_client.post(url, json=body)
-        response.raise_for_status()
-        return self._parse_response(response.json())
+        start_time = time.perf_counter()
+        try:
+            response = _sync_client.post(url, json=body)
+            response.raise_for_status()
+            resp_json = response.json()
+        except Exception as e:
+            raise ProviderRequestError(f"HTTP request failed: {e}") from e
+            
+        latency_ms = (time.perf_counter() - start_time) * 1000
+        text = self._extract_text(resp_json)
+        finish_reason = self._extract_finish_reason(resp_json)
+        p_tok, c_tok, t_tok = self._extract_token_usage(resp_json)
+
+        return LLMResponse(
+            text=text,
+            provider=self.name,
+            model=model,
+            latency_ms=latency_ms,
+            status_code=response.status_code,
+            finish_reason=finish_reason,
+            prompt_tokens=p_tok,
+            completion_tokens=c_tok,
+            total_tokens=t_tok,
+            raw_response=resp_json,
+        )
 
 
 class CerebrasProvider(BaseLLMProvider):
@@ -251,11 +495,29 @@ class CerebrasProvider(BaseLLMProvider):
             body["response_format"] = response_format
         return body
 
-    def _parse_response(self, resp_data: Dict[str, Any]) -> str:
+    def _extract_text(self, resp_data: Any) -> str:
         try:
             return resp_data["choices"][0]["message"]["content"].strip()
         except (KeyError, IndexError, TypeError) as e:
-            raise ValueError(f"Unexpected response structure from Cerebras: {resp_data}") from e
+            raise ResponseExtractionError(f"Unexpected response structure from Cerebras: {resp_data}") from e
+
+    def _extract_finish_reason(self, resp_data: Any) -> Optional[str]:
+        try:
+            return resp_data["choices"][0].get("finish_reason")
+        except Exception:
+            pass
+        return None
+
+    def _extract_token_usage(self, resp_data: Any) -> tuple[Optional[int], Optional[int], Optional[int]]:
+        try:
+            usage = resp_data.get("usage", {})
+            prompt = usage.get("prompt_tokens")
+            completion = usage.get("completion_tokens")
+            total = usage.get("total_tokens")
+            return prompt, completion, total
+        except Exception:
+            pass
+        return None, None, None
 
     async def chat_completion(
         self,
@@ -263,18 +525,41 @@ class CerebrasProvider(BaseLLMProvider):
         temperature: float = 0.2,
         max_tokens: int = 800,
         response_format: Optional[Dict[str, str]] = None,
-    ) -> str:
+    ) -> LLMResponse:
         url = "https://api.cerebras.ai/v1/chat/completions"
         api_key = _get_cerebras_key()
+        model = _get_cerebras_model()
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
         body = self._prepare_request(messages, temperature, max_tokens, response_format)
         
-        response = await _async_client.post(url, headers=headers, json=body)
-        response.raise_for_status()
-        return self._parse_response(response.json())
+        start_time = time.perf_counter()
+        try:
+            response = await _async_client.post(url, headers=headers, json=body)
+            response.raise_for_status()
+            resp_json = response.json()
+        except Exception as e:
+            raise ProviderRequestError(f"HTTP request failed: {e}") from e
+            
+        latency_ms = (time.perf_counter() - start_time) * 1000
+        text = self._extract_text(resp_json)
+        finish_reason = self._extract_finish_reason(resp_json)
+        p_tok, c_tok, t_tok = self._extract_token_usage(resp_json)
+
+        return LLMResponse(
+            text=text,
+            provider=self.name,
+            model=model,
+            latency_ms=latency_ms,
+            status_code=response.status_code,
+            finish_reason=finish_reason,
+            prompt_tokens=p_tok,
+            completion_tokens=c_tok,
+            total_tokens=t_tok,
+            raw_response=resp_json,
+        )
 
     def chat_completion_sync(
         self,
@@ -282,18 +567,41 @@ class CerebrasProvider(BaseLLMProvider):
         temperature: float = 0.2,
         max_tokens: int = 800,
         response_format: Optional[Dict[str, str]] = None,
-    ) -> str:
+    ) -> LLMResponse:
         url = "https://api.cerebras.ai/v1/chat/completions"
         api_key = _get_cerebras_key()
+        model = _get_cerebras_model()
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
         body = self._prepare_request(messages, temperature, max_tokens, response_format)
         
-        response = _sync_client.post(url, headers=headers, json=body)
-        response.raise_for_status()
-        return self._parse_response(response.json())
+        start_time = time.perf_counter()
+        try:
+            response = _sync_client.post(url, headers=headers, json=body)
+            response.raise_for_status()
+            resp_json = response.json()
+        except Exception as e:
+            raise ProviderRequestError(f"HTTP request failed: {e}") from e
+            
+        latency_ms = (time.perf_counter() - start_time) * 1000
+        text = self._extract_text(resp_json)
+        finish_reason = self._extract_finish_reason(resp_json)
+        p_tok, c_tok, t_tok = self._extract_token_usage(resp_json)
+
+        return LLMResponse(
+            text=text,
+            provider=self.name,
+            model=model,
+            latency_ms=latency_ms,
+            status_code=response.status_code,
+            finish_reason=finish_reason,
+            prompt_tokens=p_tok,
+            completion_tokens=c_tok,
+            total_tokens=t_tok,
+            raw_response=resp_json,
+        )
 
 
 class GroqProvider(BaseLLMProvider):
@@ -322,11 +630,29 @@ class GroqProvider(BaseLLMProvider):
             body["response_format"] = response_format
         return body
 
-    def _parse_response(self, resp_data: Dict[str, Any]) -> str:
+    def _extract_text(self, resp_data: Any) -> str:
         try:
             return resp_data["choices"][0]["message"]["content"].strip()
         except (KeyError, IndexError, TypeError) as e:
-            raise ValueError(f"Unexpected response structure from Groq: {resp_data}") from e
+            raise ResponseExtractionError(f"Unexpected response structure from Groq: {resp_data}") from e
+
+    def _extract_finish_reason(self, resp_data: Any) -> Optional[str]:
+        try:
+            return resp_data["choices"][0].get("finish_reason")
+        except Exception:
+            pass
+        return None
+
+    def _extract_token_usage(self, resp_data: Any) -> tuple[Optional[int], Optional[int], Optional[int]]:
+        try:
+            usage = resp_data.get("usage", {})
+            prompt = usage.get("prompt_tokens")
+            completion = usage.get("completion_tokens")
+            total = usage.get("total_tokens")
+            return prompt, completion, total
+        except Exception:
+            pass
+        return None, None, None
 
     async def chat_completion(
         self,
@@ -334,18 +660,41 @@ class GroqProvider(BaseLLMProvider):
         temperature: float = 0.2,
         max_tokens: int = 800,
         response_format: Optional[Dict[str, str]] = None,
-    ) -> str:
+    ) -> LLMResponse:
         url = "https://api.groq.com/openai/v1/chat/completions"
         api_key = _get_groq_key()
+        model = _get_groq_model()
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
         body = self._prepare_request(messages, temperature, max_tokens, response_format)
         
-        response = await _async_client.post(url, headers=headers, json=body)
-        response.raise_for_status()
-        return self._parse_response(response.json())
+        start_time = time.perf_counter()
+        try:
+            response = await _async_client.post(url, headers=headers, json=body)
+            response.raise_for_status()
+            resp_json = response.json()
+        except Exception as e:
+            raise ProviderRequestError(f"HTTP request failed: {e}") from e
+            
+        latency_ms = (time.perf_counter() - start_time) * 1000
+        text = self._extract_text(resp_json)
+        finish_reason = self._extract_finish_reason(resp_json)
+        p_tok, c_tok, t_tok = self._extract_token_usage(resp_json)
+
+        return LLMResponse(
+            text=text,
+            provider=self.name,
+            model=model,
+            latency_ms=latency_ms,
+            status_code=response.status_code,
+            finish_reason=finish_reason,
+            prompt_tokens=p_tok,
+            completion_tokens=c_tok,
+            total_tokens=t_tok,
+            raw_response=resp_json,
+        )
 
     def chat_completion_sync(
         self,
@@ -353,18 +702,41 @@ class GroqProvider(BaseLLMProvider):
         temperature: float = 0.2,
         max_tokens: int = 800,
         response_format: Optional[Dict[str, str]] = None,
-    ) -> str:
+    ) -> LLMResponse:
         url = "https://api.groq.com/openai/v1/chat/completions"
         api_key = _get_groq_key()
+        model = _get_groq_model()
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
         body = self._prepare_request(messages, temperature, max_tokens, response_format)
         
-        response = _sync_client.post(url, headers=headers, json=body)
-        response.raise_for_status()
-        return self._parse_response(response.json())
+        start_time = time.perf_counter()
+        try:
+            response = _sync_client.post(url, headers=headers, json=body)
+            response.raise_for_status()
+            resp_json = response.json()
+        except Exception as e:
+            raise ProviderRequestError(f"HTTP request failed: {e}") from e
+            
+        latency_ms = (time.perf_counter() - start_time) * 1000
+        text = self._extract_text(resp_json)
+        finish_reason = self._extract_finish_reason(resp_json)
+        p_tok, c_tok, t_tok = self._extract_token_usage(resp_json)
+
+        return LLMResponse(
+            text=text,
+            provider=self.name,
+            model=model,
+            latency_ms=latency_ms,
+            status_code=response.status_code,
+            finish_reason=finish_reason,
+            prompt_tokens=p_tok,
+            completion_tokens=c_tok,
+            total_tokens=t_tok,
+            raw_response=resp_json,
+        )
 
 
 # Registry for dynamic instantiation
@@ -386,6 +758,12 @@ def get_active_providers() -> List[BaseLLMProvider]:
         if name in PROVIDERS_REGISTRY:
             if name in _failed_providers:
                 continue
+            
+            provider_name = name.capitalize() if name != "gemini" else "Gemini"
+            if not health_manager.is_healthy(provider_name):
+                logger.warning(f"[LLM Health] Skipping provider {provider_name} due to active cooldown.")
+                continue
+
             provider_cls = PROVIDERS_REGISTRY[name]
             provider = provider_cls()
             if provider.is_configured():
@@ -430,7 +808,10 @@ async def validate_llm_configuration():
 
 
 def is_transient_error(exc: Exception) -> bool:
-    if isinstance(exc, (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError)):
+    if isinstance(exc, ProviderRequestError) and exc.__cause__:
+        exc = exc.__cause__
+
+    if isinstance(exc, (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError, asyncio.TimeoutError)):
         return True
     if isinstance(exc, httpx.HTTPStatusError):
         status_code = exc.response.status_code
@@ -457,39 +838,123 @@ async def execute_with_retry_async(
     temperature: float,
     max_tokens: int,
     response_format: Optional[Dict[str, str]],
-) -> str:
+    json_required_keys: Optional[List[str]] = None,
+) -> LLMResponse:
+    last_error = None
+    
+    model_used = ""
+    if provider.name == "Gemini":
+        model_used = _get_gemini_model()
+    elif provider.name == "Cerebras":
+        model_used = _get_cerebras_model()
+    elif provider.name == "Groq":
+        model_used = _get_groq_model()
+        
     for attempt in range(1, 4):
-        start_time = time.perf_counter()
+        attempt_start = time.perf_counter()
+        http_status = None
+        finish_reason = None
+        raw_response = "N/A"
+        raw_len = 0
+        preview = "N/A"
+        
+        extraction_result = "N/A"
+        json_parsing_result = "N/A"
+        schema_validation_result = "N/A"
+        object_validation_result = "N/A"
+        
         try:
-            res = await provider.chat_completion(
+            res_obj = await provider.chat_completion(
                 messages=messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
                 response_format=response_format,
             )
             
-            # Format validation
-            if response_format and response_format.get("type") == "json_object":
-                try:
-                    import json
-                    text_to_parse = res.strip()
-                    if text_to_parse.startswith("```"):
-                        text_to_parse = text_to_parse.split("```")[1]
-                        if text_to_parse.startswith("json"):
-                            text_to_parse = text_to_parse[4:]
-                    json.loads(text_to_parse)
-                except Exception as json_err:
-                    raise FormatValidationError(f"Invalid JSON returned: {json_err}") from json_err
-
-            duration_ms = int((time.perf_counter() - start_time) * 1000)
-            logger.info(f"{provider.name} -> Success ({duration_ms} ms)")
-            return res
-        except Exception as exc:
-            duration_ms = int((time.perf_counter() - start_time) * 1000)
-            is_trans = is_transient_error(exc)
-            error_msg = get_error_message(exc)
+            http_status = res_obj.status_code
+            finish_reason = res_obj.finish_reason
+            raw_response = res_obj.raw_response
+            raw_len = len(res_obj.text)
+            preview = res_obj.text[:300].replace("\n", " ")
+            extraction_result = "Success"
             
-            logger.info(f"{provider.name} -> {error_msg}")
+            require_json = (response_format and response_format.get("type") == "json_object") or bool(json_required_keys)
+            
+            try:
+                validate_llm_output(
+                    res_obj.text,
+                    require_json=require_json,
+                    required_keys=json_required_keys,
+                )
+                json_parsing_result = "Success" if require_json else "N/A"
+                schema_validation_result = "Success" if json_required_keys else "N/A"
+                object_validation_result = "Success" if json_required_keys else "N/A"
+            except JSONParseError as e:
+                json_parsing_result = f"Error: {e}"
+                schema_validation_result = "Skipped"
+                object_validation_result = "Skipped"
+                raise
+            except SchemaValidationError as e:
+                json_parsing_result = "Success"
+                schema_validation_result = f"Error: {e}"
+                object_validation_result = "Skipped"
+                raise
+            except BusinessValidationError as e:
+                json_parsing_result = "Success"
+                schema_validation_result = "Success"
+                object_validation_result = f"Error: {e}"
+                raise
+            except EmptyResponseError as e:
+                extraction_result = f"Error: {e}"
+                raise
+            
+            latency = (time.perf_counter() - attempt_start) * 1000
+            res_obj.latency_ms = latency
+            
+            health_manager.record_success(provider.name, latency)
+            
+            logger.info(
+                "[LLM PIPELINE TELEMETRY] Success | Provider=%s | Model=%s | Status=%s | Latency=%.2fms | "
+                "Attempt=%s/3 | Length=%s | FinishReason=%s | Preview='%s' | "
+                "Extraction=%s | JSONParsing=%s | SchemaValidation=%s | ObjectValidation=%s",
+                provider.name, res_obj.model, http_status, latency,
+                attempt, raw_len, finish_reason, preview,
+                extraction_result, json_parsing_result, schema_validation_result, object_validation_result
+            )
+            return res_obj
+
+        except Exception as exc:
+            latency = (time.perf_counter() - attempt_start) * 1000
+            last_error = exc
+            
+            error_type = "request"
+            if isinstance(exc, (httpx.TimeoutException, asyncio.TimeoutError)):
+                error_type = "timeout"
+            elif isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 429:
+                error_type = "rate_limit"
+            elif isinstance(exc, JSONParseError):
+                error_type = "json_parsing"
+            elif isinstance(exc, (SchemaValidationError, BusinessValidationError)):
+                error_type = "schema_validation"
+            
+            health_manager.record_failure(provider.name, error_type)
+            
+            err_msg = str(exc)
+            if isinstance(exc, httpx.HTTPStatusError):
+                http_status = exc.response.status_code
+                raw_response = exc.response.text
+                err_msg = f"HTTP status error: {exc.response.status_code}"
+                
+            is_trans = is_transient_error(exc)
+            
+            logger.error(
+                "[LLM PIPELINE TELEMETRY] FAILURE | Provider=%s | Model=%s | Status=%s | Latency=%.2fms | "
+                "Attempt=%s/3 | Error='%s' | Transient=%s | Extraction=%s | "
+                "JSONParsing=%s | SchemaValidation=%s | ObjectValidation=%s",
+                provider.name, model_used, http_status, latency,
+                attempt, err_msg, is_trans, extraction_result,
+                json_parsing_result, schema_validation_result, object_validation_result
+            )
             
             if not is_trans or attempt == 3:
                 raise exc
@@ -497,6 +962,9 @@ async def execute_with_retry_async(
             backoff_sec = 0.5 * (2 ** (attempt - 1))
             logger.info(f"Retrying {provider.name} in {backoff_sec}s (attempt {attempt + 1}/3)...")
             await asyncio.sleep(backoff_sec)
+            
+    if last_error:
+        raise last_error
     raise RuntimeError(f"Unexpected end of retry loop for {provider.name}")
 
 
@@ -506,39 +974,123 @@ def execute_with_retry_sync(
     temperature: float,
     max_tokens: int,
     response_format: Optional[Dict[str, str]],
-) -> str:
+    json_required_keys: Optional[List[str]] = None,
+) -> LLMResponse:
+    last_error = None
+    
+    model_used = ""
+    if provider.name == "Gemini":
+        model_used = _get_gemini_model()
+    elif provider.name == "Cerebras":
+        model_used = _get_cerebras_model()
+    elif provider.name == "Groq":
+        model_used = _get_groq_model()
+        
     for attempt in range(1, 4):
-        start_time = time.perf_counter()
+        attempt_start = time.perf_counter()
+        http_status = None
+        finish_reason = None
+        raw_response = "N/A"
+        raw_len = 0
+        preview = "N/A"
+        
+        extraction_result = "N/A"
+        json_parsing_result = "N/A"
+        schema_validation_result = "N/A"
+        object_validation_result = "N/A"
+        
         try:
-            res = provider.chat_completion_sync(
+            res_obj = provider.chat_completion_sync(
                 messages=messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
                 response_format=response_format,
             )
             
-            # Format validation
-            if response_format and response_format.get("type") == "json_object":
-                try:
-                    import json
-                    text_to_parse = res.strip()
-                    if text_to_parse.startswith("```"):
-                        text_to_parse = text_to_parse.split("```")[1]
-                        if text_to_parse.startswith("json"):
-                            text_to_parse = text_to_parse[4:]
-                    json.loads(text_to_parse)
-                except Exception as json_err:
-                    raise FormatValidationError(f"Invalid JSON returned: {json_err}") from json_err
-
-            duration_ms = int((time.perf_counter() - start_time) * 1000)
-            logger.info(f"{provider.name} -> Success ({duration_ms} ms)")
-            return res
-        except Exception as exc:
-            duration_ms = int((time.perf_counter() - start_time) * 1000)
-            is_trans = is_transient_error(exc)
-            error_msg = get_error_message(exc)
+            http_status = res_obj.status_code
+            finish_reason = res_obj.finish_reason
+            raw_response = res_obj.raw_response
+            raw_len = len(res_obj.text)
+            preview = res_obj.text[:300].replace("\n", " ")
+            extraction_result = "Success"
             
-            logger.info(f"{provider.name} -> {error_msg}")
+            require_json = (response_format and response_format.get("type") == "json_object") or bool(json_required_keys)
+            
+            try:
+                validate_llm_output(
+                    res_obj.text,
+                    require_json=require_json,
+                    required_keys=json_required_keys,
+                )
+                json_parsing_result = "Success" if require_json else "N/A"
+                schema_validation_result = "Success" if json_required_keys else "N/A"
+                object_validation_result = "Success" if json_required_keys else "N/A"
+            except JSONParseError as e:
+                json_parsing_result = f"Error: {e}"
+                schema_validation_result = "Skipped"
+                object_validation_result = "Skipped"
+                raise
+            except SchemaValidationError as e:
+                json_parsing_result = "Success"
+                schema_validation_result = f"Error: {e}"
+                object_validation_result = "Skipped"
+                raise
+            except BusinessValidationError as e:
+                json_parsing_result = "Success"
+                schema_validation_result = "Success"
+                object_validation_result = f"Error: {e}"
+                raise
+            except EmptyResponseError as e:
+                extraction_result = f"Error: {e}"
+                raise
+            
+            latency = (time.perf_counter() - attempt_start) * 1000
+            res_obj.latency_ms = latency
+            
+            health_manager.record_success(provider.name, latency)
+            
+            logger.info(
+                "[LLM PIPELINE TELEMETRY] Success | Provider=%s | Model=%s | Status=%s | Latency=%.2fms | "
+                "Attempt=%s/3 | Length=%s | FinishReason=%s | Preview='%s' | "
+                "Extraction=%s | JSONParsing=%s | SchemaValidation=%s | ObjectValidation=%s",
+                provider.name, res_obj.model, http_status, latency,
+                attempt, raw_len, finish_reason, preview,
+                extraction_result, json_parsing_result, schema_validation_result, object_validation_result
+            )
+            return res_obj
+
+        except Exception as exc:
+            latency = (time.perf_counter() - attempt_start) * 1000
+            last_error = exc
+            
+            error_type = "request"
+            if isinstance(exc, httpx.TimeoutException):
+                error_type = "timeout"
+            elif isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 429:
+                error_type = "rate_limit"
+            elif isinstance(exc, JSONParseError):
+                error_type = "json_parsing"
+            elif isinstance(exc, (SchemaValidationError, BusinessValidationError)):
+                error_type = "schema_validation"
+            
+            health_manager.record_failure(provider.name, error_type)
+            
+            err_msg = str(exc)
+            if isinstance(exc, httpx.HTTPStatusError):
+                http_status = exc.response.status_code
+                raw_response = exc.response.text
+                err_msg = f"HTTP status error: {exc.response.status_code}"
+                
+            is_trans = is_transient_error(exc)
+            
+            logger.error(
+                "[LLM PIPELINE TELEMETRY] FAILURE | Provider=%s | Model=%s | Status=%s | Latency=%.2fms | "
+                "Attempt=%s/3 | Error='%s' | Transient=%s | Extraction=%s | "
+                "JSONParsing=%s | SchemaValidation=%s | ObjectValidation=%s",
+                provider.name, model_used, http_status, latency,
+                attempt, err_msg, is_trans, extraction_result,
+                json_parsing_result, schema_validation_result, object_validation_result
+            )
             
             if not is_trans or attempt == 3:
                 raise exc
@@ -546,6 +1098,9 @@ def execute_with_retry_sync(
             backoff_sec = 0.5 * (2 ** (attempt - 1))
             logger.info(f"Retrying {provider.name} in {backoff_sec}s (attempt {attempt + 1}/3)...")
             time.sleep(backoff_sec)
+            
+    if last_error:
+        raise last_error
     raise RuntimeError(f"Unexpected end of retry loop for {provider.name}")
 
 
@@ -567,8 +1122,15 @@ class FallbackLLMProvider(BaseLLMProvider):
         temperature: float = 0.2,
         max_tokens: int = 800,
         response_format: Optional[Dict[str, str]] = None,
-    ) -> str:
-        providers = self._providers if self._providers is not None else get_active_providers()
+        json_required_keys: Optional[List[str]] = None,
+    ) -> LLMResponse:
+        raw_providers = self._providers if self._providers is not None else get_active_providers()
+        providers = []
+        for p in raw_providers:
+            if health_manager.is_healthy(p.name):
+                providers.append(p)
+            else:
+                logger.warning(f"[LLM Health] Skipping provider {p.name} due to active cooldown.")
         if not providers:
             raise RuntimeError("No active LLM providers configured in fallback chain.")
 
@@ -576,7 +1138,7 @@ class FallbackLLMProvider(BaseLLMProvider):
         for i, provider in enumerate(providers):
             try:
                 return await execute_with_retry_async(
-                    provider, messages, temperature, max_tokens, response_format
+                    provider, messages, temperature, max_tokens, response_format, json_required_keys
                 )
             except Exception as exc:
                 last_exception = exc
@@ -596,8 +1158,15 @@ class FallbackLLMProvider(BaseLLMProvider):
         temperature: float = 0.2,
         max_tokens: int = 800,
         response_format: Optional[Dict[str, str]] = None,
-    ) -> str:
-        providers = self._providers if self._providers is not None else get_active_providers()
+        json_required_keys: Optional[List[str]] = None,
+    ) -> LLMResponse:
+        raw_providers = self._providers if self._providers is not None else get_active_providers()
+        providers = []
+        for p in raw_providers:
+            if health_manager.is_healthy(p.name):
+                providers.append(p)
+            else:
+                logger.warning(f"[LLM Health] Skipping provider {p.name} due to active cooldown.")
         if not providers:
             raise RuntimeError("No active LLM providers configured in fallback chain.")
 
@@ -605,7 +1174,7 @@ class FallbackLLMProvider(BaseLLMProvider):
         for i, provider in enumerate(providers):
             try:
                 return execute_with_retry_sync(
-                    provider, messages, temperature, max_tokens, response_format
+                    provider, messages, temperature, max_tokens, response_format, json_required_keys
                 )
             except Exception as exc:
                 last_exception = exc
