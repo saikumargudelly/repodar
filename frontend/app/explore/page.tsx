@@ -93,7 +93,7 @@ export default function ExplorePage() {
   };
 
   return (
-    <div style={{ maxWidth: "80rem", margin: "0 auto", padding: "32px 0" }}>
+    <div className="page-root" style={{ maxWidth: "80rem", margin: "0 auto" }}>
       {/* Title & Matched Count */}
       <div style={{ marginBottom: "24px" }}>
         <div className="page-eyebrow">

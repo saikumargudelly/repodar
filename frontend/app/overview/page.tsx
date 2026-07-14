@@ -1309,7 +1309,7 @@ export default function OverviewPage() {
   const verticalLabel = VERTICALS.find((v) => v.key === vertical)?.label ?? "AI / ML";
 
   return (
-    <div className="page-fade-in" style={{ paddingTop: "24px", display: "flex", flexDirection: "column", gap: "24px" }}>
+    <div className="page-root page-fade-in">
 
 
 
@@ -1322,7 +1322,7 @@ export default function OverviewPage() {
         {/* Row 1: Title + Period Selector */}
         <div className="overview-title-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", marginBottom: "6px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <h1 style={{ fontFamily: "var(--font-sans)", fontSize: "clamp(20px, 5vw, 28px)", fontWeight: 700, color: C.text, margin: 0, letterSpacing: "-0.02em" }}>
+            <h1 className="page-title">
               Ecosystem overview
             </h1>
             <svg

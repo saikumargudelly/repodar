@@ -234,7 +234,7 @@ function LeaderboardAndNetworkContent() {
       {/* ─── Header ────────────────────────────────────────────── */}
       <div className="leaderboard-header-row">
         <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-          <h1 style={{ fontFamily: "var(--font-sans)", fontSize: "20px", fontWeight: 700, margin: 0 }}>
+          <h1 className="page-title">
             Leaderboard & contributor network
           </h1>
           <span style={{

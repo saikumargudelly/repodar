@@ -102,14 +102,14 @@ export default function TopicsPage() {
   };
 
   return (
-    <div style={{ maxWidth: "80rem", margin: "0 auto", padding: "32px 0" }}>
+    <div className="page-root" style={{ maxWidth: "80rem", margin: "0 auto" }}>
       {/* ── Page Header ── */}
       <div className="topics-header" style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", gap: "16px", flexWrap: "wrap", marginBottom: "24px" }}>
         <div>
-          <h1 style={{ fontSize: "24px", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.02em", margin: 0 }}>Topic intelligence</h1>
-          <p style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: 500, fontFamily: "var(--font-sans)", marginTop: "4px" }}>
+          <div className="page-eyebrow">
             GitHub topic tags ranked by combined star velocity &amp; trend score
-          </p>
+          </div>
+          <h1 className="page-title">Topic intelligence</h1>
         </div>
 
         {/* Summary chips */}

@@ -8,15 +8,17 @@ export const metadata: Metadata = {
 
 export default function SettingsPage() {
   return (
-    <div className="max-w-4xl mx-auto py-8 px-0 md:px-4 lg:px-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2 tracking-tight">Settings</h1>
-        <p className="text-sm text-gray-500">Manage your account preferences, webhooks, and notifications.</p>
+    <div className="page-root" style={{ maxWidth: "980px", margin: "0 auto", width: "100%" }}>
+      <div>
+        <div className="page-eyebrow">Manage your account preferences, webhooks, and notifications</div>
+        <h1 className="page-title">Settings</h1>
       </div>
 
-      <div className="space-y-8">
+      <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
         <section>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b border-gray-200 pb-2">Automation & Alerts</h2>
+          <h2 style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "12px", fontFamily: "var(--font-sans)" }}>
+            Automation & Alerts
+          </h2>
           <AlertRulesManager />
         </section>
         

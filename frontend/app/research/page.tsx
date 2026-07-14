@@ -162,7 +162,7 @@ export default function ResearchListPage() {
               <path d="M12 2v4M11 4h2" />
             </svg>
           </span>
-          <h1 style={{ fontFamily: "var(--font-sans)", fontSize: isMobile ? "14px" : "16px", fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
+          <h1 className="page-title">
             Research mode
           </h1>
           <span style={{
