@@ -1026,8 +1026,8 @@ export default function LandingPage() {
               <span className="ld-footer-col-title">Connect</span>
               <div className="ld-footer-col-links">
                 <a href="https://github.com/saikumargudelly/repodar" target="_blank" rel="noopener noreferrer">GitHub Repository</a>
-                <a href="https://x.com/saikumargudelly" target="_blank" rel="noopener noreferrer">X (Twitter)</a>
-                <a href="https://linkedin.com/in/saikumargudelly" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+                <a href="https://x.com/g_saikumar_" target="_blank" rel="noopener noreferrer">X (Twitter)</a>
+                <a href="https://www.linkedin.com/in/saikumar-gudelly" target="_blank" rel="noopener noreferrer">LinkedIn</a>
                 <span style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px" }}>
                   Built by <span style={{ color: "#ffffff", fontWeight: 600 }}>Saikumar Gudelly</span>
                 </span>
