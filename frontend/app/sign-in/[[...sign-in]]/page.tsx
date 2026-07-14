@@ -102,8 +102,8 @@ export default function SignInPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "radial-gradient(circle at center, #111520 0%, #07090e 100%)",
-        color: "var(--color-text-primary, #e6edf3)",
+        background: "radial-gradient(circle at center, #262524 0%, #1e1d1c 100%)",
+        color: "var(--text-primary, #e6edf3)",
         fontFamily: "var(--font-sans, system-ui)",
       }}>
         <ProfessionalLoader size={50} text="Already signed in. Redirecting..." />
@@ -120,10 +120,10 @@ export default function SignInPage() {
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      background: "radial-gradient(circle at center, #141a29 0%, #07090e 100%)",
+      background: "radial-gradient(circle at center, #262524 0%, #1e1d1c 100%)",
       padding: "24px",
       fontFamily: "var(--font-sans, system-ui)",
-      color: "var(--color-text-primary, #e6edf3)",
+      color: "var(--text-primary, #e6edf3)",
     }}>
       <style>{`
         .auth-provider-btn {
@@ -135,7 +135,7 @@ export default function SignInPage() {
           background: rgba(255, 255, 255, 0.03);
           border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 8px;
-          color: var(--color-text-primary, #e6edf3);
+          color: var(--text-primary, #e6edf3);
           font-family: var(--font-sans, system-ui);
           font-size: 14px;
           font-weight: 600;
@@ -144,8 +144,8 @@ export default function SignInPage() {
         }
         .auth-provider-btn:hover:not(:disabled) {
           background: rgba(255, 255, 255, 0.07);
-          border-color: rgba(56, 189, 248, 0.4);
-          box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
+          border-color: rgba(210, 153, 34, 0.4);
+          box-shadow: 0 0 12px rgba(210, 153, 34, 0.15);
           transform: translateY(-1px);
         }
         .auth-provider-btn:active:not(:disabled) {
@@ -163,13 +163,13 @@ export default function SignInPage() {
           transform: scale(1.04);
         }
         .auth-link {
-          color: var(--accent-blue, #38bdf8);
+          color: var(--accent-yellow, #d29922);
           text-decoration: none;
           font-weight: 600;
           transition: color 0.15s ease;
         }
         .auth-link:hover {
-          color: #00e5ff;
+          color: #f5b041;
           text-decoration: underline;
         }
       `}</style>
@@ -177,9 +177,9 @@ export default function SignInPage() {
       <div className="auth-card" style={{
         width: "100%",
         maxWidth: "440px",
-        background: "rgba(22, 27, 34, 0.45)",
+        background: "rgba(38, 37, 36, 0.6)",
         backdropFilter: "blur(16px)",
-        border: "1px solid rgba(255, 255, 255, 0.08)",
+        border: "1px solid #31302f",
         borderRadius: "16px",
         padding: "36px",
         boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
