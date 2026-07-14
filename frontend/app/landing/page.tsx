@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { HealthBadge } from "@/components/repo/HealthBadge";
+import Logo from "@/components/Logo";
 
 // Define structured interface for the consolidated table grid
 interface UnifiedGridRow {
@@ -343,8 +344,8 @@ export default function LandingPage() {
 
       {/* ── NAV ── */}
       <nav className="ld-nav">
-        <Link href="/" className="ld-logo">
-          <div className="ld-logo-mark" />
+        <Link href="/" className="ld-logo" style={{ gap: "4px" }}>
+          <Logo size={24} />
           Repodar
         </Link>
         <div className="ld-nav-right">

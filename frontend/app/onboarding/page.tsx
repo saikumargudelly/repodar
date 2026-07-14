@@ -6,6 +6,7 @@ import { useUser } from "@clerk/nextjs";
 import { useAuthSession } from "@/lib/useAuthSession";
 import { api, DigestFrequency } from "@/lib/api";
 import { Skeleton } from "@/components/ui/Skeleton";
+import Logo from "@/components/Logo";
 
 
 type Step = "interests" | "watchlist" | "alerts" | "tour";
@@ -592,13 +593,9 @@ export default function OnboardingPage() {
                 ))}
               </div>
 
-              {/* Pulsing Konoha Seal animation for Step 4 */}
-              <div style={{ display: "flex", justifyContent: "center", margin: "24px 0" }}>
-                <svg viewBox="0 0 100 100" width="70" height="70" fill="none" stroke="var(--accent-blue, #38bdf8)" strokeWidth="3" style={{ animation: "pulse-center 1.5s infinite" }}>
-                  <path d="M 50 15 C 30 15 20 30 20 50 C 20 70 35 85 50 85 C 65 85 80 70 80 50 C 80 35 70 20 50 20 C 40 20 35 25 35 35 C 35 45 45 50 50 50 C 55 50 60 45 60 40 C 60 38 58 35 55 35" strokeLinecap="round" />
-                  <circle cx="55" cy="35" r="2.5" fill="var(--accent-blue, #38bdf8)" />
-                  <path d="M 20 50 Q 10 50 15 45" strokeLinecap="round" />
-                </svg>
+              {/* Pulsing Repodar Logo animation for Step 4 */}
+              <div style={{ display: "flex", justifyContent: "center", margin: "24px 0", animation: "pulse-center 1.5s infinite" }}>
+                <Logo size={70} />
               </div>
             </section>
           )}

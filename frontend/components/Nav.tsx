@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/nextjs";
 import { api } from "@/lib/api";
 import { useUnreadAlerts } from "@/lib/useUnreadAlerts";
+import Logo from "@/components/Logo";
 
 export function Nav({ onOpenAlerts }: { onOpenAlerts?: () => void }) {
   const [isMobile, setIsMobile] = useState(false);
@@ -35,16 +36,8 @@ export function Nav({ onOpenAlerts }: { onOpenAlerts?: () => void }) {
         padding: "0 16px",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: "10px", userSelect: "none" }}>
-        <div className="brand-icon" style={{ width: "24px", height: "24px" }}>
-          {/* Konoha Leaf brand symbol */}
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
-            <path d="M12,4 C7.58,4 4,7.58 4,12 C4,16.42 7.58,20 12,20 C14,20 15.8,19.2 17.2,17.8 L18.5,19.1 C16.8,20.9 14.5,22 12,22 C6.48,22 2,17.52 2,12 C2,6.48 6.48,2 12,2 C17,2 20.5,5 21,5.5 L18,8.5 L22,9 L21.5,5 L19.5,7 C18.2,5.2 15.2,4 12,4 Z" fill="currentColor" />
-            <path d="M12,8 C9.79,8 8,9.79 8,12 C8,14.21 9.79,16 12,16 C13.5,16 14.8,15.2 15.5,14 L13.5,13 C13.2,13.6 12.6,14 12,14 C10.9,14 10,13.1 10,12 C10,10.9 10.9,10 12,10 C13.1,10 14,10.9 14,12" fill="none" stroke="currentColor" strokeWidth="1.8" />
-            <path d="M5,19 L3,21" stroke="currentColor" strokeWidth="2" />
-          </svg>
-        </div>
-        <span style={{ fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "14px", color: "var(--text-primary)" }}>Repodar</span>
+      <div style={{ display: "flex", alignItems: "center", gap: "6px", userSelect: "none" }}>
+        <Logo size={22} showText={true} />
       </div>
 
       <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "12px" }}>
