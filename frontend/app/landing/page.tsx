@@ -117,25 +117,21 @@ export default function LandingPage() {
   const rows = getGridRows();
   const isGridLoading = breakoutsLoading || gemsLoading || newReposLoading;
 
-  // Derive "Repository of the Day" dynamically from the #1 breakout repo
-  const repoOfTheDay = overview?.top_breakout?.[0] || null;
-
   return (
     <div className="ld-page">
       <style>{`
         .ld-page {
-          --bg-primary: #0a0a09;
-          --bg-surface: #141312;
-          --bg-elevated: #1e1d1c;
-          --bg-card: rgba(20, 19, 18, 0.6);
-          --border: rgba(255, 255, 255, 0.06);
-          --border-glow: rgba(0, 82, 255, 0.15);
-          --text-primary: #f2f2f0;
-          --text-secondary: #a3a39e;
-          --text-muted: #6e6e69;
-          --accent-blue: #0052FF;
-          --accent-green: #00D48A;
-          --brand-grad: linear-gradient(135deg, #0052FF 0%, #00D48A 100%);
+          --bg-primary: #1e1d1c;
+          --bg-surface: #262524;
+          --bg-elevated: #2e2d2c;
+          --border: #31302f;
+          --text-primary: #e6edf3;
+          --text-secondary: #bac3cc;
+          --text-muted: #8b949e;
+          --accent-yellow: #d29922;
+          --accent-green: #3fb950;
+          --accent-red: #f85149;
+          --brand-grad: linear-gradient(135deg, #d29922 0%, #b07e15 100%);
           --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
           
           font-family: var(--font-sans);
@@ -149,214 +145,287 @@ export default function LandingPage() {
         /* Nav */
         .ld-nav {
           position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-          height: 64px; display: flex; align-items: center; justify-content: space-between;
-          padding: 0 3rem; background: rgba(10, 10, 9, 0.8);
-          backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+          height: 56px; display: flex; align-items: center; justify-content: space-between;
+          padding: 0 2rem; background: rgba(30, 29, 28, 0.85);
+          backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
           border-bottom: 1px solid var(--border);
         }
         @media (max-width: 640px) {
-          .ld-nav { padding: 0 1.5rem; }
+          .ld-nav { padding: 0 1rem; }
         }
         .ld-logo {
           display: flex; align-items: center; gap: 8px;
-          text-decoration: none; color: var(--text-primary); font-weight: 700; font-size: 16px;
-          letter-spacing: -0.02em;
+          text-decoration: none; color: var(--text-primary); font-weight: 700; font-size: 15px;
         }
-        .ld-nav-right { display: flex; align-items: center; gap: 16px; }
+        .ld-nav-right { display: flex; align-items: center; gap: 12px; }
         .ld-btn-ghost {
-          color: var(--text-secondary); text-decoration: none; font-size: 13px; font-weight: 500;
-          padding: 8px 16px; border-radius: 8px; transition: all 0.2s;
+          color: var(--text-secondary); text-decoration: none; font-size: 12px; font-weight: 500;
+          padding: 6px 12px; border-radius: 6px; transition: background 0.15s, color 0.15s;
         }
-        .ld-btn-ghost:hover { color: var(--text-primary); background: rgba(255, 255, 255, 0.04); }
+        .ld-btn-ghost:hover { background: var(--bg-surface); color: var(--text-primary); }
         .ld-btn-solid {
-          background: var(--brand-grad); color: #ffffff; text-decoration: none;
-          font-size: 13px; font-weight: 600; padding: 8px 20px; border-radius: 8px;
-          transition: all 0.2s; box-shadow: 0 4px 12px rgba(0, 82, 255, 0.2);
+          background: var(--brand-grad); color: var(--bg-primary); text-decoration: none;
+          font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 6px;
+          transition: transform 0.15s, opacity 0.15s;
         }
         .ld-btn-solid:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 6px 20px rgba(0, 82, 255, 0.35);
+          opacity: 0.95;
+          transform: translateY(-0.5px);
         }
 
         /* Main Container */
         .ld-container {
-          max-width: 1080px; margin: 0 auto; padding: 120px 2rem 60px;
+          max-width: 1200px; margin: 0 auto; padding: 90px 2rem 60px;
         }
         @media (max-width: 640px) {
-          .ld-container { padding: 100px 1.25rem 40px; }
+          .ld-container { padding: 80px 1rem 40px; }
         }
 
         /* Hero */
-        .ld-hero { text-align: center; margin-bottom: 60px; position: relative; }
-        .ld-hero-glow {
-          position: absolute; top: -200px; left: 50%; transform: translateX(-50%);
-          width: 800px; height: 500px; pointer-events: none; z-index: 0;
-          background: radial-gradient(circle at 50% 0%, rgba(0, 82, 255, 0.15) 0%, rgba(0, 212, 138, 0.05) 50%, transparent 70%);
-          filter: blur(50px);
-        }
+        .ld-hero { text-align: center; margin-bottom: 56px; position: relative; }
         .ld-badge {
-          display: inline-flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 600;
-          color: var(--text-primary); background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border);
-          padding: 6px 14px; border-radius: 100px; margin-bottom: 24px; text-transform: uppercase;
-          letter-spacing: 0.08em; position: relative; z-index: 1;
+          display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 600;
+          color: var(--text-muted); background: var(--bg-surface); border: 1px solid var(--border);
+          padding: 4px 10px; border-radius: 100px; margin-bottom: 18px; text-transform: uppercase;
+          letter-spacing: 0.05em;
         }
-        .ld-badge-dot {
-          width: 6px; height: 6px; border-radius: 50%; background: var(--accent-green);
-          box-shadow: 0 0 10px var(--accent-green);
-          animation: pulse-dot 2s infinite;
-        }
-        @keyframes pulse-dot {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
-        }
+        .ld-badge-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-green); }
         .ld-h1 {
-          font-size: 52px; font-weight: 800; line-height: 1.1; letter-spacing: -0.03em;
-          margin-bottom: 24px; position: relative; z-index: 1;
-          background: linear-gradient(180deg, #ffffff 40%, #c2c2bd 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
+          font-size: 44px; font-weight: 800; line-height: 1.15; letter-spacing: -0.02em;
+          margin-bottom: 18px; color: #ffffff;
         }
-        .ld-h1 em {
-          font-style: normal;
-          background: var(--brand-grad);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
+        .ld-h1 em { font-style: normal; color: var(--accent-yellow); }
         @media (max-width: 768px) {
-          .ld-h1 { font-size: 38px; }
+          .ld-h1 { font-size: 32px; }
         }
         .ld-desc {
-          font-size: 16px; color: var(--text-secondary); max-width: 640px; margin: 0 auto 36px;
-          line-height: 1.6; position: relative; z-index: 1;
+          font-size: 14px; color: var(--text-secondary); max-width: 580px; margin: 0 auto 28px;
+          line-height: 1.6;
         }
-        .ld-hero-ctas { display: flex; justify-content: center; gap: 16px; position: relative; z-index: 1; }
+        .ld-hero-ctas { display: flex; justify-content: center; gap: 12px; }
         .ld-hero-ctas .ld-btn-ghost {
           border: 1px solid var(--border);
-          background: rgba(255, 255, 255, 0.02);
         }
         .ld-hero-ctas .ld-btn-ghost:hover {
-          background: rgba(255, 255, 255, 0.06);
-          border-color: var(--text-secondary);
+          background: var(--bg-surface);
         }
 
-        /* HUD Block */
-        .ld-hud-container {
+        /* Side-by-Side Product Sections */
+        .ld-preview-section {
           display: grid;
-          grid-template-columns: 1fr 1.2fr 1fr;
-          gap: 20px;
-          margin-bottom: 60px;
-          position: relative;
-          z-index: 1;
+          grid-template-columns: 1.1fr 0.9fr;
+          gap: 28px;
+          margin-bottom: 56px;
         }
-        @media (max-width: 960px) {
-          .ld-hud-container { grid-template-columns: 1fr; }
+        @media (max-width: 1024px) {
+          .ld-preview-section {
+            grid-template-columns: 1fr;
+          }
         }
-        .ld-hud-card {
-          background: var(--bg-card);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          padding: 24px;
+
+        /* Left Side: Dynamic Grid Panel */
+        .ld-grid-panel {
           display: flex;
           flex-direction: column;
-          justify-content: space-between;
-          transition: border-color 0.3s;
+          text-align: left;
         }
-        .ld-hud-card:hover {
-          border-color: rgba(0, 82, 255, 0.3);
+        .ld-grid-title {
+          font-size: 18px; font-weight: 700; color: #ffffff; margin-bottom: 6px;
+          letter-spacing: -0.01em;
         }
-        .ld-hud-title {
-          font-size: 11px; font-weight: 700; color: var(--text-muted);
-          text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 20px;
-          display: flex; align-items: center; gap: 6px;
+        .ld-grid-subtitle {
+          font-size: 12px; color: var(--text-muted); margin-bottom: 16px;
         }
-        .ld-hud-stats-grid {
-          display: grid; grid-template-columns: 1fr; gap: 20px;
+        .ld-tabs {
+          display: inline-flex; background: var(--bg-surface); padding: 3px;
+          border-radius: 8px; border: 1px solid var(--border); margin-bottom: 14px;
+          align-self: flex-start;
         }
-        .ld-hud-stat-box {
-          display: flex; flex-direction: column;
-        }
-        .ld-hud-stat-num {
-          font-size: 32px; font-weight: 800; color: #ffffff; line-height: 1;
-          letter-spacing: -0.02em;
-        }
-        .ld-hud-stat-num.green {
-          background: linear-gradient(135deg, #ffffff 40%, var(--accent-green) 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-        .ld-hud-stat-label {
-          font-size: 11px; color: var(--text-muted); margin-top: 6px;
-          text-transform: uppercase; letter-spacing: 0.05em;
-        }
-        .ld-hud-insight-text {
-          font-size: 13px; color: var(--text-secondary); line-height: 1.6;
-          font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
-        }
-        .ld-hud-live-tag {
-          display: inline-flex; align-items: center; gap: 6px;
-          background: rgba(0, 212, 138, 0.1); border: 1px solid rgba(0, 212, 138, 0.2);
-          color: var(--accent-green); font-size: 9px; font-weight: 700;
-          padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em;
-        }
-        .ld-hud-spotlight-box {
-          background: rgba(255, 255, 255, 0.02);
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          padding: 16px;
-          margin-top: 12px;
-        }
-        .ld-hud-spotlight-name {
-          font-size: 14px; font-weight: 700; color: #ffffff; text-decoration: none;
-          display: block; margin-bottom: 8px; transition: color 0.2s;
-        }
-        .ld-hud-spotlight-name:hover {
-          color: var(--accent-green);
-        }
-        .ld-hud-meta-row {
-          display: flex; align-items: center; gap: 8px; font-size: 11px;
-        }
-
-        /* Unified Grid Section */
-        .ld-section-title { font-size: 24px; font-weight: 800; text-align: center; margin-bottom: 8px; letter-spacing: -0.02em; }
-        .ld-grid-header { text-align: center; margin-bottom: 32px; }
-        .ld-tabs-container { display: flex; justify-content: center; margin-bottom: 20px; }
-        .ld-tabs { display: inline-flex; background: rgba(255,255,255,0.02); padding: 4px; border-radius: 10px; border: 1px solid var(--border); }
         .ld-tab {
           background: transparent; border: none; color: var(--text-secondary);
-          font-size: 12px; font-weight: 600; padding: 8px 18px; border-radius: 8px;
-          cursor: pointer; transition: all 0.2s;
+          font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 6px;
+          cursor: pointer; transition: all 0.15s;
         }
         .ld-tab:hover { color: #ffffff; }
-        .ld-tab.active { background: var(--bg-elevated); color: #ffffff; box-shadow: 0 2px 8px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.03); }
-        .ld-tab-desc { font-size: 13px; color: var(--text-secondary); max-width: 600px; margin: 0 auto 32px; text-align: center; line-height: 1.5; }
+        .ld-tab.active {
+          background: var(--bg-elevated); color: #ffffff;
+          border: 1px solid rgba(255, 255, 255, 0.03);
+        }
 
-        /* Responsive Table styling */
+        /* Responsive Table */
         .ld-table-container {
-          background: var(--bg-card); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-          border: 1px solid var(--border); border-radius: 14px;
-          overflow-x: auto; width: 100%; margin-bottom: 80px; box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+          background: var(--bg-surface); border: 1px solid var(--border); border-radius: 10px;
+          overflow-x: auto; width: 100%; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
         }
-        .ld-table { width: 100%; border-collapse: collapse; text-align: left; min-width: 800px; }
-        .ld-th { padding: 16px 20px; font-size: 11px; font-weight: 700; color: var(--text-muted); border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.05em; }
-        .ld-tr { border-bottom: 1px solid var(--border); transition: background 0.2s; }
-        .ld-tr:hover { background: rgba(255,255,255,0.02); }
+        .ld-table { width: 100%; border-collapse: collapse; text-align: left; min-width: 500px; }
+        .ld-th {
+          padding: 10px 14px; font-size: 10px; font-weight: 700; color: var(--text-muted);
+          border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.03em;
+        }
+        .ld-tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+        .ld-tr:hover { background: rgba(255, 255, 255, 0.015); }
         .ld-tr:last-child { border-bottom: none; }
-        .ld-td { padding: 16px 20px; font-size: 13px; color: var(--text-secondary); vertical-align: middle; }
-        .ld-repo-link { font-weight: 600; color: #ffffff; text-decoration: none; transition: color 0.2s; }
-        .ld-repo-link:hover { color: var(--accent-green); }
+        .ld-td { padding: 10px 14px; font-size: 12px; color: var(--text-secondary); vertical-align: middle; }
+        .ld-repo-link { font-weight: 600; color: #ffffff; text-decoration: none; transition: color 0.15s; }
+        .ld-repo-link:hover { color: var(--accent-yellow); }
         .ld-action-btn {
-          background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); color: #ffffff;
-          font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 6px; cursor: pointer;
-          transition: all 0.2s;
+          background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
+          font-size: 10px; padding: 3px 8px; border-radius: 4px; cursor: pointer; transition: all 0.15s;
         }
-        .ld-action-btn:hover { background: #ffffff; color: var(--bg-primary); border-color: #ffffff; }
+        .ld-action-btn:hover { background: var(--bg-elevated); color: var(--text-primary); border-color: var(--text-muted); }
 
-        /* Loader & Error states */
-        .ld-skeleton-row { height: 50px; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; }
-        .ld-skeleton-cell { background: var(--bg-elevated); border-radius: 4px; height: 16px; animation: pulse 1.5s infinite; }
+        /* Right Side: Read-Only Overview Mockup */
+        .ld-preview-browser {
+          background: var(--bg-surface);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          overflow: hidden;
+          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+          display: flex;
+          flex-direction: column;
+          text-align: left;
+        }
+        .ld-browser-header {
+          background: var(--bg-elevated);
+          padding: 10px 16px;
+          border-bottom: 1px solid var(--border);
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+        .ld-browser-dots {
+          display: flex;
+          gap: 6px;
+        }
+        .ld-browser-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+        }
+        .ld-browser-address {
+          flex: 1;
+          background: var(--bg-primary);
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          font-family: monospace;
+          font-size: 10px;
+          color: var(--text-muted);
+          padding: 2px 10px;
+          user-select: none;
+          max-width: 240px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .ld-browser-body {
+          padding: 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
 
+        /* Mockup Interior Layout */
+        .ld-mock-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border-bottom: 1px solid var(--border);
+          padding-bottom: 10px;
+        }
+        .ld-mock-title {
+          font-size: 13px; font-weight: 700; color: #ffffff;
+        }
+        .ld-mock-badge {
+          background: rgba(63, 185, 80, 0.1);
+          border: 1px solid rgba(63, 185, 80, 0.2);
+          color: var(--accent-green);
+          font-size: 9px;
+          font-weight: 700;
+          padding: 1px 6px;
+          border-radius: 4px;
+          text-transform: uppercase;
+        }
+        
+        /* Stats bento */
+        .ld-mock-stats {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 10px;
+        }
+        .ld-mock-stat-card {
+          background: var(--bg-elevated);
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          padding: 10px;
+        }
+        .ld-mock-stat-label {
+          font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.02em;
+        }
+        .ld-mock-stat-val {
+          font-size: 14px; font-weight: 800; color: #ffffff; margin-top: 2px;
+        }
+        .ld-mock-stat-trend {
+          font-size: 9px; color: var(--accent-green); font-weight: 600; margin-top: 1px;
+        }
+
+        /* Live Analyst insight card */
+        .ld-mock-intel {
+          background: rgba(210, 153, 34, 0.03);
+          border: 1px solid rgba(210, 153, 34, 0.15);
+          border-radius: 6px;
+          padding: 12px;
+        }
+        .ld-mock-intel-title {
+          font-size: 9px; font-weight: 700; color: var(--accent-yellow);
+          text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;
+          display: flex; align-items: center; gap: 4px;
+        }
+        .ld-mock-intel-text {
+          font-size: 11px; color: var(--text-secondary); line-height: 1.5;
+        }
+
+        /* Mockup Category growth list */
+        .ld-mock-categories {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .ld-mock-cat-row {
+          background: var(--bg-elevated);
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          padding: 8px 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .ld-mock-cat-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .ld-mock-cat-name {
+          font-size: 11px; font-weight: 700; color: #ffffff;
+        }
+        .ld-mock-cat-growth {
+          font-size: 10px; font-weight: 600; color: var(--accent-green);
+        }
+        .ld-mock-progress-bg {
+          height: 3px;
+          background: var(--bg-primary);
+          border-radius: 2px;
+          overflow: hidden;
+          width: 100%;
+        }
+        .ld-mock-progress-bar {
+          height: 100%;
+          background: var(--accent-yellow);
+          border-radius: 2px;
+        }
+
+        /* Skeletons */
+        .ld-skeleton-row { height: 38px; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 14px; }
+        .ld-skeleton-cell { background: var(--bg-elevated); border-radius: 3px; height: 12px; animation: pulse 1.5s infinite; }
         @keyframes pulse {
           0% { opacity: 0.6; }
           50% { opacity: 0.3; }
@@ -364,92 +433,74 @@ export default function LandingPage() {
         }
 
         /* How it works */
-        .ld-how-section { padding: 60px 0; border-top: 1px solid var(--border); margin-bottom: 60px; }
-        .ld-how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 40px; }
+        .ld-how-section { padding: 40px 0; border-top: 1px solid var(--border); margin-bottom: 40px; }
+        .ld-how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 24px; }
         @media (max-width: 768px) {
           .ld-how-grid { grid-template-columns: 1fr; }
         }
         .ld-how-card {
-          background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
-          padding: 32px 24px; text-align: left; position: relative; overflow: hidden;
-          transition: border-color 0.3s;
-        }
-        .ld-how-card:hover {
-          border-color: rgba(0, 212, 138, 0.2);
+          background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px;
+          padding: 20px; text-align: left; position: relative;
         }
         .ld-how-num {
-          font-size: 48px; font-weight: 900;
-          background: var(--brand-grad);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          opacity: 0.15;
+          font-size: 32px; font-weight: 900; color: var(--accent-yellow); opacity: 0.1;
           position: absolute; top: 12px; right: 16px; line-height: 1;
         }
-        .ld-how-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: #ffffff; }
-        .ld-how-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+        .ld-how-card h3 { font-size: 13px; font-weight: 700; margin-bottom: 8px; color: #ffffff; }
+        .ld-how-card p { font-size: 11px; color: var(--text-secondary); line-height: 1.6; }
 
-        /* Pricing & Callout */
+        /* Pricing */
         .ld-pricing {
-          background: radial-gradient(circle at 50% 100%, rgba(0, 82, 255, 0.05) 0%, rgba(0, 0, 0, 0) 70%), var(--bg-surface);
-          border: 1px solid var(--border); border-radius: 16px; padding: 48px; text-align: center;
-          margin-bottom: 80px; position: relative;
+          background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px;
+          padding: 36px; text-align: center; margin-bottom: 56px;
         }
-        .ld-pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; max-width: 800px; margin: 40px auto 0; text-align: left; }
+        .ld-pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 800px; margin: 28px auto 0; text-align: left; }
         @media (max-width: 640px) {
           .ld-pricing-grid { grid-template-columns: 1fr; }
         }
-        .ld-pricing-card {
-          background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 32px;
-          transition: border-color 0.3s, transform 0.3s;
-        }
-        .ld-pricing-card:hover {
-          transform: translateY(-2px);
-        }
-        .ld-pricing-card.featured {
-          border-color: var(--accent-green);
-          box-shadow: 0 8px 30px rgba(0, 212, 138, 0.05);
-        }
-        .ld-pricing-name { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; letter-spacing: 0.05em; }
-        .ld-pricing-price { font-size: 32px; font-weight: 800; color: #ffffff; margin-bottom: 16px; letter-spacing: -0.02em; }
-        .ld-pricing-features { list-style: none; padding: 0; margin: 20px 0 28px; font-size: 13px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 10px; }
-        .ld-pricing-features li { display: flex; align-items: center; gap: 8px; }
+        .ld-pricing-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; padding: 24px; }
+        .ld-pricing-card.featured { border-color: var(--accent-yellow); }
+        .ld-pricing-name { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+        .ld-pricing-price { font-size: 26px; font-weight: 800; color: #ffffff; margin-bottom: 12px; }
+        .ld-pricing-features { list-style: none; padding: 0; margin: 16px 0 20px; font-size: 12px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 8px; }
+        .ld-pricing-features li { display: flex; align-items: center; gap: 6px; }
         .ld-pricing-features li::before { content: "✓"; color: var(--accent-green); font-weight: bold; }
         .ld-pricing-features li.dim { color: var(--text-muted); }
         .ld-pricing-features li.dim::before { content: "×"; color: var(--text-muted); }
 
         /* Footer */
         .ld-footer {
-          border-top: 1px solid var(--border); padding: 40px 0 20px; display: flex; align-items: center;
-          justify-content: space-between; font-size: 12px; color: var(--text-muted);
+          border-top: 1px solid var(--border); padding: 28px 0; display: flex; align-items: center;
+          justify-content: space-between; font-size: 11px; color: var(--text-muted);
         }
         @media (max-width: 640px) {
           .ld-footer { flex-direction: column; gap: 16px; text-align: center; }
         }
-        .ld-footer-links { display: flex; gap: 20px; }
-        .ld-footer-links a { color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
+        .ld-footer-links { display: flex; gap: 16px; }
+        .ld-footer-links a { color: var(--text-muted); text-decoration: none; transition: color 0.15s; }
         .ld-footer-links a:hover { color: var(--text-primary); }
 
         /* Auth Modal */
         .ld-modal-overlay {
-          position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(12px);
+          position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
           display: grid; place-items: center; z-index: 200; padding: 1rem;
         }
         .ld-modal {
-          background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px;
-          padding: 36px 28px; max-width: 440px; width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,0.6);
-          text-align: center; animation: modal-scale 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          background: var(--bg-surface); border: 1px solid var(--border); border-radius: 10px;
+          padding: 24px; max-width: 380px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+          text-align: center; animation: modal-scale 0.2s ease-out;
         }
-        .ld-modal h3 { font-size: 20px; font-weight: 800; color: #ffffff; margin-bottom: 8px; letter-spacing: -0.01em; }
-        .ld-modal p { font-size: 14px; color: var(--text-secondary); margin-bottom: 28px; line-height: 1.6; }
-        .ld-modal-btns { display: flex; flex-direction: column; gap: 12px; }
+        .ld-modal h3 { font-size: 16px; font-weight: 700; color: #ffffff; margin-bottom: 6px; }
+        .ld-modal p { font-size: 12px; color: var(--text-secondary); margin-bottom: 20px; line-height: 1.5; }
+        .ld-modal-btns { display: flex; flex-direction: column; gap: 8px; }
         .ld-modal-close {
-          background: transparent; border: none; color: var(--text-muted); font-size: 11px;
-          cursor: pointer; margin-top: 20px; text-decoration: underline; transition: color 0.2s;
+          background: transparent; border: none; color: var(--text-muted); font-size: 10px;
+          cursor: pointer; margin-top: 14px; text-decoration: underline;
         }
         .ld-modal-close:hover { color: var(--text-primary); }
 
         @keyframes modal-scale {
-          0% { transform: scale(0.96); opacity: 0; }
+          0% { transform: scale(0.95); opacity: 0; }
           100% { transform: scale(1); opacity: 1; }
         }
       `}</style>
@@ -468,9 +519,8 @@ export default function LandingPage() {
 
       {/* ── MAIN CONTAINER ── */}
       <div className="ld-container">
-        {/* ── SECTION 1: HERO & INTEGRATED HUD ── */}
+        {/* ── SECTION 1: HERO ── */}
         <header className="ld-hero">
-          <div className="ld-hero-glow" />
           <div className="ld-badge">
             <span className="ld-badge-dot" />
             Ecosystem Live Monitor
@@ -487,218 +537,202 @@ export default function LandingPage() {
           </div>
         </header>
 
-        {/* ── SECTION 1.5: INTEGRATED HUD DASHBOARD ── */}
-        <div className="ld-hud-container">
-          {/* Card 1: Platform Stats */}
-          <div className="ld-hud-card">
-            <div>
-              <div className="ld-hud-title">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="20" x2="18" y2="10"/>
-                  <line x1="12" y1="20" x2="12" y2="4"/>
-                  <line x1="6" y1="20" x2="6" y2="14"/>
-                </svg>
-                Ecosystem Metrics
-              </div>
-              <div className="ld-hud-stats-grid">
-                <div className="ld-hud-stat-box">
-                  <span className="ld-hud-stat-num">
-                    {overview?.total_repos ? overview.total_repos.toLocaleString() : "12,800+"}
-                  </span>
-                  <span className="ld-hud-stat-label">Repos Monitored</span>
+        {/* ── SECTION 2: SIDE-BY-SIDE INTERACTIVE LAYOUT ── */}
+        <div className="ld-preview-section" id="grid">
+          
+          {/* LEFT: Dynamic Intelligence Grid (Table) */}
+          <div className="ld-grid-panel">
+            <h2 className="ld-grid-title">Ecosystem Intelligence Grid</h2>
+            <span className="ld-grid-subtitle">Real-time repository scoring and developer growth logs.</span>
+            
+            <div className="ld-tabs">
+              <button
+                onClick={() => setGridTab("breakouts")}
+                className={`ld-tab ${gridTab === "breakouts" ? "active" : ""}`}
+              >
+                🚀 Top Breakouts
+              </button>
+              <button
+                onClick={() => setGridTab("gems")}
+                className={`ld-tab ${gridTab === "gems" ? "active" : ""}`}
+              >
+                💎 Hidden Gems
+              </button>
+              <button
+                onClick={() => setGridTab("new")}
+                className={`ld-tab ${gridTab === "new" ? "active" : ""}`}
+              >
+                ✨ Recently Indexed
+              </button>
+            </div>
+
+            <div className="ld-table-container">
+              {isGridLoading ? (
+                <div>
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="ld-skeleton-row">
+                      <div className="ld-skeleton-cell" style={{ width: "8%", marginRight: "12px" }} />
+                      <div className="ld-skeleton-cell" style={{ width: "40%", marginRight: "12px" }} />
+                      <div className="ld-skeleton-cell" style={{ width: "20%", marginRight: "12px" }} />
+                      <div className="ld-skeleton-cell" style={{ width: "20%" }} />
+                    </div>
+                  ))}
                 </div>
-                <div className="ld-hud-stat-box" style={{ borderTop: "1px solid var(--border)", paddingTop: "14px" }}>
-                  <span className="ld-hud-stat-num green">
-                    {overview?.healthy_repos ? overview.healthy_repos.toLocaleString() : "4,200+"}
-                  </span>
-                  <span className="ld-hud-stat-label">Healthy Projects</span>
-                </div>
-              </div>
+              ) : (
+                <table className="ld-table">
+                  <thead>
+                    <tr>
+                      <th className="ld-th" style={{ width: "8%" }}>#</th>
+                      <th className="ld-th" style={{ width: "45%" }}>Repository</th>
+                      <th className="ld-th" style={{ width: "25%" }}>Sustainability</th>
+                      <th className="ld-th" style={{ width: "22%" }}>{rows[0]?.metricLabel || "Metric"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.slice(0, 8).map((row, idx) => (
+                      <tr key={row.repo_id || idx} className="ld-tr">
+                        <td className="ld-td" style={{ fontWeight: 600, color: "var(--text-muted)" }}>
+                          {idx + 1}
+                        </td>
+                        <td className="ld-td">
+                          <Link href={`/repo/${row.owner}/${row.name}`} className="ld-repo-link">
+                            {row.owner}/{row.name}
+                          </Link>
+                          <div style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "2px" }}>
+                            {row.category} • {row.language || "TypeScript"}
+                          </div>
+                        </td>
+                        <td className="ld-td">
+                          <HealthBadge label={row.sustainabilityLabel} />
+                        </td>
+                        <td className="ld-td" style={{ fontWeight: 700, color: "var(--text-primary)" }}>
+                          {row.metricValue}
+                        </td>
+                      </tr>
+                    ))}
+                    {rows.length === 0 && (
+                      <tr>
+                        <td className="ld-td" colSpan={4} style={{ textAlign: "center", padding: "24px 0", color: "var(--text-muted)" }}>
+                          No active repositories found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            
+            <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "10px", display: "flex", alignItems: "center", gap: "6px" }}>
+              <span>💡 Tip: Click repository names to inspect detailed timeseries charts and growth forecasts.</span>
             </div>
           </div>
 
-          {/* Card 2: Strategic Analyst Insight */}
-          <div className="ld-hud-card">
-            <div>
-              <div className="ld-hud-title" style={{ justifyContent: "space-between", width: "100%" }}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                  </svg>
-                  AI Intel Feed
-                </span>
-                <span className="ld-hud-live-tag">
-                  <span className="ld-badge-dot" />
-                  LIVE
-                </span>
+          {/* RIGHT: Read-Only Overview Dashboard Mockup (Mini Product Demo) */}
+          <div className="ld-preview-browser">
+            <div className="ld-browser-header">
+              <div className="ld-browser-dots">
+                <span className="ld-browser-dot" style={{ background: "#ff5f56" }} />
+                <span className="ld-browser-dot" style={{ background: "#ffbd2e" }} />
+                <span className="ld-browser-dot" style={{ background: "#27c93f" }} />
               </div>
-              <div className="ld-hud-insight-text">
-                {reportLoading ? (
-                  <span style={{ color: "var(--text-muted)" }}>Decoding metadata patterns...</span>
-                ) : weeklyReport?.strategic_insight ? (
-                  weeklyReport.strategic_insight
+              <div className="ld-browser-address">repodar.com/overview</div>
+            </div>
+            
+            <div className="ld-browser-body">
+              <div className="ld-mock-header">
+                <span className="ld-mock-title">Ecosystem Overview</span>
+                <span className="ld-mock-badge">Read Only Preview</span>
+              </div>
+
+              {/* Bento Stats */}
+              <div className="ld-mock-stats">
+                <div className="ld-mock-stat-card">
+                  <div className="ld-mock-stat-label">Monitored</div>
+                  <div className="ld-mock-stat-val">
+                    {overview?.total_repos ? overview.total_repos.toLocaleString() : "12,840"}
+                  </div>
+                  <div className="ld-mock-stat-trend">+2.1% MOM</div>
+                </div>
+                <div className="ld-mock-stat-card">
+                  <div className="ld-mock-stat-label">Healthy</div>
+                  <div className="ld-mock-stat-val">
+                    {overview?.healthy_repos ? overview.healthy_repos.toLocaleString() : "4,200"}
+                  </div>
+                  <div className="ld-mock-stat-trend" style={{ color: "var(--accent-yellow)" }}>GREEN RATED</div>
+                </div>
+                <div className="ld-mock-stat-card">
+                  <div className="ld-mock-stat-label">Ratio</div>
+                  <div className="ld-mock-stat-val">
+                    {overview?.healthy_repos && overview?.total_repos ? ((overview.healthy_repos / overview.total_repos) * 100).toFixed(1) + "%" : "32.8%"}
+                  </div>
+                  <div className="ld-mock-stat-trend">STABLE</div>
+                </div>
+              </div>
+
+              {/* AI Strategic Insight brief */}
+              <div className="ld-mock-intel">
+                <div className="ld-mock-intel-title">
+                  <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--accent-green)", display: "inline-block" }} />
+                  Latest Weekly AI Insight Brief
+                </div>
+                <div className="ld-mock-intel-text">
+                  {reportLoading ? (
+                    "Decoding metadata indicators..."
+                  ) : weeklyReport?.strategic_insight ? (
+                    weeklyReport.strategic_insight.slice(0, 160) + "..."
+                  ) : (
+                    "Ecosystem growth remains strong. Multi-modal models and lightweight inference engines are experiencing positive acceleration, with star velocities showing upward inflections."
+                  )}
+                </div>
+              </div>
+
+              {/* Live Category metrics list */}
+              <div className="ld-mock-categories">
+                <div style={{ fontSize: "10px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.02em" }}>
+                  Category Accelerations
+                </div>
+                {overviewLoading ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} style={{ height: "30px", background: "var(--bg-elevated)", borderRadius: "4px" }} />
+                    ))}
+                  </div>
+                ) : overview?.category_growth ? (
+                  overview.category_growth.slice(0, 3).map((cat, idx) => (
+                    <div key={idx} className="ld-mock-cat-row">
+                      <div className="ld-mock-cat-header">
+                        <span className="ld-mock-cat-name">{cat.category}</span>
+                        <span className="ld-mock-cat-growth" style={{ color: cat.mom_growth_pct >= 0 ? "var(--accent-green)" : "var(--accent-red)" }}>
+                          {cat.mom_growth_pct >= 0 ? "+" : ""}{cat.mom_growth_pct.toFixed(1)}% MOM
+                        </span>
+                      </div>
+                      <div className="ld-mock-progress-bg">
+                        <div className="ld-mock-progress-bar" style={{ width: `${Math.min(100, Math.max(15, cat.trend_composite * 8))}%` }} />
+                      </div>
+                    </div>
+                  ))
                 ) : (
-                  "Ecosystem growth remains strong. Multi-modal models and lightweight inference engines are experiencing positive acceleration, with star velocities showing upward inflections across major tooling layers."
+                  <div className="ld-mock-cat-row">
+                    <div className="ld-mock-cat-header">
+                      <span className="ld-mock-cat-name">Agent Frameworks</span>
+                      <span className="ld-mock-cat-growth">+42.5% MOM</span>
+                    </div>
+                    <div className="ld-mock-progress-bg">
+                      <div className="ld-mock-progress-bar" style={{ width: "82%" }} />
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
           </div>
-
-          {/* Card 3: Breakout Spotlight */}
-          <div className="ld-hud-card">
-            <div>
-              <div className="ld-hud-title">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10"/>
-                  <line x1="12" y1="8" x2="12" y2="12"/>
-                  <line x1="12" y1="16" x2="12.01" y2="16"/>
-                </svg>
-                Breakout Spotlight
-              </div>
-              {repoOfTheDay ? (
-                <div>
-                  <div className="ld-hud-spotlight-box">
-                    <Link href={`/repo/${repoOfTheDay.owner}/${repoOfTheDay.name}`} className="ld-hud-spotlight-name">
-                      {repoOfTheDay.owner}/{repoOfTheDay.name}
-                    </Link>
-                    <div className="ld-hud-meta-row" style={{ color: "var(--text-secondary)" }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                        <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "var(--accent-blue)" }} />
-                        {repoOfTheDay.primary_language || "Python"}
-                      </span>
-                      <span>•</span>
-                      <span>+{(repoOfTheDay.star_velocity_7d || 0).toLocaleString()}★ (7d)</span>
-                    </div>
-                  </div>
-                  <div className="ld-hud-stat-label" style={{ marginTop: "12px" }}>
-                    Spotlight repo chosen based on 7-day velocity acceleration.
-                  </div>
-                </div>
-              ) : (
-                <div style={{ color: "var(--text-muted)", fontSize: "12px" }}>
-                  Calculating spotlight metrics...
-                </div>
-              )}
-            </div>
-          </div>
         </div>
 
-        {/* ── SECTION 2: UNIFIED INTELLIGENCE GRID ── */}
-        <section id="grid" style={{ marginBottom: "60px" }}>
-          <div className="ld-grid-header">
-            <h2 className="ld-section-title">Ecosystem Intelligence Grid</h2>
-            <div className="ld-tabs-container">
-              <div className="ld-tabs">
-                <button
-                  onClick={() => setGridTab("breakouts")}
-                  className={`ld-tab ${gridTab === "breakouts" ? "active" : ""}`}
-                >
-                  🚀 Top Breakouts
-                </button>
-                <button
-                  onClick={() => setGridTab("gems")}
-                  className={`ld-tab ${gridTab === "gems" ? "active" : ""}`}
-                >
-                  💎 Hidden Gems
-                </button>
-                <button
-                  onClick={() => setGridTab("new")}
-                  className={`ld-tab ${gridTab === "new" ? "active" : ""}`}
-                >
-                  ✨ Recently Indexed
-                </button>
-              </div>
-            </div>
-            <p className="ld-tab-desc">
-              {gridTab === "breakouts" && "Surfacing the highest accelerating repositories across the AI landscape by star velocity delta over the last 7 days."}
-              {gridTab === "gems" && "Promising, early-stage libraries with low total stars (<3,000) experiencing explosive breakout scores and fork proxy activity."}
-              {gridTab === "new" && "Newly indexed repositories with the highest novelty scores, tracking early signals before mainstream awareness."}
-            </p>
-          </div>
-
-          <div className="ld-table-container">
-            {isGridLoading ? (
-              <div>
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="ld-skeleton-row">
-                    <div className="ld-skeleton-cell" style={{ width: "8%", marginRight: "16px" }} />
-                    <div className="ld-skeleton-cell" style={{ width: "35%", marginRight: "16px" }} />
-                    <div className="ld-skeleton-cell" style={{ width: "15%", marginRight: "16px" }} />
-                    <div className="ld-skeleton-cell" style={{ width: "12%", marginRight: "16px" }} />
-                    <div className="ld-skeleton-cell" style={{ width: "15%", marginRight: "16px" }} />
-                    <div className="ld-skeleton-cell" style={{ width: "10%" }} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <table className="ld-table">
-                <thead>
-                  <tr>
-                    <th className="ld-th" style={{ width: "6%" }}>#</th>
-                    <th className="ld-th" style={{ width: "34%" }}>Repository</th>
-                    <th className="ld-th" style={{ width: "18%" }}>Category</th>
-                    <th className="ld-th" style={{ width: "14%" }}>Language</th>
-                    <th className="ld-th" style={{ width: "14%" }}>Sustainability</th>
-                    <th className="ld-th" style={{ width: "14%" }}>{rows[0]?.metricLabel || "Metric"}</th>
-                    <th className="ld-th" style={{ width: "10%" }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.slice(0, 10).map((row, idx) => (
-                    <tr key={row.repo_id || idx} className="ld-tr">
-                      <td className="ld-td" style={{ fontWeight: 600, color: "var(--text-muted)" }}>
-                        {idx + 1}
-                      </td>
-                      <td className="ld-td">
-                        <Link href={`/repo/${row.owner}/${row.name}`} className="ld-repo-link">
-                          {row.owner}/{row.name}
-                        </Link>
-                      </td>
-                      <td className="ld-td">
-                        <span style={{ fontSize: "11px", background: "var(--bg-elevated)", padding: "4px 8px", borderRadius: "6px", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
-                          {row.category}
-                        </span>
-                      </td>
-                      <td className="ld-td">
-                        <code style={{ fontSize: "12px", fontFamily: "monospace", color: "var(--text-primary)" }}>
-                          {row.language || "TypeScript"}
-                        </code>
-                      </td>
-                      <td className="ld-td">
-                        <div className="ld-badge-group">
-                          <HealthBadge label={row.sustainabilityLabel} />
-                        </div>
-                      </td>
-                      <td className="ld-td" style={{ fontWeight: 700, color: "var(--text-primary)" }}>
-                        {row.metricValue}
-                      </td>
-                      <td className="ld-td">
-                        <button
-                          onClick={() => triggerAuthModal(`pin ${row.owner}/${row.name} to your watchlist`)}
-                          className="ld-action-btn"
-                        >
-                          Pin
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {rows.length === 0 && (
-                    <tr>
-                      <td className="ld-td" colSpan={7} style={{ textAlign: "center", padding: "32px 0", color: "var(--text-muted)" }}>
-                        No repositories found in this category.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </section>
-
-        {/* ── SECTION 3: HOW IT WORKS / CAPABILITIES ── */}
+        {/* ── SECTION 3: HOW IT WORKS ── */}
         <section className="ld-how-section">
-          <h2 className="ld-section-title">Continuous Ingestion. Clear Signals.</h2>
-          <p className="ld-desc" style={{ textAlign: "center", marginBottom: "40px" }}>
+          <h2 className="ld-section-title" style={{ fontSize: "20px", fontWeight: 700, color: "#ffffff", textAlign: "center", marginBottom: "6px" }}>
+            Continuous Ingestion. Clear Signals.
+          </h2>
+          <p className="ld-desc" style={{ textAlign: "center", marginBottom: "32px" }}>
             Repodar processes the global software landscape to protect your infrastructure dependencies.
           </p>
 
@@ -721,16 +755,18 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ── SECTION 4: SIMPLIFIED PRICING & CALLOUT ── */}
+        {/* ── SECTION 4: SIMPLIFIED PRICING ── */}
         <section className="ld-pricing">
-          <h2 className="ld-section-title" style={{ marginBottom: "8px" }}>Ecosystem tracking is free.</h2>
+          <h2 className="ld-section-title" style={{ fontSize: "20px", fontWeight: 700, color: "#ffffff", marginBottom: "6px" }}>
+            Ecosystem tracking is free.
+          </h2>
           <p className="ld-desc">Upgrade when you need alerts and personalized workflows.</p>
 
           <div className="ld-pricing-grid">
             <div className="ld-pricing-card">
               <div className="ld-pricing-name">Explorer</div>
               <div className="ld-pricing-price">$0</div>
-              <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "-8px" }}>Free forever · No credit card required</div>
+              <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "-8px", marginBottom: "12px" }}>Free forever · No credit card required</div>
               <ul className="ld-pricing-features">
                 <li>Access to Ecosystem HUD</li>
                 <li>Access to weekly AI analysis reports</li>
@@ -744,9 +780,9 @@ export default function LandingPage() {
             </div>
 
             <div className="ld-pricing-card featured">
-              <div className="ld-pricing-name" style={{ color: "var(--accent-green)" }}>Pro Dashboard</div>
+              <div className="ld-pricing-name" style={{ color: "var(--accent-yellow)" }}>Pro Dashboard</div>
               <div className="ld-pricing-price">$12<span style={{ fontSize: "12px", fontWeight: "normal", color: "var(--text-secondary)" }}> / mo</span></div>
-              <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "-8px" }}>Billed monthly · Cancel anytime</div>
+              <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "-8px", marginBottom: "12px" }}>Billed monthly · Cancel anytime</div>
               <ul className="ld-pricing-features">
                 <li>Everything in Explorer</li>
                 <li>Custom star/fork acceleration alerts</li>
