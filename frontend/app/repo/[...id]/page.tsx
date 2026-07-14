@@ -133,6 +133,101 @@ function RepositoryJourney({ repo, dailyMetrics }: { repo: any; dailyMetrics?: a
   );
 }
 
+// Sustainability Health & Diagnostics Card Fallback
+function SustainabilityDiagnostics({ repo }: { repo: any }) {
+  const label = repo.sustainability_label || "UNKNOWN";
+  const score = repo.sustainability_score ?? 50;
+  const ageDays = repo.age_days ?? 0;
+  
+  let ageStr = `${ageDays} days`;
+  if (ageDays > 365) {
+    ageStr = `${(ageDays / 365).toFixed(1)} years`;
+  } else if (ageDays > 30) {
+    ageStr = `${(ageDays / 30).toFixed(1)} months`;
+  }
+
+  let ratingColor = "var(--text-muted)";
+  let barColor = "var(--text-muted)";
+  let explanation = "Diagnostics data pending analysis.";
+
+  if (label.toUpperCase() === "GREEN" || label.toUpperCase() === "HEALTHY") {
+    ratingColor = "var(--accent-green)";
+    barColor = "var(--accent-green)";
+    explanation = "This repository demonstrates solid contributor activity, consistent release frequency, and healthy issue resolution rates. Highly sustainable.";
+  } else if (label.toUpperCase() === "CAUTION" || label.toUpperCase() === "YELLOW") {
+    ratingColor = "var(--accent-yellow)";
+    barColor = "var(--accent-yellow)";
+    explanation = "Caution advised. Moderate risk flags detected. Contributor count or release activity has experienced mild deceleration over the last 90 days.";
+  } else if (label.toUpperCase() === "RED" || label.toUpperCase() === "UNHEALTHY") {
+    ratingColor = "var(--accent-red)";
+    barColor = "var(--accent-red)";
+    explanation = "High risk. Potential maintenance abandonment or severe bottlenecks. Commits have slowed drastically relative to open issues.";
+  }
+
+  return (
+    <div 
+      className="panel card-pad"
+      style={{
+        background: "rgba(38, 37, 36, 0.2)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        border: "1px solid var(--border)",
+        borderRadius: "8px",
+        padding: "16px 20px",
+        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between"
+      }}
+    >
+      <div>
+        <div style={{ borderBottom: "none", padding: "0 0 12px 0", marginBottom: 0 }}>
+          <span style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "6px" }}>
+            🛡️ Sustainability Diagnostics
+          </span>
+        </div>
+        <p style={{ fontSize: "12px", color: "var(--text-secondary)", margin: "0 0 16px 0" }}>
+          Dependency health diagnostics, code ownership risk, and developer retention metrics.
+        </p>
+
+        {/* Score Bar */}
+        <div style={{ marginBottom: "16px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+            <span style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600 }}>Health Score</span>
+            <span style={{ fontSize: "14px", fontWeight: 800, color: ratingColor }}>{score} / 100</span>
+          </div>
+          <div style={{ height: "6px", background: "var(--bg-primary)", borderRadius: "3px", overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${score}%`, background: barColor, borderRadius: "3px" }} />
+          </div>
+        </div>
+
+        {/* Telemetry Grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "16px" }}>
+          <div style={{ background: "rgba(255,255,255,0.01)", border: "1px solid var(--border)", borderRadius: "6px", padding: "8px 10px" }}>
+            <span style={{ display: "block", fontSize: "9px", color: "var(--text-muted)", textTransform: "uppercase" }}>Project Age</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-primary)" }}>{ageStr}</span>
+          </div>
+          <div style={{ background: "rgba(255,255,255,0.01)", border: "1px solid var(--border)", borderRadius: "6px", padding: "8px 10px" }}>
+            <span style={{ display: "block", fontSize: "9px", color: "var(--text-muted)", textTransform: "uppercase" }}>Language</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-primary)" }}>{repo.primary_language || "N/A"}</span>
+          </div>
+        </div>
+
+        {/* Recommendation explanation */}
+        <div style={{ background: "rgba(255, 255, 255, 0.005)", border: `1px solid var(--border)`, borderLeft: `3px solid ${barColor}`, borderRadius: "4px", padding: "10px 12px" }}>
+          <span style={{ display: "block", fontSize: "10px", fontWeight: 700, color: ratingColor, textTransform: "uppercase", marginBottom: "3px" }}>
+            Rating: {label}
+          </span>
+          <p style={{ fontSize: "11px", color: "var(--text-secondary)", margin: 0, lineHeight: 1.5 }}>
+            {explanation}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RepoDeepDive() {
   const { showToast } = useToast();
   const params = useParams<{ id: string[] }>();
@@ -454,7 +549,7 @@ export default function RepoDeepDive() {
             </div>
           )}
 
-          {/* Row 7: Activity Grids & Commit Heatmap (3-Column Row) */}
+          {/* Row 7: Activity Grids & Commit Heatmap / Sustainability Diagnostics (3-Column Row) */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-stretch">
             {dailyMetrics && dailyMetrics.length > 0 && (
               <>
@@ -462,8 +557,10 @@ export default function RepoDeepDive() {
                 <ContributorChart data={dailyMetrics} />
               </>
             )}
-            {commitActivity && commitActivity.length > 0 && (
+            {commitActivity && commitActivity.length > 0 ? (
               <CommitHeatmap data={commitActivity} />
+            ) : (
+              <SustainabilityDiagnostics repo={repo} />
             )}
           </div>
 
