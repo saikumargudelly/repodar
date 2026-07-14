@@ -3,6 +3,7 @@
 import { useState, Suspense, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { useAuthSession } from "@/lib/useAuthSession";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, Radar,
   LineChart, Line,
@@ -298,6 +299,7 @@ function ShareBar({ ids }: { ids: string[] }) {
 function ComparePageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { isSignedIn } = useAuthSession();
   const initialIds = (searchParams.get("repos") ?? searchParams.get("ids") ?? "")
     .split(",")
     .filter((x) => /^[^/\s]+\/[^/\s]+$/.test(x.trim()));
@@ -322,6 +324,10 @@ function ComparePageInner() {
   }, [histories]);
 
   const addRepo = (id: string) => {
+    if (!isSignedIn) {
+      router.push(`/sign-in?redirect_url=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+      return;
+    }
     if (!ids.includes(id) && ids.length < 5) {
       const next = [...ids, id];
       setIds(next);

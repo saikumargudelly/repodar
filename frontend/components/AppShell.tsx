@@ -20,8 +20,16 @@ const PUBLIC_PREFIXES = [
   "/post-auth",
   "/onboarding",
   "/repo",
-  "/collections",
-  "/settings",
+  "/leaderboard",
+  "/explore",
+  "/compare",
+  "/weekly",
+  "/topics",
+  "/search",
+  "/docs",
+  "/changelog",
+  "/privacy",
+  "/terms",
 ];
 
 const NO_SHELL_PREFIXES = [
@@ -31,6 +39,10 @@ const NO_SHELL_PREFIXES = [
   "/sso-callback",
   "/post-auth",
   "/onboarding",
+  "/docs",
+  "/changelog",
+  "/privacy",
+  "/terms",
 ];
 
 function isPublicPath(pathname: string): boolean {

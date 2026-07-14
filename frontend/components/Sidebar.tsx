@@ -799,6 +799,27 @@ export function Sidebar() {
           )}
         </div>
       )}
+
+      {authLoaded && !userId && (
+        <div style={{ borderTop: "1px solid var(--border)", padding: collapsed && !isMobile ? "12px 6px 36px 6px" : "16px 12px 36px 12px", flexShrink: 0 }}>
+          <Link
+            href="/sign-in"
+            style={{
+              display: "block",
+              textAlign: "center",
+              fontSize: "12px",
+              fontWeight: 600,
+              padding: "8px 12px",
+              borderRadius: "6px",
+              background: "linear-gradient(135deg, #d29922 0%, #b07e15 100%)",
+              color: "var(--bg-primary)",
+              textDecoration: "none",
+            }}
+          >
+            {collapsed && !isMobile ? "🔑" : "Sign In"}
+          </Link>
+        </div>
+      )}
     </>
   );
 
