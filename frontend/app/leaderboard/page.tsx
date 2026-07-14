@@ -83,7 +83,6 @@ function LeaderboardAndNetworkContent() {
   const { data: overviewData } = useQuery({
     queryKey: ["overview"],
     queryFn: api.getOverview,
-    enabled: activeTab === "leaderboard",
     staleTime: 10 * 60 * 1000,
   });
 
@@ -250,7 +249,7 @@ function LeaderboardAndNetworkContent() {
             color: C.textSub
           }}>
             <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: C.green }} />
-            Live · 1,301 repos
+            Live · {overviewData?.total_repos !== undefined ? `${overviewData.total_repos.toLocaleString()} repos` : "— repos"}
           </span>
         </div>
 
