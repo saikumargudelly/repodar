@@ -105,6 +105,8 @@ export function StickyMetricsBar({
           interpretationColor={getTrendColor()}
           evidence={`Score: ${repo.trend_score?.toFixed(4) ?? "—"} (${trendChangePct >= 0 ? "+" : ""}${trendChangePct.toFixed(1)}% vs snapshot)`}
           source="Based on: Cumulative Trend Formula"
+          tooltip="A weighted 0-1 composite score of growth, commits, and releases, log-damped by project age."
+          docsHash="trend-score"
         />
         <MetricCard
           label="Stars / day (7d)"
@@ -112,6 +114,8 @@ export function StickyMetricsBar({
           interpretationColor={getVelocityColor(repo.star_velocity_7d ?? 0)}
           evidence={`+${Math.round(repo.star_velocity_7d ?? 0).toLocaleString()}/day (${velChangePct >= 0 ? "+" : ""}${velChangePct.toFixed(0)}% vs last week)`}
           source="Based on: 7-Day Star Velocity"
+          tooltip="The normalized daily average star acquisition rate over a 7-day window."
+          docsHash="star-velocity"
         />
         <MetricCard
           label="Acceleration"
@@ -119,6 +123,8 @@ export function StickyMetricsBar({
           interpretationColor={getAccelColor(repo.acceleration ?? 0)}
           evidence={`Rate: ${repo.acceleration?.toFixed(4) ?? "—"}`}
           source="Based on: Star Velocity Acceleration"
+          tooltip="The rate of change in star velocity over 7 days vs 30 days."
+          docsHash="trend-score"
         />
         <MetricCard
           label="Sustainability"
@@ -126,12 +132,16 @@ export function StickyMetricsBar({
           interpretationColor={getSustainabilityColor(repo.sustainability_score ?? 0)}
           evidence={`Distribution index: ${(repo.sustainability_score * 100).toFixed(0)}%`}
           source="Based on: Gini Index Commit Share"
+          tooltip="Overall maintenance rating based on active contributor trends, issue closures, and release frequency."
+          docsHash="sustainability"
         />
         <MetricCard
           label="Fork / star ratio"
           interpretation={getForkInterpretation(repo.fork_to_star_ratio ?? 0)}
           evidence={`Ratio: ${repo.fork_to_star_ratio?.toFixed(3) ?? "—"} (${forkCount.toLocaleString()} forks)`}
           source="Based on: Fork to Star Ratio"
+          tooltip="Proportion of forks to stars. Higher ratios indicate downstream developer adoption."
+          docsHash="health-score"
         />
         <MetricCard
           label="Total stars"
@@ -139,6 +149,8 @@ export function StickyMetricsBar({
           interpretationColor="var(--accent-green)"
           evidence={`${starCount.toLocaleString()} stars (+${deltaToday.toLocaleString()} today)`}
           source="Based on: Cumulative Star Metrics"
+          tooltip="Cumulative GitHub stars indexed over the repository's entire lifecycle."
+          docsHash="star-velocity"
         />
       </div>
     </div>

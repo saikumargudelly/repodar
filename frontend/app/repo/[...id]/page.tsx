@@ -1,6 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthSession } from "@/lib/useAuthSession";
@@ -194,7 +195,12 @@ function SustainabilityDiagnostics({ repo }: { repo: any }) {
         {/* Score Bar */}
         <div style={{ marginBottom: "16px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-            <span style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600 }}>Health Score</span>
+            <span 
+              style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600, cursor: "help", borderBottom: "1px dotted var(--border)" }}
+              title="Overall maintenance score calculated from active contributor retention (30%), issue close rates (30%), release frequency (20%), and fork-to-star ratio (20%)."
+            >
+              Health Score <Link href="/docs#health-score" style={{ color: "var(--accent-yellow)", textDecoration: "none", fontSize: "9px", textTransform: "none", fontWeight: "normal" }}>(?)</Link>
+            </span>
             <span style={{ fontSize: "14px", fontWeight: 800, color: ratingColor }}>{score} / 100</span>
           </div>
           <div style={{ height: "6px", background: "var(--bg-primary)", borderRadius: "3px", overflow: "hidden" }}>

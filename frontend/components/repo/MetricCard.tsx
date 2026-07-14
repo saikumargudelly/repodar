@@ -8,6 +8,8 @@ interface MetricCardProps {
   interpretationColor?: string;
   evidence: string;
   source: string;
+  tooltip?: string;
+  docsHash?: string;
 }
 
 export function MetricCard({
@@ -16,6 +18,8 @@ export function MetricCard({
   interpretationColor,
   evidence,
   source,
+  tooltip,
+  docsHash,
 }: MetricCardProps) {
   return (
     <div 
@@ -43,10 +47,26 @@ export function MetricCard({
             fontWeight: 600, 
             textTransform: "uppercase", 
             letterSpacing: "0.05em",
-            marginBottom: "8px" 
+            marginBottom: "8px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between"
           }}
         >
-          {label}
+          <span 
+            style={{ cursor: tooltip ? "help" : "default", borderBottom: tooltip ? "1px dotted var(--border)" : "none" }}
+            title={tooltip}
+          >
+            {label}
+          </span>
+          {docsHash && (
+            <a 
+              href={`/docs#${docsHash}`} 
+              style={{ color: "var(--accent-yellow)", textDecoration: "none", fontSize: "10px" }}
+            >
+              (?)
+            </a>
+          )}
         </div>
         <div 
           style={{ 

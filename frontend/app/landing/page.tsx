@@ -707,8 +707,43 @@ export default function LandingPage() {
                     <tr>
                       <th className="ld-th" style={{ width: "8%" }}>#</th>
                       <th className="ld-th" style={{ width: "45%" }}>Repository</th>
-                      <th className="ld-th" style={{ width: "25%" }}>Sustainability</th>
-                      <th className="ld-th" style={{ width: "22%" }}>{rows[0]?.metricLabel || "Metric"}</th>
+                      <th className="ld-th" style={{ width: "25%" }}>
+                        <span 
+                          style={{ cursor: "help", borderBottom: "1px dotted var(--text-muted)" }} 
+                          title="Overall maintenance health rating based on active contributor trends, issue closures, and release frequency."
+                        >
+                          Sustainability
+                        </span>
+                        <Link href="/docs#sustainability" style={{ marginLeft: "4px", fontSize: "10px", color: "var(--accent-yellow)", textDecoration: "none" }}>(?)</Link>
+                      </th>
+                      <th className="ld-th" style={{ width: "22%" }}>
+                        {(() => {
+                          const metricTitle = rows[0]?.metricLabel || "Metric";
+                          let tooltip = "Repository growth metric.";
+                          let hash = "";
+                          if (metricTitle === "7D Delta") {
+                            tooltip = "Average daily star growth over the last 7 days.";
+                            hash = "star-velocity";
+                          } else if (metricTitle === "Breakout Score") {
+                            tooltip = "Traction indicator identifying pre-viral surge potential relative to baseline size.";
+                            hash = "breakout-score";
+                          } else if (metricTitle === "Novelty Score") {
+                            tooltip = "Repository age index (near 1.0 for new projects under 180 days, scaling down for older projects).";
+                            hash = "novelty-score";
+                          }
+                          return (
+                            <>
+                              <span 
+                                style={{ cursor: "help", borderBottom: "1px dotted var(--text-muted)" }} 
+                                title={tooltip}
+                              >
+                                {metricTitle}
+                              </span>
+                              <Link href={`/docs#${hash}`} style={{ marginLeft: "4px", fontSize: "10px", color: "var(--accent-yellow)", textDecoration: "none" }}>(?)</Link>
+                            </>
+                          );
+                        })()}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -811,8 +846,11 @@ export default function LandingPage() {
 
               {/* Live Category metrics list */}
               <div className="ld-mock-categories">
-                <div style={{ fontSize: "10px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.02em" }}>
-                  Category Accelerations
+                <div 
+                  style={{ fontSize: "10px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.02em", cursor: "help", borderBottom: "1px dotted rgba(255,255,255,0.05)", marginBottom: "4px" }}
+                  title="Traction rate shift determined by comparing the last 7 days of star gains against the 30-day baseline average."
+                >
+                  Category Accelerations <Link href="/docs#momentum" style={{ color: "var(--accent-yellow)", textDecoration: "none", fontSize: "9px" }}>(?)</Link>
                 </div>
                 {overviewLoading ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -825,7 +863,11 @@ export default function LandingPage() {
                     <div key={idx} className="ld-mock-cat-row">
                       <div className="ld-mock-cat-header">
                         <span className="ld-mock-cat-name">{cat.category}</span>
-                        <span className="ld-mock-cat-growth" style={{ color: cat.mom_growth_pct >= 0 ? "var(--accent-green)" : "var(--accent-red)" }}>
+                        <span 
+                          className="ld-mock-cat-growth" 
+                          style={{ color: cat.mom_growth_pct >= 0 ? "var(--accent-green)" : "var(--accent-red)", cursor: "help" }}
+                          title="Month-over-month growth rate of star velocity in this category."
+                        >
                           {cat.mom_growth_pct >= 0 ? "+" : ""}{cat.mom_growth_pct.toFixed(1)}% MOM
                         </span>
                       </div>
