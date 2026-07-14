@@ -382,7 +382,25 @@ export default function RepoDeepDive() {
 
   return (
     <div className="page-root page-fade-in" style={{ display: "flex", flexDirection: "column", gap: "20px", paddingBottom: "40px" }}>
-      
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "SoftwareSourceCode",
+            "name": `${repo.owner}/${repo.name}`,
+            "codeRepository": `https://github.com/${repo.owner}/${repo.name}`,
+            "programmingLanguage": repo.primary_language || "TypeScript",
+            "runtimePlatform": repo.category || "General",
+            "description": repo.repo_summary || repo.description || "",
+            "interactionStatistic": {
+              "@type": "InteractionCounter",
+              "interactionType": "https://schema.org/LikeAction",
+              "userInteractionCount": repo.stars || 0
+            }
+          })
+        }}
+      />
       {/* Row 1: Repository Hero & Snapshot Summary */}
       <RepoHeader 
         repo={repo} 

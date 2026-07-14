@@ -28,6 +28,9 @@ export async function generateMetadata({ params }: { params: Promise<{ weekId: s
   return {
     title,
     description,
+    alternates: {
+      canonical: `${SITE_URL}/weekly/${weekId}`,
+    },
     openGraph: {
       title: `${title} | Repodar`,
       description,
