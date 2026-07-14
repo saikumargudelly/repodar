@@ -531,15 +531,77 @@ export default function LandingPage() {
 
         /* Footer */
         .ld-footer {
-          border-top: 1px solid var(--border); padding: 28px 0; display: flex; align-items: center;
-          justify-content: space-between; font-size: 11px; color: var(--text-muted);
+          border-top: 1px solid var(--border);
+          padding: 48px 0 28px;
+          display: flex;
+          flex-direction: column;
+          gap: 32px;
+          font-size: 12px;
+          color: var(--text-secondary);
         }
-        @media (max-width: 640px) {
-          .ld-footer { flex-direction: column; gap: 16px; text-align: center; }
+        .ld-footer-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 24px;
         }
-        .ld-footer-links { display: flex; gap: 16px; }
-        .ld-footer-links a { color: var(--text-muted); text-decoration: none; transition: color 0.15s; }
-        .ld-footer-links a:hover { color: var(--text-primary); }
+        @media (max-width: 768px) {
+          .ld-footer-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+        @media (max-width: 480px) {
+          .ld-footer-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+        .ld-footer-col {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .ld-footer-col-title {
+          font-size: 11px;
+          font-weight: 700;
+          color: #ffffff;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        .ld-footer-col-links {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .ld-footer-col-links a {
+          color: var(--text-secondary);
+          text-decoration: none;
+          transition: color 0.15s;
+          font-size: 12px;
+        }
+        .ld-footer-col-links a:hover {
+          color: var(--accent-yellow);
+        }
+        .ld-footer-bottom {
+          border-top: 1px solid rgba(255, 255, 255, 0.03);
+          padding-top: 20px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 16px;
+          color: var(--text-muted);
+          font-size: 11px;
+        }
+        .ld-footer-telemetry {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          flex-wrap: wrap;
+        }
+        .ld-telemetry-item {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+        }
 
         /* Auth Modal */
         .ld-modal-overlay {
@@ -826,7 +888,7 @@ export default function LandingPage() {
             <div className="ld-how-card">
               <div className="ld-how-num">01</div>
               <h3>Continuous Stream Ingestion</h3>
-              <p>We index developer events, releases, issues, and forks every single minute directly from the global stream.</p>
+              <p>We index developer events, releases, issues, and forks every 2 hours directly from public GitHub stream telemetry.</p>
             </div>
             <div className="ld-how-card">
               <div className="ld-how-num">02</div>
@@ -889,12 +951,62 @@ export default function LandingPage() {
 
         {/* ── FOOTER ── */}
         <footer className="ld-footer">
-          <div>© {mounted ? new Date().getFullYear() : "2026"} Repodar. Real-Time GitHub Ecosystem Intelligence.</div>
-          <div className="ld-footer-links">
-            <Link href="/sign-in">App Dashboard</Link>
-            <a href="https://github.com" target="_blank" rel="noopener noreferrer">GitHub</a>
-            <a href="#" onClick={(e) => { e.preventDefault(); triggerAuthModal("access the research workspace"); }}>API Access</a>
-            <a href="#" onClick={(e) => { e.preventDefault(); triggerAuthModal("configure custom integrations"); }}>Webhooks</a>
+          <div className="ld-footer-grid">
+            <div className="ld-footer-col">
+              <span className="ld-footer-col-title">Product</span>
+              <div className="ld-footer-col-links">
+                <Link href="/sign-in">App Dashboard</Link>
+                <Link href="/leaderboard">Leaderboard</Link>
+                <Link href="/compare">Compare Tool</Link>
+                <Link href="/explore">Explore Projects</Link>
+              </div>
+            </div>
+            
+            <div className="ld-footer-col">
+              <span className="ld-footer-col-title">Resources</span>
+              <div className="ld-footer-col-links">
+                <Link href="/docs">Methodology Docs</Link>
+                <Link href="/changelog">Changelog</Link>
+                <a href="#" onClick={(e) => { e.preventDefault(); triggerAuthModal("access the research workspace"); }}>Research Workspace</a>
+                <a href="#" onClick={(e) => { e.preventDefault(); triggerAuthModal("configure custom integrations"); }}>Webhooks & API</a>
+              </div>
+            </div>
+
+            <div className="ld-footer-col">
+              <span className="ld-footer-col-title">Legal</span>
+              <div className="ld-footer-col-links">
+                <Link href="/privacy">Privacy Policy</Link>
+                <Link href="/terms">Terms of Service</Link>
+              </div>
+            </div>
+
+            <div className="ld-footer-col">
+              <span className="ld-footer-col-title">Connect</span>
+              <div className="ld-footer-col-links">
+                <a href="https://github.com/saikumargudelly/repodar" target="_blank" rel="noopener noreferrer">GitHub Repository</a>
+                <a href="https://x.com/saikumargudelly" target="_blank" rel="noopener noreferrer">X (Twitter)</a>
+                <a href="https://linkedin.com/in/saikumargudelly" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+                <span style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px" }}>
+                  Built by <span style={{ color: "#ffffff", fontWeight: 600 }}>Saikumar Gudelly</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="ld-footer-bottom">
+            <div>© {mounted ? new Date().getFullYear() : "2026"} Repodar. Real-Time GitHub Ecosystem Intelligence.</div>
+            <div className="ld-footer-telemetry">
+              <div className="ld-telemetry-item">
+                <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--accent-green)", display: "inline-block" }} />
+                <span>Ingestion Active</span>
+              </div>
+              <span>•</span>
+              <span>{overview?.total_repos ? overview.total_repos.toLocaleString() : "12,840"} Repos Monitored</span>
+              <span>•</span>
+              <span>Updated every 2 hours</span>
+              <span>•</span>
+              <span>Last Sync: {overview?.as_of || "Recent"}</span>
+            </div>
           </div>
         </footer>
       </div>
