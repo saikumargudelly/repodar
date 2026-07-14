@@ -175,7 +175,7 @@ export default function LandingPage() {
 
         /* Main Container */
         .ld-container {
-          max-width: 1200px; margin: 0 auto; padding: 90px 2rem 60px;
+          max-width: 1440px; margin: 0 auto; padding: 90px 2rem 60px;
         }
         @media (max-width: 640px) {
           .ld-container { padding: 80px 1rem 40px; }
@@ -515,7 +515,7 @@ export default function LandingPage() {
           background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px;
           padding: 36px; text-align: center; margin-bottom: 56px;
         }
-        .ld-pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 800px; margin: 28px auto 0; text-align: left; }
+        .ld-pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 1000px; margin: 28px auto 0; text-align: left; }
         @media (max-width: 640px) {
           .ld-pricing-grid { grid-template-columns: 1fr; }
         }
