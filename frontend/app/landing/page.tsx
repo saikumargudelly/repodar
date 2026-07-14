@@ -423,6 +423,67 @@ export default function LandingPage() {
           border-radius: 2px;
         }
 
+        /* Mockup Alerts stream */
+        .ld-mock-alerts {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          border-top: 1px solid var(--border);
+          padding-top: 14px;
+          margin-top: 6px;
+        }
+        .ld-mock-alert-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: rgba(255, 255, 255, 0.015);
+          border: 1px dashed var(--border);
+          border-radius: 6px;
+          padding: 6px 10px;
+          font-family: monospace;
+          font-size: 10px;
+        }
+        .ld-mock-alert-time {
+          color: var(--text-muted);
+          flex-shrink: 0;
+        }
+        .ld-mock-alert-badge {
+          font-size: 8px;
+          font-weight: 700;
+          padding: 1px 4px;
+          border-radius: 4px;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+          flex-shrink: 0;
+        }
+        .ld-mock-alert-badge.spike {
+          background: rgba(210, 153, 34, 0.1);
+          border: 1px solid rgba(210, 153, 34, 0.2);
+          color: var(--accent-yellow);
+        }
+        .ld-mock-alert-badge.gem {
+          background: rgba(63, 185, 80, 0.1);
+          border: 1px solid rgba(63, 185, 80, 0.2);
+          color: var(--accent-green);
+        }
+        .ld-mock-alert-badge.risk {
+          background: rgba(248, 81, 73, 0.1);
+          border: 1px solid rgba(248, 81, 73, 0.2);
+          color: var(--accent-red);
+        }
+        .ld-mock-alert-repo {
+          color: #ffffff;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-weight: 600;
+        }
+        .ld-mock-alert-details {
+          color: var(--text-muted);
+          margin-left: auto;
+          flex-shrink: 0;
+        }
+
         /* Skeletons */
         .ld-skeleton-row { height: 38px; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 14px; }
         .ld-skeleton-cell { background: var(--bg-elevated); border-radius: 3px; height: 12px; animation: pulse 1.5s infinite; }
@@ -722,6 +783,31 @@ export default function LandingPage() {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Live Radar Event Stream Mockup */}
+              <div className="ld-mock-alerts">
+                <div style={{ fontSize: "10px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.02em", marginBottom: "2px" }}>
+                  Live Radar Event Stream
+                </div>
+                <div className="ld-mock-alert-row">
+                  <span className="ld-mock-alert-time">18m ago</span>
+                  <span className="ld-mock-alert-badge spike">Star Spike</span>
+                  <span className="ld-mock-alert-repo">MadsLorentzen/ai-job-search</span>
+                  <span className="ld-mock-alert-details">+15,420★</span>
+                </div>
+                <div className="ld-mock-alert-row">
+                  <span className="ld-mock-alert-time">2h ago</span>
+                  <span className="ld-mock-alert-badge risk">Risk Alert</span>
+                  <span className="ld-mock-alert-repo">iOfficeAI/OfficeCLI</span>
+                  <span className="ld-mock-alert-details">Low Commits</span>
+                </div>
+                <div className="ld-mock-alert-row">
+                  <span className="ld-mock-alert-time">5h ago</span>
+                  <span className="ld-mock-alert-badge gem">Gem Detect</span>
+                  <span className="ld-mock-alert-repo">abseil/abseil-cpp</span>
+                  <span className="ld-mock-alert-details">+621★</span>
+                </div>
               </div>
             </div>
           </div>
