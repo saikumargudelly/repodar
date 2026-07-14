@@ -81,9 +81,9 @@ def _generate_strategic_insight(
     Uses Groq to generate a 3–5 sentence strategic insight summary.
     Falls back to a rule-based template if Groq is unavailable.
     """
-    from app.services.explanation import client as groq_client
+    from app.utils.llm import GROQ_API_KEY
 
-    if not groq_client:
+    if not GROQ_API_KEY:
         return "Strategic insight unavailable: Groq API key not configured."
 
     top_str = "\n".join(
