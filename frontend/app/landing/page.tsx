@@ -781,8 +781,12 @@ export default function LandingPage() {
 
             <div className="ld-pricing-card featured">
               <div className="ld-pricing-name" style={{ color: "var(--accent-yellow)" }}>Pro Dashboard</div>
-              <div className="ld-pricing-price">$12<span style={{ fontSize: "12px", fontWeight: "normal", color: "var(--text-secondary)" }}> / mo</span></div>
-              <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "-8px", marginBottom: "12px" }}>Billed monthly · Cancel anytime</div>
+              <div className="ld-pricing-price">
+                <span style={{ textDecoration: "line-through", opacity: 0.5, marginRight: "8px", fontSize: "18px", fontWeight: "normal" }}>$12</span>
+                $0
+                <span style={{ fontSize: "12px", fontWeight: "normal", color: "var(--text-secondary)" }}> / mo</span>
+              </div>
+              <div style={{ fontSize: "11px", color: "var(--accent-yellow)", marginTop: "-8px", marginBottom: "12px", fontWeight: 600 }}>Beta Promotion · Free during beta</div>
               <ul className="ld-pricing-features">
                 <li>Everything in Explorer</li>
                 <li>Custom star/fork acceleration alerts</li>
@@ -791,7 +795,7 @@ export default function LandingPage() {
                 <li>Full 90-day historical timeseries data</li>
               </ul>
               <Link href="/sign-up" className="ld-btn-solid" style={{ display: "block", textAlign: "center", marginTop: "16px" }}>
-                Upgrade to Pro
+                Get Free Pro Access
               </Link>
             </div>
           </div>
