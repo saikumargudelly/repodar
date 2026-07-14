@@ -20,8 +20,8 @@ export default function Logo({ size = 28, className = "", showText = false, text
       >
         <defs>
           <linearGradient id="repodar-grad" x1="0%" y1="100%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#0052FF" />
-            <stop offset="100%" stopColor="#00D48A" />
+            <stop offset="0%" stopColor="#d29922" />
+            <stop offset="100%" stopColor="#f5b041" />
           </linearGradient>
         </defs>
         
