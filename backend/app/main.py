@@ -474,21 +474,38 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
-# CORS — allow frontend dev server and production domain
+# CORS — allow frontend dev server and production domains
 origins_env = os.getenv("ALLOWED_ORIGINS")
 if origins_env:
     allowed_origins = [o.strip() for o in origins_env.split(",") if o.strip()]
 else:
     allowed_origins = [
+        # Local development
         "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        # Vercel production + preview deployments
         "https://repodar.vercel.app",
+        "https://repodar-git-main-saikumargudellys-projects.vercel.app",
+        # Railway
         "https://repodar.up.railway.app",
+        # Custom domains
         "https://repodar.io",
+        "https://www.repodar.io",
+        "https://repodar-fastapi.duckdns.org",
     ]
+
+# Also allow Vercel preview URLs (*.vercel.app) via regex matching
+allowed_origin_regex = os.getenv(
+    "ALLOWED_ORIGIN_REGEX",
+    r"https://repodar.*\.vercel\.app",
+)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    allow_origin_regex=allowed_origin_regex,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     # Explicit allowlist — never use ["*"] with allow_credentials=True
