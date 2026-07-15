@@ -7,7 +7,7 @@ category-level strength scoring, and ecosystem report generation.
 import json
 import asyncio
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
