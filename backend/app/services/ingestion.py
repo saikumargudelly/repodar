@@ -266,10 +266,14 @@ def _get_active_repos_sync() -> tuple[list[dict], dict[str, str]]:
 def _persist_daily_metrics_sync(metrics_list: list, today: date, now: datetime) -> tuple[dict, list]:
     db = SessionLocal()
     try:
-        # Phase 3 optimization: project only repo.id for the repo_map lookup.
-        # _persist_daily_metrics_sync accesses only r.id from this collection.
+        # Project all columns accessed during ingestion and high-momentum checks to prevent KeyErrors
         repos = db.query(
             Repository.id,
+            Repository.owner,
+            Repository.name,
+            Repository.primary_language,
+            Repository.topics,
+            Repository.stars_snapshot,
         ).filter(Repository.is_active == True).all()  # noqa: E712
         
         today_start = datetime.combine(today, datetime.min.time())
