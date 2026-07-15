@@ -38,8 +38,11 @@ from app.services.github_search import (
 logger = logging.getLogger(__name__)
 
 # Auto-discovered repos inactive after this many days without re-appearing
-# Reduced from 60 to 45 to recycle stale repos faster
-STALE_DAYS = 45
+# Increased to 90 days — popular repos can stay off trending for months and still be valuable
+STALE_DAYS = 90
+
+# Repos with at least this many stars are NEVER auto-deactivated (they remain relevant)
+STALE_MIN_STARS_GUARD = 500
 
 # Discovery config: (period, vertical, limit) tuples.
 # Now includes 1d for all verticals to catch breaking news fast.
@@ -685,6 +688,8 @@ def deactivate_stale_repos() -> int:
                 Repository.source == "auto_discovered",
                 Repository.is_active == True,  # noqa: E712
                 Repository.last_seen_trending < cutoff,
+                # Never deactivate popular repos — they remain relevant even off trending
+                Repository.stars_snapshot < STALE_MIN_STARS_GUARD,
             )
             .all()
         )
