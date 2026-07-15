@@ -1195,7 +1195,7 @@ def get_category_metrics(
 
     Reads from the pre-aggregated `category_metrics_daily` cache when
     available (written at 00:30 UTC by run_daily_scoring), otherwise falls
-    back to live DuckDB computation.  Cache reads are ~10 ms vs ~200 ms live.
+    back to live SQLite/SQLAlchemy computation.  Cache reads are ~10 ms vs ~200 ms live.
     """
     days = PERIOD_DAYS.get(period, 7)
 

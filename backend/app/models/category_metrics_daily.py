@@ -4,7 +4,7 @@ the scoring pipeline (run_daily_scoring) and read by the dashboard.
 
 Why this table exists
 ──────────────────────
-Computing category growth on every API request requires DuckDB to JOIN
+Computing category growth on every API request requires SQLAlchemy/SQLite to JOIN
 daily_metrics × repositories (O(repos × days)).  Writing once per day
 at scoring time and reading from this cache makes dashboard endpoints
 respond in < 5 ms regardless of how many repos/days exist.

@@ -21,10 +21,16 @@ export const CATEGORY_PALETTE: Record<string, string> = {
   creative:     "#e85a9d", // pink
 
   // Friendly label aliases (spaces → underscore normalization)
-  "ai/ml":        "#58a6ff",
-  "web & mobile": "#d29922",
-  "data & infra": "#a371f7",
-  "oss tools":    "#8b949e",
+  "ai/ml":                  "#58a6ff",
+  "web & mobile":           "#d29922",
+  "data & infra":           "#a371f7",
+  "oss tools":              "#8b949e",
+  "model_context_protocol": "#22d3ee",
+  "model context protocol": "#22d3ee",
+  "agent_to_agent":         "#e85a9d",
+  "agent-to-agent":         "#e85a9d",
+  "data_engineering":       "#a371f7",
+  "data engineering":       "#a371f7",
 };
 
 /**

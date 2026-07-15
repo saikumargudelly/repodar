@@ -13,6 +13,7 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi_cache.decorator import cache
 
@@ -45,7 +46,7 @@ def get_recommendations(
         # Cold start: return top trending repos instead
         q = db.query(Repository).filter(Repository.is_active == True)  # noqa
         if category:
-            q = q.filter(Repository.category == category.lower())
+            q = q.filter(func.lower(Repository.category) == category.lower())
         repos = q.order_by(Repository.stars_snapshot.desc()).limit(limit).all()
         return [
             RecommendedRepo(
@@ -78,7 +79,7 @@ def get_recommendations(
         Repository.id.notin_(watchlist_repo_ids),
     )
     if category:
-        candidate_q = candidate_q.filter(Repository.category == category.lower())
+        candidate_q = candidate_q.filter(func.lower(Repository.category) == category.lower())
     candidates = candidate_q.limit(2000).all()  # reasonable pool size
     candidate_vectors = [repo_to_vector(r) for r in candidates]
 

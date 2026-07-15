@@ -841,20 +841,7 @@ def _infer_category(repo: dict) -> str:
     Categories are now dynamically constructed upstream. This is a basic fallback for UI grouping
     in the web dashboard if the repo doesn't strictly state a category.
     """
-    topics = set(repo.get("topics", []))
-    name   = (repo.get("name")        or "").lower()
-    desc   = (repo.get("description") or "").lower()
-    lang   = (repo.get("language")    or "").lower()
-    text   = name + " " + desc
-
-    if topics & {"react", "vue", "nextjs", "ios", "android", "frontend", "mobile"}:
-        return "Web & Mobile"
-    if topics & {"database", "infra", "kubernetes", "docker", "cloud", "aws", "gcp"}:
-        return "Data & Infra"
-    if topics & {"security", "crypto", "auth", "osint"}:
-        return "Security"
-    if "game" in text or topics & {"godot", "unity", "graphics"}:
-        return "Creative & Gaming"
-    
-    return "AI / ML"
+    from app.services.ecosystem import EcosystemClassifier
+    primary, _ = EcosystemClassifier.infer_category(repo)
+    return primary
 

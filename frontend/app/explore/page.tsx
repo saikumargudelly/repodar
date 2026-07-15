@@ -12,7 +12,12 @@ const CATEGORIES = [
   { id: "web", name: "Web" },
   { id: "devtools", name: "DevTools" },
   { id: "security", name: "Security" },
-  { id: "agents", name: "Agents" }
+  { id: "agents", name: "Agents" },
+  { id: "blockchain", name: "Blockchain" },
+  { id: "data_eng", name: "Data Engineering" },
+  { id: "mcp", name: "Model Context Protocol" },
+  { id: "a2a", name: "Agent-to-Agent" },
+  { id: "data_infra", name: "Data & Infra" }
 ];
 
 const LANGUAGES = [
@@ -40,7 +45,12 @@ const CATEGORY_MAP: Record<string, string[]> = {
   web: ["Web Frameworks"],
   devtools: ["DevTools"],
   security: ["Security"],
-  agents: ["Agent Frameworks"]
+  agents: ["Agent Frameworks"],
+  blockchain: ["Blockchain"],
+  data_eng: ["Data Engineering"],
+  mcp: ["Model Context Protocol"],
+  a2a: ["Agent-to-Agent"],
+  data_infra: ["Data & Infra"]
 };
 
 export default function ExplorePage() {

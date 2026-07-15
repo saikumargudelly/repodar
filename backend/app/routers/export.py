@@ -102,7 +102,7 @@ def export_repos(
     if active_only:
         q = q.filter(Repository.is_active == True)  # noqa
     if category:
-        q = q.filter(Repository.category == category.lower())
+        q = q.filter(func.lower(Repository.category) == category.lower())
     if min_stars is not None:
         q = q.filter(Repository.stars_snapshot >= min_stars)
 

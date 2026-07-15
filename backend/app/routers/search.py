@@ -436,91 +436,16 @@ def _normalize_github_item(item: dict) -> dict:
 
 
 def _infer_category(topics: List[str], language: Optional[str]) -> str:
-    t    = set(topics or [])
-    lang = (language or "").lower()
+    """
+    Delegate category inference to the centralized EcosystemClassifier.
+    """
+    from app.services.ecosystem import EcosystemClassifier
+    primary, _ = EcosystemClassifier.infer_category({
+        "topics": topics,
+        "primary_language": language
+    })
+    return primary
 
-    # AI/ML sub-categories (specific first)
-    if t & {"vector-database", "vector-search", "faiss", "weaviate", "pinecone",
-            "chroma", "chromadb", "hnswlib", "milvus", "qdrant", "annoy"}:
-        return "Vector Databases"
-    if t & {"ai-agent", "autonomous-agents", "langchain", "autogpt", "llm-agent",
-            "agent-framework", "multi-agent", "crewai", "llamaindex", "agentic"}:
-        return "Agent Frameworks"
-    if t & {"llm-inference", "vllm", "llama-cpp", "gguf", "tensorrt", "onnxruntime",
-            "triton-inference", "tgi", "tensorrt-llm", "deepspeed-inference"}:
-        return "Inference Engines"
-    if t & {"fine-tuning", "lora", "rlhf", "peft", "sft", "dpo", "qlora",
-            "instruction-tuning", "adapter"}:
-        return "Fine-tuning Toolkits"
-    if t & {"model-serving", "mlflow", "bentoml", "kubeflow",
-            "kfserving", "seldon", "model-registry"}:
-        return "Model Serving / Runtimes"
-    if t & {"distributed-training", "deepspeed", "horovod", "megatron",
-            "pytorch-lightning", "ray-train"}:
-        return "Distributed Compute / Infra"
-    if t & {"llm-evaluation", "benchmarks", "evals", "evaluation",
-            "llm-benchmark", "lm-eval", "helm"}:
-        return "Evaluation Frameworks"
-    if t & {"llm", "large-language-model", "gpt", "llama", "generative-ai",
-            "foundation-model", "causal-lm", "mistral", "gemini", "claude"}:
-        return "LLM Models"
-
-    # Blockchain (check before generic ML)
-    if t & {"blockchain", "ethereum", "smart-contracts", "web3", "defi",
-            "solidity", "nft", "layer2", "zero-knowledge", "dao",
-            "bitcoin", "solana", "cosmos", "cross-chain", "evm", "substrate"}:
-        return "Blockchain"
-    if lang == "solidity":
-        return "Blockchain"
-
-    # Security
-    if t & {"security", "cybersecurity", "vulnerability-scanner",
-            "penetration-testing", "devsecops", "cryptography",
-            "authentication", "zero-trust", "fuzzing", "reverse-engineering",
-            "malware-analysis", "osint", "network-security",
-            "supply-chain-security", "red-team", "exploit", "cve"}:
-        return "Security"
-
-    # Data Engineering
-    if t & {"data-engineering", "etl", "data-pipeline", "workflow-orchestration",
-            "apache-airflow", "streaming", "kafka", "spark", "data-lake",
-            "dbt", "data-warehouse", "flink", "delta-lake", "trino",
-            "presto", "databricks", "iceberg"}:
-        return "Data Engineering"
-
-    # Web Frameworks
-    if t & {"web-framework", "rest-api", "nodejs", "react", "vuejs", "svelte",
-            "fastapi", "nextjs", "django", "flask", "graphql", "grpc",
-            "microservices", "websocket", "typescript", "angular",
-            "nuxt", "remix", "htmx", "spring-boot", "rails"}:
-        return "Web Frameworks"
-
-    # DevTools
-    if t & {"developer-tools", "cli", "terminal", "code-editor", "productivity",
-            "devtools", "linter", "formatter", "language-server",
-            "vscode-extension", "debugging", "profiler", "neovim",
-            "shell", "git", "intellij-plugin", "tmux", "dotfiles"}:
-        return "DevTools"
-
-    # OSS Tools
-    if t & {"build-tool", "bundler", "package-manager", "testing",
-            "infrastructure", "observability", "ci-cd", "automation",
-            "orm", "api-client", "linting", "code-generation",
-            "documentation", "monorepo", "containerization",
-            "kubernetes", "terraform", "ansible", "opentelemetry",
-            "prometheus", "grafana", "docker", "helm", "pulumi"}:
-        return "OSS Tools"
-
-    # Broader AI/ML
-    if t & {"machine-learning", "deep-learning", "pytorch", "tensorflow",
-            "scikit-learn", "neural-network", "computer-vision", "nlp",
-            "multimodal", "diffusion-model", "huggingface", "rag",
-            "embeddings", "ai", "ml"}:
-        return "AI / ML"
-    if lang in ("python", "jupyter notebook") and t & {"model", "training", "dataset"}:
-        return "AI / ML"
-
-    return "Other"
 
 
 # ─── Sanitize LLM output ─────────────────────────────────────────────────────
