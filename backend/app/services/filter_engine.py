@@ -19,8 +19,9 @@ import logging
 from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import and_, or_, func
+from sqlalchemy import and_, or_, func, cast
 from sqlalchemy.orm import Query
+from sqlalchemy.dialects.postgresql import JSONB as PG_JSONB
 
 from app.models import Repository, ComputedMetric
 
@@ -157,7 +158,13 @@ class QueryBuilder:
 
         if dto.categories:
             cats = list(set(dto.categories + [c.lower() for c in dto.categories]))
-            q = q.filter(Repository.category.in_(cats))
+            if db.bind.dialect.name == "postgresql":
+                cat_conditions = [Repository.category.in_(cats)]
+                for cat in cats:
+                    cat_conditions.append(cast(Repository.categories, PG_JSONB).contains([cat]))
+                q = q.filter(or_(*cat_conditions))
+            else:
+                q = q.filter(Repository.category.in_(cats))
 
         if dto.sources:
             q = q.filter(Repository.source.in_(dto.sources))
@@ -176,7 +183,7 @@ class QueryBuilder:
             if db.bind.dialect.name == "postgresql":
                 # PostgreSQL GIN-indexed JSONB contains check
                 topic_conditions = [
-                    Repository.topics.contains([t]) for t in dto.topics
+                    cast(Repository.topics, PG_JSONB).contains([t]) for t in dto.topics
                 ]
                 q = q.filter(or_(*topic_conditions))
             else:
