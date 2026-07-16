@@ -1744,7 +1744,7 @@ li {
 
 /* Consistent page wrapper for all pages */
 .page-root {
-  padding-top: 24px;
+  padding: 24px 28px 0;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -1954,13 +1954,13 @@ li {
 
 /* ─── App Shell main content ─────────────────────────────── */
 .main-content {
-  padding: 0 28px 52px;
+  padding: 0 0 52px;
 }
 
 @media (max-width: 768px) {
   .main-content {
     /* Sidebar sets --sidebar-width to 0px on mobile */
-    padding: 0 8px 72px;
+    padding: 0 0 72px;
   }
 
   .status-bar-cyber {
@@ -1971,7 +1971,7 @@ li {
 
 @media (max-width: 480px) {
   .main-content {
-    padding: 0 8px 72px;
+    padding: 0 0 72px;
   }
 }
 
@@ -2006,7 +2006,7 @@ li {
 /* ─── Page root — tighter top padding on mobile ──────────── */
 @media (max-width: 768px) {
   .page-root {
-    padding-top: 16px;
+    padding: 16px 8px 0;
     gap: 16px;
   }
 
