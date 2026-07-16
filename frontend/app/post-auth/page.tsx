@@ -68,51 +68,49 @@ export default function PostAuthPage() {
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      background: "radial-gradient(circle at center, #111520 0%, #07090e 100%)",
-      color: "var(--color-text-primary, #e6edf3)",
+      background: "var(--bg-primary, #1e1d1c)",
+      color: "var(--text-primary, #e6edf3)",
       fontFamily: "var(--font-sans, system-ui)",
       padding: "24px",
     }}>
       <div style={{
         width: "100%",
         maxWidth: "420px",
-        background: "rgba(22, 27, 34, 0.45)",
-        backdropFilter: "blur(16px)",
-        border: "1px solid rgba(255, 255, 255, 0.08)",
-        borderRadius: "16px",
+        background: "var(--bg-surface, #262524)",
+        border: "1px solid var(--border, #31302f)",
+        borderRadius: "var(--card-radius, 10px)",
         padding: "32px",
         textAlign: "center",
-        boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
       }}>
         <div style={{ marginBottom: "24px" }}>
           <ProfessionalLoader size={60} />
         </div>
 
-
-        <h2 style={{ fontSize: "20px", fontWeight: 700, margin: "0 0 16px", letterSpacing: "-0.01em" }}>
+        <h2 style={{ fontSize: "20px", fontWeight: 700, margin: "0 0 16px", letterSpacing: "-0.01em", color: "var(--text-primary)" }}>
           Finalizing Workspace
         </h2>
 
         {/* Terminal status box */}
         <div style={{
-          background: "rgba(0, 0, 0, 0.4)",
-          border: "1px solid rgba(255, 255, 255, 0.05)",
+          background: "var(--bg-elevated, #2e2d2c)",
+          border: "1px solid var(--border, #31302f)",
           borderRadius: "8px",
           padding: "12px 16px",
           textAlign: "left",
           fontFamily: "var(--font-mono, monospace)",
           fontSize: "11px",
-          color: "#8b949e",
+          color: "var(--text-muted, #8b949e)",
           lineHeight: "1.7",
         }}>
           {/* Stage 1: Auth */}
-          <div style={{ color: stage !== "auth" ? "#3fb950" : "var(--color-text-primary)" }}>
+          <div style={{ color: stage !== "auth" ? "var(--accent-green, #3fb950)" : "var(--text-primary)" }}>
             {stage !== "auth" ? "✔" : "⚡"} Session credentials verified
           </div>
 
           {/* Stage 2: Keys */}
           {stage !== "auth" && (
-            <div style={{ color: (stage === "onboarding" || stage === "complete") ? "#3fb950" : "var(--color-text-primary)", display: "flex", alignItems: "center", gap: "6px" }}>
+            <div style={{ color: (stage === "onboarding" || stage === "complete") ? "var(--accent-green, #3fb950)" : "var(--text-primary)", display: "flex", alignItems: "center", gap: "6px" }}>
               <span>{(stage === "onboarding" || stage === "complete") ? "✔" : "⚡"} Default API key ensured</span>
               {stage === "keys" && <span className="terminal-cursor" />}
             </div>
@@ -120,7 +118,7 @@ export default function PostAuthPage() {
 
           {/* Stage 3: Onboarding */}
           {(stage === "onboarding" || stage === "complete") && (
-            <div style={{ color: stage === "complete" ? "#3fb950" : "var(--color-text-primary)", display: "flex", alignItems: "center", gap: "6px" }}>
+            <div style={{ color: stage === "complete" ? "var(--accent-green, #3fb950)" : "var(--text-primary)", display: "flex", alignItems: "center", gap: "6px" }}>
               <span>{stage === "complete" ? "✔" : "⚡"} Onboarding profile retrieved</span>
               {stage === "onboarding" && <span className="terminal-cursor" />}
             </div>
@@ -128,7 +126,7 @@ export default function PostAuthPage() {
 
           {/* Stage 4: Redirecting */}
           {stage === "complete" && (
-            <div style={{ color: "#3fb950", display: "flex", alignItems: "center", gap: "6px" }}>
+            <div style={{ color: "var(--accent-green, #3fb950)", display: "flex", alignItems: "center", gap: "6px" }}>
               <span>⚡ Redirecting to workspace</span>
               <span className="terminal-cursor" />
             </div>

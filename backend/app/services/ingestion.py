@@ -395,11 +395,28 @@ def _persist_daily_metrics_sync(metrics_list: list, today: date, now: datetime) 
 
                 if repo_id in repo_map:
                     repo = repo_map[repo_id]
+                    topics_val = m.get("topics") if m.get("topics") is not None else repo.topics
+                    desc_val = repo.description or ""
+                    lang_val = m.get("primary_language") or repo.primary_language or ""
+                    name_val = repo.name
+                    
+                    temp_repo = {
+                        "name": name_val,
+                        "topics": topics_val,
+                        "description": desc_val,
+                        "primary_language": lang_val,
+                    }
+                    
+                    from app.services.ecosystem import EcosystemClassifier
+                    inferred_cat, inferred_cats = EcosystemClassifier.infer_category(temp_repo)
+                    
                     repo_updates.append({
                         "id": repo.id,
                         "age_days": _calc_age_days(m.get("repo_created_at", "")),
-                        "primary_language": m.get("primary_language") or repo.primary_language,
-                        "topics": m["topics"] if m.get("topics") is not None else repo.topics,
+                        "primary_language": lang_val,
+                        "topics": topics_val,
+                        "category": inferred_cat,
+                        "categories": inferred_cats,
                         "stars_snapshot": m.get("stars", 0),
                         "last_fetched_at": now
                     })

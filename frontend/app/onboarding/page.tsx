@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
 import { useAuthSession } from "@/lib/useAuthSession";
 import { api, DigestFrequency } from "@/lib/api";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -41,7 +41,15 @@ export default function OnboardingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isLoaded, userId, token, isReady } = useAuthSession();
-  const getToken = async () => token;
+  const { getToken: clerkGetToken } = useAuth();
+  const getToken = async () => {
+    try {
+      const tok = await clerkGetToken();
+      return tok || token;
+    } catch {
+      return token;
+    }
+  };
   const { user } = useUser();
 
 
@@ -210,8 +218,8 @@ export default function OnboardingPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "radial-gradient(circle at center, #111520 0%, #07090e 100%)",
-        color: "var(--color-text-primary, #e6edf3)",
+        background: "var(--bg-primary, #1e1d1c)",
+        color: "var(--text-primary, #e6edf3)",
         fontFamily: "var(--font-sans, system-ui)",
       }}>
         <div style={{ width: "300px" }}>
@@ -225,29 +233,28 @@ export default function OnboardingPage() {
   return (
     <div style={{
       minHeight: "100vh",
-      background: "radial-gradient(circle at center, #141a29 0%, #07090e 100%)",
+      background: "var(--bg-primary, #1e1d1c)",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       padding: "24px",
       fontFamily: "var(--font-sans, system-ui)",
-      color: "var(--color-text-primary, #e6edf3)",
+      color: "var(--text-primary, #e6edf3)",
     }}>
       <style>{`
         .onboarding-card {
           width: 100%;
           max-width: 680px;
-          background: rgba(22, 27, 34, 0.45);
-          backdrop-filter: blur(16px);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 16px;
+          background: var(--bg-surface, #262524);
+          border: 1px solid var(--border, #31302f);
+          border-radius: var(--card-radius, 10px);
           padding: 36px;
-          box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+          box-shadow: 0 8px 32px rgba(0,0,0,0.4);
         }
         .onboarding-title {
           font-weight: 800;
           letter-spacing: -0.02em;
-          color: var(--color-text-primary, #e6edf3);
+          color: var(--text-primary, #e6edf3);
           margin: 0;
         }
         .onboarding-btn {
@@ -255,16 +262,16 @@ export default function OnboardingPage() {
           font-size: 13px;
           font-weight: 600;
           padding: 10px 18px;
-          border-radius: 8px;
+          border-radius: 6px;
           cursor: pointer;
           transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          background: rgba(255, 255, 255, 0.03);
-          color: var(--color-text-primary, #e6edf3);
+          border: 1px solid var(--border, #31302f);
+          background: var(--bg-elevated, #2e2d2c);
+          color: var(--text-primary, #e6edf3);
         }
         .onboarding-btn:hover:not(:disabled) {
-          background: rgba(255, 255, 255, 0.07);
-          border-color: rgba(255, 255, 255, 0.15);
+          background: var(--bg-dim, #383736);
+          border-color: var(--text-muted, #8b949e);
           transform: translateY(-1px);
         }
         .onboarding-btn:disabled {
@@ -272,18 +279,18 @@ export default function OnboardingPage() {
           cursor: not-allowed;
         }
         .onboarding-btn-primary {
-          background: var(--accent-blue, #38bdf8);
-          border-color: var(--accent-blue, #38bdf8);
-          color: #ffffff;
+          background: var(--text-primary, #ffffff);
+          border-color: var(--text-primary, #ffffff);
+          color: var(--bg-primary, #1e1d1c);
         }
         .onboarding-btn-primary:hover:not(:disabled) {
-          background: #00e5ff;
-          border-color: #00e5ff;
-          box-shadow: 0 0 16px rgba(0, 229, 255, 0.3);
+          background: var(--text-secondary, #bac3cc);
+          border-color: var(--text-secondary, #bac3cc);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
         .element-card {
-          border: 1.2px solid rgba(255, 255, 255, 0.06);
-          background: rgba(255, 255, 255, 0.015);
+          border: 1.2px solid var(--border, #31302f);
+          background: var(--bg-elevated, #2e2d2c);
           border-radius: 10px;
           padding: 14px 16px;
           text-align: left;
@@ -294,7 +301,8 @@ export default function OnboardingPage() {
         }
         .element-card:hover {
           transform: translateY(-2px);
-          background: rgba(255, 255, 255, 0.04);
+          background: var(--bg-dim, #383736);
+          border-color: var(--text-muted, #8b949e);
         }
         .element-card.selected {
           background: var(--selected-bg);
@@ -318,46 +326,45 @@ export default function OnboardingPage() {
           display: flex;
           align-items: center;
           gap: 12px;
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          background: rgba(255, 255, 255, 0.015);
+          border: 1px solid var(--border, #31302f);
+          background: var(--bg-elevated, #2e2d2c);
           border-radius: 10px;
           padding: 12px 16px;
           cursor: pointer;
           transition: all 0.2s;
         }
         .repo-card:hover {
-          background: rgba(255, 255, 255, 0.035);
-          border-color: rgba(255, 255, 255, 0.12);
+          background: var(--bg-dim, #383736);
+          border-color: var(--text-muted, #8b949e);
         }
         .repo-card.selected {
-          border-color: #3fb950;
+          border-color: var(--accent-green, #3fb950);
           background: rgba(63, 185, 80, 0.06);
           box-shadow: 0 0 12px rgba(63, 185, 80, 0.1);
         }
         .onboarding-input, .onboarding-select {
           width: 100%;
           padding: 10px 14px;
-          background: rgba(0, 0, 0, 0.2);
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: var(--bg-elevated, #2e2d2c);
+          border: 1px solid var(--border, #31302f);
           border-radius: 8px;
-          color: var(--color-text-primary, #e6edf3);
+          color: var(--text-primary, #e6edf3);
           font-family: var(--font-sans, system-ui);
           font-size: 14px;
           outline: none;
           transition: all 0.2s;
         }
         .onboarding-input:focus, .onboarding-select:focus {
-          border-color: var(--accent-blue, #38bdf8);
-          box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
-          background: rgba(0, 0, 0, 0.35);
+          border-color: var(--text-muted, #8b949e);
+          background: var(--bg-dim, #383736);
         }
         .tour-step-row {
           display: flex;
           align-items: flex-start;
           gap: 12px;
           padding: 12px 14px;
-          background: rgba(255, 255, 255, 0.015);
-          border: 1px solid rgba(255, 255, 255, 0.04);
+          background: var(--bg-elevated, #2e2d2c);
+          border: 1px solid var(--border, #31302f);
           border-radius: 8px;
         }
         .headband-container {

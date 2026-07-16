@@ -26,22 +26,29 @@ export function useAuthSession(): AuthSession {
     }
 
     let active = true;
-    getToken()
-      .then((tok) => {
-        if (active) {
-          setToken(tok);
-          setIsReady(!!tok);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setToken(null);
-          setIsReady(false);
-        }
-      });
+    
+    const fetchToken = () => {
+      getToken()
+        .then((tok) => {
+          if (active) {
+            setToken(tok);
+            setIsReady(!!tok);
+          }
+        })
+        .catch(() => {
+          if (active) {
+            setToken(null);
+            setIsReady(false);
+          }
+        });
+    };
+
+    fetchToken();
+    const interval = setInterval(fetchToken, 40000);
 
     return () => {
       active = false;
+      clearInterval(interval);
     };
   }, [isLoaded, isSignedIn, userId, getToken]);
 
