@@ -111,6 +111,37 @@ export function ModernCategoryTrendScore({
     return chartData.find(c => c.category === activeCategoryName) || chartData[0];
   }, [chartData, activeCategoryName]);
 
+  const breakdownMetrics = useMemo(() => {
+    if (!activeCategory || !data || data.length === 0) return null;
+    
+    const starGains = data.map(c => c.period_star_gain);
+    const maxStar = Math.max(...starGains, 1);
+    const minStar = Math.min(...starGains, 0);
+    const starScore = maxStar === minStar ? 0.5 : (activeCategory.period_star_gain - minStar) / (maxStar - minStar);
+
+    const contribs = data.map(c => c.total_contributors);
+    const maxContrib = Math.max(...contribs, 1);
+    const minContrib = Math.min(...contribs, 0);
+    const contribScore = maxContrib === minContrib ? 0.5 : (activeCategory.total_contributors - minContrib) / (maxContrib - minContrib);
+
+    let starLabel = "Steady";
+    if (starScore >= 0.8) starLabel = "Breakout Growth";
+    else if (starScore >= 0.5) starLabel = "High Influence";
+    else if (starScore >= 0.2) starLabel = "Moderate Growth";
+
+    let contribLabel = "Stable";
+    if (contribScore >= 0.8) contribLabel = "Massive Surge";
+    else if (contribScore >= 0.5) contribLabel = "Active Surge";
+    else if (contribScore >= 0.2) contribLabel = "Growing";
+
+    return {
+      starWidth: Math.round(20 + starScore * 80) + "%",
+      starLabel,
+      contribWidth: Math.round(20 + contribScore * 80) + "%",
+      contribLabel,
+    };
+  }, [activeCategory, data]);
+
   useEffect(() => {
     const t = setTimeout(() => setAnimated(true), 80);
     return () => clearTimeout(t);
@@ -376,19 +407,23 @@ export function ModernCategoryTrendScore({
                 <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text-muted)" }}>
                     <span>Stars (40%)</span>
-                    <span style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono)", fontSize: "8.5px" }}>High Influence</span>
+                    <span style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono)", fontSize: "8.5px" }}>
+                      {breakdownMetrics?.starLabel ?? "High Influence"}
+                    </span>
                   </div>
                   <div style={{ height: "2px", background: "rgba(255,255,255,0.05)", borderRadius: "1px", overflow: "hidden" }}>
-                    <div style={{ height: "100%", background: "#84cc16", width: "85%" }} />
+                    <div style={{ height: "100%", background: "#84cc16", width: breakdownMetrics?.starWidth ?? "85%" }} />
                   </div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text-muted)" }}>
                     <span>Velocity & contributors (40%)</span>
-                    <span style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono)", fontSize: "8.5px" }}>Active Surge</span>
+                    <span style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono)", fontSize: "8.5px" }}>
+                      {breakdownMetrics?.contribLabel ?? "Active Surge"}
+                    </span>
                   </div>
                   <div style={{ height: "2px", background: "rgba(255,255,255,0.05)", borderRadius: "1px", overflow: "hidden" }}>
-                    <div style={{ height: "100%", background: "#38bdf8", width: "70%" }} />
+                    <div style={{ height: "100%", background: "#38bdf8", width: breakdownMetrics?.contribWidth ?? "70%" }} />
                   </div>
                 </div>
               </div>
