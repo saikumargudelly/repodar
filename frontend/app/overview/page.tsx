@@ -911,6 +911,32 @@ function EcosystemMapChart({ repos, title = "AI Ecosystem Map" }: { repos: Radar
     return Array.from(cats);
   }, [repos]);
 
+  // Assign a unique color to each category from a premium palette
+  const categoryColorMap = useMemo(() => {
+    const palette = [
+      "#58a6ff", // Blue
+      "#3fb950", // Green
+      "#d29922", // Amber
+      "#a371f7", // Purple
+      "#f0883e", // Orange
+      "#22d3ee", // Cyan
+      "#e85a9d", // Pink
+      "#39d353", // Bright Green
+      "#2dd4bf", // Teal
+      "#f87171", // Coral Red
+    ];
+    const mapping: Record<string, string> = {};
+    allCategories.forEach((cat, index) => {
+      const color = getCategoryColor(cat);
+      if (color === "#58a6ff" && cat.toLowerCase() !== "ai/ml" && cat.toLowerCase() !== "ai_ml" && cat.toLowerCase() !== "ai / ml") {
+        mapping[cat] = palette[index % palette.length];
+      } else {
+        mapping[cat] = color;
+      }
+    });
+    return mapping;
+  }, [allCategories]);
+
   // Filter repos based on disabled categories
   const filteredRepos = useMemo(() => {
     return repos.filter(r => !disabledCategories.has(r.category));
@@ -1055,7 +1081,7 @@ function EcosystemMapChart({ repos, title = "AI Ecosystem Map" }: { repos: Radar
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
             {allCategories.map((c) => {
               const isDisabled = disabledCategories.has(c);
-              const color = getCategoryColor(c);
+              const color = categoryColorMap[c] || "#58a6ff";
               return (
                 <button
                   key={c}
@@ -1134,7 +1160,7 @@ function EcosystemMapChart({ repos, title = "AI Ecosystem Map" }: { repos: Radar
                         <p style={{ margin: "0 0 4px", fontWeight: 700, color: "var(--text-primary)" }}>{d.owner}/{d.name}</p>
                         <p style={{ margin: "0 0 2px", color: "var(--cyan)", fontSize: "10px" }}>TREND: <strong>{(d.x / 100).toFixed(2)}</strong></p>
                         <p style={{ margin: "0 0 2px", color: "var(--amber)", fontSize: "10px" }}>SUSTAIN: <strong>{d.y.toFixed(0)}%</strong></p>
-                        <p style={{ margin: 0, color: getCategoryColor(d.category), fontSize: "9.5px", letterSpacing: "0.04em", textTransform: "uppercase" }}>{d.category}</p>
+                        <p style={{ margin: 0, color: categoryColorMap[d.category] || "#58a6ff", fontSize: "9.5px", letterSpacing: "0.04em", textTransform: "uppercase" }}>{d.category}</p>
                       </div>
                     );
                   }}
@@ -1149,7 +1175,7 @@ function EcosystemMapChart({ repos, title = "AI Ecosystem Map" }: { repos: Radar
                     key={cat}
                     name={cat}
                     data={byCategory[cat] || []}
-                    fill={getCategoryColor(cat)}
+                    fill={categoryColorMap[cat] || "#58a6ff"}
                     shape={<CustomDot />}
                     onClick={handlePointClick}
                   />
@@ -1210,14 +1236,14 @@ function EcosystemMapChart({ repos, title = "AI Ecosystem Map" }: { repos: Radar
                   gap: "4px", 
                   fontSize: "9.5px", 
                   fontFamily: "var(--font-mono)", 
-                  color: getCategoryColor(selectedRepo.category), 
+                  color: categoryColorMap[selectedRepo.category] || "#58a6ff", 
                   marginTop: "6px",
                   background: "rgba(255,255,255,0.03)",
                   padding: "2px 8px",
                   borderRadius: "4px",
-                  border: `1px solid ${getCategoryColor(selectedRepo.category)}15`
+                  border: `1px solid ${(categoryColorMap[selectedRepo.category] || "#58a6ff")}15`
                 }}>
-                  <span style={{ width: 5, height: 5, background: getCategoryColor(selectedRepo.category), borderRadius: "50%" }} />
+                  <span style={{ width: 5, height: 5, background: categoryColorMap[selectedRepo.category] || "#58a6ff", borderRadius: "50%" }} />
                   {selectedRepo.category}
                 </span>
               </div>
