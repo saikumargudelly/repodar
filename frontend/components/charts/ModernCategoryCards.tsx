@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { CategoryMetrics } from "@/lib/api";
+import { categoryColor } from "@/lib/chartColors";
 
 const CATEGORY_COLORS: Record<string, string> = {
   "LLM Models": "#a78bfa",
@@ -187,6 +188,29 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
 
   const profileData = useMemo(() => {
     if (sortedData.length === 0) return [];
+
+    const palette = [
+      "#58a6ff", // Blue
+      "#3fb950", // Green
+      "#d29922", // Amber
+      "#a371f7", // Purple
+      "#f0883e", // Orange
+      "#22d3ee", // Cyan
+      "#e85a9d", // Pink
+      "#39d353", // Bright Green
+      "#2dd4bf", // Teal
+      "#f87171", // Coral Red
+    ];
+    const categoryColorMap: Record<string, string> = {};
+    const sortedCats = Array.from(new Set(data.map(c => c.category))).sort();
+    sortedCats.forEach((cat, index) => {
+      const color = categoryColor(cat);
+      if (color === "#58a6ff" && cat.toLowerCase() !== "ai/ml" && cat.toLowerCase() !== "ai_ml" && cat.toLowerCase() !== "ai / ml") {
+        categoryColorMap[cat] = palette[index % palette.length];
+      } else {
+        categoryColorMap[cat] = color;
+      }
+    });
     
     let items = [];
     if (sortedData.length <= 6) {
@@ -200,7 +224,7 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
         avg_open_prs: c.avg_open_prs || 0,
         trend_composite: c.trend_composite || 0,
         total_contributors: c.total_contributors || 0,
-        color: CATEGORY_COLORS[c.category] ?? "#6b7280",
+        color: categoryColorMap[c.category] ?? "#6b7280",
         rank: idx + 1,
       }));
     } else {
@@ -224,7 +248,7 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
           avg_open_prs: c.avg_open_prs || 0,
           trend_composite: c.trend_composite || 0,
           total_contributors: c.total_contributors || 0,
-          color: CATEGORY_COLORS[c.category] ?? "#6b7280",
+          color: categoryColorMap[c.category] ?? "#6b7280",
           rank: idx + 1,
         })),
         {
@@ -243,7 +267,7 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
       ];
     }
     return items;
-  }, [sortedData, total]);
+  }, [sortedData, total, data]);
 
   const activeProfile = useMemo(() => {
     if (!hoveredCategory) return null;
@@ -264,7 +288,7 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
       avg_open_prs: catData.avg_open_prs || 0,
       trend_composite: catData.trend_composite || 0,
       total_contributors: catData.total_contributors || 0,
-      color: CATEGORY_COLORS[catData.category] ?? "#6b7280",
+      color: (profileData.find(p => p.name === catData.category)?.color) ?? "#6b7280",
       rank: origIdx + 1,
     };
   }, [profileData, sortedData, hoveredCategory, total]);
@@ -327,7 +351,7 @@ export function ModernCategoryCards({ data }: ModernCategoryCardsProps) {
         <div className="bento-scroll-content bento-dist-list" style={{ padding: "16px 12px", flex: 1, display: "flex", flexDirection: "column", gap: "10px" }}>
           {sortedData.map((cat, idx) => {
             const percentage = total > 0 ? (cat.total_stars / total) * 100 : 0;
-            const color = CATEGORY_COLORS[cat.category] ?? "#6b7280";
+            const color = (profileData.find(p => p.name === cat.category)?.color) ?? "#6b7280";
             const icon = CATEGORY_ICONS[cat.category] ?? (
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="10"/>

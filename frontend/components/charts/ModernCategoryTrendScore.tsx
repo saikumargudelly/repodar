@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CategoryMetrics, Period } from "@/lib/api";
+import { categoryColor } from "@/lib/chartColors";
 import Logo from "@/components/Logo";
 
 const PERIODS: { key: Period; label: string }[] = [
@@ -110,6 +111,32 @@ export function ModernCategoryTrendScore({
     if (!chartData || chartData.length === 0) return null;
     return chartData.find(c => c.category === activeCategoryName) || chartData[0];
   }, [chartData, activeCategoryName]);
+
+  const categoryColorMap = useMemo(() => {
+    const palette = [
+      "#58a6ff", // Blue
+      "#3fb950", // Green
+      "#d29922", // Amber
+      "#a371f7", // Purple
+      "#f0883e", // Orange
+      "#22d3ee", // Cyan
+      "#e85a9d", // Pink
+      "#39d353", // Bright Green
+      "#2dd4bf", // Teal
+      "#f87171", // Coral Red
+    ];
+    const mapping: Record<string, string> = {};
+    const sortedCats = Array.from(new Set(data.map(c => c.category))).sort();
+    sortedCats.forEach((cat, index) => {
+      const color = categoryColor(cat);
+      if (color === "#58a6ff" && cat.toLowerCase() !== "ai/ml" && cat.toLowerCase() !== "ai_ml" && cat.toLowerCase() !== "ai / ml") {
+        mapping[cat] = palette[index % palette.length];
+      } else {
+        mapping[cat] = color;
+      }
+    });
+    return mapping;
+  }, [data]);
 
   const breakdownMetrics = useMemo(() => {
     if (!activeCategory || !data || data.length === 0) return null;
@@ -273,9 +300,10 @@ export function ModernCategoryTrendScore({
                 <div style={{ flex: 1, display: "flex", alignItems: "center", minWidth: 0 }}>
                   <div className="chakra-bar-container">
                     <div
-                      className={`chakra-bar-fill ${getChakraClass(item.category)}`}
+                      className="chakra-bar-fill"
                       style={{
                         width: animated ? `${percentage}%` : "0%",
+                        background: categoryColorMap[item.category] || "#58a6ff",
                       }}
                     />
                   </div>
