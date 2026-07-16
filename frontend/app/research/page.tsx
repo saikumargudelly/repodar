@@ -152,7 +152,9 @@ export default function ResearchListPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        padding: isMobile ? "0 16px" : "0 24px",
+        marginLeft: isMobile ? "-8px" : "-28px",
+        marginRight: isMobile ? "-8px" : "-28px",
+        padding: isMobile ? "0 16px" : "0 28px",
         flexShrink: 0
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>

@@ -1223,14 +1223,16 @@ export default function ResearchSessionPage() {
       `}</style>
 
       {/* Global Header */}
-      <div style={{
+      <div className="research-header" style={{
         height: "56px",
         background: C.bgCard,
         borderBottom: `1px solid ${C.border}`,
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        padding: isMobile ? "0 16px" : "0 24px",
+        marginLeft: isMobile ? "-8px" : "-28px",
+        marginRight: isMobile ? "-8px" : "-28px",
+        padding: isMobile ? "0 16px" : "0 28px",
         flexShrink: 0
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
