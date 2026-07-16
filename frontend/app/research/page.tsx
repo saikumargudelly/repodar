@@ -154,6 +154,7 @@ export default function ResearchListPage() {
         justifyContent: "space-between",
         marginLeft: isMobile ? "-8px" : "-28px",
         marginRight: isMobile ? "-8px" : "-28px",
+        width: isMobile ? "calc(100% + 16px)" : "calc(100% + 56px)",
         padding: isMobile ? "0 16px" : "0 28px",
         flexShrink: 0
       }}>
