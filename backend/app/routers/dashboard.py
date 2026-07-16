@@ -1396,6 +1396,13 @@ async def get_leaderboard(
     days = PERIOD_DAYS.get(period, 7)
     raw_repos = await github_search.search_top_repos(period, limit=limit, category_filter=category, vertical=vertical)
 
+    if not raw_repos:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=503,
+            detail="Upstream GitHub data is temporarily unavailable or rate-limited. Please retry shortly."
+        )
+
     entries = [
         LeaderboardEntry(**github_search.normalize_search_result(repo, rank=i + 1, period=period))
         for i, repo in enumerate(raw_repos)
