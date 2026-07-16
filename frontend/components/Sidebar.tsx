@@ -136,7 +136,7 @@ export function Sidebar() {
       const baseTitle = "Repodar";
       const currentTitle = document.title.replace(/^\(\d+\+?\)\s*/, "");
       if (unreadCount > 0) {
-        document.title = `(${unreadCount > 99 ? "99+" : unreadCount}) ${currentTitle || baseTitle}`;
+        document.title = `(${unreadCount}) ${currentTitle || baseTitle}`;
       } else {
         document.title = currentTitle || baseTitle;
       }
@@ -318,7 +318,7 @@ export function Sidebar() {
       <nav style={{ flex: 1, padding: "12px 8px", display: "flex", flexDirection: "column", gap: "4px", overflowY: "auto" }}>
         {NAV_ITEMS.map((item) => {
           const isActive = isNavActive(item.href);
-          const badgeText = item.href === "/radar" ? (unreadCount > 0 ? (unreadCount > 99 ? "99+" : String(unreadCount)) : null) : (item.badge?.text ?? null);
+          const badgeText = item.badge?.text ?? null;
           const badgeType = item.badge?.type ?? "dark";
           return (
             <Link

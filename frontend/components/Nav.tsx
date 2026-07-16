@@ -80,7 +80,7 @@ export function Nav({ onOpenAlerts }: { onOpenAlerts?: () => void }) {
               lineHeight: 1,
               boxShadow: "0 0 0 2px var(--bg-surface)",
             }}>
-              {unreadCount > 99 ? "99+" : unreadCount}
+              {unreadCount}
             </span>
           )}
         </button>

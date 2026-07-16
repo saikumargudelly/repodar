@@ -1471,7 +1471,7 @@ export default function OverviewPage() {
                   fontWeight: 700,
                   lineHeight: 1.4,
                 }}>
-                  {unreadAlerts > 99 ? "99+" : unreadAlerts}
+                  {unreadAlerts}
                 </span>
               )}
             </button>
