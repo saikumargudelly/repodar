@@ -1127,7 +1127,7 @@ function EcosystemMapChart({ repos, title = "Ecosystem Landscape Map" }: { repos
           {/* Scatter Chart container */}
           <div style={{ height: `${chartHeight}px`, position: "relative", width: "100%" }}>
             <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart margin={{ top: 12, right: 10, bottom: 20, left: 20 }}>
+              <ScatterChart margin={{ top: 12, right: 10, bottom: 20, left: 24 }}>
                 <XAxis
                   type="number" dataKey="x" name="Trend"
                   domain={[0, "auto"]}
@@ -1137,9 +1137,9 @@ function EcosystemMapChart({ repos, title = "Ecosystem Landscape Map" }: { repos
                 <YAxis
                   type="number" dataKey="y" name="Sustainability"
                   domain={[0, 100]}
-                  width={48}
+                  width={60}
                   tick={{ fontSize: 9, fill: "var(--text-muted)", fontFamily: "var(--font-mono)" }}
-                  label={{ value: "Project Health (Sustainability Score)", angle: -90, position: "insideLeft", offset: 15, fontSize: 10, fill: "var(--text-muted)", fontFamily: "var(--font-sans)", fontWeight: 600 }}
+                  label={{ value: "Project Health (Sustainability Score)", angle: -90, position: "insideLeft", offset: 10, fontSize: 10, fill: "var(--text-muted)", fontFamily: "var(--font-sans)", fontWeight: 600 }}
                 />
                 <ZAxis range={[30, 30]} />
                 <Tooltip
