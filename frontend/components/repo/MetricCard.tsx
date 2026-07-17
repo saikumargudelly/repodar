@@ -39,12 +39,13 @@ export function MetricCard({
         borderRadius: "8px",
         transition: "transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease",
         boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+        overflow: "visible", // Overrides overflow: hidden from global CSS
       }}
     >
       <style>{`
         @keyframes tooltip-fade-in {
-          from { opacity: 0; transform: translateY(4px); }
-          to { opacity: 1; transform: translateY(0); }
+          from { opacity: 0; transform: translateY(4px) translateX(-50%); }
+          to { opacity: 1; transform: translateY(0) translateX(-50%); }
         }
       `}</style>
       <div>
@@ -104,25 +105,26 @@ export function MetricCard({
                 <div 
                   style={{
                     position: "absolute",
-                    bottom: "22px",
-                    right: "-8px",
-                    width: "200px",
-                    background: "rgba(20, 20, 20, 0.95)",
-                    backdropFilter: "blur(8px)",
-                    WebkitBackdropFilter: "blur(8px)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "6px",
-                    padding: "8px 12px",
-                    boxShadow: "0 8px 24px rgba(0, 0, 0, 0.5)",
+                    bottom: "24px",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    width: "210px",
+                    background: "rgba(15, 15, 15, 0.96)",
+                    backdropFilter: "blur(12px)",
+                    WebkitBackdropFilter: "blur(12px)",
+                    border: "1px solid rgba(255, 255, 255, 0.15)",
+                    borderRadius: "8px",
+                    padding: "10px 14px",
+                    boxShadow: "0 12px 32px rgba(0, 0, 0, 0.6)",
                     zIndex: 100,
                     pointerEvents: "none",
-                    textAlign: "left",
+                    textAlign: "center",
                     textTransform: "none",
-                    fontWeight: "normal",
-                    lineHeight: "1.4",
+                    fontWeight: 500,
+                    lineHeight: "1.45",
                     fontSize: "11px",
                     color: "var(--text-primary)",
-                    animation: "tooltip-fade-in 0.15s ease-out",
+                    animation: "tooltip-fade-in 0.15s ease-out forwards",
                   }}
                 >
                   {tooltip}
@@ -130,13 +132,13 @@ export function MetricCard({
                     style={{
                       position: "absolute",
                       bottom: "-5px",
-                      right: "12px",
+                      left: "50%",
+                      transform: "translateX(-50%) rotate(45deg)",
                       width: "8px",
                       height: "8px",
-                      background: "rgba(20, 20, 20, 0.95)",
-                      borderRight: "1px solid var(--border)",
-                      borderBottom: "1px solid var(--border)",
-                      transform: "rotate(45deg)",
+                      background: "rgba(15, 15, 15, 0.96)",
+                      borderRight: "1px solid rgba(255, 255, 255, 0.15)",
+                      borderBottom: "1px solid rgba(255, 255, 255, 0.15)",
                     }}
                   />
                 </div>
