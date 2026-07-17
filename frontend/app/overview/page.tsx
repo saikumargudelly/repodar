@@ -885,7 +885,7 @@ function SustainabilityRanking({ repos }: { repos: SustainabilityEntry[] }) {
 }
 
 // ─── Ecosystem Map Chart (scatter: trend vs sustainability) ─────────────────
-function EcosystemMapChart({ repos, title = "AI Ecosystem Map" }: { repos: RadarRepo[]; title?: string }) {
+function EcosystemMapChart({ repos, title = "Ecosystem Landscape Map" }: { repos: RadarRepo[]; title?: string }) {
   const [chartHeight, setChartHeight] = useState(320);
   const [selectedRepo, setSelectedRepo] = useState<RadarRepo | null>(null);
   const [activeQuadrant, setActiveQuadrant] = useState<string | null>(null);
@@ -1125,7 +1125,7 @@ function EcosystemMapChart({ repos, title = "AI Ecosystem Map" }: { repos: Radar
           </div>
 
           {/* Scatter Chart container */}
-          <div style={{ flex: 1, minHeight: chartHeight, position: "relative" }}>
+          <div style={{ height: `${chartHeight}px`, position: "relative", width: "100%" }}>
             <ResponsiveContainer width="100%" height="100%">
               <ScatterChart margin={{ top: 12, right: 10, bottom: 20, left: -14 }}>
                 <XAxis
@@ -1419,6 +1419,7 @@ function EcosystemMapChart({ repos, title = "AI Ecosystem Map" }: { repos: Radar
         @media (max-width: 768px) {
           .ecosystem-bento-layout {
             flex-direction: column !important;
+            overflow: visible !important;
           }
           .ecosystem-details-col {
             width: 100% !important;
@@ -1993,7 +1994,7 @@ export default function OverviewPage() {
         {/* Row 4: Ecosystem Map (12 cols) */}
         {radarRepos && radarRepos.length > 0 && (
           <div className="bento-col-12">
-            <EcosystemMapChart repos={radarRepos} title={`${verticalLabel} Ecosystem Map`} />
+            <EcosystemMapChart repos={radarRepos} title="Ecosystem Landscape Map" />
           </div>
         )}
 
