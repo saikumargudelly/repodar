@@ -1,6 +1,6 @@
 "use client";
-
 import React from "react";
+import Link from "next/link";
 
 interface MetricCardProps {
   label: string;
@@ -21,7 +21,7 @@ export function MetricCard({
   tooltip,
   docsHash,
 }: MetricCardProps) {
-  const [showTooltip, setShowTooltip] = React.useState(false);
+  const [showDetail, setShowDetail] = React.useState(false);
 
   return (
     <div 
@@ -36,54 +36,49 @@ export function MetricCard({
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
         border: "1px solid var(--border)",
-        borderRadius: "8px",
+        borderRadius: "12px",
         transition: "transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease",
-        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-        overflow: "visible", // Overrides overflow: hidden from global CSS
+        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+        position: "relative",
+        overflow: "hidden",
       }}
     >
-      <style>{`
-        @keyframes tooltip-fade-in {
-          from { opacity: 0; transform: translateY(4px) translateX(-50%); }
-          to { opacity: 1; transform: translateY(0) translateX(-50%); }
-        }
-      `}</style>
-      <div>
-        <div 
-          style={{ 
-            fontSize: "11px", 
-            color: "var(--text-muted)", 
-            fontWeight: 600, 
-            textTransform: "uppercase", 
-            letterSpacing: "0.05em",
-            marginBottom: "8px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between"
-          }}
-        >
-          <span style={{ cursor: "default" }}>
-            {label}
-          </span>
-          {tooltip && (
-            <div 
-              style={{ position: "relative", display: "inline-flex", alignItems: "center" }}
-              onMouseEnter={() => setShowTooltip(true)}
-              onMouseLeave={() => setShowTooltip(false)}
-              onClick={() => setShowTooltip(!showTooltip)}
-            >
+      {/* Main KPI Card View */}
+      <div style={{ display: "flex", flexDirection: "column", height: "100%", justifyContent: "space-between" }}>
+        <div>
+          <div 
+            style={{ 
+              fontSize: "11px", 
+              color: "var(--text-muted)", 
+              fontWeight: 600, 
+              textTransform: "uppercase", 
+              letterSpacing: "0.05em",
+              marginBottom: "8px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between"
+            }}
+          >
+            <span style={{ cursor: "default" }}>{label}</span>
+            {tooltip && (
               <button
                 type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDetail(true);
+                }}
                 style={{ 
                   background: "none", 
                   border: "none", 
                   padding: 0, 
-                  color: showTooltip ? "var(--accent-yellow)" : "var(--text-muted)", 
+                  color: "var(--text-muted)", 
                   cursor: "pointer", 
                   display: "flex", 
                   alignItems: "center",
                   transition: "color 0.2s ease" 
                 }}
+                onMouseEnter={(e) => e.currentTarget.style.color = "var(--accent-yellow)"}
+                onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-muted)"}
               >
                 <svg 
                   width="13" 
@@ -100,89 +95,150 @@ export function MetricCard({
                   <path d="M12 8h.01" />
                 </svg>
               </button>
-              
-              {showTooltip && (
-                <div 
-                  style={{
-                    position: "absolute",
-                    bottom: "24px",
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    width: "210px",
-                    background: "rgba(15, 15, 15, 0.96)",
-                    backdropFilter: "blur(12px)",
-                    WebkitBackdropFilter: "blur(12px)",
-                    border: "1px solid rgba(255, 255, 255, 0.15)",
-                    borderRadius: "8px",
-                    padding: "10px 14px",
-                    boxShadow: "0 12px 32px rgba(0, 0, 0, 0.6)",
-                    zIndex: 100,
-                    pointerEvents: "none",
-                    textAlign: "center",
-                    textTransform: "none",
-                    fontWeight: 500,
-                    lineHeight: "1.45",
-                    fontSize: "11px",
-                    color: "var(--text-primary)",
-                    animation: "tooltip-fade-in 0.15s ease-out forwards",
-                  }}
-                >
-                  {tooltip}
-                  <div 
-                    style={{
-                      position: "absolute",
-                      bottom: "-5px",
-                      left: "50%",
-                      transform: "translateX(-50%) rotate(45deg)",
-                      width: "8px",
-                      height: "8px",
-                      background: "rgba(15, 15, 15, 0.96)",
-                      borderRight: "1px solid rgba(255, 255, 255, 0.15)",
-                      borderBottom: "1px solid rgba(255, 255, 255, 0.15)",
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-          )}
+            )}
+          </div>
+          
+          <div 
+            style={{ 
+              display: "inline-block",
+              fontSize: "12px", 
+              fontWeight: 600, 
+              color: interpretationColor || "var(--text-primary)", 
+              background: "rgba(255, 255, 255, 0.03)",
+              border: "1px solid var(--border)",
+              padding: "2px 8px",
+              borderRadius: "4px",
+              marginBottom: "8px"
+            }}
+          >
+            {interpretation}
+          </div>
+          
+          <div 
+            style={{ 
+              fontSize: "13px", 
+              fontWeight: 500, 
+              color: "var(--text-secondary)",
+              marginBottom: "8px",
+              lineHeight: "1.3"
+            }}
+          >
+            {evidence}
+          </div>
         </div>
+        
         <div 
           style={{ 
-            display: "inline-block",
-            fontSize: "12px", 
-            fontWeight: 600, 
-            color: interpretationColor || "var(--text-primary)", 
-            background: "rgba(255, 255, 255, 0.03)",
-            border: "1px solid var(--border)",
-            padding: "2px 8px",
-            borderRadius: "4px",
-            marginBottom: "8px"
+            fontSize: "10px", 
+            color: "var(--text-muted)", 
+            fontFamily: "var(--font-mono)",
+            opacity: 0.7,
+            marginTop: "4px"
           }}
         >
-          {interpretation}
-        </div>
-        <div 
-          style={{ 
-            fontSize: "13px", 
-            fontWeight: 500, 
-            color: "var(--text-secondary)",
-            marginBottom: "8px",
-            lineHeight: "1.3"
-          }}
-        >
-          {evidence}
+          {source}
         </div>
       </div>
+
+      {/* Slide-up Premium Info Overlay Panel */}
       <div 
-        style={{ 
-          fontSize: "10px", 
-          color: "var(--text-muted)", 
-          fontFamily: "var(--font-mono)",
-          opacity: 0.7,
-          marginTop: "4px"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          background: "rgba(20, 20, 19, 0.98)",
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+          padding: "14px 16px",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          transform: showDetail ? "translateY(0)" : "translateY(100%)",
+          transition: "transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+          zIndex: 10,
         }}
       >
-        {source}
+        <div>
+          <div 
+            style={{ 
+              fontSize: "10px", 
+              color: "var(--accent-yellow)", 
+              fontWeight: 700, 
+              textTransform: "uppercase", 
+              letterSpacing: "0.05em",
+              marginBottom: "10px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between"
+            }}
+          >
+            <span>Metric Info</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowDetail(false);
+              }}
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                color: "var(--text-muted)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                transition: "color 0.2s ease"
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = "var(--text-primary)"}
+              onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-muted)"}
+            >
+              <svg 
+                width="14" 
+                height="14" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2.5" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+          
+          <div style={{ fontSize: "11.5px", color: "var(--text-primary)", lineHeight: "1.45", fontWeight: 500 }}>
+            {tooltip}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--border)", paddingTop: "8px", marginTop: "8px" }}>
+          <span style={{ fontSize: "9px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+            {source.replace("Based on: ", "")}
+          </span>
+          {docsHash && (
+            <Link 
+              href={`/docs#${docsHash}`}
+              style={{
+                fontSize: "9.5px",
+                color: "var(--cyan)",
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "2px",
+                fontWeight: 600,
+                transition: "color 0.2s ease"
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = "var(--accent-blue)"}
+              onMouseLeave={(e) => e.currentTarget.style.color = "var(--cyan)"}
+            >
+              Docs ↗
+            </Link>
+          )}
+        </div>
       </div>
     </div>
   );
