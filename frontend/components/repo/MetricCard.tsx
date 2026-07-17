@@ -26,6 +26,7 @@ export function MetricCard({
   return (
     <div 
       className="kpi-card" 
+      onMouseLeave={() => setShowDetail(false)}
       style={{ 
         display: "flex", 
         flexDirection: "column", 
@@ -63,9 +64,13 @@ export function MetricCard({
             {tooltip && (
               <button
                 type="button"
+                onMouseEnter={(e) => {
+                  setShowDetail(true);
+                  e.currentTarget.style.color = "var(--accent-yellow)";
+                }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setShowDetail(true);
+                  setShowDetail(!showDetail);
                 }}
                 style={{ 
                   background: "none", 
@@ -77,8 +82,9 @@ export function MetricCard({
                   alignItems: "center",
                   transition: "color 0.2s ease" 
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.color = "var(--accent-yellow)"}
-                onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-muted)"}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = "var(--text-muted)";
+                }}
               >
                 <svg 
                   width="13" 
