@@ -419,6 +419,24 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
       padding: 0 24px 120px;
       box-sizing: border-box;
     }
+    @media (max-width: 768px) {
+      .wd-root {
+        padding: 0 12px 60px;
+      }
+    }
+
+    .wd-paper-container {
+      background: var(--bg-primary);
+      padding: 24px 32px 48px;
+      border-radius: 12px;
+      box-sizing: border-box;
+    }
+    @media (max-width: 768px) {
+      .wd-paper-container {
+        padding: 16px 12px 24px;
+        border-radius: 8px;
+      }
+    }
 
     /* ── Masthead ── */
     .wd-masthead {
@@ -523,7 +541,10 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
       overflow: hidden;
       margin-bottom: 32px;
     }
-    @media (max-width: 600px) { .wd-stats-strip { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width: 600px) {
+      .wd-stats-strip { grid-template-columns: repeat(2,1fr); }
+      .wd-stat-cell { padding: 10px 8px; }
+    }
     .wd-stat-cell {
       background: var(--bg-surface);
       padding: 13px 18px;
@@ -669,7 +690,7 @@ export default function WeeklyDetailPage({ params }: { params: Promise<{ weekId:
           Failed to retrieve Weekly Snapshot {weekId}. Please verify the identifier and try again.
         </div>
       ) : snapshot ? (
-        <div ref={posterRef} style={{ background: "var(--bg-primary)", padding: "24px 32px 48px", borderRadius: "12px", boxSizing: "border-box" }}>
+        <div ref={posterRef} className="wd-paper-container">
           {/* Lead */}
           <div style={{ marginBottom: 28 }}>
             <p className="wd-section-label">Top Story</p>
