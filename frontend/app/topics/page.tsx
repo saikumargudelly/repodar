@@ -190,8 +190,8 @@ export default function TopicsPage() {
 
         {/* Recharts Bar Chart */}
         {chartData.length > 0 ? (
-          <div style={{ height: "240px", width: "100%", paddingRight: "16px" }}>
-            <ResponsiveContainer width="100%" height="100%">
+          <div style={{ height: "240px", minHeight: "240px", width: "100%", minWidth: 0, paddingRight: "16px" }}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
               <BarChart data={chartData} margin={{ top: 10, right: 0, bottom: 35, left: -10 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                 <XAxis

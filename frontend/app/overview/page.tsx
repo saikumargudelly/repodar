@@ -1125,8 +1125,8 @@ function EcosystemMapChart({ repos, title = "Ecosystem Landscape Map" }: { repos
           </div>
 
           {/* Scatter Chart container */}
-          <div style={{ height: `${chartHeight}px`, position: "relative", width: "100%" }}>
-            <ResponsiveContainer width="100%" height="100%">
+          <div style={{ height: `${chartHeight}px`, minHeight: `${chartHeight}px`, position: "relative", width: "100%", minWidth: 0 }}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={chartHeight}>
               <ScatterChart margin={{ top: 12, right: 10, bottom: 20, left: 24 }}>
                 <XAxis
                   type="number" dataKey="x" name="Trend"

@@ -61,6 +61,7 @@ export function ChartContainer({
       style={{
         position: "relative",
         width: "100%",
+        minWidth: 0,
         minHeight: `${minHeight}px`,
         height: "100%",
         display: "flex",
@@ -73,6 +74,7 @@ export function ChartContainer({
         <div
           style={{
             flex: 1,
+            minHeight: `${minHeight}px`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",

@@ -424,8 +424,8 @@ function ComparePageInner() {
                   60 days
                 </span>
               </div>
-              <div style={{ padding: "16px 20px 20px" }}>
-                <ResponsiveContainer width="100%" height={260}>
+              <div style={{ padding: "16px 20px 20px", minWidth: 0 }}>
+                <ResponsiveContainer width="100%" height={260} minWidth={0} minHeight={260}>
                   <LineChart data={historyData}>
                     <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
                     <XAxis
@@ -480,8 +480,8 @@ function ComparePageInner() {
                 All axes normalised 0–100 relative to set
               </span>
             </div>
-            <div style={{ padding: "8px 20px 24px" }}>
-              <ResponsiveContainer width="100%" height={360}>
+            <div style={{ padding: "8px 20px 24px", minWidth: 0 }}>
+              <ResponsiveContainer width="100%" height={360} minWidth={0} minHeight={360}>
                 <RadarChart data={radarData}>
                   <PolarGrid stroke={C.border} />
                   <PolarAngleAxis

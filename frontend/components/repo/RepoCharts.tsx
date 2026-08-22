@@ -80,7 +80,7 @@ export function StarHistoryChart({ data, mentions }: {
         </span>
       </div>
       <ChartContainer minHeight={200}>
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
           <AreaChart data={enriched} margin={{ top: 10, right: 10, bottom: 0, left: -25 }}>
             <defs>
               <linearGradient id="starGrad" x1="0" y1="0" x2="0" y2="1">
@@ -137,7 +137,7 @@ export function DailyDeltaChart({ data }: { data: DailyMetricPoint[] }) {
         </span>
       </div>
       <ChartContainer minHeight={180}>
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180}>
           <ComposedChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: -25 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
             <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={formatDateShort} tickLine={false} axisLine={false} />
@@ -177,7 +177,7 @@ export function ContributorChart({ data }: { data: DailyMetricPoint[] }) {
         </span>
       </div>
       <ChartContainer minHeight={180}>
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180}>
           <AreaChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: -25 }}>
             <defs>
               <linearGradient id="contribGrad" x1="0" y1="0" x2="0" y2="1">
@@ -223,7 +223,7 @@ export function VelocityChart({ data }: { data: ComputedMetricPoint[] }) {
         </span>
       </div>
       <ChartContainer minHeight={180}>
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180}>
           <ComposedChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: -25 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
             <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} tickFormatter={formatDateShort} tickLine={false} axisLine={false} />
@@ -264,7 +264,7 @@ export function ScoreTimeline({ data }: { data: ComputedMetricPoint[] }) {
         </span>
       </div>
       <ChartContainer minHeight={180}>
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180}>
           <AreaChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: -25 }}>
             <defs>
               <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
