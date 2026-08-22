@@ -38,14 +38,14 @@ Repository stats:
 
 Return exactly this JSON structure:
 {{
-  "what": "2-3 sentence technical description (type of software, core capabilities, value proposition, audience).",
-  "why": "2-3 sentence explanation of the gap/problem solved compared to existing alternatives.",
-  "how": "2-3 sentence technical breakdown of runtime flow, execution model, architecture, and core modules.",
-  "tech_stack": ["List of major technologies, frameworks, runtimes, protocols, and dependencies found"],
+  "what": "Detailed 3-4 sentence architectural and functional breakdown: precise software classification, core capabilities, value proposition, and intended developer/enterprise audience.",
+  "why": "Detailed 3-4 sentence explanation: specific technical gaps, ecosystem challenges, architectural bottlenecks, and developer pain points in existing alternatives that this project solves.",
+  "how": "Detailed 3-4 sentence technical breakdown: runtime execution flow, core internal abstractions, data flow, concurrency/state management, and modular architecture.",
+  "tech_stack": ["Comprehensive list of 5-10 major technologies, languages, runtime frameworks, protocols, and dependencies"],
   "use_cases": [
-    "Specific developer/deployment/user scenario 1.",
-    "Specific developer/deployment/user scenario 2.",
-    "Specific developer/deployment/user scenario 3."
+    "Specific production/developer workflow scenario 1.",
+    "Specific production/developer workflow scenario 2.",
+    "Specific production/developer workflow scenario 3."
   ]
 }}
 

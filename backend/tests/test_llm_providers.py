@@ -48,8 +48,8 @@ def mock_sleep_and_keys(monkeypatch):
     monkeypatch.setattr(llm_providers, "CEREBRAS_API_KEY", "mock-cerebras-key")
     monkeypatch.setattr(llm_providers, "GROQ_API_KEY", "mock-groq-key")
 
-    # Clear custom LLM_PROVIDER_ORDER from environment to use defaults
-    monkeypatch.delenv("LLM_PROVIDER_ORDER", raising=False)
+    # Set standard fallback chain order for unit test assertions
+    monkeypatch.setenv("LLM_PROVIDER_ORDER", "gemini,cerebras,groq")
 
     # Clean up global health manager and failed provider states
     llm_providers.health_manager = llm_providers.ProviderHealthManager()

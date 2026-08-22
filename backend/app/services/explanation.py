@@ -413,7 +413,7 @@ async def generate_deep_summary(
         response = await async_chat_completion(
             messages=messages,
             temperature=0.3,
-            max_tokens=700,
+            max_tokens=900,
             json_required_keys=["what", "why", "how", "tech_stack", "use_cases"],
         )
         raw = response.text if response else None

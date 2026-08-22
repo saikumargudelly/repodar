@@ -30,8 +30,8 @@ SUPPORTED_MODELS = {
         "default": "gemma-4-31b"
     },
     "Groq": {
-        "models": ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile", "mixtral-8x7b-32768"],
-        "default": "llama-3.3-70b-versatile"
+        "models": ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b", "groq/compound", "groq/compound-mini"],
+        "default": "openai/gpt-oss-120b"
     }
 }
 
@@ -752,7 +752,7 @@ PROVIDERS_REGISTRY = {
 _failed_providers = set()
 
 def get_active_providers() -> List[BaseLLMProvider]:
-    order_str = os.getenv("LLM_PROVIDER_ORDER", "gemini,cerebras,groq")
+    order_str = os.getenv("LLM_PROVIDER_ORDER", "groq,gemini,cerebras")
     order = [p.strip().lower() for p in order_str.split(",") if p.strip()]
     
     active = []
@@ -782,7 +782,7 @@ async def validate_llm_configuration():
     logger.info("Initializing startup functional validation for configured LLM providers...")
     test_messages = [{"role": "user", "content": "ping"}]
     
-    order_str = os.getenv("LLM_PROVIDER_ORDER", "gemini,cerebras,groq")
+    order_str = os.getenv("LLM_PROVIDER_ORDER", "groq,gemini,cerebras")
     order = [p.strip().lower() for p in order_str.split(",") if p.strip()]
     
     for name in order:
