@@ -65,11 +65,15 @@ class OrgHealthResponse(BaseModel):
 
 # ─── Endpoint ────────────────────────────────────────────────────────────────
 
+from fastapi_cache.decorator import cache
+from sqlalchemy import func
+
 @router.get(
     "/{org}/oss-health",
     response_model=OrgHealthResponse,
     summary="Portfolio health for a GitHub organization",
 )
+@cache(expire=21600, namespace="org")
 async def org_oss_health(
     org: str = Path(..., description="GitHub organization login (e.g. microsoft, google, meta)"),
     limit: int = Query(25, le=50, description="Max repos to include"),
@@ -117,8 +121,26 @@ async def org_oss_health(
         repos_out: list[OrgRepoHealth] = []
         tracked_scores: list[float] = []
 
+        # Batch query all tracked repos for this org in DB
+        tracked_repos = db.query(Repository).filter(func.lower(Repository.owner) == org.lower()).all()
+        tracked_map = {r.name.lower(): r for r in tracked_repos}
+        tracked_ids = [r.id for r in tracked_repos]
+
+        latest_cm_map: dict[str, ComputedMetric] = {}
+        if tracked_ids:
+            cms = (
+                db.query(ComputedMetric)
+                .filter(ComputedMetric.repo_id.in_(tracked_ids))
+                .order_by(ComputedMetric.date.desc())
+                .all()
+            )
+            for cm in cms:
+                if cm.repo_id not in latest_cm_map:
+                    latest_cm_map[cm.repo_id] = cm
+
         for r in raw:
-            full_name = r.get("full_name", "")
+            repo_name = r.get("name", "")
+            full_name = r.get("full_name", f"{org}/{repo_name}")
             created_at = r.get("created_at", "")
             pushed_at = r.get("pushed_at", "")
 
@@ -131,7 +153,7 @@ async def org_oss_health(
                 age = 0
 
             entry = OrgRepoHealth(
-                name=r.get("name", ""),
+                name=repo_name,
                 full_name=full_name,
                 description=r.get("description") or "",
                 stars=r.get("stargazers_count", 0),
@@ -143,15 +165,10 @@ async def org_oss_health(
                 pushed_at=pushed_at,
             )
 
-            # Check Repodar tracked set
-            tracked = db.query(Repository).filter_by(id=full_name).first()
+            # Check Repodar tracked set by repo name
+            tracked = tracked_map.get(repo_name.lower())
             if tracked:
-                cm = (
-                    db.query(ComputedMetric)
-                    .filter_by(repo_id=full_name)
-                    .order_by(ComputedMetric.date.desc())
-                    .first()
-                )
+                cm = latest_cm_map.get(tracked.id)
                 entry.is_tracked = True
                 if cm:
                     entry.trend_score = cm.trend_score

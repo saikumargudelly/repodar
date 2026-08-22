@@ -4,7 +4,7 @@ from datetime import datetime, date, timezone, timedelta
 from typing import Optional, List
 
 import aiohttp
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Path
 from sqlalchemy import func, or_, and_
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -170,61 +170,34 @@ _GH_HEADERS = {
 @router.get("/compare", response_model=List[CompareEntry])
 @cache(expire=300, namespace="repo")
 async def compare_repos(
-    ids: str = Query(
-        ...,
-        description="Comma-separated repo IDs: owner/name,owner2/name2 (max 5)",
-    ),
+    ids: str = Query(..., description="Comma-separated repo IDs: owner/name,owner2/name2 (max 5)"),
     db: Session = Depends(get_db),
 ):
-    """
-    Side-by-side comparison data for 2–5 repos.
-    Repodar-tracked repos include full computed scores.
-    Untracked repos are enriched via live GitHub REST API (no scores).
-    """
     repo_ids = [i.strip() for i in ids.split(",") if "/" in i.strip()][:5]
     if not repo_ids:
         raise HTTPException(status_code=422, detail="Provide at least one valid owner/name id")
 
+    repo_tuples = [repo_id.split("/", 1) for repo_id in repo_ids]
     results: list[CompareEntry] = []
 
-    from app.models import DailyMetric
-    # Fetch tracked DB entries in batches to prevent N+1 query loop
     def _fetch_tracked_repos():
-        repos = db.query(Repository).filter(Repository.id.in_(repo_ids)).all()
-        repo_map = {r.id: r for r in repos}
+        conds = [
+            and_(
+                func.lower(Repository.owner) == o.lower(),
+                func.lower(Repository.name) == n.lower()
+            )
+            for o, n in repo_tuples
+        ]
+        repos = db.query(Repository).filter(or_(*conds)).all()
+        repo_map = {f"{r.owner.lower()}/{r.name.lower()}": r for r in repos}
+        tracked_ids = [r.id for r in repos]
         
-        # Latest ComputedMetric per repo_id
         latest_date = db.query(func.max(ComputedMetric.date)).scalar()
-        cms = []
-        if latest_date and repos:
-            cms = db.query(ComputedMetric).filter(
-                ComputedMetric.repo_id.in_(repo_map.keys()),
-                ComputedMetric.date == latest_date
-            ).all()
+        cms = db.query(ComputedMetric).filter(ComputedMetric.repo_id.in_(tracked_ids), ComputedMetric.date == latest_date).all() if latest_date and tracked_ids else []
         cm_map = {cm.repo_id: cm for cm in cms}
 
-        # Latest DailyMetric per repo_id
-        dms = []
-        if repos:
-            latest_dm_subq = (
-                db.query(
-                    DailyMetric.repo_id,
-                    func.max(DailyMetric.captured_at).label("max_captured")
-                )
-                .filter(DailyMetric.repo_id.in_(repo_map.keys()))
-                .group_by(DailyMetric.repo_id)
-                .subquery()
-            )
-            dms = (
-                db.query(DailyMetric)
-                .filter(DailyMetric.repo_id.in_(repo_map.keys()))
-                .join(
-                    latest_dm_subq,
-                    (DailyMetric.repo_id == latest_dm_subq.c.repo_id) &
-                    (DailyMetric.captured_at == latest_dm_subq.c.max_captured)
-                )
-                .all()
-            )
+        latest_dm_subq = db.query(DailyMetric.repo_id, func.max(DailyMetric.captured_at).label("max_captured")).filter(DailyMetric.repo_id.in_(tracked_ids)).group_by(DailyMetric.repo_id).subquery()
+        dms = db.query(DailyMetric).filter(DailyMetric.repo_id.in_(tracked_ids)).join(latest_dm_subq, (DailyMetric.repo_id == latest_dm_subq.c.repo_id) & (DailyMetric.captured_at == latest_dm_subq.c.max_captured)).all() if tracked_ids else []
         dm_map = {dm.repo_id: dm for dm in dms}
         
         return repo_map, cm_map, dm_map
@@ -234,20 +207,16 @@ async def compare_repos(
     async with aiohttp.ClientSession() as session:
         for repo_id in repo_ids:
             owner, name = repo_id.split("/", 1)
-
-            # Check if we have this repo tracked in DB
-            repo = repo_map.get(repo_id)
+            key = f"{owner.lower()}/{name.lower()}"
+            repo = repo_map.get(key)
             if repo:
-                cm = cm_map.get(repo_id)
-                dm = dm_map.get(repo_id)
+                cm = cm_map.get(repo.id)
+                dm = dm_map.get(repo.id)
                 results.append(CompareEntry(
-                    repo_id=repo_id,
-                    owner=owner,
-                    name=name,
-                    description=repo.description,
-                    github_url=repo.github_url,
+                    repo_id=repo_id, owner=owner, name=name,
+                    description=repo.description, github_url=repo.github_url,
                     primary_language=repo.primary_language,
-                    current_stars=dm.stars if dm else 0,
+                    current_stars=dm.stars if dm else (repo.stars_snapshot or 0),
                     current_forks=dm.forks if dm else 0,
                     age_days=repo.age_days,
                     trend_score=cm.trend_score if cm else None,
@@ -262,42 +231,16 @@ async def compare_repos(
                 ))
                 continue
 
-            # Untracked — fetch live from GitHub
-            try:
-                async with session.get(
-                    f"https://api.github.com/repos/{repo_id}",
-                    headers=_GH_HEADERS,
-                    timeout=aiohttp.ClientTimeout(total=10),
-                ) as resp:
-                    if resp.status != 200:
-                        raise HTTPException(status_code=404, detail=f"Repo {repo_id} not found")
-                    data = await resp.json()
-            except HTTPException:
-                raise
-            except Exception as e:
-                raise HTTPException(status_code=502, detail=f"GitHub API error for {repo_id}: {e}")
-
-            try:
-                age = (
-                    datetime.now(timezone.utc)
-                    - datetime.fromisoformat(data["created_at"].replace("Z", "+00:00"))
-                ).days
-            except Exception:
-                age = 0
-
+            async with session.get(f"https://api.github.com/repos/{repo_id}", headers=_GH_HEADERS, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status != 200: continue
+                data = await resp.json()
+            age = (datetime.now(timezone.utc) - datetime.fromisoformat(data["created_at"].replace("Z", "+00:00"))).days
             results.append(CompareEntry(
-                repo_id=repo_id,
-                owner=owner,
-                name=name,
-                description=data.get("description") or "",
+                repo_id=repo_id, owner=owner, name=name, description=data.get("description"),
                 github_url=data.get("html_url", f"https://github.com/{repo_id}"),
-                primary_language=data.get("language"),
-                current_stars=data.get("stargazers_count", 0),
-                current_forks=data.get("forks_count", 0),
-                age_days=age,
-                is_tracked=False,
+                primary_language=data.get("language"), current_stars=data.get("stargazers_count", 0),
+                current_forks=data.get("forks_count", 0), age_days=age, is_tracked=False
             ))
-
     return results
 
 
@@ -308,110 +251,51 @@ class RepoHistoryPoint(BaseModel):
     stars: int
     daily_star_delta: int
 
-
 class RepoHistory(BaseModel):
     repo_id: str
     owner: str
     name: str
-    color_index: int
     history: List[RepoHistoryPoint]
-
 
 @router.get("/compare/history", response_model=List[RepoHistory])
 @cache(expire=300, namespace="repo")
 async def compare_history(
-    ids: str = Query(
-        ...,
-        description="Comma-separated repo IDs: owner/name,owner2/name2 (max 5)",
-    ),
-    days: int = Query(30, description="Number of days of history to return", le=365),
+    ids: str = Query(..., description="Comma-separated repo IDs: owner/name,owner2/name2 (max 5)"),
+    days: int = Query(30, description="Number of days of history", le=365),
     db: Session = Depends(get_db),
 ):
-    """
-    Returns day-by-day star history for 2–5 repos, used to render a
-    time-series overlay chart in the comparison view.
-    Only Repodar-tracked repos will have non-empty history arrays.
-    """
-    from app.models import DailyMetric as DM
     from collections import defaultdict
-
     repo_ids = [i.strip() for i in ids.split(",") if "/" in i.strip()][:5]
-    if not repo_ids:
-        raise HTTPException(status_code=422, detail="Provide at least one valid owner/name id")
-
-    # Split owner/name
     repo_tuples = [repo_id.split("/", 1) for repo_id in repo_ids]
+    since = datetime.now(timezone.utc) - timedelta(days=days)
 
     def _fetch_history_data():
-        latest_dt = db.query(func.max(DM.captured_at)).scalar()
-        if not latest_dt:
-            latest_dt = datetime.now(timezone.utc)
-        since = latest_dt.date() - timedelta(days=days)
-
-        # Build OR condition for owners/names to fetch repositories in a single trip
-        conds = [
-            and_(
-                func.lower(Repository.owner) == o.lower(),
-                func.lower(Repository.name) == n.lower()
-            )
-            for o, n in repo_tuples
-        ]
+        conds = [and_(func.lower(Repository.owner) == o.lower(), func.lower(Repository.name) == n.lower()) for o, n in repo_tuples]
         repos = db.query(Repository).filter(or_(*conds)).all()
         repo_by_key = {f"{r.owner.lower()}/{r.name.lower()}": r for r in repos}
-
-        # Query DailyMetric for all matched repositories in one trip
-        repo_ids_found = [r.id for r in repos]
-        metrics = []
-        if repo_ids_found:
-            metrics = (
-                db.query(DM)
-                .filter(
-                    DM.repo_id.in_(repo_ids_found),
-                    DM.captured_at >= datetime.combine(since, datetime.min.time())
-                )
-                .order_by(DM.captured_at.asc())
-                .all()
-            )
-
+        repo_db_ids = [r.id for r in repos]
+        daily_metrics = db.query(DailyMetric).filter(DailyMetric.repo_id.in_(repo_db_ids), DailyMetric.captured_at >= since).order_by(DailyMetric.captured_at.asc()).all() if repo_db_ids else []
         metrics_by_repo = defaultdict(list)
-        for m in metrics:
-            metrics_by_repo[m.repo_id].append(m)
+        for dm in daily_metrics: metrics_by_repo[dm.repo_id].append(dm)
+        
+        results = []
+        for repo_id in repo_ids:
+            owner, name = repo_id.split("/", 1)
+            repo = repo_by_key.get(f"{owner.lower()}/{name.lower()}")
+            history = [RepoHistoryPoint(date=dm.captured_at.strftime("%Y-%m-%d"), stars=dm.stars, daily_star_delta=dm.daily_star_delta) for dm in metrics_by_repo.get(repo.id, [])] if repo else []
+            results.append(RepoHistory(repo_id=repo_id, owner=owner, name=name, history=history))
+        return results
 
-        return repo_by_key, metrics_by_repo
-
-    repo_by_key, metrics_by_repo = await asyncio.to_thread(_fetch_history_data)
-
-    results: list[RepoHistory] = []
-    for idx, repo_id in enumerate(repo_ids):
-        owner, name = repo_id.split("/", 1)
-        key = f"{owner.lower()}/{name.lower()}"
-        repo = repo_by_key.get(key)
-        if not repo:
-            results.append(RepoHistory(repo_id=repo_id, owner=owner, name=name, color_index=idx, history=[]))
-            continue
-
-        repo_metrics = metrics_by_repo.get(repo.id, [])
-        history = [
-            RepoHistoryPoint(
-                date=m.captured_at.strftime("%Y-%m-%d"),
-                stars=m.stars,
-                daily_star_delta=m.daily_star_delta,
-            )
-            for m in metrics
-        ]
-        results.append(RepoHistory(repo_id=repo_id, owner=owner, name=name, color_index=idx, history=history))
-
-    return results
+    return await asyncio.to_thread(_fetch_history_data)
 
 
-# ─── Deep Summary (must be before the /{repo_id:path} catch-all) ─────────────
+# ─── Deep Summary ───────────────────────────────────────────────────────────
 
 class ContributorInfo(BaseModel):
     login: str
     avatar_url: str
     contributions: int
     profile_url: str
-
 
 class DeepSummaryResponse(BaseModel):
     repo_id: str
@@ -426,11 +310,6 @@ class DeepSummaryResponse(BaseModel):
     languages: dict
     generated_at: str
 
-
-from fastapi import Path
-
-from fastapi import Path, HTTPException
-
 @router.get("/{owner}/{name}/deep-summary", response_model=DeepSummaryResponse)
 async def get_deep_summary(
     owner: str = Path(..., pattern=r"^[A-Za-z0-9_.-]+$"),
@@ -439,13 +318,14 @@ async def get_deep_summary(
 ):
     """
     Returns a rich structured analysis of a repo: what/why/how, tech stack,
-    use cases, top contributors, and language breakdown. Fetches live from
-    GitHub API and generates analysis via Groq LLM.
+    use cases, top contributors, and language breakdown. Checks DB first,
+    using repo_contributors and stored metrics before fallback.
     """
     repo_id = f"{owner}/{name}"
 
     # Try loading from cache first (only successful runs are cached)
     from fastapi_cache import FastAPICache
+    from app.models.repo_contributor import RepoContributor
     cache_backend = FastAPICache.get_backend()
     cache_key = f"repo:{owner}:{name}:deep-summary"
     if cache_backend:
@@ -458,19 +338,28 @@ async def get_deep_summary(
         except Exception as cache_err:
             logger.warning(f"Failed to read deep-summary cache: {cache_err}")
 
-    # Get basic repo info from DB or GitHub
-    repo = await asyncio.to_thread(db.query(Repository).filter_by(id=repo_id).first)
+    # Get basic repo info from DB
+    repo = await asyncio.to_thread(
+        db.query(Repository)
+        .filter(
+            func.lower(Repository.owner) == owner.lower(),
+            func.lower(Repository.name) == name.lower()
+        )
+        .first
+    )
     description = repo.description if repo else None
     primary_language = repo.primary_language if repo else None
     topics_str = repo.topics if repo else None
 
     # Get latest computed metrics context if available
-    cm = await asyncio.to_thread(
-        db.query(ComputedMetric)
-        .filter_by(repo_id=repo_id)
-        .order_by(ComputedMetric.date.desc())
-        .first
-    )
+    cm = None
+    if repo:
+        cm = await asyncio.to_thread(
+            db.query(ComputedMetric)
+            .filter_by(repo_id=repo.id)
+            .order_by(ComputedMetric.date.desc())
+            .first
+        )
     trend_score = cm.trend_score if cm else 0.0
     star_velocity_7d = cm.star_velocity_7d if cm else 0.0
     acceleration = cm.acceleration if cm else 0.0
@@ -478,12 +367,38 @@ async def get_deep_summary(
     sustainability_label = cm.sustainability_label if cm else "YELLOW"
 
     # Get latest daily metrics context if available
-    latest_dm = await asyncio.to_thread(
-        db.query(DailyMetric)
-        .filter_by(repo_id=repo_id)
-        .order_by(DailyMetric.captured_at.desc())
-        .first
-    )
+    latest_dm = None
+    if repo:
+        latest_dm = await asyncio.to_thread(
+            db.query(DailyMetric)
+            .filter_by(repo_id=repo.id)
+            .order_by(DailyMetric.captured_at.desc())
+            .first
+        )
+
+    # Check DB for existing contributors
+    db_contribs = []
+    if repo:
+        db_contribs = await asyncio.to_thread(
+            db.query(RepoContributor)
+            .filter_by(repo_id=repo.id)
+            .order_by(RepoContributor.contributions.desc())
+            .limit(10)
+            .all
+        )
+
+    contributors: list[ContributorInfo] = []
+    if db_contribs:
+        for c in db_contribs:
+            contributors.append(ContributorInfo(
+                login=c.login,
+                avatar_url=c.avatar_url or "",
+                contributions=c.contributions,
+                profile_url=f"https://github.com/{c.login}",
+            ))
+
+    languages_data = None
+    readme_raw = ""
 
     async with aiohttp.ClientSession() as session:
         headers = _GH_HEADERS.copy()
@@ -507,20 +422,41 @@ async def get_deep_summary(
             except Exception:
                 return ""
 
-        # Fetch all in parallel
+        # Fetch missing elements concurrently
+        tasks = []
         languages_task = asyncio.create_task(_fetch(f"https://api.github.com/repos/{repo_id}/languages"))
-        contrib_task = asyncio.create_task(_fetch(
-            f"https://api.github.com/repos/{repo_id}/contributors?per_page=10&anon=false"
-        ))
-        readme_task = asyncio.create_task(_fetch_text(
-            f"https://api.github.com/repos/{repo_id}/readme"
-        ))
-        # Also fetch repo info if not in DB
-        repo_info_task = asyncio.create_task(_fetch(f"https://api.github.com/repos/{repo_id}")) if not repo else None
+        tasks.append(languages_task)
 
-        languages_data, contrib_data, readme_raw = await asyncio.gather(
-            languages_task, contrib_task, readme_task
-        )
+        contrib_task = None
+        if not contributors:
+            contrib_task = asyncio.create_task(_fetch(
+                f"https://api.github.com/repos/{repo_id}/contributors?per_page=10&anon=false"
+            ))
+            tasks.append(contrib_task)
+
+        readme_task = asyncio.create_task(_fetch_text(f"https://api.github.com/repos/{repo_id}/readme"))
+        tasks.append(readme_task)
+
+        repo_info_task = None
+        if not repo:
+            repo_info_task = asyncio.create_task(_fetch(f"https://api.github.com/repos/{repo_id}"))
+            tasks.append(repo_info_task)
+
+        await asyncio.gather(*tasks)
+        languages_data = await languages_task
+        readme_raw = await readme_task
+        if contrib_task:
+            contrib_data = await contrib_task
+            if isinstance(contrib_data, list):
+                for c in contrib_data[:10]:
+                    if isinstance(c, dict) and c.get("type") == "User":
+                        contributors.append(ContributorInfo(
+                            login=c.get("login", ""),
+                            avatar_url=c.get("avatar_url", ""),
+                            contributions=c.get("contributions", 0),
+                            profile_url=c.get("html_url", f"https://github.com/{c.get('login', '')}"),
+                        ))
+
         if repo_info_task:
             gh_repo = await repo_info_task
             if gh_repo:
@@ -543,18 +479,6 @@ async def get_deep_summary(
             readme_text = readme_json.get("content", "")
     except Exception:
         readme_text = ""
-
-    # Build contributor list
-    contributors = []
-    if isinstance(contrib_data, list):
-        for c in contrib_data[:10]:
-            if isinstance(c, dict) and c.get("type") == "User":
-                contributors.append(ContributorInfo(
-                    login=c.get("login", ""),
-                    avatar_url=c.get("avatar_url", ""),
-                    contributions=c.get("contributions", 0),
-                    profile_url=c.get("html_url", f"https://github.com/{c.get('login', '')}"),
-                ))
 
     # Parse topics
     github_topics: list = []

@@ -501,9 +501,7 @@ async def natural_language_search(
     valid_fields = set(ParsedFilters.model_fields.keys())
     filters = ParsedFilters(**{k: v for k, v in parsed.items() if k in valid_fields})
 
-    # ── 2. Run DB query + GitHub search concurrently ──────────────────────────
-    github_task = asyncio.create_task(_search_github_api(filters))
-
+    # ── 2. Run DB query first ────────────────────────────────────────────────
     db_results: List[dict] = []
     try:
         from app.models import Repository
@@ -589,9 +587,14 @@ async def natural_language_search(
     except Exception as e:
         logger.error(f"DB query failed: {e}")
 
-    # ── 3. Collect GitHub results ─────────────────────────────────────────────
-    github_raw   = await github_task
-    github_items = [_normalize_github_item(item) for item in github_raw]
+    # ── 3. Conditional GitHub fallback if DB results are sparse (< 5) ─────────
+    github_items: list[dict] = []
+    if len(db_results) < 5:
+        try:
+            github_raw = await _search_github_api(filters)
+            github_items = [_normalize_github_item(item) for item in github_raw]
+        except Exception as gh_err:
+            logger.warning(f"GitHub search fallback failed: {gh_err}")
 
     # ── 4. Merge: DB first, then non-duplicate GitHub results ─────────────────
     db_slugs = {(r["owner"].lower(), r["name"].lower()) for r in db_results}

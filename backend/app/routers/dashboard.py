@@ -1377,27 +1377,163 @@ async def get_leaderboard(
     category: Optional[str] = Query(None, description="Filter by AI/ML sub-category"),
     vertical: str = Query("ai_ml", description="ai_ml | devtools | web_mobile | data_infra | security | oss_tools | blockchain | science | creative"),
     limit: int = Query(30, le=100),
+    db: Session = Depends(get_db),
 ):
     """
-    Returns the top GitHub repos for the selected time window.
+    Returns the top repos for the selected time window.
 
-    Source: GitHub Search API — searches ALL of GitHub for the highest-starred
-    AI/ML repos whose creation date falls within [now - period, now].
-    For 1d/7d windows a "recently active" search is included alongside the
-    "recently created" search to surface established repos with breakout momentum.
-
-    star_gain = absolute star count (GitHub Search does not return historical
-    star growth; a future enhancement could diff two Search snapshots taken
-    days apart and stored in the DailyMetrics table).
+    Source: Repodar Database (ComputedMetric + DailyMetric history) with fallback
+    to GitHub Search API if no tracked repositories match the filter criteria.
     """
+    from app.routers.search import VERTICAL_CATEGORY_MAP
+
+    days = PERIOD_DAYS.get(period, 7)
+    scored_date = _latest_scored_date(db)
+
+    # Base query on Repository joined with latest ComputedMetric
+    cm_subq = (
+        db.query(ComputedMetric)
+        .filter(ComputedMetric.date == scored_date)
+        .subquery()
+    )
+
+    repo_q = (
+        db.query(Repository, cm_subq)
+        .outerjoin(cm_subq, Repository.id == cm_subq.c.repo_id)
+        .filter(Repository.is_active == True)
+    )
+
+    # Apply category filter
+    if category and category.strip() and category != "All":
+        repo_q = repo_q.filter(Repository.category.ilike(f"%{category.strip()}%"))
+
+    # Apply vertical filter
+    elif vertical and vertical in VERTICAL_CATEGORY_MAP:
+        cats = VERTICAL_CATEGORY_MAP[vertical]
+        cat_conds = [Repository.category.ilike(f"%{c}%") for c in cats]
+        repo_q = repo_q.filter(or_(*cat_conds))
+
+    # Order by based on time period
+    if period == "1d":
+        repo_q = repo_q.order_by(
+            func.coalesce(cm_subq.c.acceleration, 0).desc(),
+            func.coalesce(cm_subq.c.trend_score, 0).desc(),
+            Repository.stars_snapshot.desc()
+        )
+    elif period == "7d":
+        repo_q = repo_q.order_by(
+            func.coalesce(cm_subq.c.star_velocity_7d, 0).desc(),
+            func.coalesce(cm_subq.c.trend_score, 0).desc(),
+            Repository.stars_snapshot.desc()
+        )
+    elif period in ("30d", "90d"):
+        repo_q = repo_q.order_by(
+            func.coalesce(cm_subq.c.star_velocity_30d, 0).desc(),
+            func.coalesce(cm_subq.c.trend_score, 0).desc(),
+            Repository.stars_snapshot.desc()
+        )
+    else:  # "365d", "3y", "5y", "all_time"
+        repo_q = repo_q.order_by(
+            Repository.stars_snapshot.desc(),
+            func.coalesce(cm_subq.c.trend_score, 0).desc()
+        )
+
+    rows = repo_q.limit(limit).all()
+
+    if rows:
+        # Fetch latest daily metric for each repo in batch
+        repo_ids = [r[0].id for r in rows]
+        latest_dm_subq = (
+            db.query(
+                DailyMetric.repo_id,
+                func.max(DailyMetric.captured_at).label("max_captured")
+            )
+            .filter(DailyMetric.repo_id.in_(repo_ids))
+            .group_by(DailyMetric.repo_id)
+            .subquery()
+        )
+        dms = (
+            db.query(DailyMetric)
+            .filter(DailyMetric.repo_id.in_(repo_ids))
+            .join(
+                latest_dm_subq,
+                (DailyMetric.repo_id == latest_dm_subq.c.repo_id) &
+                (DailyMetric.captured_at == latest_dm_subq.c.max_captured)
+            )
+            .all()
+        )
+        dm_map = {dm.repo_id: dm for dm in dms}
+
+        entries: list[LeaderboardEntry] = []
+        for i, row in enumerate(rows):
+            repo = row[0]
+            dm = dm_map.get(repo.id)
+            curr_stars = dm.stars if dm else (repo.stars_snapshot or 0)
+            curr_forks = dm.forks if dm else 0
+            open_issues = dm.open_issues if dm else None
+
+            # Determine star gain based on period
+            vel_7d = row.star_velocity_7d or 0.0
+            vel_30d = row.star_velocity_30d or 0.0
+            accel = row.acceleration or 0.0
+            trend = row.trend_score or 0.0
+            sust_score = row.sustainability_score or 0.0
+            sust_label = row.sustainability_label or "YELLOW"
+
+            if period == "7d":
+                gain = int(round(vel_7d))
+                gain_label = f"+{gain:,} stars this week" if gain > 0 else f"{gain:,} stars"
+            elif period == "30d":
+                gain = int(round(vel_30d))
+                gain_label = f"+{gain:,} stars this month" if gain > 0 else f"{gain:,} stars"
+            elif period == "1d":
+                gain = int(round(accel)) if accel > 0 else int(round(vel_7d / 7.0))
+                gain_label = f"+{gain:,} stars today" if gain > 0 else f"{gain:,} stars"
+            else:
+                gain = curr_stars
+                gain_label = f"{curr_stars:,} stars"
+
+            base_stars = max(1, curr_stars - gain) if (curr_stars - gain) > 0 else curr_stars
+            pct = round((gain / base_stars) * 100, 2) if base_stars > 0 else 0.0
+
+            entries.append(LeaderboardEntry(
+                rank=i + 1,
+                repo_id=f"{repo.owner}/{repo.name}",
+                owner=repo.owner,
+                name=repo.name,
+                category=repo.category,
+                github_url=repo.github_url,
+                primary_language=repo.primary_language,
+                age_days=repo.age_days,
+                current_stars=curr_stars,
+                star_gain=gain,
+                star_gain_pct=pct,
+                current_forks=curr_forks,
+                sustainability_label=sust_label,
+                sustainability_score=round(sust_score, 3),
+                trend_score=round(trend, 1),
+                description=repo.description,
+                open_issues=open_issues,
+                topics=_parse_topics(repo.topics),
+                star_gain_label=gain_label,
+            ))
+
+        return LeaderboardResponse(
+            period=period,
+            period_days=days,
+            as_of=scored_date.isoformat(),
+            has_history=True,
+            source="db",
+            entries=entries,
+        )
+
+    # Fallback to GitHub Search / Trending if DB has no matches
     import asyncio
     from app.services import github_search
 
-    days = PERIOD_DAYS.get(period, 7)
     raw_repos = await github_search.search_top_repos(period, limit=limit, category_filter=category, vertical=vertical)
 
     if not raw_repos:
-        from fastapi import HTTPException
         raise HTTPException(
             status_code=503,
             detail="Upstream GitHub data is temporarily unavailable or rate-limited. Please retry shortly."
@@ -1412,7 +1548,7 @@ async def get_leaderboard(
         period=period,
         period_days=days,
         as_of=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-        has_history=False,   # Search API returns current snapshots only
+        has_history=False,
         source="github_search",
         entries=entries,
     )

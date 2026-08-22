@@ -483,8 +483,12 @@ def _compute_efficiency_score(stars: int, forks: int, open_issues: int,
 
 
 async def _scan_repo_contents(owner: str, name: str) -> dict:
-    """Scans repository contents via API to check for CI/CD, tests, and README size."""
+    """Scans repository contents to check for CI/CD, tests, and README size. Checks DB first."""
     from fastapi_cache import FastAPICache
+    from app.database import SessionLocal
+    from app.models import Repository
+    from sqlalchemy import func
+
     cache_backend = None
     try:
         cache_backend = FastAPICache.get_backend()
@@ -500,13 +504,38 @@ async def _scan_repo_contents(owner: str, name: str) -> dict:
         except Exception:
             pass
 
+    # Check internal DB first
+    def _check_db():
+        db = SessionLocal()
+        try:
+            return db.query(Repository).filter(
+                func.lower(Repository.owner) == owner.lower(),
+                func.lower(Repository.name) == name.lower()
+            ).first()
+        finally:
+            db.close()
+
+    db_repo = await asyncio.to_thread(_check_db)
+    if db_repo:
+        result = {
+            "has_ci_cd": bool(db_repo.has_ci_cd),
+            "has_tests": bool(db_repo.has_tests),
+            "readme_len": 1500 if db_repo.description else 0,
+        }
+        if cache_backend:
+            try:
+                await cache_backend.set(cache_key, json.dumps(result), expire=86400)
+            except Exception:
+                pass
+        return result
+
     result = {
         "has_ci_cd": False,
         "has_tests": False,
         "readme_len": 0,
     }
 
-    # Fetch contents of root directory
+    # Fetch contents of root directory via GitHub fallback
     url = f"https://api.github.com/repos/{owner}/{name}/contents"
     try:
         async with aiohttp.ClientSession() as sess:
