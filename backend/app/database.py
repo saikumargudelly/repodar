@@ -61,11 +61,11 @@ elif DATABASE_URL.startswith("postgresql"):  # includes normalized postgres:// U
     # PostgreSQL: Production on Railway
     # Optimized connection pooling for async workloads with Celery
     engine_kwargs.update({
-        "pool_size": 2,           # Keep pool small to avoid Neon Max Connections errors under multi-worker setup
-        "max_overflow": 2,        # Overflow cap to handle minor spikes
+        "pool_size": int(os.getenv("DB_POOL_SIZE", "2")),           # Keep pool small to avoid Neon Max Connections errors under multi-worker setup
+        "max_overflow": int(os.getenv("DB_MAX_OVERFLOW", "2")),        # Overflow cap to handle minor spikes
         "pool_pre_ping": True,    # Test connections before using
-        "pool_recycle": 1800,     # Recycle connections every 30 minutes
-        "pool_timeout": 15,       # Timeout if no connection is available within 15 seconds
+        "pool_recycle": int(os.getenv("DB_POOL_RECYCLE", "1800")),     # Recycle connections every 30 minutes
+        "pool_timeout": int(os.getenv("DB_POOL_TIMEOUT", "15")),       # Timeout if no connection is available within 15 seconds
         "connect_args": {"connect_timeout": 10, "keepalives": 1, "keepalives_idle": 30}
     })
     engine = create_engine(DATABASE_URL, **engine_kwargs)
@@ -170,10 +170,16 @@ Base = declarative_base()
 
 
 def get_db():
-    """FastAPI dependency that yields a DB session and ensures cleanup."""
+    """FastAPI dependency that yields a DB session and ensures cleanup with safe rollback on error."""
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        try:
+            db.rollback()
+        except Exception as rb_err:
+            logging.getLogger("app.database").warning(f"Session rollback failed during exception unwind: {rb_err}")
+        raise
     finally:
         db.close()
 

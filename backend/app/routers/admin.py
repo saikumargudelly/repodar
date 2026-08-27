@@ -167,16 +167,30 @@ async def trigger_backfill(background_tasks: BackgroundTasks):
         from app.services.ingestion import _calc_age_days
 
         log = logging.getLogger("app.admin.backfill")
+        
+        # Step 1: Query active repos in a short-lived DB session and extract plain Python dicts
         db = SessionLocal()
         try:
-            repos = db.query(Repository).filter(Repository.is_active == True).all()  # noqa: E712
-            log.info(f"Backfill: fetching GitHub metadata for {len(repos)} repos")
-
+            repos = db.query(Repository.id, Repository.owner, Repository.name).filter(Repository.is_active == True).all()  # noqa: E712
             all_pending = [{"id": r.id, "owner": r.owner, "name": r.name} for r in repos]
-            metrics_list = await fetch_repo_metrics(all_pending, since_map={})
+        except Exception as e:
+            log.error(f"Backfill pre-fetch error: {e}", exc_info=True)
+            return
+        finally:
+            db.close()
 
-            now = datetime.now(timezone.utc).replace(tzinfo=None)
-            repo_map = {r.id: r for r in repos}
+        log.info(f"Backfill: fetching GitHub metadata for {len(all_pending)} repos (no DB connection held)")
+
+        # Step 2: Fetch metadata via external GitHub HTTP/GraphQL API without holding any database connection
+        metrics_list = await fetch_repo_metrics(all_pending, since_map={})
+
+        # Step 3: Re-open a fresh database session only for persistence
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        db = SessionLocal()
+        try:
+            repo_ids = [m.get("repo_id") for m in metrics_list if m.get("repo_id")]
+            active_repos = db.query(Repository).filter(Repository.id.in_(repo_ids)).all()
+            repo_map = {r.id: r for r in active_repos}
             updated = 0
 
             for m in metrics_list:
@@ -195,10 +209,13 @@ async def trigger_backfill(background_tasks: BackgroundTasks):
                 updated += 1
 
             db.commit()
-            log.info(f"Backfill complete: updated {updated}/{len(repos)} repos")
+            log.info(f"Backfill complete: updated {updated}/{len(all_pending)} repos")
         except Exception as e:
-            db.rollback()
-            log.error(f"Backfill error: {e}", exc_info=True)
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            log.error(f"Backfill persistence error: {e}", exc_info=True)
         finally:
             db.close()
 
