@@ -1633,9 +1633,19 @@ export default function OverviewPage() {
   const searchParams = useSearchParams();
   const { isLoaded: authLoaded, userId, token, isReady } = useAuthSession();
   const [period, setPeriod] = useState<Period>("7d");
-  const [vertical, setVertical] = useState<Vertical>("ai_ml");
+  // Initialize vertical from URL param synchronously; fallback to "ai_ml" only if no URL override
+  const [vertical, setVertical] = useState<Vertical>(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const v = params.get("vertical");
+      if (v && VERTICALS.some((item) => item.key === v)) return v as Vertical;
+    }
+    return "ai_ml";
+  });
   const [userVerticals, setUserVerticals] = useState<string[]>([]);
   const [showMine, setShowMine] = useState(false);
+  // True once onboarding prefs have been fetched (or auth is unavailable)
+  const [prefsReady, setPrefsReady] = useState(false);
   const { items: watchlist, toggle: togglePin, isPinned } = useWatchlist();
   const [isMobile, setIsMobile] = useState(false);
 
@@ -1656,16 +1666,25 @@ export default function OverviewPage() {
 
   // Load user's preferred verticals from onboarding and set as default
   useEffect(() => {
-    if (!authLoaded || !isReady || !token) return;
+    if (!authLoaded) return;
+    // Auth settled but no session — nothing to fetch, unblock render
+    if (!isReady || !token) { setPrefsReady(true); return; }
     api.getOnboardingStatus(token)
       .then((status) => {
         const prefs = status.selected_verticals ?? [];
         setUserVerticals(prefs);
-        // Default to user's first preferred vertical if it's a valid Vertical key
-        const validKeys = VERTICALS.map((v) => v.key);
-        const firstPref = prefs.find((p) => validKeys.includes(p as Vertical));
-        if (firstPref) setVertical(firstPref as Vertical);
-      }).catch(() => { /* not critical — keep default */ });
+        if (prefs.length > 0) {
+          setShowMine(true);
+          const urlVertical = searchParams.get("vertical");
+          if (!urlVertical) {
+            const validKeys = VERTICALS.map((v) => v.key);
+            const firstPref = prefs.find((p) => validKeys.includes(p as Vertical));
+            if (firstPref) setVertical(firstPref as Vertical);
+          }
+        }
+      })
+      .catch(() => { /* not critical — keep defaults */ })
+      .finally(() => setPrefsReady(true));
   }, [authLoaded, isReady, token]);
 
   const { data: overview, isLoading: overviewLoading, error } = useQuery({
@@ -1697,7 +1716,7 @@ export default function OverviewPage() {
 
 
 
-  if (overviewLoading) {
+  if (overviewLoading || !prefsReady) {
     return <Skeleton shape="page" />;
   }
 
