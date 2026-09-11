@@ -302,11 +302,19 @@ function VerticalSelector({
 }) {
   const favorites = userVerticals.length > 0
     ? userVerticals
-    : ["ai_ml", "devtools", "web_mobile", "oss_tools"];
+    : null; // no fallback — show all when no prefs
 
-  const displayed = showMine
+  const displayed = showMine && favorites
     ? VERTICALS.filter((v) => favorites.includes(v.key))
     : VERTICALS;
+
+  // Keep selection coherent: if current vertical isn't visible, pick first displayed
+  useEffect(() => {
+    if (displayed.length > 0 && !displayed.some((v) => v.key === selected)) {
+      onChange(displayed[0].key);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showMine, displayed.map((v) => v.key).join(",")]);
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "12px", width: "100%", overflowX: "auto", padding: "2px 0" }} className="scroll-selector">
@@ -1673,15 +1681,10 @@ export default function OverviewPage() {
       .then((status) => {
         const prefs = status.selected_verticals ?? [];
         setUserVerticals(prefs);
-        if (prefs.length > 0) {
-          setShowMine(true);
-          const urlVertical = searchParams.get("vertical");
-          if (!urlVertical) {
-            const validKeys = VERTICALS.map((v) => v.key);
-            const firstPref = prefs.find((p) => validKeys.includes(p as Vertical));
-            if (firstPref) setVertical(firstPref as Vertical);
-          }
-        }
+        // Enable Mine filter if user has saved preferences.
+        // The VerticalSelector's coherence effect will auto-pick the first
+        // valid visible vertical — no need to force-set vertical here.
+        if (prefs.length > 0) setShowMine(true);
       })
       .catch(() => { /* not critical — keep defaults */ })
       .finally(() => setPrefsReady(true));
