@@ -1672,19 +1672,27 @@ export default function OverviewPage() {
     }
   }, [searchParams]);
 
-  // Load user's preferred verticals from onboarding and set as default
+  // Load user's preferred verticals from profile preferences (authoritative source,
+  // same data the Profile page shows). Falls back silently — keeps defaults on error.
   useEffect(() => {
     if (!authLoaded) return;
     // Auth settled but no session — nothing to fetch, unblock render
     if (!isReady || !token) { setPrefsReady(true); return; }
-    api.getOnboardingStatus(token)
-      .then((status) => {
-        const prefs = status.selected_verticals ?? [];
-        setUserVerticals(prefs);
-        // Enable Mine filter if user has saved preferences.
-        // The VerticalSelector's coherence effect will auto-pick the first
-        // valid visible vertical — no need to force-set vertical here.
-        if (prefs.length > 0) setShowMine(true);
+    api.getProfilePreferences(token)
+      .then((prefs) => {
+        const verticals = prefs.verticals ?? [];
+        setUserVerticals(verticals);
+        if (verticals.length > 0) {
+          // Enable Mine filter so user's preferred pills are shown
+          setShowMine(true);
+          // Default to the user's first profile vertical (no URL override present)
+          const urlVertical = searchParams.get("vertical");
+          if (!urlVertical) {
+            const validKeys = VERTICALS.map((v) => v.key);
+            const firstPref = verticals.find((p) => validKeys.includes(p as Vertical));
+            if (firstPref) setVertical(firstPref as Vertical);
+          }
+        }
       })
       .catch(() => { /* not critical — keep defaults */ })
       .finally(() => setPrefsReady(true));
