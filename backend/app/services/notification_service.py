@@ -73,24 +73,35 @@ async def dispatch_pending_watchlist_alert_emails(lookback_hours: int = 48) -> d
             .all()
         )
 
-        for alert, repo in alerts:
-            watchers = (
+        alert_repo_ids = list({alert.repo_id for alert, repo in alerts})
+        watchers_by_repo = {}
+        if alert_repo_ids:
+            all_watchers = (
                 db.query(WatchlistItem)
                 .filter(
-                    WatchlistItem.repo_id == alert.repo_id,
+                    WatchlistItem.repo_id.in_(alert_repo_ids),
                     WatchlistItem.notify_email.isnot(None),
                     WatchlistItem.notify_email != "",
                 )
                 .all()
             )
+            for w in all_watchers:
+                watchers_by_repo.setdefault(w.repo_id, []).append(w)
 
+        alert_ids = [alert.id for alert, repo in alerts]
+        existing_notifs = set()
+        if alert_ids:
+            existing_rows = (
+                db.query(AlertNotification.alert_id, AlertNotification.destination_email)
+                .filter(AlertNotification.alert_id.in_(alert_ids), AlertNotification.channel == "email")
+                .all()
+            )
+            existing_notifs = {(row[0], row[1]) for row in existing_rows}
+
+        for alert, repo in alerts:
+            watchers = watchers_by_repo.get(alert.repo_id, [])
             for watcher in watchers:
-                exists = (
-                    db.query(AlertNotification)
-                    .filter_by(alert_id=alert.id, destination_email=watcher.notify_email, channel="email")
-                    .first()
-                )
-                if exists:
+                if (alert.id, watcher.notify_email) in existing_notifs:
                     skipped_count += 1
                     continue
 

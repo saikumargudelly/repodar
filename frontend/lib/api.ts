@@ -131,7 +131,11 @@ async function apiFetch<T>(path: string, options?: RequestInit, retries = 3): Pr
             // response body is not JSON — keep the generic message
           }
           const structuredErr = `[API Error] ${method} ${path} | Status: ${res.status} | Details: ${detail}`;
-          console.error(structuredErr);
+          if (res.status === 401) {
+            console.warn(structuredErr);
+          } else {
+            console.error(structuredErr);
+          }
           throw new Error(detail);
         }
         
@@ -160,9 +164,14 @@ async function apiFetch<T>(path: string, options?: RequestInit, retries = 3): Pr
 
   if (method === "GET") {
     activeRequests.set(dedupeKey, fetchPromise);
-    fetchPromise.finally(() => {
-      activeRequests.delete(dedupeKey);
-    });
+    fetchPromise
+      .finally(() => {
+        activeRequests.delete(dedupeKey);
+      })
+      .catch(() => {
+        // Prevent unhandled promise rejection on this auxiliary cleanup chain.
+        // The error is properly handled by callers awaiting fetchPromise.
+      });
   }
 
   const result = await fetchPromise;

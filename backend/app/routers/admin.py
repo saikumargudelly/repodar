@@ -255,10 +255,7 @@ _last_pipeline_result = None
 
 async def _run_pipeline_background(force_discovery: bool):
     global _pipeline_running, _last_pipeline_result
-    from app.services.ingestion import run_daily_ingestion
-    from app.services.scoring import run_daily_scoring
-    from app.services.explanation import enrich_top_repos_with_explanations
-    from app.utils.pipeline_state import pipeline_tracker
+    from app.main import _run_pipeline_sync
     import logging
     logger = logging.getLogger("app.admin")
 
@@ -266,59 +263,16 @@ async def _run_pipeline_background(force_discovery: bool):
         _last_pipeline_result = {"status": "skipped", "detail": "Another pipeline execution is already in progress."}
         return
 
-    async with pipeline_lock:
-        _pipeline_running = True
-        _last_pipeline_result = {"status": "running"}
-        from app.utils.executor import run_in_pipeline_thread
-        pipeline_tracker.start("deduplication")
-        try:
-            def run_heal():
-                from app.database import SessionLocal
-                db_heal = SessionLocal()
-                try:
-                    deduplicate_repositories_logic(db_heal)
-                except Exception as e:
-                    logger.warning("Auto-deduplication failed: %s", e)
-                finally:
-                    db_heal.close()
-
-            await run_in_pipeline_thread(run_heal)
-
-            pipeline_tracker.update_stage("ingestion")
-            ingest_result = await run_daily_ingestion(force_discovery=force_discovery)
-
-            pipeline_tracker.update_stage("scoring")
-            score_result = await run_in_pipeline_thread(run_daily_scoring)
-
-            pipeline_tracker.update_stage("explanations")
-            explain_count = await run_in_pipeline_thread(enrich_top_repos_with_explanations, 20)
-            logger.info(
-                "run-all complete | force_discovery=%s discovered=%s ingested=%s scored=%s explained=%s",
-                force_discovery,
-                ingest_result.get('discovered', 0),
-                ingest_result.get('ingested', 0),
-                score_result.get('scored', 0),
-                explain_count,
-            )
-            _last_pipeline_result = {
-                "status": "complete",
-                "discovered": ingest_result.get('discovered', 0),
-                "reactivated": ingest_result.get('reactivated', 0),
-                "ingested": ingest_result.get('ingested', 0),
-                "scored": score_result.get('scored', 0),
-                "failed_scoring": score_result.get('failed', 0),
-                "alerts_generated": score_result.get('alerts', 0),
-                "categories_cached": score_result.get('categories_cached', 0),
-                "explanations": explain_count,
-                "scoring_date": str(score_result.get('date')) if score_result.get('date') else None,
-            }
-            pipeline_tracker.end(success=True)
-        except Exception as e:
-            logger.error("run-all pipeline error: %s", e, exc_info=True)
-            _last_pipeline_result = {"status": "error", "detail": str(e)}
-            pipeline_tracker.end(success=False)
-        finally:
-            _pipeline_running = False
+    _pipeline_running = True
+    _last_pipeline_result = {"status": "running"}
+    try:
+        result = await _run_pipeline_sync(force_discovery=force_discovery, include_explanations=True)
+        _last_pipeline_result = result
+    except Exception as e:
+        logger.error("run-all pipeline error: %s", e, exc_info=True)
+        _last_pipeline_result = {"status": "error", "detail": str(e)}
+    finally:
+        _pipeline_running = False
 
 
 class PipelineStatusResponse(BaseModel):
@@ -636,15 +590,11 @@ def get_status():
 @router.post("/run-all-sync")
 async def run_full_pipeline_sync():
     """
-    Run full pipeline synchronously: discover → ingest → score → explain.
+    Run full pipeline synchronously: discover → ingest → score → explain → enrich.
     Blocks until complete and returns results.  May take 2–8 minutes.
-    Use /admin/run-all for a fire-and-forget variant.
+    Use /admin/run-all for a fire-and-forget background variant.
     """
-    from app.services.ingestion import run_daily_ingestion
-    from app.services.scoring import run_daily_scoring
-    from app.services.explanation import enrich_top_repos_with_explanations
-    import logging
-    _logger = logging.getLogger("app.admin")
+    from app.main import _run_pipeline_sync
 
     if pipeline_lock.locked():
         raise HTTPException(
@@ -652,52 +602,7 @@ async def run_full_pipeline_sync():
             detail="Pipeline execution is already in progress via scheduler or another request."
         )
 
-    async with pipeline_lock:
-        from app.utils.pipeline_state import pipeline_tracker
-        pipeline_tracker.start("deduplication")
-        try:
-            from app.utils.executor import run_in_pipeline_thread
-            from app.database import SessionLocal
-            db_heal = SessionLocal()
-            try:
-                await run_in_pipeline_thread(deduplicate_repositories_logic, db_heal)
-            except Exception as e:
-                _logger.warning("Auto-deduplication failed: %s", e)
-            finally:
-                db_heal.close()
-
-            _logger.info("run-all-sync: starting ingestion")
-            pipeline_tracker.update_stage("ingestion")
-            ingest_result = await run_daily_ingestion(force_discovery=False)
-            _logger.info(f"run-all-sync: ingestion done → {ingest_result}")
-
-            _logger.info("run-all-sync: starting scoring")
-            pipeline_tracker.update_stage("scoring")
-            score_result = await run_in_pipeline_thread(run_daily_scoring)
-            _logger.info(f"run-all-sync: scoring done → {score_result}")
-
-            _logger.info("run-all-sync: generating explanations")
-            pipeline_tracker.update_stage("explanations")
-            explain_count = await run_in_pipeline_thread(enrich_top_repos_with_explanations, 20)
-            _logger.info(f"run-all-sync: explanations done → {explain_count}")
-
-            pipeline_tracker.end(success=True)
-            return {
-                "status": "complete",
-                "discovered": ingest_result.get("discovered", 0),
-                "reactivated": ingest_result.get("reactivated", 0),
-                "ingested": ingest_result.get("ingested", 0),
-                "scored": score_result.get("scored", 0),
-                "failed_scoring": score_result.get("failed", 0),
-                "alerts_generated": score_result.get("alerts", 0),
-                "categories_cached": score_result.get("categories_cached", 0),
-                "explanations": explain_count,
-                "scoring_date": score_result.get("date"),
-            }
-        except Exception as e:
-            _logger.error(f"run-all-sync failed: {e}", exc_info=True)
-            pipeline_tracker.end(success=False)
-            return {"status": "error", "detail": str(e)}
+    return await _run_pipeline_sync(force_discovery=False, include_explanations=True)
 
 
 @router.get("/run-all-stream")

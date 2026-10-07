@@ -6,7 +6,8 @@ Architecture:
   AlertEvent (pydantic) → fired event passed to delivery workers
   AlertEngine → evaluate_rules() called at end of ingestion cycle
 
-Delivery: fire-and-forget via asyncio.create_task() — never blocks ingestion.
+Delivery: webhooks for one repo's triggered rules are awaited together (gather)
+so they finish before the caller's event loop closes.
 Webhooks: HTTP POST to configured endpoint.
 Email: stub (plug in any SMTP/SES/Resend adapter).
 """
@@ -191,6 +192,7 @@ async def evaluate_alert_rules(
         metric_values.update(forecast_values)
 
     fired: list[AlertEvent] = []
+    deliveries = []
 
     for rule in rules:
         try:
@@ -211,13 +213,16 @@ async def evaluate_alert_rules(
             )
             fired.append(event)
 
-            # Async webhook delivery — non-blocking
             if rule.webhook_url:
-                asyncio.create_task(_deliver_webhook(rule.webhook_url, event))
+                deliveries.append(_deliver_webhook(rule.webhook_url, event))
 
             logger.info(f"Alert fired: {event.event_type} for {event.repo_name} ({rule.condition}={value:.3f})")
         except Exception as e:
             logger.warning(f"Alert rule {getattr(rule, 'id', '?')} eval error: {e}")
+
+    if deliveries:
+        # _deliver_webhook swallows its own errors and has an 8 s timeout
+        await asyncio.gather(*deliveries)
 
     return fired
 

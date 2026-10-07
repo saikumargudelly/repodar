@@ -29,6 +29,7 @@ class DailyMetric(Base):
     watchers: Mapped[int] = mapped_column(Integer, default=0)
     contributors: Mapped[int] = mapped_column(Integer, default=0)
     open_issues: Mapped[int] = mapped_column(Integer, default=0)
+    closed_issues: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # cumulative closed issues; NULL = not collected
     open_prs: Mapped[int] = mapped_column(Integer, default=0)        # open pull requests
     merged_prs: Mapped[int] = mapped_column(Integer, default=0)      # cumulative merged PRs
     releases: Mapped[int] = mapped_column(Integer, default=0)

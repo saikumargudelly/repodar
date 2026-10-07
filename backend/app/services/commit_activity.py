@@ -2,6 +2,7 @@
 Commit activity fetcher — stores weekly commit counts (52-week) per repo.
 Uses GitHub's /repos/{owner}/{repo}/stats/commit_activity endpoint.
 """
+import asyncio
 import json
 import logging
 import os
@@ -63,6 +64,7 @@ async def run_commit_activity_pipeline(top_n: int = 100) -> dict:
     """
     Fetch and store commit activity JSON for top-N repos.
     Updates Repository.commit_activity_json and commit_activity_updated_at.
+    Skips repositories updated in the last 20 hours.
     """
     from app.database import SessionLocal
     from app.models import Repository, ComputedMetric
@@ -70,9 +72,11 @@ async def run_commit_activity_pipeline(top_n: int = 100) -> dict:
 
     db = SessionLocal()
     repos_to_fetch = []
+    skipped = 0
 
     try:
         today = date_type.today()
+        cutoff = _utcnow() - timedelta(hours=20)
         top = (
             db.query(ComputedMetric, Repository)
             .join(Repository, Repository.id == ComputedMetric.repo_id)
@@ -82,6 +86,9 @@ async def run_commit_activity_pipeline(top_n: int = 100) -> dict:
             .all()
         )
         for cm, repo in top:
+            if repo.commit_activity_updated_at and repo.commit_activity_updated_at >= cutoff:
+                skipped += 1
+                continue
             repos_to_fetch.append({
                 "id": repo.id,
                 "owner": repo.owner,
@@ -89,20 +96,30 @@ async def run_commit_activity_pipeline(top_n: int = 100) -> dict:
             })
     except Exception as e:
         logger.error(f"Commit activity pipeline query failed: {e}")
-        return {"updated": 0, "error": str(e)}
+        return {"updated": 0, "skipped": 0, "error": str(e)}
     finally:
         db.close()
 
-    # Fetch commit activity without holding database connections during network I/O
+    if not repos_to_fetch:
+        return {"updated": 0, "skipped": skipped}
+
+    # Fetch commit activity concurrently with bounded concurrency
     all_commit_data = {}
+    sem = asyncio.Semaphore(10)
     async with aiohttp.ClientSession() as session:
-        for repo in repos_to_fetch:
-            daily_points = await fetch_commit_activity(session, repo["owner"], repo["name"])
-            if daily_points is not None:
-                all_commit_data[repo["id"]] = daily_points
+        async def _fetch(r):
+            async with sem:
+                res = await fetch_commit_activity(session, r["owner"], r["name"])
+                return r["id"], res
+
+        tasks = [_fetch(r) for r in repos_to_fetch]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for res in results:
+            if isinstance(res, tuple) and res[1] is not None:
+                all_commit_data[res[0]] = res[1]
 
     if not all_commit_data:
-        return {"updated": 0}
+        return {"updated": 0, "skipped": skipped}
 
     # Save to database in a new short-lived session
     db = SessionLocal()

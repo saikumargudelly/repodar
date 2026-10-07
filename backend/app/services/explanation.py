@@ -70,13 +70,15 @@ def enrich_top_repos_with_explanations(top_n: int = 20) -> int:
             .join(Repository, Repository.id == ComputedMetric.repo_id)
             .filter(
                 ComputedMetric.date == today,
-                ComputedMetric.explanation.is_(None),
+                Repository.is_active == True,
             )
             .order_by(ComputedMetric.trend_score.desc())
             .limit(top_n)
             .all()
         )
         for cm, repo in top_repos:
+            if cm.explanation and cm.explanation.strip():
+                continue
             targets.append({
                 "repo_id": repo.id,
                 "owner": repo.owner,
@@ -98,6 +100,9 @@ def enrich_top_repos_with_explanations(top_n: int = 20) -> int:
         return 0
     finally:
         db.close()
+
+    if not targets:
+        return 0
 
     # Generate explanations without holding database connections during network I/O
     explanations = {}

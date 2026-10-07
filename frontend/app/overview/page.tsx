@@ -894,12 +894,14 @@ function SustainabilityRanking({ repos }: { repos: SustainabilityEntry[] }) {
 
 // ─── Ecosystem Map Chart (scatter: trend vs sustainability) ─────────────────
 function EcosystemMapChart({ repos, title = "Ecosystem Landscape Map" }: { repos: RadarRepo[]; title?: string }) {
+  const [mounted, setMounted] = useState(false);
   const [chartHeight, setChartHeight] = useState(320);
   const [selectedRepo, setSelectedRepo] = useState<RadarRepo | null>(null);
   const [activeQuadrant, setActiveQuadrant] = useState<string | null>(null);
   const [disabledCategories, setDisabledCategories] = useState<Set<string>>(new Set());
 
   useEffect(() => {
+    setMounted(true);
     const update = () => {
       if (window.innerWidth <= 480) setChartHeight(220);
       else if (window.innerWidth <= 768) setChartHeight(260);
@@ -1134,62 +1136,66 @@ function EcosystemMapChart({ repos, title = "Ecosystem Landscape Map" }: { repos
 
           {/* Scatter Chart container */}
           <div style={{ height: `${chartHeight}px`, minHeight: `${chartHeight}px`, position: "relative", width: "100%", minWidth: 0 }}>
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={chartHeight}>
-              <ScatterChart margin={{ top: 12, right: 10, bottom: 20, left: 24 }}>
-                <XAxis
-                  type="number" dataKey="x" name="Trend"
-                  domain={[0, "auto"]}
-                  tick={{ fontSize: 9, fill: "var(--text-muted)", fontFamily: "var(--font-mono)" }}
-                  label={{ value: "Star Momentum (Trend Score)", position: "insideBottom", offset: -5, fontSize: 10, fill: "var(--text-muted)", fontFamily: "var(--font-sans)", fontWeight: 600 }}
-                />
-                <YAxis
-                  type="number" dataKey="y" name="Sustainability"
-                  domain={[0, 100]}
-                  width={60}
-                  tick={{ fontSize: 9, fill: "var(--text-muted)", fontFamily: "var(--font-mono)" }}
-                  label={{ value: "Project Health (Sustainability Score)", angle: -90, position: "insideLeft", offset: 10, fontSize: 10, fill: "var(--text-muted)", fontFamily: "var(--font-sans)", fontWeight: 600 }}
-                />
-                <ZAxis range={[30, 30]} />
-                <Tooltip
-                  cursor={{ strokeDasharray: "3 3", stroke: "var(--border)", strokeWidth: 1 }}
-                  content={({ active, payload }) => {
-                    if (!active || !payload?.length) return null;
-                    const d = payload[0]?.payload as { x: number; y: number; name: string; owner: string; category: string };
-                    return (
-                      <div style={{ 
-                        background: "var(--bg-surface)", 
-                        border: "1px solid var(--border)", 
-                        padding: "8px 12px", 
-                        fontSize: "11px", 
-                        fontFamily: "var(--font-mono)", 
-                        borderRadius: "6px", 
-                        boxShadow: "0 8px 32px rgba(0,0,0,0.5)" 
-                      }}>
-                        <p style={{ margin: "0 0 4px", fontWeight: 700, color: "var(--text-primary)" }}>{d.owner}/{d.name}</p>
-                        <p style={{ margin: "0 0 2px", color: "var(--cyan)", fontSize: "10px" }}>TREND: <strong>{(d.x / 100).toFixed(2)}</strong></p>
-                        <p style={{ margin: "0 0 2px", color: "var(--amber)", fontSize: "10px" }}>SUSTAIN: <strong>{d.y.toFixed(0)}%</strong></p>
-                        <p style={{ margin: 0, color: categoryColorMap[d.category] || "#58a6ff", fontSize: "9.5px", letterSpacing: "0.04em", textTransform: "uppercase" }}>{d.category}</p>
-                      </div>
-                    );
-                  }}
-                />
-                
-                {/* Quadrant Crosshairs */}
-                <ReferenceLine x={midPoints.x} stroke="var(--border)" strokeWidth={1} strokeDasharray="4 4" />
-                <ReferenceLine y={midPoints.y} stroke="var(--border)" strokeWidth={1} strokeDasharray="4 4" />
-
-                {allCategories.filter(cat => !disabledCategories.has(cat)).map((cat) => (
-                  <Scatter
-                    key={cat}
-                    name={cat}
-                    data={byCategory[cat] || []}
-                    fill={categoryColorMap[cat] || "#58a6ff"}
-                    shape={<CustomDot />}
-                    onClick={handlePointClick}
+            {mounted ? (
+              <ResponsiveContainer width="100%" height={chartHeight} minWidth={0} minHeight={chartHeight}>
+                <ScatterChart margin={{ top: 12, right: 10, bottom: 20, left: 24 }}>
+                  <XAxis
+                    type="number" dataKey="x" name="Trend"
+                    domain={[0, "auto"]}
+                    tick={{ fontSize: 9, fill: "var(--text-muted)", fontFamily: "var(--font-mono)" }}
+                    label={{ value: "Star Momentum (Trend Score)", position: "insideBottom", offset: -5, fontSize: 10, fill: "var(--text-muted)", fontFamily: "var(--font-sans)", fontWeight: 600 }}
                   />
-                ))}
-              </ScatterChart>
-            </ResponsiveContainer>
+                  <YAxis
+                    type="number" dataKey="y" name="Sustainability"
+                    domain={[0, 100]}
+                    width={60}
+                    tick={{ fontSize: 9, fill: "var(--text-muted)", fontFamily: "var(--font-mono)" }}
+                    label={{ value: "Project Health (Sustainability Score)", angle: -90, position: "insideLeft", offset: 10, fontSize: 10, fill: "var(--text-muted)", fontFamily: "var(--font-sans)", fontWeight: 600 }}
+                  />
+                  <ZAxis range={[30, 30]} />
+                  <Tooltip
+                    cursor={{ strokeDasharray: "3 3", stroke: "var(--border)", strokeWidth: 1 }}
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null;
+                      const d = payload[0]?.payload as { x: number; y: number; name: string; owner: string; category: string };
+                      return (
+                        <div style={{ 
+                          background: "var(--bg-surface)", 
+                          border: "1px solid var(--border)", 
+                          padding: "8px 12px", 
+                          fontSize: "11px", 
+                          fontFamily: "var(--font-mono)", 
+                          borderRadius: "6px", 
+                          boxShadow: "0 8px 32px rgba(0,0,0,0.5)" 
+                        }}>
+                          <p style={{ margin: "0 0 4px", fontWeight: 700, color: "var(--text-primary)" }}>{d.owner}/{d.name}</p>
+                          <p style={{ margin: "0 0 2px", color: "var(--cyan)", fontSize: "10px" }}>TREND: <strong>{(d.x / 100).toFixed(2)}</strong></p>
+                          <p style={{ margin: "0 0 2px", color: "var(--amber)", fontSize: "10px" }}>SUSTAIN: <strong>{d.y.toFixed(0)}%</strong></p>
+                          <p style={{ margin: 0, color: categoryColorMap[d.category] || "#58a6ff", fontSize: "9.5px", letterSpacing: "0.04em", textTransform: "uppercase" }}>{d.category}</p>
+                        </div>
+                      );
+                    }}
+                  />
+                  
+                  {/* Quadrant Crosshairs */}
+                  <ReferenceLine x={midPoints.x} stroke="var(--border)" strokeWidth={1} strokeDasharray="4 4" />
+                  <ReferenceLine y={midPoints.y} stroke="var(--border)" strokeWidth={1} strokeDasharray="4 4" />
+
+                  {allCategories.filter(cat => !disabledCategories.has(cat)).map((cat) => (
+                    <Scatter
+                      key={cat}
+                      name={cat}
+                      data={byCategory[cat] || []}
+                      fill={categoryColorMap[cat] || "#58a6ff"}
+                      shape={<CustomDot />}
+                      onClick={handlePointClick}
+                    />
+                  ))}
+                </ScatterChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ height: `${chartHeight}px`, width: "100%" }} />
+            )}
           </div>
         </div>
 

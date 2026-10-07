@@ -4,6 +4,7 @@ Uses native SQLAlchemy queries and pure Python for maximum lightweight performan
 Writes results to computed_metrics table.
 """
 
+import asyncio
 import math
 import logging
 import os
@@ -25,6 +26,12 @@ INGEST_BATCH_SIZE = int(os.getenv("INGEST_BATCH_SIZE", "100"))
 
 def _today() -> date:
     return datetime.now(timezone.utc).date()
+
+
+async def _evaluate_rule_jobs(jobs: list) -> None:
+    """Run queued (repo, cm, dm, rules, forecast_values) alert-rule evaluations one at a time."""
+    for job in jobs:
+        await evaluate_alert_rules(*job)
 
 
 # ─── Window data loader ──────────────────────────────────────────────────────
@@ -919,6 +926,8 @@ def run_daily_scoring() -> dict:
         )
         prev_cm_map = {row.repo_id: row for row in prev_cms}
 
+        rule_jobs: list = []
+
         for repo in repos:
             try:
                 # Check from map
@@ -955,49 +964,48 @@ def run_daily_scoring() -> dict:
                     yesterday_trend_score=yesterday_score,
                 )
 
-                # Evaluate Real-time User Alert Rules
+                # Evaluate user alert rules once per repo per day (first score of the day);
+                # later 2-hourly runs update the same row and must not re-send webhooks.
                 repo_rules = global_rules + rules_by_repo.get(repo.id, [])
-                if repo_rules:
-                    try:
-                        from types import SimpleNamespace
-                        import asyncio
-                        
-                        # Prepare completely detached namespace arguments to prevent SQLAlchemy Session closed errors asynchronously
-                        repo_ns = SimpleNamespace(
-                            id=repo.id,
-                            owner=repo.owner,
-                            name=repo.name,
-                            github_url=repo.github_url
+                if repo_rules and existing is None:
+                    from types import SimpleNamespace
+
+                    # Detached namespaces: the delivery below runs after db.commit()/close
+                    repo_ns = SimpleNamespace(
+                        id=repo.id,
+                        owner=repo.owner,
+                        name=repo.name,
+                        github_url=repo.github_url
+                    )
+                    cm_ns = SimpleNamespace(
+                        trend_score=cm_val.trend_score,
+                        sustainability_score=cm_val.sustainability_score,
+                        star_velocity_7d=cm_val.star_velocity_7d,
+                        acceleration=cm_val.acceleration
+                    )
+                    dm_dict = latest_dm_by_repo.get(repo.id, {})
+                    dm_ns = SimpleNamespace(
+                        stars=dm_dict.get("stars", 0),
+                        daily_star_delta=dm_dict.get("daily_star_delta", 0)
+                    ) if dm_dict else None
+                    rules_ns = [
+                        SimpleNamespace(
+                            id=rule.id,
+                            condition=rule.condition,
+                            webhook_url=rule.webhook_url
                         )
-                        cm_ns = SimpleNamespace(
-                            trend_score=cm_val.trend_score,
-                            sustainability_score=cm_val.sustainability_score,
-                            star_velocity_7d=cm_val.star_velocity_7d,
-                            acceleration=cm_val.acceleration
+                        for rule in repo_rules
+                    ]
+                    forecast_values = None
+                    if any((rule.condition or "").startswith("breakout_probability") for rule in repo_rules):
+                        from app.services.forecasting import compute_forecast
+                        fc = compute_forecast(
+                            repo.id,
+                            [r["stars"] or 0 for r in df],
+                            [r["daily_star_delta"] for r in df],
                         )
-                        
-                        dm_dict = latest_dm_by_repo.get(repo.id, {})
-                        dm_ns = SimpleNamespace(
-                            stars=dm_dict.get("stars", 0),
-                            daily_star_delta=dm_dict.get("daily_star_delta", 0)
-                        ) if dm_dict else None
-                        
-                        rules_ns = [
-                            SimpleNamespace(
-                                id=rule.id,
-                                condition=rule.condition,
-                                webhook_url=rule.webhook_url
-                            )
-                            for rule in repo_rules
-                        ]
-                        
-                        loop = asyncio.get_event_loop()
-                        if loop.is_running():
-                            loop.create_task(evaluate_alert_rules(repo_ns, cm_ns, dm_ns, rules_ns))
-                        else:
-                            loop.run_until_complete(evaluate_alert_rules(repo_ns, cm_ns, dm_ns, rules_ns))
-                    except Exception as e:
-                        logger.warning(f"Failed to evaluate custom alert rules for {repo.id}: {e}")
+                        forecast_values = {"breakout_probability": fc.breakout_probability}
+                    rule_jobs.append((repo_ns, cm_ns, dm_ns, rules_ns, forecast_values))
 
                 scored += 1
                 if scored % INGEST_BATCH_SIZE == 0:
@@ -1020,6 +1028,16 @@ def run_daily_scoring() -> dict:
             cats_written = 0
 
         db.commit()
+
+        # Deliver user alert rules. This runs in a worker thread with no event loop, hence
+        # asyncio.run. Sequential across repos keeps outbound concurrency bounded
+        # (each webhook has an 8 s timeout).
+        if rule_jobs:
+            try:
+                asyncio.run(_evaluate_rule_jobs(rule_jobs))
+            except Exception as e:
+                logger.warning(f"User alert rule delivery failed: {e}")
+
         summary = {
             "scored": scored,
             "failed": failed,

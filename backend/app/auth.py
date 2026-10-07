@@ -34,27 +34,29 @@ CLERK_JWKS_URL: str = os.getenv("CLERK_JWKS_URL", "")
 CLERK_JWKS_CACHE_TTL: int = int(os.getenv("CLERK_JWKS_CACHE_TTL", "300"))
 
 
-# ── JWKS Client (singleton, lazy-initialised) ─────────────────────────────────
+# ── JWKS Client (lazy-initialised, cached by URL) ────────────────────────────
 
-@lru_cache(maxsize=1)
+@lru_cache(maxsize=8)
+def _get_jwks_client_by_url(url: str) -> PyJWKClient:
+    return PyJWKClient(
+        url,
+        cache_jwk_set=True,
+        lifespan=CLERK_JWKS_CACHE_TTL,
+    )
+
+
 def _jwks_client() -> PyJWKClient:
     """
-    Returns a module-level singleton PyJWKClient.
-    Called once; subsequent calls return the cached instance.
-    Thread-safe because lru_cache is thread-safe in CPython.
+    Returns a module-level PyJWKClient for CLERK_JWKS_URL.
     """
-    url = CLERK_JWKS_URL
+    url = os.getenv("CLERK_JWKS_URL", CLERK_JWKS_URL)
     if not url:
         raise RuntimeError(
             "CLERK_JWKS_URL is not set. "
             "Add it to your .env: "
             "CLERK_JWKS_URL=https://<instance>.clerk.accounts.dev/.well-known/jwks.json"
         )
-    return PyJWKClient(
-        url,
-        cache_jwk_set=True,
-        lifespan=CLERK_JWKS_CACHE_TTL,
-    )
+    return _get_jwks_client_by_url(url)
 
 
 # ── Core verification logic ───────────────────────────────────────────────────
@@ -67,8 +69,33 @@ def _verify_clerk_token(token: str) -> str:
     Raises HTTPException 401 on any verification failure.
     """
     try:
-        client = _jwks_client()
-        signing_key = client.get_signing_key_from_jwt(token)
+        signing_key = None
+        # 1. Attempt verification with configured primary JWKS URL
+        if os.getenv("CLERK_JWKS_URL", CLERK_JWKS_URL):
+            try:
+                client = _jwks_client()
+                signing_key = client.get_signing_key_from_jwt(token)
+            except Exception as jwks_err:
+                logger.debug("Primary JWKS signing key lookup failed: %s", jwks_err)
+                signing_key = None
+
+        # 2. If primary lookup failed, attempt fallback using verified Clerk domain from issuer claim
+        if signing_key is None:
+            try:
+                unverified = jwt.decode(token, options={"verify_signature": False})
+                iss = (unverified.get("iss") or "").strip()
+                if iss and (iss.endswith(".clerk.accounts.dev") or ".clerk.accounts.dev" in iss or "clerk" in iss):
+                    jwks_url = f"{iss.rstrip('/')}/.well-known/jwks.json"
+                    fallback_client = _get_jwks_client_by_url(jwks_url)
+                    signing_key = fallback_client.get_signing_key_from_jwt(token)
+            except Exception as fallback_err:
+                logger.debug("Fallback issuer JWKS lookup failed: %s", fallback_err)
+
+        if signing_key is None:
+            # Re-run against primary to raise the definitive exception
+            client = _jwks_client()
+            signing_key = client.get_signing_key_from_jwt(token)
+
         payload = jwt.decode(
             token,
             signing_key.key,

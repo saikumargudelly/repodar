@@ -104,16 +104,23 @@ _PIPELINE_STATS: dict = {
 
 from app.utils.lock import pipeline_lock
 
-async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
+async def _run_pipeline_sync(force_discovery: bool = False, include_explanations: bool = True) -> dict:
     """
-    Full delta-sync: ingest (upsert) → score → optionally explain.
-    Called by APScheduler every 2 hours AND by the /admin/run-all-sync endpoint.
-    Guarded by an execution lock to prevent concurrent overlapping executions.
+    Full canonical pipeline: deduplicate → ingest → score → explain → summarize →
+    releases → social mentions → commit activity → alert notifications → snapshots →
+    digests → materialized view refresh → cache invalidation.
+    Called by GitHub Actions (via /admin/run-all), /admin/run-all-sync, and run_pipeline.py CLI.
+    Guarded by pipeline_lock to prevent concurrent overlapping executions.
     """
     from app.services.ingestion import run_daily_ingestion
     from app.services.scoring import run_daily_scoring
-    from app.services.explanation import enrich_top_repos_with_explanations
-    from app.services.notification_service import dispatch_pending_watchlist_alert_emails
+    from app.services.explanation import enrich_top_repos_with_explanations, enrich_repos_with_summaries
+    from app.services.notification_service import dispatch_pending_watchlist_alert_emails, dispatch_digest_emails
+    from app.services.releases import run_releases_pipeline
+    from app.services.social_mentions import run_social_mentions_pipeline
+    from app.services.commit_activity import run_commit_activity_pipeline
+    from app.services.weekly_snapshots import publish_weekly_snapshot
+    from app.utils.executor import run_in_pipeline_thread
 
     if pipeline_lock.locked():
         logger.warning("[pipeline] Pipeline execution requested but another instance is already running. Skipping execution.")
@@ -128,12 +135,31 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
         rss_start = _log_rss("pipeline_start")
         _PIPELINE_STATS["rss_before_mib"] = rss_start
 
-        logger.info(f"[pipeline] Starting delta-sync at {run_at}")
-        pipeline_tracker.start("ingestion")
+        logger.info(f"[pipeline] Starting canonical scheduled pipeline at {run_at}")
 
+        # Phase 0: Deduplication
         try:
+            from app.routers.admin import deduplicate_repositories_logic
+            from app.database import SessionLocal
+            def _run_heal():
+                db_heal = SessionLocal()
+                try:
+                    deduplicate_repositories_logic(db_heal)
+                except Exception as e:
+                    logger.warning(f"[pipeline] Auto-deduplication failed (non-fatal): {e}")
+                finally:
+                    db_heal.close()
+
+            pipeline_tracker.start("deduplication")
+            await run_in_pipeline_thread(_run_heal)
+        except Exception as e:
+            logger.warning(f"[pipeline] Deduplication stage failed (non-fatal): {e}")
+
+        # Phase 1: Ingestion
+        try:
+            pipeline_tracker.update_stage("ingestion")
             ingest_t0 = _time.monotonic()
-            ingest_result = await run_daily_ingestion()
+            ingest_result = await run_daily_ingestion(force_discovery=force_discovery)
             ingest_elapsed = _time.monotonic() - ingest_t0
             _PIPELINE_STATS["ingestion_elapsed_s"] = round(ingest_elapsed, 2)
             rss_post_ingest = _log_rss("post_ingestion")
@@ -148,8 +174,7 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
             pipeline_tracker.end(success=False)
             return {"run_at": run_at, "status": "error", "phase": "ingestion", "detail": str(e)}
 
-        from app.utils.executor import run_in_pipeline_thread
-
+        # Phase 2: Scoring
         try:
             pipeline_tracker.update_stage("scoring")
             scoring_t0 = _time.monotonic()
@@ -167,9 +192,9 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
             logger.error(f"[pipeline] Scoring failed: {e}", exc_info=True)
             score_result = {"scored": 0, "failed": 0, "alerts": 0, "categories_cached": 0, "date": None}
 
+        # Phase 3: Explanations & Summaries (LLM enrichment)
         explain_count = 0
         summary_count = 0
-        notification_result = {"sent": 0, "failed": 0, "skipped": 0}
         if include_explanations:
             try:
                 pipeline_tracker.update_stage("explanations")
@@ -178,12 +203,41 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
             except Exception as e:
                 logger.warning(f"[pipeline] Explanation generation failed (non-fatal): {e}")
             try:
-                from app.services.explanation import enrich_repos_with_summaries
+                pipeline_tracker.update_stage("summaries")
                 summary_count = await run_in_pipeline_thread(enrich_repos_with_summaries, 30)
                 logger.info(f"[pipeline] Summaries: {summary_count}")
             except Exception as e:
                 logger.warning(f"[pipeline] Summary generation failed (non-fatal): {e}")
 
+        # Phase 4: Releases
+        releases_result = {"written": 0}
+        try:
+            pipeline_tracker.update_stage("releases")
+            releases_result = await run_releases_pipeline(top_n=100)
+            logger.info(f"[pipeline] Releases: {releases_result}")
+        except Exception as e:
+            logger.warning(f"[pipeline] Releases pipeline failed (non-fatal): {e}")
+
+        # Phase 5: Social Mentions
+        social_result = {"written": 0}
+        try:
+            pipeline_tracker.update_stage("social_mentions")
+            social_result = await run_social_mentions_pipeline(top_n=50)
+            logger.info(f"[pipeline] Social mentions: {social_result}")
+        except Exception as e:
+            logger.warning(f"[pipeline] Social mentions failed (non-fatal): {e}")
+
+        # Phase 6: Commit Activity
+        commit_result = {"updated": 0}
+        try:
+            pipeline_tracker.update_stage("commit_activity")
+            commit_result = await run_commit_activity_pipeline(top_n=100)
+            logger.info(f"[pipeline] Commit activity: {commit_result}")
+        except Exception as e:
+            logger.warning(f"[pipeline] Commit activity failed (non-fatal): {e}")
+
+        # Phase 7: Watchlist Alert Notifications
+        notification_result = {"sent": 0, "failed": 0, "skipped": 0}
         try:
             pipeline_tracker.update_stage("notifications")
             notification_result = await dispatch_pending_watchlist_alert_emails()
@@ -191,7 +245,36 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
         except Exception as e:
             logger.warning(f"[pipeline] Alert notifications failed (non-fatal): {e}")
 
-        # Refresh materialized views concurrently on PostgreSQL
+        # Phase 8: Weekly Snapshot
+        snapshot_result = {"status": "skipped"}
+        try:
+            pipeline_tracker.update_stage("snapshots")
+            snapshot_result = await run_in_pipeline_thread(publish_weekly_snapshot)
+            logger.info(f"[pipeline] Weekly snapshot: {snapshot_result}")
+        except Exception as e:
+            logger.warning(f"[pipeline] Weekly snapshot failed (non-fatal): {e}")
+
+        # Phase 9: Digest Emails
+        daily_digest_result = {"sent": 0, "skipped": 0}
+        weekly_digest_result = {"sent": 0, "skipped": 0}
+        monthly_digest_result = {"sent": 0, "skipped": 0}
+        try:
+            pipeline_tracker.update_stage("digests")
+            now_utc = datetime.now(timezone.utc)
+            if now_utc.hour >= 9:
+                daily_digest_result = await dispatch_digest_emails("daily")
+                if now_utc.weekday() == 0:  # Monday
+                    weekly_digest_result = await dispatch_digest_emails("weekly")
+                if now_utc.day == 1:  # 1st of month
+                    monthly_digest_result = await dispatch_digest_emails("monthly")
+                logger.info(
+                    f"[pipeline] Digests: daily={daily_digest_result.get('sent',0)} "
+                    f"weekly={weekly_digest_result.get('sent',0)} monthly={monthly_digest_result.get('sent',0)}"
+                )
+        except Exception as e:
+            logger.warning(f"[pipeline] Digest dispatch failed (non-fatal): {e}")
+
+        # Phase 10: Refresh materialized views concurrently on PostgreSQL
         def _refresh_views():
             from app.database import SessionLocal
             from sqlalchemy import text
@@ -214,7 +297,7 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
         except Exception as e:
             logger.warning(f"[pipeline] Failed to refresh materialized views: {e}")
 
-        # Invalidate specific cache namespaces to avoid database load spikes and stampedes
+        # Phase 11: Invalidate specific cache namespaces to avoid database load spikes
         try:
             pipeline_tracker.update_stage("cache_invalidation")
             from fastapi_cache import FastAPICache
@@ -227,7 +310,7 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
         except Exception as e:
             logger.warning(f"[pipeline] Targeted cache invalidation failed: {e}")
 
-        # Purge Cloudflare Edge Cache if configured
+        # Phase 12: Purge Cloudflare Edge Cache if configured
         try:
             from app.utils.cloudflare import purge_cloudflare_cache
             await purge_cloudflare_cache()
@@ -260,8 +343,13 @@ async def _run_pipeline_sync(include_explanations: bool = False) -> dict:
             "categories_cached": score_result.get("categories_cached", 0),
             "explanations": explain_count,
             "summaries": summary_count,
+            "releases_written": releases_result.get("written", 0),
+            "social_mentions_written": social_result.get("written", 0),
+            "commit_activity_updated": commit_result.get("updated", 0),
             "alert_emails_sent": notification_result.get("sent", 0),
-            "scoring_date": score_result.get("date"),
+            "weekly_snapshot": snapshot_result.get("status", "none"),
+            "daily_digest_sent": daily_digest_result.get("sent", 0),
+            "scoring_date": str(score_result.get("date")) if score_result.get("date") else None,
         }
 
 
@@ -277,9 +365,7 @@ def _schedule_pipeline():
         scheduler = AsyncIOScheduler(timezone="UTC")
 
         async def _job():
-            hour_utc = datetime.now(timezone.utc).hour
-            include_explain = (hour_utc == 0)
-            result = await _run_pipeline_sync(include_explanations=include_explain)
+            result = await _run_pipeline_sync(include_explanations=True)
             logger.info(f"[scheduler] Pipeline job finished: {result}")
 
         # Every 2 hours: 00:00, 02:00, 04:00, ..., 22:00 UTC
@@ -296,59 +382,6 @@ def _schedule_pipeline():
 
         # Daily A2A discovery at 02:00 UTC
         scheduler.add_job(_a2a_job, CronTrigger(hour=2, minute=0), id="a2a_discovery_24h", replace_existing=True)
-
-        # Weekly snapshot — Monday 06:00 UTC
-        async def _snapshot_job():
-            from app.utils.executor import run_in_pipeline_thread
-            from app.services.weekly_snapshots import publish_weekly_snapshot
-            try:
-                result = await run_in_pipeline_thread(publish_weekly_snapshot)
-                logger.info(f"[snapshot_scheduler] {result}")
-            except Exception as exc:
-                logger.error(f"[snapshot_scheduler] Failed: {exc}", exc_info=True)
-
-        scheduler.add_job(_snapshot_job, CronTrigger(day_of_week="mon", hour=6, minute=0), id="weekly_snapshot", replace_existing=True)
-
-        async def _daily_digest_job():
-            from app.services.notification_service import dispatch_digest_emails
-            result = await dispatch_digest_emails("daily")
-            logger.info(f"[digest_scheduler] Daily digest result: {result}")
-
-        scheduler.add_job(_daily_digest_job, CronTrigger(hour=9, minute=0), id="daily_digest", replace_existing=True)
-
-        async def _weekly_digest_job():
-            from app.services.notification_service import dispatch_digest_emails
-            result = await dispatch_digest_emails("weekly")
-            logger.info(f"[digest_scheduler] Weekly digest result: {result}")
-
-        scheduler.add_job(_weekly_digest_job, CronTrigger(day_of_week="mon", hour=9, minute=15), id="weekly_digest", replace_existing=True)
-
-        async def _monthly_digest_job():
-            from app.services.notification_service import dispatch_digest_emails
-            result = await dispatch_digest_emails("monthly")
-            logger.info(f"[digest_scheduler] Monthly digest result: {result}")
-
-        scheduler.add_job(_monthly_digest_job, CronTrigger(day=1, hour=9, minute=30), id="monthly_digest", replace_existing=True)
-
-        # Social mentions + releases + commit activity — daily at 03:00 UTC
-        async def _enrichment_job():
-            try:
-                from app.services.social_mentions import run_social_mentions_pipeline
-                await run_social_mentions_pipeline(top_n=50)
-            except Exception as exc:
-                logger.warning(f"[enrichment] Social mentions failed: {exc}")
-            try:
-                from app.services.releases import run_releases_pipeline
-                await run_releases_pipeline(top_n=100)
-            except Exception as exc:
-                logger.warning(f"[enrichment] Releases pipeline failed: {exc}")
-            try:
-                from app.services.commit_activity import run_commit_activity_pipeline
-                await run_commit_activity_pipeline(top_n=100)
-            except Exception as exc:
-                logger.warning(f"[enrichment] Commit activity pipeline failed: {exc}")
-
-        scheduler.add_job(_enrichment_job, CronTrigger(hour=3, minute=30), id="enrichment_daily", replace_existing=True)
 
         scheduler.start()
         logger.info("APScheduler started")

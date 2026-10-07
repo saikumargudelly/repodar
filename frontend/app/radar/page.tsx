@@ -100,20 +100,27 @@ export default function RadarPage() {
   // Combine and process rows
   const combinedRows = useMemo(() => {
     const list: { repo: any; stage: "Early" | "Breakout" | "Established" }[] = [];
+    const seen = new Set<string>();
 
-    // Map established repos
-    establishedRows.forEach((r) => {
-      list.push({ repo: r, stage: "Established" });
-    });
-
-    // Map early repos
+    // Map early repos first so their breakout/early momentum stage is prioritized
     earlyRows.forEach((r) => {
+      const id = String(r.repo_id ?? `${r.owner}/${r.name}`);
+      if (seen.has(id)) return;
+      seen.add(id);
       const stageName = r.momentum_stage;
       const isBreakout = stageName === "breakout" || stageName === "pre_viral";
       list.push({
         repo: r,
         stage: isBreakout ? "Breakout" : "Early",
       });
+    });
+
+    // Map established repos (skipping any already included from early feed)
+    establishedRows.forEach((r) => {
+      const id = String(r.repo_id ?? `${r.owner}/${r.name}`);
+      if (seen.has(id)) return;
+      seen.add(id);
+      list.push({ repo: r, stage: "Established" });
     });
 
     // Filter by Stage
@@ -352,7 +359,7 @@ export default function RadarPage() {
 
                 return (
                   <tr
-                    key={repo.repo_id}
+                    key={`${repo.repo_id ?? `${repo.owner}/${repo.name}`}-${stage}-${i}`}
                     className="tr-cyber"
                     style={{ borderBottom: `1px solid ${C.border}`, cursor: "pointer" }}
                     onClick={() => router.push(`/repo/${repo.owner}/${repo.name}`)}

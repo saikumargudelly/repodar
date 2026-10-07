@@ -1,10 +1,11 @@
 """
 GitHub Releases fetcher — ingests the last 10 releases per repo into repo_releases table.
 """
+import asyncio
 import logging
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import aiohttp
 
@@ -73,6 +74,7 @@ async def run_releases_pipeline(top_n: int = 100) -> dict:
     """
     Refresh releases for the top-N tracked repos.
     Replaces stored releases (delete + re-insert) to keep data current.
+    Skips repos fetched within the last 20 hours.
     """
     from app.database import SessionLocal
     from app.models import Repository, ComputedMetric
@@ -81,9 +83,11 @@ async def run_releases_pipeline(top_n: int = 100) -> dict:
 
     db = SessionLocal()
     repos_to_fetch = []
+    skipped = 0
 
     try:
         today = date.today()
+        cutoff = _utcnow() - timedelta(hours=20)
         top = (
             db.query(ComputedMetric, Repository)
             .join(Repository, Repository.id == ComputedMetric.repo_id)
@@ -92,7 +96,17 @@ async def run_releases_pipeline(top_n: int = 100) -> dict:
             .limit(top_n)
             .all()
         )
+        repo_ids = [repo.id for cm, repo in top]
+        recent_fetched = set(
+            row[0] for row in db.query(RepoRelease.repo_id)
+            .filter(RepoRelease.repo_id.in_(repo_ids), RepoRelease.fetched_at >= cutoff)
+            .distinct()
+            .all()
+        )
         for cm, repo in top:
+            if repo.id in recent_fetched:
+                skipped += 1
+                continue
             repos_to_fetch.append({
                 "id": repo.id,
                 "owner": repo.owner,
@@ -100,20 +114,30 @@ async def run_releases_pipeline(top_n: int = 100) -> dict:
             })
     except Exception as e:
         logger.error(f"Releases pipeline query failed: {e}")
-        return {"written": 0, "error": str(e)}
+        return {"written": 0, "skipped": 0, "error": str(e)}
     finally:
         db.close()
 
-    # Fetch releases without holding database connection during HTTP calls
+    if not repos_to_fetch:
+        return {"written": 0, "skipped": skipped}
+
+    # Fetch releases concurrently with bounded concurrency
     all_releases = {}
+    sem = asyncio.Semaphore(10)
     async with aiohttp.ClientSession() as session:
-        for repo in repos_to_fetch:
-            releases = await fetch_releases_for_repo(session, repo["id"], repo["owner"], repo["name"])
-            if releases:
-                all_releases[repo["id"]] = releases
+        async def _fetch(r):
+            async with sem:
+                res = await fetch_releases_for_repo(session, r["id"], r["owner"], r["name"])
+                return r["id"], res
+
+        tasks = [_fetch(r) for r in repos_to_fetch]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for res in results:
+            if isinstance(res, tuple) and res[1]:
+                all_releases[res[0]] = res[1]
 
     if not all_releases:
-        return {"written": 0}
+        return {"written": 0, "skipped": skipped}
 
     # Save to database in a new short-lived session
     db = SessionLocal()

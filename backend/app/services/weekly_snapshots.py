@@ -54,15 +54,25 @@ def publish_weekly_snapshot() -> dict:
             .all()
         )
 
+        repo_ids = [repo.id for cm, repo in top]
+        # Batch-fetch latest stars in a single query
+        from sqlalchemy import func
+        latest_dm_subq = (
+            db.query(DailyMetric.repo_id, func.max(DailyMetric.captured_at).label("max_cap"))
+            .filter(DailyMetric.repo_id.in_(repo_ids))
+            .group_by(DailyMetric.repo_id)
+            .subquery()
+        )
+        latest_dms = (
+            db.query(DailyMetric.repo_id, DailyMetric.stars)
+            .join(latest_dm_subq, (DailyMetric.repo_id == latest_dm_subq.c.repo_id) & (DailyMetric.captured_at == latest_dm_subq.c.max_cap))
+            .all()
+        )
+        stars_by_repo = {row.repo_id: row.stars for row in latest_dms}
+
         snapshot_repos = []
         for rank, (cm, repo) in enumerate(top, 1):
-            dm = (
-                db.query(DailyMetric)
-                .filter_by(repo_id=repo.id)
-                .order_by(DailyMetric.captured_at.desc())
-                .first()
-            )
-
+            stars_val = stars_by_repo.get(repo.id, repo.stars_snapshot or 0)
             snapshot_repos.append({
                 "rank": rank,
                 "repo_id": repo.id,
@@ -77,7 +87,7 @@ def publish_weekly_snapshot() -> dict:
                 "sustainability_label": cm.sustainability_label,
                 "star_velocity_7d": round(cm.star_velocity_7d, 2),
                 "acceleration": round(cm.acceleration, 4),
-                "stars": dm.stars if dm else 0,
+                "stars": stars_val,
                 "age_days": repo.age_days,
             })
 
