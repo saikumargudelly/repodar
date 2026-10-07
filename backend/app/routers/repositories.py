@@ -25,6 +25,7 @@ class RepoSummary(BaseModel):
     owner: str
     name: str
     category: str
+    categories: Optional[List[str]] = None
     description: Optional[str]
     github_url: str
     primary_language: Optional[str]

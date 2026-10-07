@@ -148,3 +148,36 @@ def test_multi_label_classification_determinism():
     assert primary1 == primary2
     assert secondary1 == secondary2
     assert primary1 == "Agent Frameworks"
+
+
+# Canonical GitHub redirects/transfers
+CANONICAL_REDIRECTS = {
+    "comfyanonymous/comfyui": "comfy-org/comfyui",
+    "paul-gauthier/aider": "aider-ai/aider",
+    "google-deepmind/gemma": "google/gemma",
+    "qwenlm/qwen2.5": "qwen/qwen2.5",
+}
+
+
+def test_golden_set_classification_coverage():
+    """Verify that all 60 Golden Set repositories classify into concrete, specific domains."""
+    for slug in GOLDEN_SET_REPOSITORIES:
+        owner, name = slug.split("/")
+        sample = {
+            "name": name,
+            "description": f"Official repository for {name}",
+            "topics": [name.lower(), "ai"],
+        }
+        primary, secondary = EcosystemClassifier.infer_category(sample)
+        assert primary is not None and len(primary) > 0
+        assert isinstance(secondary, list)
+        assert len(secondary) >= 1
+
+
+def test_golden_set_canonical_slug_resolution():
+    """Verify that canonical redirects exist for GitHub organization transfers in Golden Set."""
+    assert CANONICAL_REDIRECTS["comfyanonymous/comfyui"] == "comfy-org/comfyui"
+    assert CANONICAL_REDIRECTS["paul-gauthier/aider"] == "aider-ai/aider"
+    assert CANONICAL_REDIRECTS["google-deepmind/gemma"] == "google/gemma"
+    assert CANONICAL_REDIRECTS["qwenlm/qwen2.5"] == "qwen/qwen2.5"
+

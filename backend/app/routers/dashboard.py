@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_, cast
+from sqlalchemy import func, or_, cast, String
 from pydantic import BaseModel, Field
 from fastapi_cache.decorator import cache
 
@@ -77,6 +77,7 @@ class BreakoutRepo(BaseModel):
     owner: str
     name: str
     category: str
+    categories: Optional[List[str]] = None
     github_url: str
     trend_score: float
     acceleration: float
@@ -148,6 +149,7 @@ class RadarRepo(BaseModel):
     owner: str
     name: str
     category: str
+    categories: Optional[List[str]] = None
     github_url: str
     trend_score: float
     acceleration: float
@@ -538,6 +540,7 @@ def get_overview(
             Repository.owner,
             Repository.name,
             Repository.category,
+            Repository.categories,
             Repository.github_url,
             Repository.age_days,
             Repository.primary_language,
@@ -552,17 +555,23 @@ def get_overview(
         .filter(ComputedMetric.trend_score > 0)
     )
     if vertical_cats:
-        breakout_q = breakout_q.filter(Repository.category.in_(vertical_cats))
+        breakout_q = breakout_q.filter(
+            or_(
+                Repository.category.in_(vertical_cats),
+                *[Repository.categories.cast(String).ilike(f'%"{c}"%') for c in vertical_cats]
+            )
+        )
     breakout_rows = breakout_q.order_by(ComputedMetric.trend_score.desc()).limit(10).all()
 
     breakout_detected = []
-    for (id, owner, name, cat, github_url, age_days, primary_language,
+    for (id, owner, name, cat, cats, github_url, age_days, primary_language,
          ts, accel, vel, sl) in breakout_rows:
         breakout_detected.append(BreakoutRepo(
             repo_id=id,
             owner=owner,
             name=name,
             category=cat,
+            categories=cats or ([cat] if cat else []),
             github_url=github_url,
             trend_score=ts or 0.0,
             acceleration=accel or 0.0,
@@ -714,6 +723,7 @@ async def get_breakout_radar(
             Repository.owner,
             Repository.name,
             Repository.category,
+            Repository.categories,
             Repository.github_url,
             Repository.age_days,
             Repository.stars_snapshot,
@@ -734,12 +744,22 @@ async def get_breakout_radar(
 
     if category and category.lower() != "all":
         cat_clean = category.strip()
-        query = query.filter(Repository.category.ilike(f"%{cat_clean}%"))
+        query = query.filter(
+            or_(
+                Repository.category.ilike(f"%{cat_clean}%"),
+                Repository.categories.cast(String).ilike(f"%{cat_clean}%"),
+            )
+        )
     elif vertical and vertical.lower() != "all":
         from app.routers.search import VERTICAL_CATEGORY_MAP
         if vertical in VERTICAL_CATEGORY_MAP:
             cats = VERTICAL_CATEGORY_MAP[vertical]
-            query = query.filter(Repository.category.in_(cats))
+            query = query.filter(
+                or_(
+                    Repository.category.in_(cats),
+                    *[Repository.categories.cast(String).ilike(f'%"{c}"%') for c in cats]
+                )
+            )
 
     # Dynamic sorting
     sort_col_map = {
@@ -766,13 +786,14 @@ async def get_breakout_radar(
 
     # Dedupe by canonical owner/name to avoid duplicate rows from legacy data.
     deduped: dict[str, dict] = {}
-    for (id, owner, name, cat, github_url, age_days, stars, topics_raw, primary_language,
+    for (id, owner, name, cat, cats, github_url, age_days, stars, topics_raw, primary_language,
          ts, accel, vel, ss, sl) in rows:
         candidate = RadarRepo(
             repo_id=id,
             owner=owner,
             name=name,
             category=cat,
+            categories=cats or ([cat] if cat else []),
             github_url=github_url,
             trend_score=ts or 0,
             acceleration=accel or 0,
@@ -1432,6 +1453,7 @@ class LeaderboardEntry(BaseModel):
     owner: str
     name: str
     category: str
+    categories: Optional[List[str]] = None
     github_url: str
     primary_language: Optional[str]
     age_days: int
@@ -1495,6 +1517,18 @@ async def get_leaderboard(
     """
     from app.routers.search import VERTICAL_CATEGORY_MAP
 
+    if not isinstance(vertical, str):
+        vertical = None
+    if not isinstance(category, str):
+        category = None
+    if not isinstance(period, str):
+        period = "7d"
+    if not isinstance(limit, int):
+        try:
+            limit = int(getattr(limit, "default", 30))
+        except Exception:
+            limit = 30
+
     days = PERIOD_DAYS.get(period, 7)
     scored_date = _latest_scored_date(db)
 
@@ -1513,12 +1547,23 @@ async def get_leaderboard(
 
     # Apply category filter
     if category and category.strip() and category != "All":
-        repo_q = repo_q.filter(Repository.category.ilike(f"%{category.strip()}%"))
+        cat_clean = category.strip()
+        repo_q = repo_q.filter(
+            or_(
+                Repository.category.ilike(f"%{cat_clean}%"),
+                Repository.categories.cast(String).ilike(f"%{cat_clean}%"),
+            )
+        )
 
     # Apply vertical filter
     elif vertical and vertical.lower() != "all" and vertical in VERTICAL_CATEGORY_MAP:
         cats = VERTICAL_CATEGORY_MAP[vertical]
-        repo_q = repo_q.filter(Repository.category.in_(cats))
+        repo_q = repo_q.filter(
+            or_(
+                Repository.category.in_(cats),
+                *[Repository.categories.cast(String).ilike(f'%"{c}"%') for c in cats]
+            )
+        )
 
     # Order by based on time period
     if period == "1d":
@@ -1609,6 +1654,7 @@ async def get_leaderboard(
                 owner=repo.owner,
                 name=repo.name,
                 category=repo.category,
+                categories=repo.categories or ([repo.category] if repo.category else []),
                 github_url=repo.github_url,
                 primary_language=repo.primary_language,
                 age_days=repo.age_days,

@@ -6,7 +6,7 @@ tracks delta additions and deletions, and drives bounded organization-level disc
 """
 import logging
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
 
 import aiohttp
@@ -186,21 +186,57 @@ def prune_dynamic_organizations(db: Session) -> Dict[str, int]:
         return {"pruned": 0, "error": str(e)}
 
 
-def get_rotational_organizations(db: Session, batch_size: int = 6) -> List[DynamicOrganization]:
+TIER_1_ORGANIZATIONS = [
+    "openai", "deepseek-ai", "huggingface", "meta-llama", "microsoft",
+    "vllm-project", "sgl-project", "dao-ailab", "comfy-org", "google",
+    "qwenlm", "cline", "browser-use", "facebookresearch", "anthropics"
+]
+
+
+def get_rotational_organizations(db: Session, batch_size: int = 10) -> List[DynamicOrganization]:
     """
     Return the next batch of active dynamic organizations ordered round-robin by last_synced_at.
+    Prioritizes Tier-1 core ecosystem organizations that need refreshing, then fills with round-robin active orgs.
     Ensures bounded API usage while visiting every discovered organization over time.
     """
-    return (
+    now = _utcnow()
+    one_day_ago = now - timedelta(days=1)
+
+    # 1. Check for any Tier-1 orgs that are due for refresh (>24h or never synced)
+    tier1_orgs = (
+        db.query(DynamicOrganization)
+        .filter(
+            DynamicOrganization.is_active == True,
+            DynamicOrganization.delta_status == "active",
+            DynamicOrganization.login.in_(TIER_1_ORGANIZATIONS),
+            (DynamicOrganization.last_synced_at == None) | (DynamicOrganization.last_synced_at < one_day_ago),
+        )
+        .limit(batch_size // 2)
+        .all()
+    )
+
+    remaining_slots = max(batch_size - len(tier1_orgs), 1)
+    tier1_ids = [o.id for o in tier1_orgs]
+
+    # 2. Fill remainder with round-robin active orgs
+    rotational_query = (
         db.query(DynamicOrganization)
         .filter(
             DynamicOrganization.is_active == True,
             DynamicOrganization.delta_status == "active",
         )
+    )
+    if tier1_ids:
+        rotational_query = rotational_query.filter(DynamicOrganization.id.notin_(tier1_ids))
+
+    other_orgs = (
+        rotational_query
         .order_by(DynamicOrganization.last_synced_at.asc().nullsfirst())
-        .limit(batch_size)
+        .limit(remaining_slots)
         .all()
     )
+
+    return tier1_orgs + other_orgs
 
 
 async def discover_dynamic_organization_repos(

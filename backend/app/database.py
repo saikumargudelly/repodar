@@ -239,6 +239,10 @@ def ensure_db_schema_upgraded(db_engine):
             db_logger.info("Auto-migrating: Adding column 'has_tests' to 'repositories'")
             conn.execute(text(f"ALTER TABLE repositories ADD COLUMN has_tests BOOLEAN NOT NULL DEFAULT {default_bool}"))
 
+        if "is_archived" not in repo_cols:
+            db_logger.info("Auto-migrating: Adding column 'is_archived' to 'repositories'")
+            conn.execute(text(f"ALTER TABLE repositories ADD COLUMN is_archived BOOLEAN NOT NULL DEFAULT {default_bool}"))
+
         # 3. Ensure dynamic_organizations table
         if not inspector.has_table("dynamic_organizations"):
             from app.models.dynamic_organization import DynamicOrganization

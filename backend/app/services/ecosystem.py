@@ -155,12 +155,81 @@ GITHUB_TOPICS = {
     "computer-science": "OSS Tools",
     "book-series": "OSS Tools",
 
-    # AI / ML
+    # Speech & Audio
+    "text-to-speech": "Speech & Audio",
+    "tts": "Speech & Audio",
+    "speech-recognition": "Speech & Audio",
+    "speech-synthesis": "Speech & Audio",
+    "voice-cloning": "Speech & Audio",
+    "asr": "Speech & Audio",
+    "audio-generation": "Speech & Audio",
+    "voice-ai": "Speech & Audio",
+    "whisper": "Speech & Audio",
+    "kokoro": "Speech & Audio",
+    "speaker-diarization": "Speech & Audio",
+
+    # Image Generation
+    "text-to-image": "Image Generation",
+    "stable-diffusion": "Image Generation",
+    "diffusion-models": "Image Generation",
+    "diffusion-model": "Image Generation",
+    "image-generation": "Image Generation",
+    "sdxl": "Image Generation",
+    "comfyui": "Image Generation",
+    "faceswap": "Image Generation",
+    "deepfake": "Image Generation",
+    "gaussian-splatting": "Image Generation",
+    "nerf": "Image Generation",
+
+    # Video Generation
+    "text-to-video": "Video Generation",
+    "video-generation": "Video Generation",
+    "video-diffusion": "Video Generation",
+
+    # Multimodal / Vision
+    "multimodal": "Multimodal",
+    "vision-language-model": "Multimodal",
+    "vlm": "Multimodal",
+    "ocr": "Multimodal",
+    "tesseract": "Multimodal",
+    "paddleocr": "Multimodal",
+    "internvl": "Multimodal",
+    "llava": "Multimodal",
+    "segment-anything": "Multimodal",
+    "robotics": "Multimodal",
+    "embodied-ai": "Multimodal",
+    "lerobot": "Multimodal",
+    "object-detection": "Multimodal",
+
+    # Coding Assistants
+    "coding-assistant": "Coding Assistant",
+    "ai-coding": "Coding Assistant",
+    "copilot": "Coding Assistant",
+    "code-generation": "Coding Assistant",
+    "ai-pair-programmer": "Coding Assistant",
+    "cline": "Coding Assistant",
+    "aider": "Coding Assistant",
+
+    # RAG Framework
+    "rag": "RAG Framework",
+    "retrieval-augmented-generation": "RAG Framework",
+    "graphrag": "RAG Framework",
+    "adalflow": "RAG Framework",
+
+    # Science & Research
+    "bioinformatics": "Science & Research",
+    "genomics": "Science & Research",
+    "computational-biology": "Science & Research",
+    "systems-biology": "Science & Research",
+    "molecular-biology": "Science & Research",
+    "single-cell": "Science & Research",
+    "drug-discovery": "Science & Research",
+    "variant-calling": "Science & Research",
+
+    # AI / ML (Foundational)
     "deep-learning": "AI / ML",
     "machine-learning": "AI / ML",
-    "neural-network": "AI / ML",
-    "computer-vision": "AI / ML",
-    "diffusion-model": "AI / ML"
+    "neural-network": "AI / ML"
 }
 
 TECHNOLOGIES = {
@@ -302,6 +371,51 @@ TECHNOLOGIES = {
     "prometheus": "Data & Infra",
     "grafana": "Data & Infra",
     "pulumi": "Data & Infra",
+
+    # Speech & Audio
+    "whisper": "Speech & Audio",
+    "kokoro": "Speech & Audio",
+    "voxcpm": "Speech & Audio",
+    "mockingbird": "Speech & Audio",
+
+    # Image Generation
+    "comfyui": "Image Generation",
+    "gfpgan": "Image Generation",
+    "faceswap": "Image Generation",
+
+    # Multimodal
+    "tesseract": "Multimodal",
+    "paddleocr": "Multimodal",
+    "yolov5": "Multimodal",
+    "supervision": "Multimodal",
+    "internvl": "Multimodal",
+    "llava": "Multimodal",
+    "lerobot": "Multimodal",
+    "face_recognition": "Multimodal",
+
+    # Coding Assistant
+    "aider": "Coding Assistant",
+    "cline": "Coding Assistant",
+
+    # Science & Research
+    "scanpy": "Science & Research",
+    "anndata": "Science & Research",
+    "cellrank": "Science & Research",
+    "mudata": "Science & Research",
+    "glycowork": "Science & Research",
+    "deepvariant": "Science & Research",
+    "scispacy": "Science & Research",
+    "semibin": "Science & Research",
+    "deeppurpose": "Science & Research",
+
+    # Agent Frameworks
+    "midscene": "Agent Frameworks",
+
+    # DevTools
+    "julia": "DevTools",
+
+    # OSS Tools
+    "awesome-scalability": "OSS Tools",
 
     # AI / ML
     "pytorch": "AI / ML",
@@ -468,21 +582,28 @@ class EcosystemClassifier:
         "Model Context Protocol": 1,
         "Agent-to-Agent": 2,
         "Fine-tuning Toolkits": 3,
-        "Distributed Compute / Infra": 4,
-        "Vector Databases": 5,
-        "Inference Engines": 6,
-        "Model Serving / Runtimes": 7,
-        "Evaluation Frameworks": 8,
-        "Agent Frameworks": 9,
-        "Blockchain": 10,
-        "Security": 11,
-        "Data Engineering": 12,
-        "Data & Infra": 13,
-        "DevTools": 14,
-        "Web Frameworks": 15,
-        "LLM Models": 16,
-        "AI / ML": 17,
-        "OSS Tools": 18
+        "Coding Assistant": 4,
+        "Distributed Compute / Infra": 5,
+        "Vector Databases": 6,
+        "Inference Engines": 7,
+        "Model Serving / Runtimes": 8,
+        "Evaluation Frameworks": 9,
+        "Agent Frameworks": 10,
+        "Speech & Audio": 11,
+        "Image Generation": 12,
+        "Video Generation": 13,
+        "Multimodal": 14,
+        "RAG Framework": 15,
+        "Blockchain": 16,
+        "Security": 17,
+        "Science & Research": 18,
+        "Data Engineering": 19,
+        "Data & Infra": 20,
+        "DevTools": 21,
+        "Web Frameworks": 22,
+        "LLM Models": 23,
+        "AI / ML": 24,
+        "OSS Tools": 25,
     }
 
     TOPIC_ALIASES = {

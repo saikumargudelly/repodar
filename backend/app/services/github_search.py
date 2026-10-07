@@ -77,42 +77,47 @@ AI_TOPIC_QUERIES = [
     "topic:tool-use", "topic:structured-output", "topic:a2a",
     # Coding assistants
     "topic:coding-assistant", "topic:ai-coding", "topic:copilot",
-    "topic:code-generation", "topic:ai-pair-programmer",
+    "topic:code-generation", "topic:ai-pair-programmer", "topic:cline", "topic:aider",
     # Inference & serving
     "topic:llm-inference", "topic:llm-serving", "topic:vllm",
     "topic:llama-cpp", "topic:gguf", "topic:tensorrt", "topic:onnxruntime",
     "topic:tgi", "topic:tensorrt-llm", "topic:triton-inference",
-    "topic:mlc-llm", "topic:exllama",
+    "topic:mlc-llm", "topic:exllama", "topic:sglang", "topic:aphrodite-engine",
+    "topic:cuda",
     # Local / on-device AI
     "topic:ollama", "topic:local-llm", "topic:on-device-ai",
     "topic:edge-ai", "topic:private-ai",
     # RAG / knowledge
     "topic:rag", "topic:retrieval-augmented-generation", "topic:embeddings",
     "topic:vector-database", "topic:knowledge-graph", "topic:semantic-search",
-    "topic:document-qa", "topic:graphrag",
+    "topic:document-qa", "topic:graphrag", "topic:adalflow",
     # Fine-tuning
     "topic:fine-tuning", "topic:lora", "topic:rlhf", "topic:peft",
     "topic:dpo", "topic:qlora", "topic:instruction-tuning", "topic:sft",
-    "topic:reward-model", "topic:rlaif",
+    "topic:reward-model", "topic:rlaif", "topic:torchtune", "topic:alpaca",
+    "topic:nanogpt", "topic:flash-attention", "topic:xformers",
     # Speech & audio
     "topic:text-to-speech", "topic:tts", "topic:speech-recognition",
     "topic:asr", "topic:voice-cloning", "topic:audio-generation",
-    "topic:speech-synthesis", "topic:voice-ai", "topic:whisper",
+    "topic:speech-synthesis", "topic:voice-ai", "topic:whisper", "topic:kokoro",
     "topic:speaker-diarization", "topic:real-time-voice",
     "topic:voice-assistant", "topic:voice-agent",
     # Image / vision
     "topic:text-to-image", "topic:stable-diffusion", "topic:diffusion-model",
     "topic:image-generation", "topic:sdxl", "topic:comfyui",
-    "topic:controlnet", "topic:lora-training",
+    "topic:controlnet", "topic:lora-training", "topic:nerf", "topic:nerfstudio",
+    "topic:gaussian-splatting",
     # Video generation
     "topic:text-to-video", "topic:video-generation", "topic:video-diffusion",
     "topic:video-synthesis",
     # Multimodal / VLM
     "topic:multimodal", "topic:vision-language-model", "topic:vlm",
     "topic:visual-question-answering", "topic:ocr", "topic:document-understanding",
+    "topic:segment-anything", "topic:sam", "topic:internvl", "topic:llava",
+    "topic:robotics", "topic:embodied-ai", "topic:lerobot",
     # Reasoning
     "topic:reasoning", "topic:chain-of-thought", "topic:tree-of-thought",
-    "topic:deepseek", "topic:self-consistency",
+    "topic:deepseek", "topic:self-consistency", "topic:storm",
     # Frameworks
     "topic:transformers", "topic:huggingface", "topic:pytorch",
     "topic:tensorflow", "topic:jax", "topic:computer-vision", "topic:nlp",
@@ -449,11 +454,11 @@ def is_ai_relevant(repo_data: dict) -> bool:
     return bool(words & ai_keywords)
 
 
-def get_rotational_topics(vertical: str, batch_size: int = 8) -> list[str]:
+def get_rotational_topics(vertical: str, batch_size: int = 12, offset: Optional[int] = None) -> list[str]:
     """
-    Deterministically rotate through VERTICAL_TOPIC_QUERIES based on time/run window.
-    Covers the entire topic space over 24 hours while keeping each pipeline run bounded
-    to a small batch (e.g. 8 topics), respecting GitHub API rate limits.
+    Deterministically rotate through VERTICAL_TOPIC_QUERIES based on time/run window or offset.
+    Covers the entire topic space over successive windows while keeping each pipeline run bounded
+    to a manageable batch (e.g. 12 topics), respecting GitHub API rate limits.
     """
     all_topics = VERTICAL_TOPIC_QUERIES.get(vertical, [])
     if not all_topics:
@@ -461,9 +466,13 @@ def get_rotational_topics(vertical: str, batch_size: int = 8) -> list[str]:
     if len(all_topics) <= batch_size:
         return all_topics
 
-    # Rotate every 2 hours: window_index = (epoch_hours // 2)
-    now_hours = int(datetime.now(timezone.utc).timestamp() // 3600)
-    window_index = (now_hours // 2)
+    if offset is not None:
+        window_index = offset
+    else:
+        # Window advances every hour so consecutive runs cycle through all topics
+        now_hours = int(datetime.now(timezone.utc).timestamp() // 3600)
+        window_index = now_hours
+
     start_idx = (window_index * batch_size) % len(all_topics)
 
     # Wrap-around slice to ensure batch_size topics are always returned
@@ -494,15 +503,18 @@ async def search_top_repos(
     """
     # For predefined verticals, rotate through curated topics to cover the full space over time
     if vertical in VERTICAL_TOPIC_QUERIES and not category_filter:
-        topics = get_rotational_topics(vertical, batch_size=8)
+        topics = get_rotational_topics(vertical, batch_size=12)
     else:
         target_topic = category_filter if category_filter else vertical
-        topics = await _dynamic_topics(target_topic, limit=4)
+        topics = await _dynamic_topics(target_topic, limit=12)
 
-    # Only use GitHub Trending for the AI/ML vertical on short periods with AI validation
+    # Use GitHub Trending for the AI/ML vertical (validated) or for 'all' (global unconstrained)
     if period in TRENDING_SINCE and vertical == "ai_ml":
         raw_results = await _fetch_trending(period, limit=limit)
         results = [r for r in raw_results if is_ai_relevant(r)]
+    elif period in TRENDING_SINCE and (vertical == "all" or not vertical):
+        raw_results = await _fetch_trending(period, limit=limit)
+        results = raw_results
     else:
         results = await _fetch_search(period, limit=limit, topics=topics)
 
@@ -814,12 +826,14 @@ def normalize_search_result(repo: dict, rank: int, period: str) -> dict:
     # _star_gain is set by _enrich_repo for trending; fall back to total for Search
     star_gain   = repo.get("_star_gain", total_stars)
 
+    cat, cats = _infer_categories(repo)
     return {
         "rank":                  rank,
         "repo_id":               f"{owner}/{name}",
         "owner":                 owner,
         "name":                  name,
-        "category":              _infer_category(repo),
+        "category":              cat,
+        "categories":            cats,
         "github_url":            repo.get("html_url", f"https://github.com/{owner}/{name}"),
         "primary_language":      repo.get("language"),
         "age_days":              _age_days(repo.get("created_at", "")),
@@ -864,17 +878,21 @@ async def search_by_star_threshold(
     """
     # For predefined verticals, rotate through curated topics to cover the full space over time
     if vertical in VERTICAL_TOPIC_QUERIES:
-        topics = get_rotational_topics(vertical, batch_size=8)
+        topics = get_rotational_topics(vertical, batch_size=12)
     else:
-        topics = await _dynamic_topics(vertical, limit=4)
+        topics = await _dynamic_topics(vertical, limit=12)
 
     start_7d = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
+    start_30d = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%d")
 
     # Combine established repos with fast-moving emerging breakout repos (stars 10..500)
+    # and emerging newly created repos (created within 30 days, stars >= 25)
     search_queries = []
     for topic in topics:
         search_queries.append((f"{topic} stars:>=100", "stars"))
         search_queries.append((f"{topic} pushed:>={start_7d} stars:10..500", "updated"))
+    if topics:
+        search_queries.append((f"{topics[0]} created:>={start_30d} stars:>=25", "stars"))
 
     async with aiohttp.ClientSession() as session:
         batches = await asyncio.gather(*[
@@ -914,12 +932,15 @@ def _age_days(created_at: str) -> int:
         return 0
 
 
-def _infer_category(repo: dict) -> str:
-    """
-    Categories are now dynamically constructed upstream. This is a basic fallback for UI grouping
-    in the web dashboard if the repo doesn't strictly state a category.
-    """
+def _infer_categories(repo: dict) -> tuple[str, list[str]]:
+    """Infer primary and secondary categories from repository metadata."""
     from app.services.ecosystem import EcosystemClassifier
-    primary, _ = EcosystemClassifier.infer_category(repo)
+    return EcosystemClassifier.infer_category(repo)
+
+
+def _infer_category(repo: dict) -> str:
+    """Fallback single category string."""
+    primary, _ = _infer_categories(repo)
     return primary
+
 

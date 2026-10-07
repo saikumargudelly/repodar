@@ -824,19 +824,39 @@ function LeaderboardTable({
 
                   {/* Category Pill */}
                   <td className="col-hide-mobile" style={{ padding: "12px 12px", verticalAlign: "top" }}>
-                    <span style={{
-                      fontSize: "11px",
-                      fontWeight: 600,
-                      padding: "3px 10px",
-                      borderRadius: "20px",
-                      background: `${categoryColor}15`,
-                      color: categoryColor,
-                      border: `1.2px solid ${categoryColor}25`,
-                      display: "inline-block",
-                      whiteSpace: "nowrap",
-                    }}>
-                      {repo.category}
-                    </span>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", alignItems: "flex-start" }}>
+                      <span style={{
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        padding: "3px 10px",
+                        borderRadius: "20px",
+                        background: `${categoryColor}15`,
+                        color: categoryColor,
+                        border: `1.2px solid ${categoryColor}25`,
+                        display: "inline-block",
+                        whiteSpace: "nowrap",
+                      }}>
+                        {repo.category}
+                      </span>
+                      {repo.categories && repo.categories.filter((c: string) => c !== repo.category).slice(0, 2).map((cat: string) => {
+                        const secColor = getCategoryColor(cat);
+                        return (
+                          <span key={cat} style={{
+                            fontSize: "10px",
+                            fontWeight: 500,
+                            padding: "2px 8px",
+                            borderRadius: "16px",
+                            background: `${secColor}0d`,
+                            color: secColor,
+                            border: `1px dashed ${secColor}30`,
+                            display: "inline-block",
+                            whiteSpace: "nowrap",
+                          }}>
+                            {cat}
+                          </span>
+                        );
+                      })}
+                    </div>
                   </td>
 
                   {/* Stars / Stars gained */}

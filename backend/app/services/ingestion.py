@@ -200,6 +200,7 @@ def _persist_discovered_repos_sync(seen_slugs: dict, now: datetime, run_full_sea
                         primary_language=language,
                         source="auto_discovered",
                         is_active=True,
+                        is_archived=repo_data.get("archived", False),
                         discovered_at=now,
                         last_seen_trending=now,
                     )
@@ -691,7 +692,7 @@ async def auto_discover_and_sync(force: bool = False) -> dict:
                 try:
                     sync_dynamic_organizations(_db)
                     prune_dynamic_organizations(_db)
-                    orgs = get_rotational_organizations(_db, batch_size=4)
+                    orgs = get_rotational_organizations(_db, batch_size=10)
                     return [{"id": o.id, "login": o.login} for o in orgs]
                 finally:
                     _db.close()

@@ -195,6 +195,7 @@ export interface RepoSummary {
   owner: string;
   name: string;
   category: string;
+  categories?: string[] | null;
   description: string | null;
   github_url: string;
   primary_language: string | null;
@@ -271,6 +272,7 @@ export interface BreakoutRepo {
   owner: string;
   name: string;
   category: string;
+  categories?: string[] | null;
   github_url: string;
   trend_score: number;
   acceleration: number;
@@ -340,6 +342,7 @@ export interface RadarRepo {
   owner: string;
   name: string;
   category: string;
+  categories?: string[] | null;
   github_url: string;
   trend_score: number;
   acceleration: number;
@@ -418,6 +421,7 @@ export interface LeaderboardEntry {
   owner: string;
   name: string;
   category: string;
+  categories?: string[] | null;
   github_url: string;
   primary_language: string | null;
   age_days: number;

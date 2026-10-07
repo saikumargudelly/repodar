@@ -138,3 +138,100 @@ def test_networking_and_data_tools_not_contaminated_with_aiml():
     assert primary == "OSS Tools"
     assert "AI / ML" not in secondary, f"Expected AI / ML not in secondary, got {secondary}"
 
+
+def test_speech_audio_specialized_from_generic_aiml():
+    """Verify that speech, TTS, and voice-cloning tools specialize from generic AI / ML."""
+    tts_repo = {
+        "name": "TTS",
+        "primary_language": "Python",
+        "topics": ["tts", "text-to-speech", "deep-learning", "voice-cloning"],
+        "description": "Deep learning toolkit for Text2Speech synthesis.",
+        "category": "AI / ML",
+    }
+    primary, secondary = EcosystemClassifier.infer_category(tts_repo)
+    assert primary == "Speech & Audio"
+    assert "Speech & Audio" in secondary
+    assert "AI / ML" in secondary
+
+
+def test_image_generation_specialized_from_generic_aiml():
+    """Verify that ComfyUI, diffusion models, and face restoration specialize to Image Generation."""
+    comfy_repo = {
+        "name": "ComfyUI",
+        "primary_language": "Python",
+        "topics": ["stable-diffusion", "comfyui", "pytorch", "ai"],
+        "description": "The most powerful and modular diffusion model GUI, api and backend.",
+        "category": "AI / ML",
+    }
+    primary, secondary = EcosystemClassifier.infer_category(comfy_repo)
+    assert primary == "Image Generation"
+    assert "Image Generation" in secondary
+    assert "AI / ML" in secondary
+
+
+def test_multimodal_vision_specialized_from_generic_aiml():
+    """Verify that OCR and computer vision recognition tools specialize to Multimodal."""
+    ocr_repo = {
+        "name": "PaddleOCR",
+        "primary_language": "Python",
+        "topics": ["ocr", "chineseocr", "document-parsing"],
+        "description": "Turn any PDF or image document into structured data.",
+        "category": "AI / ML",
+    }
+    primary, secondary = EcosystemClassifier.infer_category(ocr_repo)
+    assert primary == "Multimodal"
+    assert "Multimodal" in secondary
+    assert "AI / ML" in secondary
+
+
+def test_science_research_specialized_from_generic_aiml():
+    """Verify that computational biology, genomics, and bioinformatics specialize to Science & Research."""
+    bio_repo = {
+        "name": "scanpy",
+        "primary_language": "Python",
+        "topics": ["bioinformatics", "single-cell", "genomics", "data-analysis"],
+        "description": "Single-Cell Analysis in Python. Scales to >1M cells.",
+        "category": "AI / ML",
+    }
+    primary, secondary = EcosystemClassifier.infer_category(bio_repo)
+    assert primary == "Science & Research"
+    assert "Science & Research" in secondary
+    assert "AI / ML" in secondary
+
+
+def test_julia_classified_as_devtools_not_aiml():
+    """Verify that Julia language compiler classifies as DevTools, not AI / ML."""
+    julia_repo = {
+        "name": "julia",
+        "primary_language": "Julia",
+        "topics": ["julia", "programming-language"],
+        "description": "The Julia Programming Language",
+        "category": "AI / ML",
+    }
+    primary, secondary = EcosystemClassifier.infer_category(julia_repo)
+    assert primary == "DevTools"
+
+
+def test_foundational_ml_frameworks_retained_as_aiml():
+    """Verify that genuine foundational machine learning libraries retain AI / ML classification."""
+    pytorch_repo = {
+        "name": "pytorch",
+        "primary_language": "Python",
+        "topics": ["neural-network", "deep-learning", "machine-learning", "tensor"],
+        "description": "Tensors and Dynamic neural networks in Python with strong GPU acceleration",
+        "category": "AI / ML",
+    }
+    primary, secondary = EcosystemClassifier.infer_category(pytorch_repo)
+    assert primary == "AI / ML"
+
+    sklearn_repo = {
+        "name": "scikit-learn",
+        "primary_language": "Python",
+        "topics": ["machine-learning", "data-science", "data-analysis"],
+        "description": "scikit-learn: machine learning in Python",
+        "category": "AI / ML",
+    }
+    primary_sk, secondary_sk = EcosystemClassifier.infer_category(sklearn_repo)
+    assert primary_sk == "AI / ML"
+
+

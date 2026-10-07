@@ -187,7 +187,21 @@ export function RepoHeader({
       >
         <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
           <span style={{ fontSize: "9px", textTransform: "uppercase", color: "var(--text-muted)", letterSpacing: "0.04em" }}>Category</span>
-          <span style={{ color: "var(--accent-blue)", fontWeight: 600 }}>{repo.category}</span>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", alignItems: "center" }}>
+            <span style={{ color: "var(--accent-blue)", fontWeight: 600 }}>{repo.category}</span>
+            {repo.categories && repo.categories.filter((c: string) => c !== repo.category).map((c: string) => (
+              <span key={c} style={{
+                fontSize: "10px",
+                color: "var(--text-muted)",
+                background: "rgba(255, 255, 255, 0.05)",
+                border: "1px solid var(--border)",
+                padding: "1px 5px",
+                borderRadius: "3px"
+              }}>
+                {c}
+              </span>
+            ))}
+          </div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>

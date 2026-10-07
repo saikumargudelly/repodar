@@ -47,6 +47,7 @@ class Repository(Base):
     # last_seen_trending : updated every day the repo appears in any
     #                      trending/search result — drives deactivation logic.
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
+    is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
     source: Mapped[str] = mapped_column(String(50), nullable=False, default="seed")
     discovered_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
     last_seen_trending: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
