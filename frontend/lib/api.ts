@@ -401,6 +401,7 @@ export interface PipelineStatus {
 export type Period = "1d" | "7d" | "30d" | "90d" | "365d" | "3y" | "5y";
 
 export type Vertical =
+  | "all"
   | "ai_ml"
   | "devtools"
   | "web_mobile"
@@ -898,6 +899,7 @@ export interface PaginatedResponse<T> {
 
 export interface RepoFilterDTO {
   q?: string;
+  vertical?: string;
   languages?: string[];
   categories?: string[];
   min_stars?: number;
@@ -1041,19 +1043,29 @@ export const api = {
     apiFetch<ComputedMetricPoint[]>(`/repos/${id}/scores?days=${days}`),
 
   // Dashboard
-  getOverview: () => apiFetch<OverviewResponse>("/dashboard/overview"),
+  getOverview: (vertical?: string) => {
+    const v = typeof vertical === "string" && vertical !== "all" ? vertical : undefined;
+    const qs = v ? `?vertical=${encodeURIComponent(v)}` : "";
+    return apiFetch<OverviewResponse>(`/dashboard/overview${qs}`);
+  },
   getRadar: (newOnly = false, category?: string, vertical?: string, sortBy?: string, sortDir?: string, limit = 50) => {
     const qs = new URLSearchParams({ new_only: String(newOnly) });
     if (category && category.toLowerCase() !== "all") qs.set("category", category);
-    if (vertical) qs.set("vertical", vertical);
+    if (vertical && vertical !== "all") qs.set("vertical", vertical);
     if (sortBy) qs.set("sort_by", sortBy);
     if (sortDir) qs.set("sort_dir", sortDir);
     qs.set("limit", String(limit));
     return apiFetch<RadarRepo[]>(`/dashboard/radar?${qs}`);
   },
-  getCategories: (period: Period = "7d") => apiFetch<CategoryMetrics[]>(`/dashboard/categories?period=${period}`),  
-  getLeaderboard: (period: Period, category?: string, limit = 20, vertical: Vertical = "ai_ml") => {
-    const qs = new URLSearchParams({ period, limit: String(limit), vertical });
+  getCategories: (period: Period = "7d", vertical?: string) => {
+    const qs = new URLSearchParams({ period });
+    const v = typeof vertical === "string" && vertical !== "all" ? vertical : undefined;
+    if (v) qs.set("vertical", v);
+    return apiFetch<CategoryMetrics[]>(`/dashboard/categories?${qs}`);
+  },  
+  getLeaderboard: (period: Period, category?: string, limit = 20, vertical: Vertical = "all") => {
+    const qs = new URLSearchParams({ period, limit: String(limit) });
+    if (vertical && vertical !== "all") qs.set("vertical", vertical);
     if (category) qs.set("category", category);
     return apiFetch<LeaderboardResponse>(`/dashboard/leaderboard?${qs}`);
   },
@@ -1111,6 +1123,7 @@ export const api = {
     require_fork_momentum?: boolean;
     require_sustained_velocity?: boolean;
     category?: string;
+    vertical?: string;
     language?: string;
     topics?: string;
     momentum_stage?: "dormant" | "emerging" | "accelerating" | "pre_viral" | "breakout";
@@ -1133,6 +1146,7 @@ export const api = {
     if (params?.require_fork_momentum !== undefined) qs.set("require_fork_momentum", String(params.require_fork_momentum));
     if (params?.require_sustained_velocity !== undefined) qs.set("require_sustained_velocity", String(params.require_sustained_velocity));
     if (params?.category) qs.set("category", params.category);
+    if (params?.vertical && params.vertical !== "all") qs.set("vertical", params.vertical);
     if (params?.language) qs.set("language", params.language);
     if (params?.topics) qs.set("topics", params.topics);
     if (params?.momentum_stage) qs.set("momentum_stage", params.momentum_stage);

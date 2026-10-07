@@ -9,15 +9,17 @@ import { formatCompactNumber } from "@/lib/utils";
 const CATEGORIES = [
   { id: "all", name: "All" },
   { id: "ai_ml", name: "AI / ML" },
-  { id: "web", name: "Web" },
-  { id: "devtools", name: "DevTools" },
-  { id: "security", name: "Security" },
-  { id: "agents", name: "Agents" },
-  { id: "blockchain", name: "Blockchain" },
-  { id: "data_eng", name: "Data Engineering" },
   { id: "mcp", name: "Model Context Protocol" },
+  { id: "agents", name: "Agents" },
+  { id: "devtools", name: "DevTools" },
+  { id: "data_infra", name: "Data & Infra" },
+  { id: "data_eng", name: "Data Engineering" },
+  { id: "security", name: "Security" },
+  { id: "oss_tools", name: "OSS Tools" },
+  { id: "web", name: "Web Frameworks" },
+  { id: "blockchain", name: "Blockchain" },
+  { id: "creative", name: "Creative & Gaming" },
   { id: "a2a", name: "Agent-to-Agent" },
-  { id: "data_infra", name: "Data & Infra" }
 ];
 
 const LANGUAGES = [
@@ -33,6 +35,7 @@ const LANGUAGES = [
 const CATEGORY_MAP: Record<string, string[]> = {
   all: [],
   ai_ml: [
+    "AI / ML",
     "LLM Models",
     "Agent Frameworks",
     "Inference Engines",
@@ -40,9 +43,11 @@ const CATEGORY_MAP: Record<string, string[]> = {
     "Model Serving / Runtimes",
     "Distributed Compute / Infra",
     "Evaluation Frameworks",
-    "Fine-tuning Toolkits"
+    "Fine-tuning Toolkits",
+    "Model Context Protocol",
+    "Agent-to-Agent",
   ],
-  web: ["Web Frameworks"],
+  web: ["Web Frameworks", "Web & Mobile"],
   devtools: ["DevTools"],
   security: ["Security"],
   agents: ["Agent Frameworks"],
@@ -50,7 +55,9 @@ const CATEGORY_MAP: Record<string, string[]> = {
   data_eng: ["Data Engineering"],
   mcp: ["Model Context Protocol"],
   a2a: ["Agent-to-Agent"],
-  data_infra: ["Data & Infra"]
+  data_infra: ["Data & Infra", "Data Engineering", "Vector Databases"],
+  oss_tools: ["OSS Tools"],
+  creative: ["Creative & Gaming"],
 };
 
 export default function ExplorePage() {

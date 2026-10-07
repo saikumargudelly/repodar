@@ -58,8 +58,8 @@ if DATABASE_URL.startswith("sqlite"):
         cursor.close()
 
 elif DATABASE_URL.startswith("postgresql"):  # includes normalized postgres:// URLs
-    # PostgreSQL: Production on Railway
-    # Optimized connection pooling for async workloads with Celery
+    # PostgreSQL: Production on Railway / Neon
+    # Optimized connection pooling for background pipeline workloads
     engine_kwargs.update({
         "pool_size": int(os.getenv("DB_POOL_SIZE", "2")),           # Keep pool small to avoid Neon Max Connections errors under multi-worker setup
         "max_overflow": int(os.getenv("DB_MAX_OVERFLOW", "2")),        # Overflow cap to handle minor spikes
@@ -238,5 +238,11 @@ def ensure_db_schema_upgraded(db_engine):
         if "has_tests" not in repo_cols:
             db_logger.info("Auto-migrating: Adding column 'has_tests' to 'repositories'")
             conn.execute(text(f"ALTER TABLE repositories ADD COLUMN has_tests BOOLEAN NOT NULL DEFAULT {default_bool}"))
+
+        # 3. Ensure dynamic_organizations table
+        if not inspector.has_table("dynamic_organizations"):
+            from app.models.dynamic_organization import DynamicOrganization
+            db_logger.info("Auto-migrating: Creating table 'dynamic_organizations'")
+            DynamicOrganization.__table__.create(bind=conn, checkfirst=True)
 
 

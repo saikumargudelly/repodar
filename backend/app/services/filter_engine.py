@@ -36,6 +36,7 @@ class RepoFilterDTO(BaseModel):
     q:           Optional[str] = Field(None, description="Search term for owner, name, or description")
 
     # Multi-select
+    vertical:    Optional[str] = Field(None, description="Vertical key (ai_ml, devtools, data_infra, etc.)")
     languages:   list[str] = Field(default_factory=list, description="Primary language filter (OR logic)")
     categories:  list[str] = Field(default_factory=list, description="Category filter (OR logic)")
     topics:      list[str] = Field(default_factory=list, description="Topic tag filter (repo must have at least one)")
@@ -156,15 +157,15 @@ class QueryBuilder:
                 or_(*[Repository.primary_language.ilike(lang) for lang in dto.languages])
             )
 
+        if dto.vertical:
+            from app.routers.search import VERTICAL_CATEGORY_MAP
+            if dto.vertical.lower() != "all" and dto.vertical in VERTICAL_CATEGORY_MAP:
+                vert_cats = VERTICAL_CATEGORY_MAP[dto.vertical]
+                q = q.filter(Repository.category.in_(vert_cats))
+
         if dto.categories:
             cats = list(set(dto.categories + [c.lower() for c in dto.categories]))
-            if db.bind.dialect.name == "postgresql":
-                cat_conditions = [Repository.category.in_(cats)]
-                for cat in cats:
-                    cat_conditions.append(cast(Repository.categories, PG_JSONB).contains([cat]))
-                q = q.filter(or_(*cat_conditions))
-            else:
-                q = q.filter(Repository.category.in_(cats))
+            q = q.filter(Repository.category.in_(cats))
 
         if dto.sources:
             q = q.filter(Repository.source.in_(dto.sources))

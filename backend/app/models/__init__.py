@@ -19,6 +19,7 @@ from app.models.user_onboarding import UserOnboarding
 from app.models.alert_rule import AlertRule
 from app.models.collection import Collection, CollectionVote
 from app.models.saved_filter import SavedFilterPreset
+from app.models.dynamic_organization import DynamicOrganization
 
 __all__ = [
     "Repository", "DailyMetric", "ComputedMetric", "TrendAlert",
@@ -28,4 +29,5 @@ __all__ = [
     "SocialMention", "RepoRelease", "Subscriber", "WeeklySnapshot",
     "AlertNotification", "UserOnboarding",
     "AlertRule", "Collection", "CollectionVote", "SavedFilterPreset",
+    "DynamicOrganization",
 ]

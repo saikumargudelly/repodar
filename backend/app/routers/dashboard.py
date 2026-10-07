@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, cast
 from pydantic import BaseModel, Field
 from fastapi_cache.decorator import cache
 
@@ -495,17 +495,44 @@ def _build_category_velocity_map_uncached(db: Session, scored_date: date) -> dic
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
+def _overview_cache_key_builder(
+    func: Callable,
+    namespace: str = "",
+    *,
+    request = None,
+    response = None,
+    args: Optional[tuple] = None,
+    kwargs: Optional[dict] = None,
+) -> str:
+    del func, request, response, args
+    kwargs = kwargs or {}
+    v = kwargs.get("vertical") or "all"
+    return f"{namespace}:overview:{v}"
+
+
 @router.get("/overview", response_model=OverviewResponse)
-@cache(expire=300, namespace="dashboard")  # pyright: ignore[reportArgumentType]
-def get_overview(db: Session = Depends(get_db)):
+@cache(expire=300, namespace="dashboard", key_builder=_overview_cache_key_builder)
+def get_overview(
+    vertical: Optional[str] = Query(None, description="Optional vertical to filter overview metrics"),
+    db: Session = Depends(get_db),
+):
     """
     Ecosystem overview: category heatmap data, top-10 breakout repos,
     sustainability rankings.
     """
+    from app.routers.search import VERTICAL_CATEGORY_MAP
+
     latest_date = _latest_scored_date(db)
 
+    if not isinstance(vertical, str):
+        vertical = None
+
+    vertical_cats = None
+    if vertical and vertical.lower() != "all" and vertical in VERTICAL_CATEGORY_MAP:
+        vertical_cats = VERTICAL_CATEGORY_MAP[vertical]
+
     # Top 10 breakout repos (trend_score > 0)
-    breakout_rows = (
+    breakout_q = (
         db.query(
             Repository.id,
             Repository.owner,
@@ -523,10 +550,10 @@ def get_overview(db: Session = Depends(get_db)):
         .filter(Repository.is_active == True)  # noqa: E712
         .filter(ComputedMetric.date == latest_date)
         .filter(ComputedMetric.trend_score > 0)
-        .order_by(ComputedMetric.trend_score.desc())
-        .limit(10)
-        .all()
     )
+    if vertical_cats:
+        breakout_q = breakout_q.filter(Repository.category.in_(vertical_cats))
+    breakout_rows = breakout_q.order_by(ComputedMetric.trend_score.desc()).limit(10).all()
 
     breakout_detected = []
     for (id, owner, name, cat, github_url, age_days, primary_language,
@@ -546,7 +573,7 @@ def get_overview(db: Session = Depends(get_db)):
         ))
 
     # Top 20 sustainability repos (sustainability_score > 0)
-    sustain_rows = (
+    sustain_q = (
         db.query(
             Repository.id,
             Repository.owner,
@@ -560,10 +587,10 @@ def get_overview(db: Session = Depends(get_db)):
         .filter(Repository.is_active == True)  # noqa: E712
         .filter(ComputedMetric.date == latest_date)
         .filter(ComputedMetric.sustainability_score > 0)
-        .order_by(ComputedMetric.sustainability_score.desc())
-        .limit(20)
-        .all()
     )
+    if vertical_cats:
+        sustain_q = sustain_q.filter(Repository.category.in_(vertical_cats))
+    sustain_rows = sustain_q.order_by(ComputedMetric.sustainability_score.desc()).limit(20).all()
 
     sustain_scored = []
     for (id, owner, name, cat, ss, sl, ts) in sustain_rows:
@@ -608,21 +635,29 @@ def get_overview(db: Session = Depends(get_db)):
         category_growth = compute_category_growth()
         cat_metrics = [CategoryMetrics(**c) for c in category_growth]
 
-    total_repos = db.query(Repository).filter(Repository.is_active == True).count()  # noqa: E712
-    discovered_repos = (
+    if vertical_cats:
+        cat_metrics = [c for c in cat_metrics if c.category in vertical_cats]
+
+    total_q = db.query(Repository).filter(Repository.is_active == True)  # noqa: E712
+    discovered_q = (
         db.query(Repository)
         .filter(Repository.is_active == True, Repository.source == "auto_discovered")  # noqa: E712
-        .count()
     )
-    healthy_repos = (
+    healthy_q = (
         db.query(ComputedMetric.repo_id)
         .join(Repository, Repository.id == ComputedMetric.repo_id)
         .filter(Repository.is_active == True)  # noqa: E712
         .filter(ComputedMetric.date == latest_date)
         .filter(ComputedMetric.sustainability_label == "GREEN")
-        .count()
     )
+    if vertical_cats:
+        total_q = total_q.filter(Repository.category.in_(vertical_cats))
+        discovered_q = discovered_q.filter(Repository.category.in_(vertical_cats))
+        healthy_q = healthy_q.filter(Repository.category.in_(vertical_cats))
 
+    total_repos = total_q.count()
+    discovered_repos = discovered_q.count()
+    healthy_repos = healthy_q.count()
 
     return OverviewResponse(
         as_of=latest_date.isoformat(),
@@ -698,13 +733,13 @@ async def get_breakout_radar(
         query = query.filter(Repository.age_days <= 180)
 
     if category and category.lower() != "all":
-        query = query.filter(Repository.category == category)
-    elif vertical:
+        cat_clean = category.strip()
+        query = query.filter(Repository.category.ilike(f"%{cat_clean}%"))
+    elif vertical and vertical.lower() != "all":
         from app.routers.search import VERTICAL_CATEGORY_MAP
         if vertical in VERTICAL_CATEGORY_MAP:
             cats = VERTICAL_CATEGORY_MAP[vertical]
-            cat_conds = [Repository.category.ilike(f"%{c}%") for c in cats]
-            query = query.filter(or_(*cat_conds))
+            query = query.filter(Repository.category.in_(cats))
 
     # Dynamic sorting
     sort_col_map = {
@@ -784,7 +819,7 @@ def _map_to_early_category(db_cat: str) -> str:
         return "vector_database"
     if "evaluation" in db_cat_lower:
         return "evaluation"
-    if "agent framework" in db_cat_lower:
+    if "agent framework" in db_cat_lower or "agent" in db_cat_lower:
         return "agents_orchestration"
     if "fine-tuning" in db_cat_lower or "fine_tuning" in db_cat_lower:
         return "fine_tuning"
@@ -794,15 +829,31 @@ def _map_to_early_category(db_cat: str) -> str:
         return "rlhf_alignment"
     if "distributed compute" in db_cat_lower or "infrastructure" in db_cat_lower:
         return "deployment_infra"
-    # Fallback checking for close matches
+    if "model context protocol" in db_cat_lower or "mcp" in db_cat_lower:
+        return "model_context_protocol"
+    if "devtools" in db_cat_lower or "developer-tools" in db_cat_lower:
+        return "devtools"
+    if "security" in db_cat_lower:
+        return "security"
+    if "oss tools" in db_cat_lower or "oss_tools" in db_cat_lower:
+        return "oss_tools"
+    if "blockchain" in db_cat_lower:
+        return "blockchain"
+    if "web" in db_cat_lower:
+        return "web_mobile"
+    if "creative" in db_cat_lower or "game" in db_cat_lower:
+        return "creative"
+    if "science" in db_cat_lower:
+        return "science"
     for ec in [
         "model_training", "inference_serving", "data_pipeline", "vector_database",
         "evaluation", "agents_orchestration", "fine_tuning", "multimodal",
-        "rlhf_alignment", "deployment_infra"
+        "rlhf_alignment", "deployment_infra", "model_context_protocol", "devtools",
+        "security", "oss_tools", "blockchain", "web_mobile", "creative", "science"
     ]:
         if ec == db_cat_lower or ec.replace("_", " ") == db_cat_lower:
             return ec
-    return "model_training"
+    return db_cat
 
 
 def _early_radar_cache_key_builder(
@@ -831,6 +882,7 @@ def _early_radar_cache_key_builder(
         str(kwargs.get("require_sustained_velocity", False)),
         str(kwargs.get("require_consistent_growth", False)),
         str(kwargs.get("category") or "None"),
+        str(kwargs.get("vertical") or "None"),
         str(kwargs.get("language") or "None"),
         str(kwargs.get("topics") or "None"),
         str(kwargs.get("momentum_stage") or "None"),
@@ -897,6 +949,7 @@ async def get_early_radar(
         description="Require star growth on at least 5 of the last 7 days.",
     ),
     category: Optional[str] = Query(None, description="Filter by category"),
+    vertical: Optional[str] = Query(None, description="Filter by vertical: ai_ml | devtools | data_infra | etc."),
     language: Optional[str] = Query(
         None,
         description="Filter by primary language (case-insensitive exact match).",
@@ -930,6 +983,8 @@ async def get_early_radar(
     # Normalise to plain values so this function remains reusable in scripts/tests.
     if not isinstance(category, str):
         category = None
+    if not isinstance(vertical, str):
+        vertical = None
     if not isinstance(language, str):
         language = None
     if not isinstance(topics, str):
@@ -1020,13 +1075,20 @@ async def get_early_radar(
         "multimodal": ["AI / ML", "multimodal"],
         "rlhf_alignment": ["AI / ML", "rlhf_alignment"],
         "deployment_infra": ["Distributed Compute / Infra", "Data & Infra", "Data & Infrastructure", "deployment_infra"],
+        "model_context_protocol": ["Model Context Protocol", "MCP Tools", "model_context_protocol"],
+        "oss_tools": ["OSS Tools", "oss_tools"],
+        "devtools": ["DevTools", "devtools"],
+        "security": ["Security", "security"],
     }
 
     if category:
-        if category in db_categories_map:
-            q = q.filter(Repository.category.in_(db_categories_map[category]))
-        else:
-            q = q.filter(Repository.category == category)
+        cats = db_categories_map.get(category, [category])
+        q = q.filter(Repository.category.in_(cats))
+    elif vertical and vertical.lower() != "all":
+        from app.routers.search import VERTICAL_CATEGORY_MAP
+        if vertical in VERTICAL_CATEGORY_MAP:
+            cats = VERTICAL_CATEGORY_MAP[vertical]
+            q = q.filter(Repository.category.in_(cats))
     if language:
         q = q.filter(func.lower(Repository.primary_language) == language.strip().lower())
 
@@ -1185,10 +1247,27 @@ async def get_early_radar(
     return ranked[:limit]
 
 
+def _cat_metrics_cache_key_builder(
+    func: Callable,
+    namespace: str = "",
+    *,
+    request = None,
+    response = None,
+    args: Optional[tuple] = None,
+    kwargs: Optional[dict] = None,
+) -> str:
+    del func, request, response, args
+    kwargs = kwargs or {}
+    p = kwargs.get("period") or "7d"
+    v = kwargs.get("vertical") or "all"
+    return f"{namespace}:categories:{p}:{v}"
+
+
 @router.get("/categories", response_model=List[CategoryMetrics])
-@cache(expire=900, namespace="dashboard")  # pyright: ignore[reportArgumentType]
+@cache(expire=900, namespace="dashboard", key_builder=_cat_metrics_cache_key_builder)
 def get_category_metrics(
     period: str = Query("7d", description="1d | 7d | 30d | 90d | 365d | 3y | 5y"),
+    vertical: Optional[str] = Query(None, description="Optional vertical to filter categories"),
     db: Session = Depends(get_db),
 ):
     """Category-level aggregated growth metrics.
@@ -1197,6 +1276,8 @@ def get_category_metrics(
     available (written at 00:30 UTC by run_daily_scoring), otherwise falls
     back to live SQLite/SQLAlchemy computation.  Cache reads are ~10 ms vs ~200 ms live.
     """
+    from app.routers.search import VERTICAL_CATEGORY_MAP
+
     days = PERIOD_DAYS.get(period, 7)
 
     # ── Try cache first (fast path) ───────────────────────────────────────
@@ -1210,7 +1291,7 @@ def get_category_metrics(
             .all()
         )
     if cached:
-        return [
+        results = [
             CategoryMetrics(
                 category=c.category,
                 total_stars=c.total_stars,
@@ -1226,10 +1307,19 @@ def get_category_metrics(
             )
             for c in sorted(cached, key=lambda x: x.trend_composite, reverse=True)
         ]
+    else:
+        # ── Live compute fallback ─────────────────────────────────────────────
+        growth = compute_category_growth(days=days)
+        results = [CategoryMetrics(**c) for c in growth]
 
-    # ── Live compute fallback ─────────────────────────────────────────────
-    growth = compute_category_growth(days=days)
-    return [CategoryMetrics(**c) for c in growth]
+    if not isinstance(vertical, str):
+        vertical = None
+
+    if vertical and vertical.lower() != "all" and vertical in VERTICAL_CATEGORY_MAP:
+        vertical_cats = set(VERTICAL_CATEGORY_MAP[vertical])
+        results = [c for c in results if c.category in vertical_cats]
+
+    return results
 
 
 @router.get("/alerts", response_model=List[AlertResponse])
@@ -1370,12 +1460,30 @@ class LeaderboardResponse(BaseModel):
     entries: List[LeaderboardEntry]
 
 
+def _leaderboard_cache_key_builder(
+    func: Callable,
+    namespace: str = "",
+    *,
+    request = None,
+    response = None,
+    args: Optional[tuple] = None,
+    kwargs: Optional[dict] = None,
+) -> str:
+    del func, request, response, args
+    kwargs = kwargs or {}
+    p = kwargs.get("period") or "7d"
+    c = kwargs.get("category") or "all"
+    v = kwargs.get("vertical") or "all"
+    l = kwargs.get("limit") or 30
+    return f"{namespace}:leaderboard:{p}:{c}:{v}:{l}"
+
+
 @router.get("/leaderboard", response_model=LeaderboardResponse)
-@cache(expire=300, namespace="dashboard")
+@cache(expire=300, namespace="dashboard", key_builder=_leaderboard_cache_key_builder)
 async def get_leaderboard(
     period: str = Query("7d", description="1d | 7d | 30d | 90d | 365d | 3y | 5y"),
     category: Optional[str] = Query(None, description="Filter by AI/ML sub-category"),
-    vertical: str = Query("ai_ml", description="ai_ml | devtools | web_mobile | data_infra | security | oss_tools | blockchain | science | creative"),
+    vertical: Optional[str] = Query(None, description="ai_ml | devtools | web_mobile | data_infra | security | oss_tools | blockchain | science | creative | all"),
     limit: int = Query(30, le=100),
     db: Session = Depends(get_db),
 ):
@@ -1408,10 +1516,9 @@ async def get_leaderboard(
         repo_q = repo_q.filter(Repository.category.ilike(f"%{category.strip()}%"))
 
     # Apply vertical filter
-    elif vertical and vertical in VERTICAL_CATEGORY_MAP:
+    elif vertical and vertical.lower() != "all" and vertical in VERTICAL_CATEGORY_MAP:
         cats = VERTICAL_CATEGORY_MAP[vertical]
-        cat_conds = [Repository.category.ilike(f"%{c}%") for c in cats]
-        repo_q = repo_q.filter(or_(*cat_conds))
+        repo_q = repo_q.filter(Repository.category.in_(cats))
 
     # Order by based on time period
     if period == "1d":

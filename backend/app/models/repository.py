@@ -18,6 +18,7 @@ class Repository(Base):
     __table_args__ = (
         Index('ix_repositories_owner_name', 'owner', 'name', unique=False),
         Index('ix_repositories_source_active', 'source', 'is_active'),
+        Index('ix_repositories_categories_gin', 'categories', postgresql_using='gin'),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)

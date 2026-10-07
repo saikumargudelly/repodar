@@ -177,15 +177,24 @@ def _persist_discovered_repos_sync(seen_slugs: dict, now: datetime, run_full_sea
                         inactive_to_reactivate_ids.append(existing.id)
                         reactivated += 1
                 else:
-                    category = _infer_category(repo_data)
+                    from app.services.ecosystem import EcosystemClassifier
+                    inferred_cat, inferred_cats = EcosystemClassifier.infer_category(repo_data)
                     description = (repo_data.get("description") or "")[:500]
                     language = repo_data.get("language")
+                    topics_val = repo_data.get("topics") if isinstance(repo_data.get("topics"), list) else None
+                    provenance_val = repo_data.get("_provenance")
+                    eco_data = {"discovery_provenance": provenance_val} if provenance_val else None
+                    stars_val = repo_data.get("stargazers_count", 0)
 
                     new_repo = Repository(
                         id=str(uuid.uuid4()),
                         owner=owner,
                         name=name,
-                        category=category,
+                        category=inferred_cat,
+                        categories=inferred_cats,
+                        topics=topics_val,
+                        ecosystem_data_json=eco_data,
+                        stars_snapshot=stars_val,
                         description=description,
                         github_url=repo_data.get("html_url", f"https://github.com/{owner}/{name}"),
                         primary_language=language,
@@ -199,6 +208,15 @@ def _persist_discovered_repos_sync(seen_slugs: dict, now: datetime, run_full_sea
             except Exception as e:
                 logger.error(f"Error processing discovered repo {slug}: {e}")
                 continue
+
+        # Guard: Ensure popular repos with >= 500 stars are reactivated
+        guarded_inactive = db.query(Repository.id).filter(
+            Repository.is_active == False,
+            Repository.stars_snapshot >= STALE_MIN_STARS_GUARD,
+        ).all()
+        if guarded_inactive:
+            inactive_to_reactivate_ids.extend(r.id for r in guarded_inactive)
+            inactive_to_reactivate_ids = list(set(inactive_to_reactivate_ids))
 
         if active_to_refresh_ids:
             db.query(Repository).filter(Repository.id.in_(active_to_refresh_ids)).update(
@@ -656,6 +674,61 @@ async def auto_discover_and_sync(force: bool = False) -> dict:
             if i + chunk_size < len(search_tasks):
                 await asyncio.sleep(1.5)  # Pause between chunks to yield the event loop and ease rate limits
 
+        # Step B: Dynamic Organization Discovery (Purely database-driven)
+        try:
+            import aiohttp
+            from app.services.organization_intelligence import (
+                get_rotational_organizations,
+                discover_dynamic_organization_repos,
+                sync_dynamic_organizations,
+                prune_dynamic_organizations,
+            )
+            from app.models.dynamic_organization import DynamicOrganization
+            from app.services.github_search import GITHUB_TOKEN
+
+            def _get_and_sync_orgs_sync():
+                _db = SessionLocal()
+                try:
+                    sync_dynamic_organizations(_db)
+                    prune_dynamic_organizations(_db)
+                    orgs = get_rotational_organizations(_db, batch_size=4)
+                    return [{"id": o.id, "login": o.login} for o in orgs]
+                finally:
+                    _db.close()
+
+            rotational_orgs = await run_in_pipeline_thread(_get_and_sync_orgs_sync)
+            if rotational_orgs and GITHUB_TOKEN:
+                logger.info(f"Dynamic Organization Discovery: Querying {len(rotational_orgs)} dynamic organizations")
+                async with aiohttp.ClientSession() as org_session:
+                    org_results = await asyncio.gather(*[
+                        discover_dynamic_organization_repos(
+                            org_session,
+                            DynamicOrganization(id=o["id"], login=o["login"]),
+                            GITHUB_TOKEN,
+                            limit=10,
+                        )
+                        for o in rotational_orgs
+                    ], return_exceptions=True)
+                    for ores in org_results:
+                        if isinstance(ores, list):
+                            all_results.append(ores)
+
+                def _mark_orgs_synced_sync(org_ids: list[str]):
+                    _db = SessionLocal()
+                    try:
+                        _now = datetime.now(timezone.utc).replace(tzinfo=None)
+                        _db.query(DynamicOrganization).filter(DynamicOrganization.id.in_(org_ids)).update(
+                            {DynamicOrganization.last_synced_at: _now},
+                            synchronize_session=False
+                        )
+                        _db.commit()
+                    finally:
+                        _db.close()
+
+                await run_in_pipeline_thread(_mark_orgs_synced_sync, [o["id"] for o in rotational_orgs])
+        except Exception as org_err:
+            logger.warning(f"Dynamic organization discovery step skipped due to error: {org_err}")
+
         # Flatten and deduplicate by full_name
         seen_slugs: dict[str, dict] = {}
         for result in all_results:
@@ -681,6 +754,18 @@ async def auto_discover_and_sync(force: bool = False) -> dict:
         summary = await run_in_pipeline_thread(
             _persist_discovered_repos_sync, seen_slugs, now, run_full_search
         )
+
+        # Trigger dynamic organization delta detection for any newly ingested repos
+        def _post_discovery_sync():
+            _db = SessionLocal()
+            try:
+                from app.services.organization_intelligence import sync_dynamic_organizations
+                sync_dynamic_organizations(_db)
+            finally:
+                _db.close()
+
+        await run_in_pipeline_thread(_post_discovery_sync)
+
         logger.info(f"Auto-discovery complete: {summary}")
         return summary
 

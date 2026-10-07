@@ -7,6 +7,7 @@ category-level strength scoring, and ecosystem report generation.
 import json
 import asyncio
 import logging
+import functools
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timezone
 
@@ -29,12 +30,23 @@ GITHUB_TOPICS = {
     "multi-agent": "Agent Frameworks",
     "agentic": "Agent Frameworks",
     "ai-agent": "Agent Frameworks",
+    "ai-agents": "Agent Frameworks",
     "autonomous-agents": "Agent Frameworks",
     "llm-agent": "Agent Frameworks",
     "agent-framework": "Agent Frameworks",
     "agent-orchestration": "Agent Frameworks",
     "autonomous-agent": "Agent Frameworks",
     "agentic-workflow": "Agent Frameworks",
+    "agent-skills": "Agent Frameworks",
+    "agentic-ai": "Agent Frameworks",
+    "agent-infrastructure": "Agent Frameworks",
+
+    # Model Context Protocol
+    "mcp": "Model Context Protocol",
+    "mcp-server": "Model Context Protocol",
+    "mcp-servers": "Model Context Protocol",
+    "mcp-client": "Model Context Protocol",
+    "model-context-protocol": "Model Context Protocol",
 
     # Inference Engines
     "triton-inference": "Inference Engines",
@@ -81,11 +93,25 @@ GITHUB_TOPICS = {
     "intellij-plugin": "DevTools",
     "dev-server": "DevTools",
     "command-runner": "DevTools",
+    "skills": "DevTools",
+    "skill": "DevTools",
+    "claude-code": "DevTools",
+    "claude-code-plugin": "DevTools",
+    "cursor-rules": "DevTools",
+    "prompt-engineering": "DevTools",
+    "prompts": "DevTools",
+    "prompt": "DevTools",
+    "best-practice": "DevTools",
+    "best-practices": "DevTools",
+    "coding-standards": "DevTools",
+    "dotfiles": "DevTools",
 
     # Web Frameworks
     "web-framework": "Web Frameworks",
     "rest-api": "Web Frameworks",
     "microservices": "Web Frameworks",
+    "css-framework": "Web Frameworks",
+    "bootstrap": "Web Frameworks",
 
     # Security
     "vulnerability-scanner": "Security",
@@ -118,6 +144,16 @@ GITHUB_TOPICS = {
     # DevOps / Infrastructure -> Data & Infra
     "opentelemetry": "Data & Infra",
     "containerization": "Data & Infra",
+
+    # OSS Tools & Educational
+    "awesome-list": "OSS Tools",
+    "tutorials": "OSS Tools",
+    "tutorial": "OSS Tools",
+    "study-plan": "OSS Tools",
+    "interview-prep": "OSS Tools",
+    "coding-interviews": "OSS Tools",
+    "computer-science": "OSS Tools",
+    "book-series": "OSS Tools",
 
     # AI / ML
     "deep-learning": "AI / ML",
@@ -276,6 +312,9 @@ TECHNOLOGIES = {
 
 PROTOCOLS = {
     "mcp": "Model Context Protocol",
+    "mcp-server": "Model Context Protocol",
+    "mcp-servers": "Model Context Protocol",
+    "mcp-client": "Model Context Protocol",
     "model-context-protocol": "Model Context Protocol",
     "a2a": "Agent-to-Agent",
     "graphql": "Web Frameworks",
@@ -294,6 +333,14 @@ DESCRIPTION_KEYWORDS = {
     "causal-lm": "LLM Models",
     "slm": "LLM Models",
     "small-language-model": "LLM Models",
+
+    # Model Context Protocol
+    "mcp-server": "Model Context Protocol",
+    "mcp-servers": "Model Context Protocol",
+    "mcp-client": "Model Context Protocol",
+
+    # Agent Frameworks
+    "agent-skills": "Agent Frameworks",
 
     # Inference Engines
     "inference": "Inference Engines",
@@ -325,6 +372,10 @@ DESCRIPTION_KEYWORDS = {
     "debugging": "DevTools",
     "profiler": "DevTools",
     "dotfiles": "DevTools",
+    "cursor-rules": "DevTools",
+    "claude-code": "DevTools",
+    "coding-assistant": "DevTools",
+    "developer-skills": "DevTools",
 
     # Security
     "security": "Security",
@@ -444,9 +495,12 @@ class EcosystemClassifier:
         "lightning": "pytorch-lightning",
     }
 
-    # Overly generic terms that must not match in description keywords
+    # Overly generic terms, weak keywords, and foundation model brand names that must not match in description keywords
     PROHIBITED_DESC_KEYWORDS = {
-        "ai", "ml", "tool", "framework", "application", "platform", "library", "service"
+        "ai", "ml", "tool", "framework", "application", "platform", "library", "service",
+        "claude", "chatgpt", "openai", "gemini", "anthropic", "copilot", "gpt",
+        "llm", "phi", "agent", "serving", "eval", "editor", "cli", "git", "terminal",
+        "devtools", "shell", "web", "nodejs", "frontend", "pipeline", "nickel",
     }
 
     @classmethod
@@ -490,25 +544,25 @@ class EcosystemClassifier:
         return False
 
     @staticmethod
-    def _is_desc_match(desc_lc: str, key: str) -> bool:
-        """Punctuation-aware distinct word match for description keywords with basic plural support."""
+    @functools.lru_cache(maxsize=2048)
+    def _get_desc_pattern(key: str):
         import re
-        # Normalize hyphens/underscores to spaces to match both hyphenated and spaced variants
         normalized_key = key.replace('-', ' ').replace('_', ' ')
-        normalized_desc = desc_lc.replace('-', ' ').replace('_', ' ')
-        
-        # Build regex allowing optional plural suffixes (s/es) for the final token of the keyword
         words = normalized_key.split()
         pattern_parts = []
         for idx, w in enumerate(words):
             if idx == len(words) - 1:
-                # Add optional plural suffix for the last word token
                 pattern_parts.append(re.escape(w) + r'(?:s|es)?')
             else:
                 pattern_parts.append(re.escape(w))
-        
         pattern = r'\b' + r'\s+'.join(pattern_parts) + r'\b'
-        return bool(re.search(pattern, normalized_desc))
+        return re.compile(pattern)
+
+    @classmethod
+    def _is_desc_match(cls, desc_lc: str, key: str) -> bool:
+        """Punctuation-aware distinct word match for description keywords with cached regex and plural support."""
+        normalized_desc = desc_lc.replace('-', ' ').replace('_', ' ')
+        return bool(cls._get_desc_pattern(key).search(normalized_desc))
 
     @staticmethod
     def _normalize_topic(topic_lc: str) -> str:
@@ -524,15 +578,21 @@ class EcosystemClassifier:
         """
         matched_priorities = {}  # category_name -> priority integer (lower = higher priority)
 
-        # 1. Seed Category (Priority 1)
+        # 1. Seed Category
         repo_category = None
         if hasattr(repo, "category"):
             repo_category = repo.category
         elif isinstance(repo, dict):
             repo_category = repo.get("category")
-            
-        if repo_category and repo_category.lower() not in ("untracked", "default", "system"):
-            matched_priorities[repo_category] = 1
+
+        GENERIC_CATEGORIES = {"ai / ml", "ai/ml", "oss tools", "untracked", "default", "system", "general", "other"}
+        is_generic_category = bool(repo_category and repo_category.lower().strip() in GENERIC_CATEGORIES)
+
+        if repo_category and repo_category.lower().strip() not in ("untracked", "default", "system"):
+            if is_generic_category:
+                matched_priorities[repo_category] = 17
+            else:
+                matched_priorities[repo_category] = 1
 
         # Extract name safely
         name = ""
@@ -636,6 +696,8 @@ class EcosystemClassifier:
         # 7. Language Fallback (Priority 7)
         if lang_lc == "solidity":
             matched_priorities["Blockchain"] = min(matched_priorities.get("Blockchain", 99), 7)
+        elif lang_lc in ("shell", "bash"):
+            matched_priorities["DevTools"] = min(matched_priorities.get("DevTools", 99), 7)
 
         # 8. OSS Tools Fallback (Priority 8)
         if not matched_priorities:
@@ -649,11 +711,19 @@ class EcosystemClassifier:
 
         sorted_cats = sorted(matched_priorities.keys(), key=sort_key)
 
-        # Determine primary category (Guarantee 4)
-        if repo_category and repo_category.lower() not in ("untracked", "default", "system"):
+        # Determine primary category:
+        # If repo_category exists and is not generic, preserve it.
+        # Otherwise, the top sorted category (highest priority / specificity) wins!
+        if repo_category and not is_generic_category and repo_category.lower() not in ("untracked", "default", "system"):
             primary = repo_category
         else:
             primary = sorted_cats[0]
+
+        # If only the generic prior was present without actual domain evidence (priority >= 17), fallback to OSS Tools
+        if matched_priorities.get(primary, 99) >= 17:
+            primary = "OSS Tools"
+            if "OSS Tools" not in sorted_cats:
+                sorted_cats.insert(0, "OSS Tools")
 
         return primary, sorted_cats
 
@@ -662,13 +732,16 @@ class RelationshipGraphEngine:
     """Builds and ranks explainable relationships between repositories and categories."""
 
     @staticmethod
-    def _cosine_similarity(a: set, b: set) -> float:
-        """Jaccard similarity as a proxy for cosine similarity."""
+    def _jaccard_similarity(a: set, b: set) -> float:
+        """Calculate Jaccard similarity index between two feature sets."""
         if not a or not b:
             return 0.0
         intersection = len(a & b)
         union = len(a | b)
         return intersection / union if union > 0 else 0.0
+
+    # Backward-compatible alias for existing callers
+    _cosine_similarity = _jaccard_similarity
 
     @staticmethod
     def _build_feature_set(repo: Repository) -> set:

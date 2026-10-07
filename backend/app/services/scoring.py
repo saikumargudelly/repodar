@@ -11,6 +11,7 @@ import os
 from datetime import date, datetime, timezone, timedelta
 from collections import defaultdict
 
+from sqlalchemy import func
 from app.database import SessionLocal, engine
 from app.models import Repository, DailyMetric, ComputedMetric, TrendAlert, CategoryMetricDaily
 from app.models.watchlist import WatchlistItem
@@ -208,7 +209,7 @@ def _commit_frequency_score(df: list[dict]) -> float:
 
 def compute_trend_score(df: list[dict], age_days: int) -> dict:
     """
-    TrendScore (0–100 normalised) — momentum signal across 7 signals:
+    TrendScore (0.0–1.0 normalised) — momentum signal across 7 signals:
 
       Signal              Weight   Rationale
       ─────────────────── ────── ───────────────────────────────────────────
@@ -221,8 +222,7 @@ def compute_trend_score(df: list[dict], age_days: int) -> dict:
       release_boost        0.03   Shipping cadence
       issue_spike          0.02   Issue interest (minor)
 
-    Raw score is log-damped by repo age so newer repos aren't artificially
-    inflated for raw star counts.
+    Raw score is log-damped by repo age and clamped to [0.0, 1.0].
     """
     vel_7d  = float(_star_velocity(df, 7))
     vel_30d = float(_star_velocity(df, 30))
@@ -303,14 +303,17 @@ def compute_category_growth(days: int = 7) -> list[dict]:
       Release boost 10% | Issue activity 10%
     All signals are min-max normalised across categories before weighting.
     """
-    fetch_days = max(days + 7, 35)
-    cutoff = datetime.now(timezone.utc) - timedelta(days=fetch_days)
-    
     db = SessionLocal()
     try:
+        latest_dm_dt = db.query(func.max(DailyMetric.captured_at)).scalar()
+        today_ref = latest_dm_dt.date() if latest_dm_dt else _today()
+        fetch_days = max(days + 7, 35)
+        cutoff = datetime.combine(today_ref - timedelta(days=fetch_days), datetime.min.time())
+
         rows = (
             db.query(
                 Repository.category,
+                Repository.categories,
                 Repository.id.label("repo_id"),
                 DailyMetric.captured_at,
                 DailyMetric.stars,
@@ -323,7 +326,7 @@ def compute_category_growth(days: int = 7) -> list[dict]:
                 DailyMetric.daily_pr_delta,
             )
             .join(DailyMetric, Repository.id == DailyMetric.repo_id)
-            .filter(DailyMetric.captured_at >= cutoff.replace(tzinfo=None))
+            .filter(DailyMetric.captured_at >= cutoff)
             .all()
         )
     except Exception as e:
@@ -349,11 +352,12 @@ def compute_category_growth(days: int = 7) -> list[dict]:
             "open_prs": r.open_prs or 0,
             "daily_pr_delta": r.daily_pr_delta or 0,
         }
-        category_data[r.category][r.repo_id].append(metric)
+        cats = r.categories if r.categories else [r.category]
+        for c in cats:
+            category_data[c][r.repo_id].append(metric)
 
     raw_results = []
     
-    today_ref = _today()
     period_cutoff_date = today_ref - timedelta(days=days)
     last_7_date = today_ref - timedelta(days=7)
     prior_7_start_date = today_ref - timedelta(days=14)
@@ -765,7 +769,8 @@ def _write_category_metrics_cache(db, days: int = 7) -> int:
     Computes category growth metrics for `days` and upserts rows into
     `category_metrics_daily`.
     """
-    today = _today()
+    latest_dm = db.query(func.max(DailyMetric.captured_at)).scalar()
+    today = latest_dm.date() if latest_dm else _today()
     rows = compute_category_growth(days=days)
     if not rows:
         return 0

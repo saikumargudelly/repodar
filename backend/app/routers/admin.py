@@ -1021,3 +1021,96 @@ async def get_system_metrics():
             },
         },
     }
+
+
+@router.get("/coverage-metrics")
+def get_coverage_metrics(db: Session = Depends(get_db)):
+    """
+    Measurable discovery coverage and ecosystem intelligence metrics.
+    Tracks total repositories, category breakdown, generic AI/ML ratio,
+    active vs inactive, multi-label coverage, and golden set coverage.
+    """
+    from app.models.repository import Repository
+    from app.models.dynamic_organization import DynamicOrganization
+    from sqlalchemy import func
+
+    total_repos = db.query(func.count(Repository.id)).scalar() or 0
+    active_repos = db.query(func.count(Repository.id)).filter(Repository.is_active == True).scalar() or 0
+    inactive_repos = total_repos - active_repos
+
+    # Category breakdown
+    cat_rows = (
+        db.query(Repository.category, func.count(Repository.id))
+        .filter(Repository.owner != "system")
+        .group_by(Repository.category)
+        .all()
+    )
+    categories = {cat: count for cat, count in cat_rows}
+    generic_aiml_count = categories.get("AI / ML", 0)
+    generic_aiml_pct = round((generic_aiml_count / total_repos * 100), 2) if total_repos > 0 else 0.0
+
+    # Source breakdown
+    source_rows = (
+        db.query(Repository.source, func.count(Repository.id))
+        .group_by(Repository.source)
+        .all()
+    )
+    sources = {src: count for src, count in source_rows}
+
+    # Multi-label count (repos with categories JSONB containing > 1 item)
+    multi_label_count = (
+        db.query(func.count(Repository.id))
+        .filter(Repository.categories.isnot(None))
+        .scalar() or 0
+    )
+
+    # Emerging repositories (stars <= 500 with >= 10 stars)
+    emerging_count = (
+        db.query(func.count(Repository.id))
+        .filter(
+            Repository.is_active == True,
+            Repository.stars_snapshot <= 500,
+            Repository.stars_snapshot >= 10,
+        )
+        .scalar() or 0
+    )
+
+    # Dynamic organizations tracked
+    org_count = db.query(func.count(DynamicOrganization.id)).scalar() or 0
+    active_org_count = (
+        db.query(func.count(DynamicOrganization.id))
+        .filter(DynamicOrganization.is_active == True)
+        .scalar() or 0
+    )
+
+    # Golden Set benchmark tracking (60 benchmark repositories)
+    from tests.test_golden_set_coverage import GOLDEN_SET_REPOSITORIES
+    golden_slugs = {s.lower() for s in GOLDEN_SET_REPOSITORIES}
+    existing_slugs = {
+        f"{r.owner.lower()}/{r.name.lower()}"
+        for r in db.query(Repository.owner, Repository.name).all()
+    }
+    golden_covered = golden_slugs & existing_slugs
+    golden_coverage_pct = round((len(golden_covered) / len(golden_slugs) * 100), 2) if golden_slugs else 0.0
+
+    return {
+        "total_repositories": total_repos,
+        "active_repositories": active_repos,
+        "inactive_repositories": inactive_repos,
+        "categories_breakdown": categories,
+        "sources_breakdown": sources,
+        "generic_aiml_count": generic_aiml_count,
+        "generic_aiml_percentage": generic_aiml_pct,
+        "multi_label_repository_count": multi_label_count,
+        "emerging_repository_count": emerging_count,
+        "dynamic_organizations": {
+            "total": org_count,
+            "active": active_org_count,
+        },
+        "golden_set_benchmark": {
+            "total_benchmark_repos": len(golden_slugs),
+            "covered_count": len(golden_covered),
+            "coverage_percentage": golden_coverage_pct,
+            "missing_count": len(golden_slugs) - len(golden_covered),
+        },
+    }

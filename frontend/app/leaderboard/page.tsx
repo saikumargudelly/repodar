@@ -65,6 +65,7 @@ function LeaderboardAndNetworkContent() {
   // --- LEADERBOARD STATE ---
   const [view, setView] = useState<LeaderboardView>("trending");
   const [period, setPeriod] = useState<Period>("7d");
+  const [vertical, setVertical] = useState<string>("all");
 
   // --- NETWORK STATE ---
   const [minRepos, setMinRepos] = useState(2);
@@ -74,15 +75,15 @@ function LeaderboardAndNetworkContent() {
 
   // --- QUERIES ---
   const { data: lbData, isLoading: lbLoading } = useQuery({
-    queryKey: ["leaderboard", period],
-    queryFn: () => api.getLeaderboard(period, undefined, 100),
+    queryKey: ["leaderboard", period, vertical],
+    queryFn: () => api.getLeaderboard(period, undefined, 100, vertical === "all" ? undefined : (vertical as any)),
     enabled: activeTab === "leaderboard",
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: overviewData } = useQuery({
-    queryKey: ["overview"],
-    queryFn: api.getOverview,
+    queryKey: ["overview", vertical],
+    queryFn: () => api.getOverview(vertical === "all" ? undefined : vertical),
     staleTime: 10 * 60 * 1000,
   });
 
@@ -457,6 +458,43 @@ function LeaderboardAndNetworkContent() {
                         onMouseLeave={(e) => { if (!active) e.currentTarget.style.borderColor = C.border; }}
                       >
                         {labels[p]}
+                      </button>
+                    );
+                  })}
+                </div>
+                <span className="col-hide-mobile" style={{ width: "1px", height: "18px", background: C.border, margin: "0 6px" }} />
+                <div className="leaderboard-scroll-wrapper" style={{ display: "flex", gap: "6px" }}>
+                  {[
+                    { key: "all", label: "All" },
+                    { key: "ai_ml", label: "AI / ML" },
+                    { key: "devtools", label: "DevTools" },
+                    { key: "data_infra", label: "Data & Infra" },
+                    { key: "security", label: "Security" },
+                    { key: "oss_tools", label: "OSS Tools" },
+                    { key: "web_mobile", label: "Web & Mobile" },
+                    { key: "blockchain", label: "Blockchain" },
+                  ].map((v) => {
+                    const active = vertical === v.key;
+                    return (
+                      <button
+                        key={v.key}
+                        onClick={() => setVertical(v.key)}
+                        style={{
+                          fontFamily: "var(--font-sans)",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          color: active ? C.text : C.textSub,
+                          background: active ? C.bgHover : "transparent",
+                          border: `1px solid ${active ? C.textSub : C.border}`,
+                          borderRadius: "16px",
+                          padding: "5px 12px",
+                          cursor: "pointer",
+                          transition: "background 0.15s, border-color 0.15s",
+                        }}
+                        onMouseEnter={(e) => { if (!active) e.currentTarget.style.borderColor = C.textSub; }}
+                        onMouseLeave={(e) => { if (!active) e.currentTarget.style.borderColor = C.border; }}
+                      >
+                        {v.label}
                       </button>
                     );
                   })}

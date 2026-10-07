@@ -49,6 +49,7 @@ const PERIODS: { key: Period; label: string }[] = [
 ];
 
 const VERTICALS: { key: Vertical; label: string }[] = [
+  { key: "all", label: "All" },
   { key: "ai_ml", label: "AI / ML" },
   { key: "devtools", label: "DevTools" },
   { key: "web_mobile", label: "Web & Mobile" },
@@ -59,6 +60,43 @@ const VERTICALS: { key: Vertical; label: string }[] = [
   { key: "science", label: "Science" },
   { key: "creative", label: "Creative" },
 ];
+
+const VERTICAL_SUB_CATEGORIES: Record<string, string[]> = {
+  all: [
+    "All",
+    "AI / ML",
+    "Agent Frameworks",
+    "LLM Models",
+    "Model Context Protocol",
+    "DevTools",
+    "Data & Infra",
+    "Data Engineering",
+    "Security",
+    "OSS Tools",
+    "Web Frameworks",
+  ],
+  ai_ml: [
+    "All",
+    "AI / ML",
+    "Agent Frameworks",
+    "LLM Models",
+    "Model Context Protocol",
+    "Inference Engines",
+    "Vector Databases",
+    "Evaluation Frameworks",
+    "Fine-tuning Toolkits",
+    "Model Serving / Runtimes",
+    "Distributed Compute / Infra",
+  ],
+  devtools: ["All", "DevTools"],
+  web_mobile: ["All", "Web Frameworks", "Web & Mobile"],
+  data_infra: ["All", "Data & Infra", "Data Engineering", "Vector Databases"],
+  security: ["All", "Security"],
+  blockchain: ["All", "Blockchain"],
+  oss_tools: ["All", "OSS Tools"],
+  science: ["All", "Science & Research"],
+  creative: ["All", "Creative & Gaming"],
+};
 
 // ─── Watchlist hook (localStorage) ───────────────────────────────────────────
 
@@ -305,8 +343,21 @@ function VerticalSelector({
     : null; // no fallback — show all when no prefs
 
   const displayed = showMine && favorites
-    ? VERTICALS.filter((v) => favorites.includes(v.key))
+    ? VERTICALS.filter((v) => v.key !== "all" && favorites.includes(v.key))
     : VERTICALS;
+
+  const handleToggleMine = () => {
+    const nextMine = !showMine;
+    setShowMine(nextMine);
+    if (nextMine) {
+      if (favorites && favorites.length > 0) {
+        const validFavs = VERTICALS.filter((v) => v.key !== "all" && favorites.includes(v.key));
+        if (validFavs.length > 0 && !validFavs.some((v) => v.key === selected)) {
+          onChange(validFavs[0].key);
+        }
+      }
+    }
+  };
 
   // Keep selection coherent: if current vertical isn't visible, pick first displayed
   useEffect(() => {
@@ -319,16 +370,18 @@ function VerticalSelector({
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "12px", width: "100%", overflowX: "auto", padding: "2px 0" }} className="scroll-selector">
       {/* Mine Toggle Switch */}
-      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginRight: "6px", flexShrink: 0 }}>
+      <div
+        onClick={handleToggleMine}
+        style={{ display: "flex", alignItems: "center", gap: "8px", marginRight: "6px", flexShrink: 0, cursor: "pointer" }}
+        title={favorites ? "Toggle your preferred verticals" : "No preferences configured yet (set in Profile)"}
+      >
         <div
-          onClick={() => setShowMine(!showMine)}
           style={{
             width: "36px",
             height: "20px",
             borderRadius: "10px",
             background: showMine ? "var(--accent-blue)" : C.border,
             position: "relative",
-            cursor: "pointer",
             transition: "background-color 0.2s",
             border: `1px solid ${showMine ? "var(--accent-blue)" : C.border}`,
           }}
@@ -415,16 +468,24 @@ function LeaderboardTable({
   isLoading,
   isPinned,
   onTogglePin,
+  selectedCategory = "All",
+  onSelectCategory,
+  availableCategories,
 }: {
   entries: LeaderboardEntry[];
   period: Period;
   isLoading: boolean;
   isPinned: (repo_id: string) => boolean;
   onTogglePin: (entry: LeaderboardEntry) => void;
+  selectedCategory?: string;
+  onSelectCategory?: (category: string) => void;
+  availableCategories?: string[];
 }) {
   const router = useRouter();
   const [filterQuery, setFilterQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [internalCategory, setInternalCategory] = useState("All");
+  const activeCategory = onSelectCategory ? selectedCategory : internalCategory;
+  const setActiveCategory = onSelectCategory ? onSelectCategory : setInternalCategory;
   const [sortBy, setSortBy] = useState<"stars" | "forks" | "issues" | "age">("stars");
 
   const periodLabel = PERIODS.find((p) => p.key === period)?.label ?? period;
@@ -460,14 +521,17 @@ function LeaderboardTable({
     return { background: "rgba(255, 255, 255, 0.04)", color: "var(--text-secondary)", border: "1px solid rgba(255, 255, 255, 0.08)" };
   };
 
-  // Compute category list dynamically from entries
+  // Compute category list dynamically from availableCategories or entries fallback
   const categories = useMemo(() => {
+    if (availableCategories && availableCategories.length > 0) {
+      return availableCategories;
+    }
     const set = new Set<string>();
     entries.forEach((e) => {
       if (e.category) set.add(e.category);
     });
-    return ["All", ...Array.from(set).slice(0, 3)];
-  }, [entries]);
+    return ["All", ...Array.from(set).sort()];
+  }, [availableCategories, entries]);
 
   // Filter and Sort logic
   const processedEntries = useMemo(() => {
@@ -484,9 +548,9 @@ function LeaderboardTable({
       );
     }
 
-    // Category Filter
-    if (selectedCategory !== "All") {
-      result = result.filter((e) => e.category === selectedCategory);
+    // Category Filter (only client-side if server category filter isn't active)
+    if (!onSelectCategory && activeCategory !== "All") {
+      result = result.filter((e) => e.category === activeCategory);
     }
 
     // Sorting
@@ -504,7 +568,7 @@ function LeaderboardTable({
     });
 
     return result;
-  }, [entries, filterQuery, selectedCategory, sortBy]);
+  }, [entries, filterQuery, onSelectCategory, activeCategory, sortBy]);
 
   return (
     <div className="panel" style={{ display: "flex", flexDirection: "column" }}>
@@ -585,7 +649,7 @@ function LeaderboardTable({
           {categories.map((cat: string) => (
             <button
               key={cat}
-              onClick={() => setSelectedCategory(cat)}
+              onClick={() => setActiveCategory(cat)}
               style={{
                 fontFamily: "var(--font-sans)",
                 fontSize: "11px",
@@ -595,8 +659,8 @@ function LeaderboardTable({
                 cursor: "pointer",
                 transition: "all 0.15s",
                 border: "1px solid var(--border)",
-                background: selectedCategory === cat ? "#ffffff" : "transparent",
-                color: selectedCategory === cat ? "var(--bg-primary)" : "var(--text-secondary)",
+                background: activeCategory === cat ? "#ffffff" : "transparent",
+                color: activeCategory === cat ? "var(--bg-primary)" : "var(--text-secondary)",
                 whiteSpace: "nowrap",
               }}
             >
@@ -1647,14 +1711,14 @@ export default function OverviewPage() {
   const searchParams = useSearchParams();
   const { isLoaded: authLoaded, userId, token, isReady } = useAuthSession();
   const [period, setPeriod] = useState<Period>("7d");
-  // Initialize vertical from URL param synchronously; fallback to "ai_ml" only if no URL override
+  // Initialize vertical from URL param synchronously; fallback to "all" only if no URL override
   const [vertical, setVertical] = useState<Vertical>(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const v = params.get("vertical");
       if (v && VERTICALS.some((item) => item.key === v)) return v as Vertical;
     }
-    return "ai_ml";
+    return "all";
   });
   const [userVerticals, setUserVerticals] = useState<string[]>([]);
   const [showMine, setShowMine] = useState(false);
@@ -1688,35 +1752,36 @@ export default function OverviewPage() {
       .then((prefs) => {
         const verticals = prefs.verticals ?? [];
         setUserVerticals(verticals);
-        if (verticals.length > 0) {
-          // Enable Mine filter so user's preferred pills are shown
-          setShowMine(true);
-          // Default to the user's first profile vertical (no URL override present)
-          const urlVertical = searchParams.get("vertical");
-          if (!urlVertical) {
-            const validKeys = VERTICALS.map((v) => v.key);
-            const firstPref = verticals.find((p) => validKeys.includes(p as Vertical));
-            if (firstPref) setVertical(firstPref as Vertical);
-          }
-        }
       })
       .catch(() => { /* not critical — keep defaults */ })
       .finally(() => setPrefsReady(true));
   }, [authLoaded, isReady, token]);
 
   const { data: overview, isLoading: overviewLoading, error } = useQuery({
-    queryKey: ["overview"],
-    queryFn: api.getOverview,
+    queryKey: ["overview", vertical],
+    queryFn: () => api.getOverview(vertical),
   });
 
   const { data: categoriesData } = useQuery({
-    queryKey: ["categories", period],
-    queryFn: () => api.getCategories(period),
+    queryKey: ["categories", period, vertical],
+    queryFn: () => api.getCategories(period, vertical),
   });
 
+  const [selectedLeaderboardCategory, setSelectedLeaderboardCategory] = useState<string>("All");
+
+  // Reset category filter when vertical changes
+  useEffect(() => {
+    setSelectedLeaderboardCategory("All");
+  }, [vertical]);
+
   const { data: leaderboard, isLoading: leaderboardLoading } = useQuery({
-    queryKey: ["leaderboard", period, vertical],
-    queryFn: () => api.getLeaderboard(period, undefined, 10, vertical),
+    queryKey: ["leaderboard", period, vertical, selectedLeaderboardCategory],
+    queryFn: () => api.getLeaderboard(
+      period,
+      selectedLeaderboardCategory === "All" ? undefined : selectedLeaderboardCategory,
+      25,
+      vertical
+    ),
   });
 
   // Ecosystem map — full repo set with both scores
@@ -1782,7 +1847,7 @@ export default function OverviewPage() {
   const greenCount = overview.healthy_repos;
   const topCat = overview.category_growth[0];
   const topLeaderEntry = leaderboard?.entries[0];
-  const verticalLabel = VERTICALS.find((v) => v.key === vertical)?.label ?? "AI / ML";
+  const verticalLabel = VERTICALS.find((v) => v.key === vertical)?.label ?? "All";
 
   return (
     <div className="page-root page-fade-in">
@@ -1891,21 +1956,23 @@ export default function OverviewPage() {
             alignItems: "center",
             gap: "8px",
           }}>
-            <span>As of {overview.as_of} · {PERIODS.find(p => p.key === period)?.label ?? period} · {VERTICALS.find(v => v.key === vertical)?.label ?? vertical}</span>
-            <span style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "4px",
-              padding: "2px 8px",
-              background: "var(--bg-elevated)",
-              border: "1px solid rgba(63,185,80,0.25)",
-              borderRadius: "12px",
-              color: "var(--accent-green)",
-              fontSize: "11px",
-              fontWeight: 600,
-            }}>
-              ✦ Personalized
-            </span>
+            <span>As of {overview.as_of} · {PERIODS.find(p => p.key === period)?.label ?? period} · {verticalLabel === "All" ? "All Ecosystem" : verticalLabel}</span>
+            {showMine && (
+              <span style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+                padding: "2px 8px",
+                background: "var(--bg-elevated)",
+                border: "1px solid rgba(63,185,80,0.25)",
+                borderRadius: "12px",
+                color: "var(--accent-green)",
+                fontSize: "11px",
+                fontWeight: 600,
+              }}>
+                ✦ Personalized
+              </span>
+            )}
           </div>
 
           {/* Alerts bell — right-aligned, fires custom event to open panel, desktop only */}
@@ -1972,7 +2039,7 @@ export default function OverviewPage() {
         <div className="bento-col-3" style={{ display: "flex", flexDirection: "column" }}>
           <StatCard
             index={0}
-            label="Repos Tracked"
+            label={vertical === "all" ? "Repos Tracked" : `${verticalLabel} Repos Tracked`}
             value={overview.total_repos}
             sub={overview.discovered_repos > 0
               ? `+${overview.discovered_repos} auto-discovered`
@@ -2048,6 +2115,9 @@ export default function OverviewPage() {
                 name: entry.name,
                 github_url: entry.github_url,
               })}
+              selectedCategory={selectedLeaderboardCategory}
+              onSelectCategory={setSelectedLeaderboardCategory}
+              availableCategories={VERTICAL_SUB_CATEGORIES[vertical] || ["All"]}
             />
           </div>
         </div>

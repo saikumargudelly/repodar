@@ -16,7 +16,7 @@ import aiohttp
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi_cache.decorator import cache
 from pydantic import BaseModel
-from sqlalchemy import or_
+from sqlalchemy import or_, cast
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -37,18 +37,18 @@ _GITHUB_HEADERS = {
 # Map vertical names → DB category substrings (ilike matching in the query)
 VERTICAL_CATEGORY_MAP: dict[str, list[str]] = {
     "ai_ml": [
-        "AI / ML", "LLM Model", "Agent Framework", "Inference Engine",
-        "Fine-tuning", "Evaluation Framework", "Vector Database",
-        "Model Serving", "Distributed Compute",
-        "MCP Tools", "Coding Assistant", "RAG Framework",
+        "AI / ML", "LLM Models", "LLM Model", "Agent Frameworks", "Agent Framework", "Inference Engines", "Inference Engine",
+        "Fine-tuning Toolkits", "Fine-tuning", "Evaluation Frameworks", "Evaluation Framework", "Vector Databases", "Vector Database",
+        "Model Serving / Runtimes", "Model Serving", "Distributed Compute / Infra", "Distributed Compute",
+        "Model Context Protocol", "MCP Tools", "Agent-to-Agent", "Coding Assistant", "RAG Framework",
         "Speech & Audio", "Image Generation", "Video Generation",
         "Multimodal", "Reasoning", "AI Safety", "Prompt Engineering",
         "Synthetic Data",
     ],
     "devtools":    ["DevTools"],
-    "web_mobile":  ["Web & Mobile", "Web Framework", "Web Frameworks", "Mobile"],
-    "data_infra":  ["Data & Infrastructure", "Data Engineering", "Data Pipeline",
-                   "Vector Database", "Database"],
+    "web_mobile":  ["Web & Mobile", "Web Frameworks", "Web Framework", "Mobile"],
+    "data_infra":  ["Data & Infra", "Data & Infrastructure", "Data Engineering", "Data Pipeline",
+                   "Vector Databases", "Vector Database", "Database"],
     "security":    ["Security"],
     "oss_tools":   ["OSS Tools"],
     "blockchain":  ["Blockchain", "Fintech"],
@@ -525,11 +525,10 @@ async def natural_language_search(
             .filter(Repository.is_active == True)  # noqa: E712
         )
 
-        # ── Vertical filter via category substrings ───────────────────────────
+        # ── Vertical filter via category matching ─────────────────────────────
         if filters.vertical and filters.vertical in VERTICAL_CATEGORY_MAP:
             cats = VERTICAL_CATEGORY_MAP[filters.vertical]
-            cat_conds = [Repository.category.ilike(f"%{c}%") for c in cats]
-            repo_q = repo_q.filter(or_(*cat_conds))
+            repo_q = repo_q.filter(Repository.category.in_(cats))
 
         # ── Language filter ────────────────────────────────────────────────────
         if filters.language:
@@ -580,7 +579,7 @@ async def natural_language_search(
                 "star_velocity_7d":     float(vel7) if vel7 is not None else None,
                 "acceleration":         float(accel) if accel is not None else None,
                 "description":          repo.description or "",
-                "topics":               [],
+                "topics":               (repo.topics if isinstance(repo.topics, list) else (json.loads(repo.topics) if isinstance(repo.topics, str) and repo.topics.startswith("[") else [])) if repo.topics else [],
                 "source":               "internal",
             })
 

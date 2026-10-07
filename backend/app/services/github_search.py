@@ -428,6 +428,51 @@ async def _dynamic_topics(category: str, limit: int = 15) -> list[str]:
         logger.error(f"Failed to dynamically generate topics for {category}: {e}")
         return [f"topic:{category.lower().replace(' ', '-')}"]
 
+def is_ai_relevant(repo_data: dict) -> bool:
+    """Validate whether a repository has AI/ML relevance to prevent non-AI noise from trending."""
+    name = (repo_data.get("name") or "").lower()
+    desc = (repo_data.get("description") or "").lower()
+    topics = [str(t).lower() for t in repo_data.get("topics", [])]
+    text = f"{name} {desc}"
+
+    ai_keywords = {
+        "ai", "llm", "ml", "gpt", "model", "agent", "neural", "deep-learning",
+        "deep learning", "machine-learning", "machine learning", "diffusion", "vision",
+        "speech", "dataset", "transformer", "embedding", "rag", "inference", "fine-tuning",
+        "lora", "vllm", "mcp", "reasoning", "multimodal", "prompt", "vector", "cuda",
+        "pytorch", "reinforcement", "whisper", "deepseek", "qwen", "ollama", "langchain",
+        "llamaindex", "sglang", "comfyui", "browser-use", "cline", "aider"
+    }
+    if any(k in topics for k in ai_keywords):
+        return True
+    words = set(re.findall(r'[a-zA-Z0-9_\-]+', text))
+    return bool(words & ai_keywords)
+
+
+def get_rotational_topics(vertical: str, batch_size: int = 8) -> list[str]:
+    """
+    Deterministically rotate through VERTICAL_TOPIC_QUERIES based on time/run window.
+    Covers the entire topic space over 24 hours while keeping each pipeline run bounded
+    to a small batch (e.g. 8 topics), respecting GitHub API rate limits.
+    """
+    all_topics = VERTICAL_TOPIC_QUERIES.get(vertical, [])
+    if not all_topics:
+        return []
+    if len(all_topics) <= batch_size:
+        return all_topics
+
+    # Rotate every 2 hours: window_index = (epoch_hours // 2)
+    now_hours = int(datetime.now(timezone.utc).timestamp() // 3600)
+    window_index = (now_hours // 2)
+    start_idx = (window_index * batch_size) % len(all_topics)
+
+    # Wrap-around slice to ensure batch_size topics are always returned
+    rotated = []
+    for i in range(batch_size):
+        rotated.append(all_topics[(start_idx + i) % len(all_topics)])
+    return rotated
+
+
 # ─── Public entry point ───────────────────────────────────────────────────────
 
 async def search_top_repos(
@@ -447,16 +492,17 @@ async def search_top_repos(
       All periods → GitHub Search API with vertical-specific topic queries.
       GitHub Trending is a general feed; topic-filtered Search is more relevant.
     """
-    # For predefined verticals, use local curated topics list directly to avoid LLM overhead
+    # For predefined verticals, rotate through curated topics to cover the full space over time
     if vertical in VERTICAL_TOPIC_QUERIES and not category_filter:
-        topics = VERTICAL_TOPIC_QUERIES[vertical][:4]
+        topics = get_rotational_topics(vertical, batch_size=8)
     else:
         target_topic = category_filter if category_filter else vertical
         topics = await _dynamic_topics(target_topic, limit=4)
 
-    # Only use GitHub Trending for the AI/ML vertical on short periods
+    # Only use GitHub Trending for the AI/ML vertical on short periods with AI validation
     if period in TRENDING_SINCE and vertical == "ai_ml":
-        results = await _fetch_trending(period, limit=limit)
+        raw_results = await _fetch_trending(period, limit=limit)
+        results = [r for r in raw_results if is_ai_relevant(r)]
     else:
         results = await _fetch_search(period, limit=limit, topics=topics)
 
@@ -510,7 +556,18 @@ async def _fetch_trending(period: str, limit: int) -> list[dict]:
             for slug, gain_str in slugs
         ])
 
-    return [r for r in enriched if r is not None]
+        iso_now = datetime.now(timezone.utc).isoformat()
+        results = []
+        for r in enriched:
+            if r is not None:
+                r["_provenance"] = {
+                    "query": f"trending:{since}",
+                    "source": "trending_scraper",
+                    "discovered_at": iso_now,
+                }
+                results.append(r)
+
+    return results
 
 
 def _parse_trending_html(html: str, max_repos: int) -> list[tuple[str, str]]:
@@ -661,6 +718,7 @@ async def _fetch_search(
         ], return_exceptions=True)
 
     seen: dict[str, dict] = {}
+    iso_now = datetime.now(timezone.utc).isoformat()
     for batch in batches:
         if not isinstance(batch, list):
             logger.warning(f"_fetch_search batch error: {batch}")
@@ -669,6 +727,11 @@ async def _fetch_search(
             fn = repo.get("full_name", "")
             if not fn:
                 continue
+            repo["_provenance"] = {
+                "query": f"search:{period}",
+                "source": "search_api",
+                "discovered_at": iso_now,
+            }
             if fn not in seen or repo.get("stargazers_count", 0) > seen[fn].get("stargazers_count", 0):
                 seen[fn] = repo
 
@@ -799,19 +862,28 @@ async def search_by_star_threshold(
     Returns a list of raw repo dicts compatible with the shape expected by
     auto_discover_and_sync (has `full_name`, `name`, `html_url`, etc.).
     """
-    # For predefined verticals, use local curated topics list directly to avoid LLM overhead
+    # For predefined verticals, rotate through curated topics to cover the full space over time
     if vertical in VERTICAL_TOPIC_QUERIES:
-        topics = VERTICAL_TOPIC_QUERIES[vertical][:4]
+        topics = get_rotational_topics(vertical, batch_size=8)
     else:
         topics = await _dynamic_topics(vertical, limit=4)
 
+    start_7d = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
+
+    # Combine established repos with fast-moving emerging breakout repos (stars 10..500)
+    search_queries = []
+    for topic in topics:
+        search_queries.append((f"{topic} stars:>=100", "stars"))
+        search_queries.append((f"{topic} pushed:>={start_7d} stars:10..500", "updated"))
+
     async with aiohttp.ClientSession() as session:
         batches = await asyncio.gather(*[
-            _search_api(session, f"{topic} stars:>=100")
-            for topic in topics
+            _search_api(session, q, sort=sort_key, per_page=50)
+            for q, sort_key in search_queries
         ], return_exceptions=True)
 
     seen: dict[str, dict] = {}
+    iso_now = datetime.now(timezone.utc).isoformat()
     for batch in batches:
         if not isinstance(batch, list):
             logger.warning(f"Star-threshold search error: {batch}")
@@ -820,6 +892,12 @@ async def search_by_star_threshold(
             fn = repo.get("full_name", "")
             if not fn:
                 continue
+            repo["_provenance"] = {
+                "query": "star_threshold_rotational",
+                "source": "star_threshold_search",
+                "discovered_at": iso_now,
+                "vertical": vertical,
+            }
             if fn not in seen or repo.get("stargazers_count", 0) > seen[fn].get("stargazers_count", 0):
                 seen[fn] = repo
 

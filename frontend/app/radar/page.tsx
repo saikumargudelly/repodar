@@ -53,6 +53,7 @@ export default function RadarPage() {
 
   // Unified stage selection
   const [stageFilter, setStageFilter] = useState<"all" | "early" | "breakout" | "established">("all");
+  const [verticalFilter, setVerticalFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("breakout_score");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -78,14 +79,15 @@ export default function RadarPage() {
 
   // Queries
   const { data: radarData, isLoading: radarLoading } = useQuery({
-    queryKey: ["radar-established"],
-    queryFn: () => api.getRadar(false, "All", undefined, "trend_score", "desc", 100),
+    queryKey: ["radar-established", verticalFilter],
+    queryFn: () => api.getRadar(false, "All", verticalFilter === "all" ? undefined : verticalFilter, "trend_score", "desc", 100),
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: earlyData, isLoading: earlyLoading } = useQuery({
-    queryKey: ["radar-early-unified", debouncedMaxAge, debouncedMaxStars, debouncedMinAccel],
+    queryKey: ["radar-early-unified", verticalFilter, debouncedMaxAge, debouncedMaxStars, debouncedMinAccel],
     queryFn: () => api.getEarlyRadar({
+      vertical: verticalFilter === "all" ? undefined : verticalFilter,
       max_age_days: debouncedMaxAge,
       max_stars: debouncedMaxStars,
       min_acceleration: debouncedMinAccel,
@@ -242,6 +244,26 @@ export default function RadarPage() {
               <option value="early">Early</option>
               <option value="breakout">Breakout</option>
               <option value="established">Established</option>
+            </select>
+          </div>
+
+          {/* Vertical Dropdown */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: "12px", color: C.textSub }}>Vertical:</span>
+            <select
+              value={verticalFilter}
+              onChange={(e) => setVerticalFilter(e.target.value)}
+              className="cyber-select"
+              style={{ minWidth: "140px" }}
+            >
+              <option value="all">All Verticals</option>
+              <option value="ai_ml">AI / ML</option>
+              <option value="devtools">DevTools</option>
+              <option value="data_infra">Data & Infra</option>
+              <option value="security">Security</option>
+              <option value="oss_tools">OSS Tools</option>
+              <option value="web_mobile">Web & Mobile</option>
+              <option value="blockchain">Blockchain</option>
             </select>
           </div>
 

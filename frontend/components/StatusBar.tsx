@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 export function StatusBar() {
   const { data: overview } = useQuery({
     queryKey: ["overview"],
-    queryFn: api.getOverview,
+    queryFn: () => api.getOverview(),
     staleTime: 5 * 60 * 1000,
   });
 
