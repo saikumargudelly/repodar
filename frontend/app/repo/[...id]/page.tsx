@@ -478,6 +478,7 @@ export default function RepoDeepDive() {
                 deepLoading={deepLoading} 
                 deepError={deepError}
                 repoSummary={repo.repo_summary}
+                trendExplanation={repo.explanation}
                 formatDateFriendly={formatDateFriendly}
               />
             </div>
@@ -569,7 +570,7 @@ export default function RepoDeepDive() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-stretch">
               <VelocityChart data={scores} />
               <ScoreTimeline data={scores} />
-              <SignalExplainer scores={scores} />
+              <SignalExplainer scores={scores} trendExplanation={repo.explanation} />
             </div>
           )}
 

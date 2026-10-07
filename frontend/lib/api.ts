@@ -985,11 +985,21 @@ export const api = {
   getBulkForecasts: (repoIds: string[]) =>
     apiFetch<ForecastResult[]>(`/forecast/bulk/batch?ids=${encodeURIComponent(repoIds.join(','))}`),
 
-  // Export
-  exportReposCsv: (filter?: RepoFilterDTO) =>
-    apiFetch<Blob>("/export/repos/csv", { method: "POST", body: JSON.stringify(filter || {}) }),
-  exportReposJson: (filter?: RepoFilterDTO) =>
-    apiFetch<RepoSummary[]>("/export/repos/json", { method: "POST", body: JSON.stringify(filter || {}) }),
+  // Export — GET /export/repos?format=csv|json&category=...&min_stars=...&active_only=...
+  exportReposCsv: (filter?: { category?: string; min_stars?: number; active_only?: boolean }) => {
+    const params = new URLSearchParams({ format: "csv" });
+    if (filter?.category) params.set("category", filter.category);
+    if (filter?.min_stars != null) params.set("min_stars", String(filter.min_stars));
+    if (filter?.active_only != null) params.set("active_only", String(filter.active_only));
+    return apiFetch<Blob>(`/export/repos?${params.toString()}`);
+  },
+  exportReposJson: (filter?: { category?: string; min_stars?: number; active_only?: boolean }) => {
+    const params = new URLSearchParams({ format: "json" });
+    if (filter?.category) params.set("category", filter.category);
+    if (filter?.min_stars != null) params.set("min_stars", String(filter.min_stars));
+    if (filter?.active_only != null) params.set("active_only", String(filter.active_only));
+    return apiFetch<RepoSummary[]>(`/export/repos?${params.toString()}`);
+  },
 
   // Recommendations — GET /recommendations (JWT-authenticated, limit/category as query params)
   getRecommendations: (token: string, limit = 10) =>

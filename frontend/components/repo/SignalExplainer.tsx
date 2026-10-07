@@ -5,9 +5,11 @@ import { ComputedMetricPoint } from "@/lib/api";
 
 interface SignalExplainerProps {
   scores: ComputedMetricPoint[];
+  /** LLM-generated trend explanation from computed_metrics.explanation (3-5 sentences). */
+  trendExplanation?: string | null;
 }
 
-export function SignalExplainer({ scores }: SignalExplainerProps) {
+export function SignalExplainer({ scores, trendExplanation }: SignalExplainerProps) {
   if (!scores || scores.length < 1) return null;
   const latest = scores[scores.length - 1];
   const prior = scores.length >= 2 ? scores[scores.length - 2] : null;
@@ -85,6 +87,36 @@ export function SignalExplainer({ scores }: SignalExplainerProps) {
             {trendChangePct >= 0 ? "+" : ""}{trendChangePct.toFixed(1)}% vs prior snapshot
           </span>
         </div>
+
+        {/* LLM Trend Explanation — shown when available from pipeline */}
+        {trendExplanation && (
+          <div style={{
+            borderTop: "1px dashed var(--border)",
+            paddingTop: "14px",
+            marginTop: "4px",
+          }}>
+            <span style={{
+              display: "block",
+              fontSize: "10px",
+              fontWeight: 700,
+              color: "var(--accent-yellow)",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              marginBottom: "6px",
+              fontFamily: "var(--font-mono)",
+            }}>
+              // AI Trend Insight
+            </span>
+            <p style={{
+              fontSize: "12px",
+              color: "var(--text-secondary)",
+              lineHeight: 1.65,
+              margin: 0,
+            }}>
+              {trendExplanation}
+            </p>
+          </div>
+        )}
 
       </div>
     </div>
