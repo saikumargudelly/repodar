@@ -31,16 +31,16 @@ def seed_repos() -> int:
     inserted = 0
 
     try:
+        # Bulk query existing repos in a single roundtrip
+        existing_repos = db.query(Repository).filter(Repository.owner != "system").all()
+        existing_map = {f"{r.owner.lower()}/{r.name.lower()}": r for r in existing_repos}
+
         for item in repos_data:
             owner = item["owner"].strip()
             name = item["name"].strip()
+            slug = f"{owner.lower()}/{name.lower()}"
 
-            from sqlalchemy import func
-            existing = (
-                db.query(Repository)
-                .filter(func.lower(Repository.owner) == owner.lower(), func.lower(Repository.name) == name.lower())
-                .first()
-            )
+            existing = existing_map.get(slug)
             if existing:
                 # Ensure legacy rows are correctly tagged as seed source
                 if existing.source != "seed":

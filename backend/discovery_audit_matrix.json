@@ -1,0 +1,288 @@
+[
+  {
+    "slug": "deepseek-ai/DeepSeek-R1",
+    "canonical_name": "deepseek-ai/DeepSeek-R1",
+    "canonical_url": "https://github.com/deepseek-ai/DeepSeek-R1",
+    "archived": false,
+    "stars": 91924,
+    "topics_count": 0,
+    "topics": [],
+    "topic_finds": false,
+    "org_finds": true,
+    "keyword_finds": true
+  },
+  {
+    "slug": "tatsu-lab/stanford_alpaca",
+    "canonical_name": "tatsu-lab/stanford_alpaca",
+    "canonical_url": "https://github.com/tatsu-lab/stanford_alpaca",
+    "archived": false,
+    "stars": 30237,
+    "topics_count": 3,
+    "topics": [
+      "deep-learning",
+      "instruction-following",
+      "language-model"
+    ],
+    "topic_finds": false,
+    "org_finds": true,
+    "keyword_finds": false
+  },
+  {
+    "slug": "karpathy/nanoGPT",
+    "canonical_name": "karpathy/nanoGPT",
+    "canonical_url": "https://github.com/karpathy/nanoGPT",
+    "archived": false,
+    "stars": 63619,
+    "topics_count": 0,
+    "topics": [],
+    "topic_finds": false,
+    "org_finds": false,
+    "keyword_finds": false
+  },
+  {
+    "slug": "sgl-project/sglang",
+    "canonical_name": "sgl-project/sglang",
+    "canonical_url": "https://github.com/sgl-project/sglang",
+    "archived": false,
+    "stars": 36852,
+    "topics_count": 18,
+    "topics": [
+      "attention",
+      "blackwell",
+      "cuda",
+      "deepseek",
+      "diffusion"
+    ],
+    "topic_finds": false,
+    "org_finds": false,
+    "keyword_finds": false
+  },
+  {
+    "slug": "OpenGVLab/InternVL",
+    "canonical_name": "OpenGVLab/InternVL",
+    "canonical_url": "https://github.com/OpenGVLab/InternVL",
+    "archived": false,
+    "stars": 10166,
+    "topics_count": 12,
+    "topics": [
+      "gpt",
+      "gpt-4o",
+      "gpt-4v",
+      "image-classification",
+      "image-text-retrieval"
+    ],
+    "topic_finds": false,
+    "org_finds": false,
+    "keyword_finds": false
+  },
+  {
+    "slug": "Aphrodite-SP/aphrodite-engine",
+    "canonical_name": "Aphrodite-SP/aphrodite-engine",
+    "canonical_url": "https://github.com/Aphrodite-SP/aphrodite-engine",
+    "archived": false,
+    "stars": 0,
+    "topics_count": 0,
+    "topics": [],
+    "topic_finds": false,
+    "org_finds": false,
+    "keyword_finds": false
+  },
+  {
+    "slug": "pytorch/torchtune",
+    "canonical_name": "meta-pytorch/torchtune",
+    "canonical_url": "https://github.com/meta-pytorch/torchtune",
+    "archived": false,
+    "stars": 5810,
+    "topics_count": 0,
+    "topics": [],
+    "topic_finds": false,
+    "org_finds": false,
+    "keyword_finds": true
+  },
+  {
+    "slug": "Dao-AILab/flash-attention",
+    "canonical_name": "Dao-AILab/flash-attention",
+    "canonical_url": "https://github.com/Dao-AILab/flash-attention",
+    "archived": false,
+    "stars": 25101,
+    "topics_count": 0,
+    "topics": [],
+    "topic_finds": false,
+    "org_finds": true,
+    "keyword_finds": true
+  },
+  {
+    "slug": "facebookresearch/xformers",
+    "canonical_name": "facebookresearch/xformers",
+    "canonical_url": "https://github.com/facebookresearch/xformers",
+    "archived": false,
+    "stars": 10558,
+    "topics_count": 0,
+    "topics": [],
+    "topic_finds": false,
+    "org_finds": false,
+    "keyword_finds": true
+  },
+  {
+    "slug": "stanford-oval/storm",
+    "canonical_name": "stanford-oval/storm",
+    "canonical_url": "https://github.com/stanford-oval/storm",
+    "archived": false,
+    "stars": 31588,
+    "topics_count": 9,
+    "topics": [
+      "agentic-rag",
+      "deep-research",
+      "emnlp2024",
+      "knowledge-curation",
+      "large-language-models"
+    ],
+    "topic_finds": false,
+    "org_finds": true,
+    "keyword_finds": true
+  },
+  {
+    "slug": "cline/cline",
+    "canonical_name": "cline/cline",
+    "canonical_url": "https://github.com/cline/cline",
+    "archived": false,
+    "stars": 70002,
+    "topics_count": 0,
+    "topics": [],
+    "topic_finds": false,
+    "org_finds": true,
+    "keyword_finds": true
+  },
+  {
+    "slug": "microsoft/graphrag",
+    "canonical_name": "microsoft/graphrag",
+    "canonical_url": "https://github.com/microsoft/graphrag",
+    "archived": false,
+    "stars": 36248,
+    "topics_count": 7,
+    "topics": [
+      "gpt",
+      "gpt-4",
+      "gpt4",
+      "graphrag",
+      "llm"
+    ],
+    "topic_finds": true,
+    "org_finds": false,
+    "keyword_finds": false
+  },
+  {
+    "slug": "SylphAI-Inc/AdalFlow",
+    "canonical_name": "SylphAI-Inc/AdalFlow",
+    "canonical_url": "https://github.com/SylphAI-Inc/AdalFlow",
+    "archived": false,
+    "stars": 4223,
+    "topics_count": 20,
+    "topics": [
+      "agent",
+      "ai",
+      "auto-prompting",
+      "bm25",
+      "chatbot"
+    ],
+    "topic_finds": false,
+    "org_finds": false,
+    "keyword_finds": false
+  },
+  {
+    "slug": "openai/whisper",
+    "canonical_name": "openai/whisper",
+    "canonical_url": "https://github.com/openai/whisper",
+    "archived": false,
+    "stars": 110124,
+    "topics_count": 0,
+    "topics": [],
+    "topic_finds": false,
+    "org_finds": false,
+    "keyword_finds": false
+  },
+  {
+    "slug": "hexgrad/kokoro",
+    "canonical_name": "hexgrad/kokoro",
+    "canonical_url": "https://github.com/hexgrad/kokoro",
+    "archived": false,
+    "stars": 9198,
+    "topics_count": 0,
+    "topics": [],
+    "topic_finds": false,
+    "org_finds": false,
+    "keyword_finds": false
+  },
+  {
+    "slug": "CompVis/stable-diffusion",
+    "canonical_name": "CompVis/stable-diffusion",
+    "canonical_url": "https://github.com/CompVis/stable-diffusion",
+    "archived": false,
+    "stars": 73489,
+    "topics_count": 0,
+    "topics": [],
+    "topic_finds": false,
+    "org_finds": false,
+    "keyword_finds": false
+  },
+  {
+    "slug": "huggingface/lerobot",
+    "canonical_name": "huggingface/lerobot",
+    "canonical_url": "https://github.com/huggingface/lerobot",
+    "archived": false,
+    "stars": 27991,
+    "topics_count": 0,
+    "topics": [],
+    "topic_finds": false,
+    "org_finds": false,
+    "keyword_finds": false
+  },
+  {
+    "slug": "nerfstudio-project/nerfstudio",
+    "canonical_name": "nerfstudio-project/nerfstudio",
+    "canonical_url": "https://github.com/nerfstudio-project/nerfstudio",
+    "archived": false,
+    "stars": 12051,
+    "topics_count": 10,
+    "topics": [
+      "3d",
+      "3d-graphics",
+      "3d-reconstruction",
+      "computer-vision",
+      "deep-learning"
+    ],
+    "topic_finds": false,
+    "org_finds": false,
+    "keyword_finds": false
+  },
+  {
+    "slug": "haotian-liu/LLaVA",
+    "canonical_name": "haotian-liu/LLaVA",
+    "canonical_url": "https://github.com/haotian-liu/LLaVA",
+    "archived": false,
+    "stars": 25058,
+    "topics_count": 13,
+    "topics": [
+      "chatbot",
+      "chatgpt",
+      "foundation-models",
+      "gpt-4",
+      "instruction-tuning"
+    ],
+    "topic_finds": false,
+    "org_finds": false,
+    "keyword_finds": false
+  },
+  {
+    "slug": "facebookresearch/segment-anything",
+    "canonical_name": "facebookresearch/segment-anything",
+    "canonical_url": "https://github.com/facebookresearch/segment-anything",
+    "archived": false,
+    "stars": 54966,
+    "topics_count": 0,
+    "topics": [],
+    "topic_finds": false,
+    "org_finds": false,
+    "keyword_finds": false
+  }
+]

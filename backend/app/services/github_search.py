@@ -22,7 +22,7 @@ import re
 import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Optional
+from typing import Optional, Any
 
 import aiohttp
 from bs4 import BeautifulSoup
@@ -437,28 +437,54 @@ def is_ai_relevant(repo_data: dict) -> bool:
     """Validate whether a repository has AI/ML relevance to prevent non-AI noise from trending."""
     name = (repo_data.get("name") or "").lower()
     desc = (repo_data.get("description") or "").lower()
+    owner = ((repo_data.get("owner") or {}).get("login") or "").lower() if isinstance(repo_data.get("owner"), dict) else ""
     topics = [str(t).lower() for t in repo_data.get("topics", [])]
-    text = f"{name} {desc}"
+    text = f"{owner} {name} {desc}"
 
     ai_keywords = {
-        "ai", "llm", "ml", "gpt", "model", "agent", "neural", "deep-learning",
-        "deep learning", "machine-learning", "machine learning", "diffusion", "vision",
-        "speech", "dataset", "transformer", "embedding", "rag", "inference", "fine-tuning",
-        "lora", "vllm", "mcp", "reasoning", "multimodal", "prompt", "vector", "cuda",
-        "pytorch", "reinforcement", "whisper", "deepseek", "qwen", "ollama", "langchain",
-        "llamaindex", "sglang", "comfyui", "browser-use", "cline", "aider"
+        "ai", "llm", "ml", "gpt", "gpts", "model", "models", "agent", "agents", "neural",
+        "deep-learning", "deep learning", "machine-learning", "machine learning",
+        "diffusion", "vision", "speech", "dataset", "transformer", "transformers",
+        "xformers", "attention", "embedding", "embeddings", "rag", "inference",
+        "fine-tuning", "finetuning", "lora", "vllm", "sglang", "mcp", "reasoning",
+        "multimodal", "prompt", "vector", "cuda", "pytorch", "torchtune", "reinforcement",
+        "whisper", "kokoro", "deepseek", "qwen", "ollama", "langchain", "llamaindex",
+        "comfyui", "browser-use", "cline", "aider", "graphrag", "adalflow", "lerobot",
+        "nerf", "nerfstudio", "llava", "internvl", "segment-anything", "alpaca", "nanogpt",
+        "storm"
     }
+
     if any(k in topics for k in ai_keywords):
         return True
-    words = set(re.findall(r'[a-zA-Z0-9_\-]+', text))
-    return bool(words & ai_keywords)
+
+    compound_tokens = set(re.findall(r'[a-zA-Z0-9_\-]+', text))
+    clean_tokens = set(re.findall(r'[a-zA-Z0-9]+', text))
+    all_tokens = compound_tokens | clean_tokens
+
+    if bool(all_tokens & ai_keywords):
+        return True
+
+    if "hf.co" in text or "huggingface.co" in text:
+        return True
+
+    return False
 
 
-def get_rotational_topics(vertical: str, batch_size: int = 12, offset: Optional[int] = None) -> list[str]:
+_TOPIC_CURSOR_CACHE: dict[str, int] = {}
+
+
+def get_rotational_topics(
+    vertical: str,
+    batch_size: int = 12,
+    offset: Optional[int] = None,
+    advance: bool = False,
+    db: Optional[Any] = None,
+) -> list[str]:
     """
-    Deterministically rotate through VERTICAL_TOPIC_QUERIES based on time/run window or offset.
+    Deterministically rotate through VERTICAL_TOPIC_QUERIES based on time window, explicit offset,
+    or advancing sequential cursor.
     Covers the entire topic space over successive windows while keeping each pipeline run bounded
-    to a manageable batch (e.g. 12 topics), respecting GitHub API rate limits.
+    to a manageable batch (e.g. 8-12 topics), respecting GitHub API rate limits.
     """
     all_topics = VERTICAL_TOPIC_QUERIES.get(vertical, [])
     if not all_topics:
@@ -467,13 +493,42 @@ def get_rotational_topics(vertical: str, batch_size: int = 12, offset: Optional[
         return all_topics
 
     if offset is not None:
-        window_index = offset
+        start_idx = (offset * batch_size) % len(all_topics)
+    elif advance:
+        current_idx = None
+        if db is not None:
+            try:
+                from app.models.repository import Repository
+                cursor_row = db.query(Repository).filter(Repository.id == f"system:topic_rotation_cursor:{vertical}").first()
+                if cursor_row and cursor_row.stars_snapshot is not None:
+                    current_idx = cursor_row.stars_snapshot
+                else:
+                    current_idx = _TOPIC_CURSOR_CACHE.get(vertical, 0)
+                next_idx = (current_idx + batch_size) % len(all_topics)
+                if cursor_row:
+                    cursor_row.stars_snapshot = next_idx
+                else:
+                    db.add(Repository(
+                        id=f"system:topic_rotation_cursor:{vertical}",
+                        owner="system",
+                        name=f"topic_rotation_cursor_{vertical}",
+                        stars_snapshot=next_idx,
+                        source="system",
+                        is_active=False,
+                    ))
+                db.commit()
+                _TOPIC_CURSOR_CACHE[vertical] = next_idx
+            except Exception:
+                if db:
+                    db.rollback()
+        if current_idx is None:
+            current_idx = _TOPIC_CURSOR_CACHE.get(vertical, 0)
+            _TOPIC_CURSOR_CACHE[vertical] = (current_idx + batch_size) % len(all_topics)
+        start_idx = current_idx
     else:
-        # Window advances every hour so consecutive runs cycle through all topics
+        # Window advances every hour so consecutive hourly runs cycle through all topics
         now_hours = int(datetime.now(timezone.utc).timestamp() // 3600)
-        window_index = now_hours
-
-    start_idx = (window_index * batch_size) % len(all_topics)
+        start_idx = (now_hours * batch_size) % len(all_topics)
 
     # Wrap-around slice to ensure batch_size topics are always returned
     rotated = []
@@ -772,17 +827,20 @@ async def _search_api(
                     url, headers=API_HEADERS, params=params,
                     timeout=aiohttp.ClientTimeout(total=15),
                 ) as resp:
-                    if resp.status == 403:
-                        # Secondary rate limit — respect Retry-After or use adaptive backoff
+                    if resp.status in (403, 429):
+                        # Secondary rate limit (403) or primary rate limit (429) — respect Retry-After or use adaptive backoff
                         retry_after = resp.headers.get("retry-after")
                         if retry_after:
-                            wait_time = int(retry_after)
+                            try:
+                                wait_time = int(retry_after)
+                            except ValueError:
+                                wait_time = int(base_backoff ** attempt + 1)
                         else:
                             # Exponential backoff with jitter: (1.5^attempt + random(0, 0.5))
                             jitter = random.uniform(0, 0.5)
                             wait_time = int(base_backoff ** attempt + jitter)
                         logger.warning(
-                            f"GitHub Search 403 (secondary rate limit) on '{query[:60]}'. "
+                            f"GitHub Search {resp.status} (rate limit) on '{query[:60]}'. "
                             f"Retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})."
                         )
                         await asyncio.sleep(wait_time)
@@ -876,23 +934,28 @@ async def search_by_star_threshold(
     Returns a list of raw repo dicts compatible with the shape expected by
     auto_discover_and_sync (has `full_name`, `name`, `html_url`, etc.).
     """
-    # For predefined verticals, rotate through curated topics to cover the full space over time
+    # For predefined verticals, rotate through curated topics with bounded batch size
     if vertical in VERTICAL_TOPIC_QUERIES:
-        topics = get_rotational_topics(vertical, batch_size=12)
+        topics = get_rotational_topics(vertical, batch_size=8, advance=True)
     else:
-        topics = await _dynamic_topics(vertical, limit=12)
+        topics = await _dynamic_topics(vertical, limit=8)
 
     start_7d = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
     start_30d = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%d")
 
     # Combine established repos with fast-moving emerging breakout repos (stars 10..500)
-    # and emerging newly created repos (created within 30 days, stars >= 25)
+    # and emerging newly created repos (created within 30 days, stars >= 25).
+    # Stripping the topic: prefix allows GitHub Search to match both topic tags and repo name/description,
+    # resolving the empty-topics (topics: []) issue for flagship repositories.
     search_queries = []
     for topic in topics:
-        search_queries.append((f"{topic} stars:>=100", "stars"))
-        search_queries.append((f"{topic} pushed:>={start_7d} stars:10..500", "updated"))
+        clean = topic.replace("topic:", "").strip()
+        search_queries.append((f"{clean} stars:>=100", "stars"))
+
     if topics:
-        search_queries.append((f"{topics[0]} created:>={start_30d} stars:>=25", "stars"))
+        clean_first = topics[0].replace("topic:", "").strip()
+        search_queries.append((f"{clean_first} created:>={start_30d} stars:>=25", "stars"))
+        search_queries.append((f"{clean_first} pushed:>={start_7d} stars:10..500", "updated"))
 
     async with aiohttp.ClientSession() as session:
         batches = await asyncio.gather(*[

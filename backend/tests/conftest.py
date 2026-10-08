@@ -22,6 +22,7 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 
 from app.database import Base  # noqa: E402 (must be after env override)
 from app.models import Repository, DailyMetric  # noqa: E402
+from app.models.dynamic_organization import DynamicOrganization  # noqa: E402
 
 
 TEST_DB_URL = "sqlite:///:memory:"

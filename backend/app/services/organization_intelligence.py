@@ -120,19 +120,28 @@ def sync_dynamic_organizations(db: Session) -> Dict[str, int]:
                     },
                 )
                 db.add(new_org)
+                existing_orgs[owner_key] = new_org
                 added += 1
                 logger.info(
                     f"[DynamicAI] Delta Addition: Discovered new organization '{info['login']}' "
                     f"achieving tech '{primary_cat}' with {len(dominant_topics)} topics"
                 )
             else:
-                # Delta Update: Refresh technologies and stats
+                # Delta Update: Refresh technologies and stats only if changed
                 merged_topics = list(dict.fromkeys(dominant_topics + (existing.technologies or [])))[:20]
-                existing.technologies = merged_topics
-                existing.primary_technology = primary_cat
-                existing.repo_count = info["repo_count"]
-                existing.total_stars = info["total_stars"]
-                existing.updated_at = now
+                changed = (
+                    existing.technologies != merged_topics
+                    or existing.primary_technology != primary_cat
+                    or existing.repo_count != info["repo_count"]
+                    or existing.total_stars != info["total_stars"]
+                )
+                if changed:
+                    existing.technologies = merged_topics
+                    existing.primary_technology = primary_cat
+                    existing.repo_count = info["repo_count"]
+                    existing.total_stars = info["total_stars"]
+                    existing.updated_at = now
+                    updated += 1
 
                 # Delta Reactivation if it was previously marked stale but now active
                 if info["active_repo_count"] > 0 and (not existing.is_active or existing.delta_status != "active"):
@@ -140,7 +149,28 @@ def sync_dynamic_organizations(db: Session) -> Dict[str, int]:
                     existing.delta_status = "active"
                     reactivated += 1
                     logger.info(f"[DynamicAI] Delta Reactivation: Organization '{existing.login}' restored to active")
-                updated += 1
+
+        # Seed any missing Tier-1 flagship organizations into DynamicOrganization
+        # so they are immediately eligible for rotational discovery without circular dependency
+        for t1_login in TIER_1_ORGANIZATIONS:
+            if t1_login.lower() not in existing_orgs:
+                new_t1_org = DynamicOrganization(
+                    login=t1_login,
+                    primary_technology="AI / ML",
+                    technologies=[],
+                    repo_count=0,
+                    total_stars=0,
+                    source="tier1_seed",
+                    is_active=True,
+                    delta_status="active",
+                    created_at=now,
+                    updated_at=now,
+                    signal_metadata={"tier1": True},
+                )
+                db.add(new_t1_org)
+                existing_orgs[t1_login.lower()] = new_t1_org
+                added += 1
+                logger.info(f"[DynamicAI] Seeded Tier-1 organization '{t1_login}' into DynamicOrganization")
 
         db.commit()
         return {"added": added, "updated": updated, "reactivated": reactivated}
@@ -189,7 +219,12 @@ def prune_dynamic_organizations(db: Session) -> Dict[str, int]:
 TIER_1_ORGANIZATIONS = [
     "openai", "deepseek-ai", "huggingface", "meta-llama", "microsoft",
     "vllm-project", "sgl-project", "dao-ailab", "comfy-org", "google",
-    "qwenlm", "cline", "browser-use", "facebookresearch", "anthropics"
+    "qwenlm", "cline", "browser-use", "facebookresearch", "anthropics",
+    "compvis", "opengvlab", "nerfstudio-project", "sylphai-inc", "hexgrad",
+    "tatsu-lab", "stanford-oval", "meta-pytorch", "karpathy", "haotian-liu",
+    "unslothai", "hiyouga", "openaccess-ai-collective", "crewaiinc", "run-llama",
+    "langchain-ai", "significant-gravitas", "geekan", "qdrant", "milvus-io",
+    "weaviate", "chroma-core", "infiniflow", "pgvector", "stanfordnlp"
 ]
 
 
@@ -243,11 +278,14 @@ async def discover_dynamic_organization_repos(
     session: aiohttp.ClientSession,
     org: DynamicOrganization,
     github_token: str,
-    limit: int = 10,
+    limit: int = 25,
 ) -> List[Dict[str, Any]]:
     """
-    Query GitHub API for an organization's repositories, tagged with discovery provenance.
+    Query GitHub API for an organization's repositories sorted by stars, tagged with discovery provenance.
+    Respects global rate limiting to ensure API usage stays strictly bounded.
     """
+    from app.services.github_search import _SEARCH_LIMITER
+
     headers = {
         "Authorization": f"Bearer {github_token}",
         "Accept": "application/vnd.github+json",
@@ -257,13 +295,14 @@ async def discover_dynamic_organization_repos(
     query = f"org:{org.login} fork:true"
     params = {
         "q": query,
-        "sort": "updated",
+        "sort": "stars",
         "order": "desc",
-        "per_page": min(limit, 20),
+        "per_page": min(max(limit, 25), 50),
     }
 
     discovered = []
     try:
+        await _SEARCH_LIMITER.acquire()
         async with session.get(url, headers=headers, params=params, timeout=aiohttp.ClientTimeout(total=12)) as resp:
             if resp.status == 200:
                 data = await resp.json()

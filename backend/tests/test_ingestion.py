@@ -208,6 +208,9 @@ class TestAutoDiscoverAndSync:
         ), patch(
             "app.services.ingestion.search_by_star_threshold",
             side_effect=_async([]),
+        ), patch(
+            "app.services.ingestion.discover_dynamic_organization_repos",
+            side_effect=_async([]),
         ):
             result = asyncio.run(
                 auto_discover_and_sync()
@@ -241,6 +244,9 @@ class TestAutoDiscoverAndSync:
         ), patch(
             "app.services.ingestion.search_by_star_threshold",
             side_effect=_async([]),
+        ), patch(
+            "app.services.ingestion.discover_dynamic_organization_repos",
+            side_effect=_async([]),
         ):
             result = asyncio.run(
                 auto_discover_and_sync()
@@ -269,6 +275,9 @@ class TestAutoDiscoverAndSync:
         ), patch(
             "app.services.ingestion.search_by_star_threshold",
             side_effect=_async([]),
+        ), patch(
+            "app.services.ingestion.discover_dynamic_organization_repos",
+            side_effect=_async([]),
         ):
             result = asyncio.run(
                 auto_discover_and_sync()
@@ -288,7 +297,8 @@ class TestAutoDiscoverAndSync:
             raise RuntimeError("GitHub API down")
 
         with patch("app.services.ingestion.search_top_repos", side_effect=_raise), \
-             patch("app.services.ingestion.search_by_star_threshold", side_effect=_raise):
+             patch("app.services.ingestion.search_by_star_threshold", side_effect=_raise), \
+             patch("app.services.ingestion.discover_dynamic_organization_repos", side_effect=_raise):
             result = asyncio.run(
                 auto_discover_and_sync()
             )
@@ -306,6 +316,9 @@ class TestAutoDiscoverAndSync:
             side_effect=_async(duplicate_result),
         ), patch(
             "app.services.ingestion.search_by_star_threshold",
+            side_effect=_async([]),
+        ), patch(
+            "app.services.ingestion.discover_dynamic_organization_repos",
             side_effect=_async([]),
         ):
             result = asyncio.run(

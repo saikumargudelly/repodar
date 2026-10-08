@@ -34,6 +34,12 @@ from app.services.github_search import (
     _infer_category,
     VERTICAL_TOPIC_QUERIES,
 )
+from app.services.organization_intelligence import (
+    get_rotational_organizations,
+    discover_dynamic_organization_repos,
+    sync_dynamic_organizations,
+    prune_dynamic_organizations,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -678,12 +684,6 @@ async def auto_discover_and_sync(force: bool = False) -> dict:
         # Step B: Dynamic Organization Discovery (Purely database-driven)
         try:
             import aiohttp
-            from app.services.organization_intelligence import (
-                get_rotational_organizations,
-                discover_dynamic_organization_repos,
-                sync_dynamic_organizations,
-                prune_dynamic_organizations,
-            )
             from app.models.dynamic_organization import DynamicOrganization
             from app.services.github_search import GITHUB_TOKEN
 
@@ -823,6 +823,9 @@ def deactivate_stale_repos() -> int:
         db.close()
 
 
+_INGESTION_LOCK = asyncio.Lock()
+
+
 async def run_daily_ingestion(force_discovery: bool = False) -> dict:
     """
     Main ingestion entry point — designed to run up to 6× per day (every 4 h).
@@ -838,45 +841,50 @@ async def run_daily_ingestion(force_discovery: bool = False) -> dict:
     2. Deactivate auto_discovered repos not seen in STALE_DAYS days.
     3. Ingest / refresh daily metrics for all active repos.
 
-    Returns summary dict.
+    Returns summary dict. Guarded by _INGESTION_LOCK to prevent concurrent execution.
     """
-    # ── Step 1: Auto-discovery ────────────────────────────────────────────────
-    discovery_summary = await auto_discover_and_sync(force=force_discovery)
+    if _INGESTION_LOCK.locked():
+        logger.warning("[ingestion] Ingestion execution already running in another task. Skipping concurrent run.")
+        return {"status": "skipped", "detail": "Ingestion already running", "inserted": 0, "updated": 0, "failed": 0}
 
-    # ── Step 2: Deactivate stale auto-discovered repos ────────────────────────
-    deactivated = await run_in_pipeline_thread(deactivate_stale_repos)
+    async with _INGESTION_LOCK:
+        # ── Step 1: Auto-discovery ────────────────────────────────────────────────
+        discovery_summary = await auto_discover_and_sync(force=force_discovery)
 
-    # ── Step 3: Delta-sync metrics for all active repos ───────────────────────
-    # Fetch active repos and since_map first in a pipeline executor thread
-    all_pending, since_map = await run_in_pipeline_thread(_get_active_repos_sync)
+        # ── Step 2: Deactivate stale auto-discovered repos ────────────────────────
+        deactivated = await run_in_pipeline_thread(deactivate_stale_repos)
 
-    # Fetch fresh data from GitHub for ALL active repos (long-running network IO, no DB connection held!)
-    metrics_list = await fetch_repo_metrics(all_pending, since_map=since_map)
+        # ── Step 3: Delta-sync metrics for all active repos ───────────────────────
+        # Fetch active repos and since_map first in a pipeline executor thread
+        all_pending, since_map = await run_in_pipeline_thread(_get_active_repos_sync)
 
-    # Re-open a fresh database session for calculation and persistence inside pipeline thread
-    today = _today_utc()
-    now   = datetime.now(timezone.utc).replace(tzinfo=None)
-    logger.info(f"Starting delta-sync for active repos on {today} using pipeline executor")
+        # Fetch fresh data from GitHub for ALL active repos (long-running network IO, no DB connection held!)
+        metrics_list = await fetch_repo_metrics(all_pending, since_map=since_map)
 
-    summary, high_momentum_data = await run_in_pipeline_thread(
-        _persist_daily_metrics_sync, metrics_list, today, now
-    )
+        # Re-open a fresh database session for calculation and persistence inside pipeline thread
+        today = _today_utc()
+        now   = datetime.now(timezone.utc).replace(tzinfo=None)
+        logger.info(f"Starting delta-sync for active repos on {today} using pipeline executor")
 
-    # ── Step 4: Enrich high-momentum repos with contributors & forks ──────
-    # Run after closing the main ingestion database session to avoid holding connections
-    if high_momentum_data:
-        await _enrich_contributors_and_forks(high_momentum_data, today)
+        summary, high_momentum_data = await run_in_pipeline_thread(
+            _persist_daily_metrics_sync, metrics_list, today, now
+        )
 
-    # Update summary with discovery and deactivation metrics
-    summary.update({
-        "ingested": summary["inserted"] + summary["updated"],
-        "discovered": discovery_summary.get("discovered", 0),
-        "reactivated": discovery_summary.get("reactivated", 0),
-        "deactivated": deactivated,
-    })
+        # ── Step 4: Enrich high-momentum repos with contributors & forks ──────
+        # Run after closing the main ingestion database session to avoid holding connections
+        if high_momentum_data:
+            await _enrich_contributors_and_forks(high_momentum_data, today)
 
-    logger.info(f"Delta-sync complete: {summary}")
-    return summary
+        # Update summary with discovery and deactivation metrics
+        summary.update({
+            "ingested": summary["inserted"] + summary["updated"],
+            "discovered": discovery_summary.get("discovered", 0),
+            "reactivated": discovery_summary.get("reactivated", 0),
+            "deactivated": deactivated,
+        })
+
+        logger.info(f"Delta-sync complete: {summary}")
+        return summary
 
 
 async def _enrich_contributors_and_forks(repos: list, today) -> None:

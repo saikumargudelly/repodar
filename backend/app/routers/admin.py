@@ -1084,13 +1084,16 @@ def get_coverage_metrics(db: Session = Depends(get_db)):
     )
 
     # Golden Set benchmark tracking (60 benchmark repositories)
-    from tests.test_golden_set_coverage import GOLDEN_SET_REPOSITORIES
+    from tests.test_golden_set_coverage import GOLDEN_SET_REPOSITORIES, CANONICAL_REDIRECTS
     golden_slugs = {s.lower() for s in GOLDEN_SET_REPOSITORIES}
     existing_slugs = {
         f"{r.owner.lower()}/{r.name.lower()}"
         for r in db.query(Repository.owner, Repository.name).all()
     }
-    golden_covered = golden_slugs & existing_slugs
+    golden_covered = {
+        s for s in golden_slugs
+        if s in existing_slugs or CANONICAL_REDIRECTS.get(s, s).lower() in existing_slugs
+    }
     golden_coverage_pct = round((len(golden_covered) / len(golden_slugs) * 100), 2) if golden_slugs else 0.0
 
     return {

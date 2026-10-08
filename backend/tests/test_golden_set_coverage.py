@@ -156,6 +156,8 @@ CANONICAL_REDIRECTS = {
     "paul-gauthier/aider": "aider-ai/aider",
     "google-deepmind/gemma": "google/gemma",
     "qwenlm/qwen2.5": "qwen/qwen2.5",
+    "aphrodite-sp/aphrodite-engine": "dphnai/sonar",
+    "pytorch/torchtune": "meta-pytorch/torchtune",
 }
 
 
@@ -180,4 +182,6 @@ def test_golden_set_canonical_slug_resolution():
     assert CANONICAL_REDIRECTS["paul-gauthier/aider"] == "aider-ai/aider"
     assert CANONICAL_REDIRECTS["google-deepmind/gemma"] == "google/gemma"
     assert CANONICAL_REDIRECTS["qwenlm/qwen2.5"] == "qwen/qwen2.5"
+    assert CANONICAL_REDIRECTS["aphrodite-sp/aphrodite-engine"] == "dphnai/sonar"
+    assert CANONICAL_REDIRECTS["pytorch/torchtune"] == "meta-pytorch/torchtune"
 
